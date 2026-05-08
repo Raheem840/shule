@@ -1,0 +1,2049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shule — Complete Build Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --ink2: #4a4a4a;
+    --ink3: #888;
+    --bg: #f7f4ef;
+    --bg2: #eeeae2;
+    --bg3: #e5e0d6;
+    --green: #1a6b3c;
+    --green-light: #e8f3ec;
+    --green-mid: #2d8b52;
+    --amber: #b45309;
+    --amber-light: #fef3c7;
+    --red: #c53030;
+    --red-light: #fff5f5;
+    --blue: #1e40af;
+    --blue-light: #eff6ff;
+    --purple: #5b21b6;
+    --purple-light: #f5f3ff;
+    --border: #d4cfc5;
+    --code-bg: #1e1e2e;
+    --code-text: #cdd6f4;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --font: 'Sora', sans-serif;
+    --serif: 'DM Serif Display', serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.75;
+    font-size: 15px;
+  }
+
+  /* ── HERO ────────────────────────────── */
+  .hero {
+    background: var(--ink);
+    color: #f7f4ef;
+    padding: 5rem 2rem 4rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      45deg, transparent, transparent 60px,
+      rgba(255,255,255,0.015) 60px, rgba(255,255,255,0.015) 61px
+    );
+  }
+  .hero-badge {
+    display: inline-block;
+    background: var(--green);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 1.5rem;
+  }
+  .hero h1 {
+    font-family: var(--serif);
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-bottom: 1rem;
+  }
+  .hero h1 em {
+    font-style: italic;
+    color: #8fbc9c;
+  }
+  .hero-sub {
+    font-size: 1.05rem;
+    color: #a8a39a;
+    max-width: 620px;
+    margin: 0 auto 2.5rem;
+    font-weight: 300;
+  }
+  .hero-meta {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: #6b6660;
+  }
+  .hero-meta span { display: flex; align-items: center; gap: 6px; }
+  .hero-meta .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+  /* ── LAYOUT ────────────────────────────── */
+  .wrapper { display: flex; max-width: 1200px; margin: 0 auto; }
+
+  .sidebar {
+    width: 260px;
+    min-width: 260px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2rem 0 2rem 1.5rem;
+    border-right: 1px solid var(--border);
+    background: var(--bg);
+    scrollbar-width: thin;
+  }
+  .sidebar::-webkit-scrollbar { width: 3px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .sidebar-title {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--ink3);
+    margin-bottom: 1rem;
+    padding-left: 0.75rem;
+  }
+
+  .nav-phase {
+    margin-bottom: 0.5rem;
+  }
+  .nav-phase-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--ink3);
+    padding: 0.5rem 0.75rem 0.25rem;
+    display: block;
+  }
+  .nav-link {
+    display: block;
+    font-size: 13px;
+    color: var(--ink2);
+    text-decoration: none;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+    line-height: 1.4;
+  }
+  .nav-link:hover { background: var(--bg2); color: var(--ink); border-left-color: var(--green); }
+  .nav-link.active { background: var(--green-light); color: var(--green); border-left-color: var(--green); font-weight: 500; }
+
+  .content {
+    flex: 1;
+    min-width: 0;
+    padding: 3rem 3rem 5rem;
+  }
+
+  /* ── PHASE HEADER ────────────────────────────── */
+  .phase-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .phase-number {
+    font-family: var(--serif);
+    font-size: 4rem;
+    line-height: 1;
+    color: var(--bg3);
+    min-width: 70px;
+    font-style: italic;
+  }
+  .phase-title { font-family: var(--serif); font-size: 2rem; margin-bottom: 0.4rem; }
+  .phase-desc { color: var(--ink2); font-size: 0.95rem; }
+  .phase-duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--green);
+    background: var(--green-light);
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-top: 0.5rem;
+  }
+
+  /* ── SECTIONS ────────────────────────────── */
+  section { margin-bottom: 4rem; scroll-margin-top: 2rem; }
+  h2 {
+    font-family: var(--serif);
+    font-size: 1.7rem;
+    margin-bottom: 0.75rem;
+    color: var(--ink);
+  }
+  h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.6rem;
+    color: var(--ink);
+  }
+  h4 {
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin: 1rem 0 0.4rem;
+    color: var(--ink2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  p { margin-bottom: 0.9rem; color: var(--ink2); }
+  strong { color: var(--ink); font-weight: 600; }
+  a { color: var(--green); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── CARDS ────────────────────────────── */
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .card-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .card h3 { margin-top: 0; }
+
+  /* ── CALLOUTS ────────────────────────────── */
+  .callout {
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+    margin: 1.25rem 0;
+    display: flex;
+    gap: 0.75rem;
+  }
+  .callout-icon { font-size: 1.1rem; margin-top: 1px; flex-shrink: 0; }
+  .callout-body { flex: 1; }
+  .callout-body p { margin: 0; }
+  .callout.tip { background: var(--green-light); border-left: 3px solid var(--green); }
+  .callout.tip .callout-icon { color: var(--green); }
+  .callout.warning { background: var(--amber-light); border-left: 3px solid var(--amber); }
+  .callout.warning .callout-icon { color: var(--amber); }
+  .callout.danger { background: var(--red-light); border-left: 3px solid var(--red); }
+  .callout.danger .callout-icon { color: var(--red); }
+  .callout.info { background: var(--blue-light); border-left: 3px solid var(--blue); }
+  .callout.info .callout-icon { color: var(--blue); }
+  .callout.purple { background: var(--purple-light); border-left: 3px solid var(--purple); }
+  .callout.purple .callout-icon { color: var(--purple); }
+
+  /* ── CODE ────────────────────────────── */
+  pre {
+    background: var(--code-bg);
+    color: var(--code-text);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    margin: 1rem 0 1.5rem;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  code {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--bg2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--green);
+  }
+  pre code { background: none; padding: 0; color: inherit; border-radius: 0; font-size: inherit; }
+  .comment { color: #6272a4; }
+  .string { color: #f1fa8c; }
+  .keyword { color: #ff79c6; }
+  .func { color: #50fa7b; }
+  .num { color: #bd93f9; }
+  .tag { color: #ff79c6; }
+  .attr { color: #50fa7b; }
+  .val { color: #f1fa8c; }
+
+  /* ── CHECKLIST ────────────────────────────── */
+  .checklist { list-style: none; margin: 1rem 0; }
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--bg2);
+    font-size: 0.9rem;
+    color: var(--ink2);
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .check-box {
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    cursor: pointer;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .check-box:hover { border-color: var(--green); }
+  .check-box.done { background: var(--green); border-color: var(--green); }
+  .check-box.done::after { content: '✓'; color: #fff; font-size: 11px; font-weight: 700; }
+  .check-label.done { text-decoration: line-through; color: var(--ink3); }
+
+  /* ── TABLE ────────────────────────────── */
+  .table-wrap { overflow-x: auto; margin: 1rem 0 1.5rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  thead tr { background: var(--bg2); }
+  th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--ink2);
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid var(--bg2);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+
+  /* ── STEP ────────────────────────────── */
+  .steps { counter-reset: step; }
+  .step {
+    display: flex;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+    align-items: flex-start;
+  }
+  .step-num {
+    counter-increment: step;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: #fff;
+    font-family: var(--serif);
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 3px;
+  }
+  .step-body { flex: 1; }
+  .step-body h3 { margin-top: 0; margin-bottom: 0.3rem; }
+
+  /* ── ROLE CHIPS ────────────────────────────── */
+  .role-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0.5rem 0; }
+  .chip {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1.5px solid;
+  }
+  .chip.principal { color: #7c3aed; background: #f5f3ff; border-color: #c4b5fd; }
+  .chip.deputy { color: #1e40af; background: #eff6ff; border-color: #93c5fd; }
+  .chip.dos { color: #065f46; background: #ecfdf5; border-color: #6ee7b7; }
+  .chip.secretary { color: #9a3412; background: #fff7ed; border-color: #fdba74; }
+  .chip.bursar { color: #b45309; background: #fef3c7; border-color: #fcd34d; }
+  .chip.teacher { color: #1e3a5f; background: #f0f7ff; border-color: #93c5fd; }
+  .chip.student { color: #166534; background: #f0fdf4; border-color: #86efac; }
+  .chip.parent { color: #831843; background: #fdf2f8; border-color: #f0abfc; }
+  .chip.it { color: #374151; background: #f9fafb; border-color: #d1d5db; }
+
+  /* ── PROGRESS BAR ────────────────────────────── */
+  .phase-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 3rem;
+    flex-wrap: wrap;
+  }
+  .phase-dot {
+    flex: 1;
+    min-width: 80px;
+    padding: 0.6rem 0.75rem;
+    background: var(--bg2);
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink3);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: block;
+  }
+  .phase-dot:hover { background: var(--bg3); color: var(--ink); text-decoration: none; }
+  .phase-dot.active { background: var(--ink); color: #fff; }
+
+  /* ── FIGMA WIREFRAME SECTION ────────────────────────────── */
+  .wireframe-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .wireframe-card {
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .wireframe-card:hover { border-color: var(--green); transform: translateY(-2px); box-shadow: var(--shadow); }
+  .wireframe-preview {
+    background: var(--bg2);
+    height: 130px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+  }
+  .wireframe-label { padding: 0.6rem 0.75rem; font-size: 12px; font-weight: 600; }
+  .wireframe-sub { padding: 0 0.75rem 0.75rem; font-size: 11px; color: var(--ink3); }
+
+  /* ── DIVIDER ────────────────────────────── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2.5rem 0;
+  }
+
+  /* ── TAG ────────────────────────────── */
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-right: 6px;
+  }
+  .tag.mvp { background: var(--green-light); color: var(--green); }
+  .tag.v2 { background: var(--blue-light); color: var(--blue); }
+  .tag.critical { background: var(--red-light); color: var(--red); }
+  .tag.figma { background: var(--purple-light); color: var(--purple); }
+
+  /* ── TIMELINE ────────────────────────────── */
+  .timeline { position: relative; padding-left: 2rem; }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 10px;
+    bottom: 10px;
+    width: 2px;
+    background: var(--bg3);
+  }
+  .tl-item {
+    position: relative;
+    margin-bottom: 1.5rem;
+  }
+  .tl-item::before {
+    content: '';
+    position: absolute;
+    left: -2.5rem;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--green);
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 0 2px var(--green);
+  }
+  .tl-week { font-size: 11px; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.2rem; }
+  .tl-title { font-weight: 600; font-size: 0.95rem; }
+  .tl-body { font-size: 0.88rem; color: var(--ink2); margin-top: 0.2rem; }
+
+  /* ── RESOURCE LINKS ────────────────────────────── */
+  .resources {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.75rem;
+    margin: 1rem 0;
+  }
+  .resource-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--ink);
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .resource-link:hover { border-color: var(--green); color: var(--green); text-decoration: none; box-shadow: var(--shadow); }
+  .resource-link .rl-icon { font-size: 1.25rem; }
+  .resource-link .rl-label { flex: 1; }
+  .resource-link .rl-arrow { color: var(--ink3); font-size: 0.8rem; }
+
+  /* ── MOBILE ────────────────────────────── */
+  @media (max-width: 800px) {
+    .sidebar { display: none; }
+    .content { padding: 2rem 1.25rem 4rem; }
+    .phase-header { flex-direction: column; gap: 0.5rem; }
+    .phase-number { font-size: 2.5rem; }
+  }
+
+  /* ── PRINT ────────────────────────────── */
+  @media print {
+    .sidebar { display: none; }
+    .hero { padding: 2rem; }
+    pre { page-break-inside: avoid; }
+    section { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">Mentor Implementation Guide · v1.0</div>
+  <h1>Building <em>Shule</em><br>from Zero to School</h1>
+  <p class="hero-sub">Your complete step-by-step guide — from Figma wireframes and local setup to MVP delivery and physical school server installation in Uganda.</p>
+  <div class="hero-meta">
+    <span><span class="dot"></span>9 User Roles</span>
+    <span><span class="dot"></span>React + TypeScript + Supabase</span>
+    <span><span class="dot"></span>Offline-First PWA</span>
+    <span><span class="dot"></span>8 Build Phases</span>
+  </div>
+</div>
+
+<div class="wrapper">
+
+<!-- SIDEBAR NAV -->
+<nav class="sidebar">
+  <div class="sidebar-title">Build Phases</div>
+
+  <div class="nav-phase">
+    <span class="nav-phase-label">Foundation</span>
+    <a href="#phase-0" class="nav-link">Phase 0 — Mindset & Tooling</a>
+    <a href="#phase-1" class="nav-link">Phase 1 — Figma & Design</a>
+    <a href="#phase-2" class="nav-link">Phase 2 — Project Setup</a>
+  </div>
+
+  <div class="nav-phase">
+    <span class="nav-phase-label">Core Build</span>
+    <a href="#phase-3" class="nav-link">Phase 3 — Auth & Roles</a>
+    <a href="#phase-4" class="nav-link">Phase 4 — Database & RLS</a>
+    <a href="#phase-5" class="nav-link">Phase 5 — Module by Module</a>
+  </div>
+
+  <div class="nav-phase">
+    <span class="nav-phase-label">Polish & Deploy</span>
+    <a href="#phase-6" class="nav-link">Phase 6 — PWA & Offline</a>
+    <a href="#phase-7" class="nav-link">Phase 7 — School Installation</a>
+    <a href="#phase-8" class="nav-link">Phase 8 — MVP Handoff</a>
+  </div>
+
+  <div class="nav-phase">
+    <span class="nav-phase-label">Reference</span>
+    <a href="#claude-prompts" class="nav-link">Claude Prompt Templates</a>
+    <a href="#env-vars" class="nav-link">Environment Variables</a>
+    <a href="#resources" class="nav-link">All Resources</a>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main class="content">
+
+  <!-- PHASE MAP -->
+  <div class="phase-bar">
+    <a href="#phase-0" class="phase-dot">0 · Mindset</a>
+    <a href="#phase-1" class="phase-dot">1 · Figma</a>
+    <a href="#phase-2" class="phase-dot">2 · Setup</a>
+    <a href="#phase-3" class="phase-dot">3 · Auth</a>
+    <a href="#phase-4" class="phase-dot">4 · DB</a>
+    <a href="#phase-5" class="phase-dot">5 · Modules</a>
+    <a href="#phase-6" class="phase-dot">6 · PWA</a>
+    <a href="#phase-7" class="phase-dot">7 · Install</a>
+    <a href="#phase-8" class="phase-dot">8 · Handoff</a>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- PHASE 0 — MINDSET -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="phase-0">
+    <div class="phase-header">
+      <div class="phase-number">0</div>
+      <div>
+        <div class="phase-title">Mindset & Tooling Setup</div>
+        <div class="phase-desc">Before writing a single line of code — get your heads right, your machines ready, and your collaboration system in place.</div>
+        <div class="phase-duration">⏱ 1 Day</div>
+      </div>
+    </div>
+
+    <div class="callout warning">
+      <span class="callout-icon">⚠️</span>
+      <div class="callout-body">
+        <p><strong>You have a real school waiting.</strong> This is not a side project. From day one, treat Shule like a product with real users who depend on it. A Bursar's fee records, a teacher's marks, a parent's access to their child's results — these are not toy data.</p>
+      </div>
+    </div>
+
+    <h2>The Three Rules of This Build</h2>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🧠</div>
+        <h3>Use Claude as a Mentor, Not a Coder</h3>
+        <p>Ask Claude to <em>explain</em> what code does before you use it. If you paste code you don't understand, you've learned nothing. Ask: "Explain this line by line" — every single time.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚢</div>
+        <h3>Ship Something Real Every Week</h3>
+        <p>At the end of every week, you must have a page or feature a real user could click. No invisible week-long "setup" sprints. Build visible things.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔐</div>
+        <h3>Security is Not Optional</h3>
+        <p>RLS policies must be written <em>before</em> a page goes live. Finance data must never be visible to teachers. Test this early and test it often.</p>
+      </div>
+    </div>
+
+    <h2>Install These Tools (Both of You)</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Node.js & npm</h3>
+          <p>Download from <a href="https://nodejs.org" target="_blank">nodejs.org</a> — get the LTS version (v20+). Verify:</p>
+          <pre><code>node --version   <span class="comment"># should print v20.x.x</span>
+npm --version    <span class="comment"># should print 10.x.x</span></code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>VS Code (Editor)</h3>
+          <p>Download from <a href="https://code.visualstudio.com" target="_blank">code.visualstudio.com</a>. Install these extensions:</p>
+          <ul style="margin:0.5rem 0 0 1rem;color:var(--ink2);font-size:0.9rem;">
+            <li><strong>ESLint</strong> — catches code errors as you type</li>
+            <li><strong>Prettier</strong> — auto-formats your code on save</li>
+            <li><strong>Tailwind CSS IntelliSense</strong> — autocompletes Tailwind classes</li>
+            <li><strong>GitLens</strong> — shows who changed what in the code</li>
+            <li><strong>Thunder Client</strong> — test your API endpoints</li>
+          </ul>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Git & GitHub</h3>
+          <p>Create a <strong>private</strong> GitHub repository called <code>shule</code>. Add both team members as collaborators. Your workflow:</p>
+          <pre><code><span class="comment"># One person does this once:</span>
+git init
+git remote add origin https://github.com/[yourname]/shule.git
+
+<span class="comment"># Daily workflow for both of you:</span>
+git pull origin main          <span class="comment"># always pull first</span>
+<span class="comment"># ... make changes ...</span>
+git add .
+git commit -m "feat: add student registration wizard step 1"
+git push origin main</code></pre>
+          <div class="callout tip">
+            <span class="callout-icon">💡</span>
+            <div class="callout-body"><p>Use clear commit messages. "fix stuff" is useless. "fix: student photo upload failing on mobile" is helpful.</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Supabase Account</h3>
+          <p>Go to <a href="https://supabase.com" target="_blank">supabase.com</a>, create a free account. Create a new project called <code>shule-demo</code>. Save your <code>Project URL</code> and <code>anon key</code> from Project Settings → API. You'll need these in Phase 2.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h3>Figma Account</h3>
+          <p>Go to <a href="https://figma.com" target="_blank">figma.com</a>, create a free account. Create a team and invite your partner. This is where ALL your design work lives before code.</p>
+        </div>
+      </div>
+    </div>
+
+    <h2>Split Your Responsibilities</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Area</th><th>Person A (Lead)</th><th>Person B (Support)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Figma Designs</strong></td><td>Owns the design system, components</td><td>Does screen-by-screen wireframes</td></tr>
+          <tr><td><strong>Frontend (React)</strong></td><td>Builds the shared components, auth</td><td>Builds the role-specific pages</td></tr>
+          <tr><td><strong>Database (Supabase)</strong></td><td>Owns schema, RLS policies</td><td>Writes the TypeScript query functions</td></tr>
+          <tr><td><strong>School Communication</strong></td><td>Talks to the school IT/Principal</td><td>Documents requirements and feedback</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- PHASE 1 — FIGMA -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="phase-1">
+    <div class="phase-header">
+      <div class="phase-number">1</div>
+      <div>
+        <div class="phase-title">Figma Design & Wireframes</div>
+        <div class="phase-desc">Design every screen before writing a line of React. This will save you weeks of rework. The school's headmaster should see and approve these before you code anything.</div>
+        <div class="phase-duration">⏱ 1–2 Weeks</div>
+      </div>
+    </div>
+
+    <div class="callout purple">
+      <span class="callout-icon">🎨</span>
+      <div class="callout-body">
+        <p><strong>Use Claude + Figma together.</strong> Open a Claude chat alongside Figma. For each screen, describe what you're designing and ask Claude: "What information should appear on the Secretary's student registration page? What are the most important fields?" Then use those answers to build the wireframe.</p>
+      </div>
+    </div>
+
+    <h2>Step 1 — Build the Design System First</h2>
+    <p>Before designing any page, create a Figma page called <strong>"Design System"</strong>. This is your single source of truth for colors, fonts, and components.</p>
+
+    <h3>Shule Design Tokens</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Token</th><th>Value</th><th>Usage</th></tr></thead>
+        <tbody>
+          <tr><td><code>--color-primary</code></td><td><code>#1a6b3c</code> (Forest Green)</td><td>Buttons, active nav, badges</td></tr>
+          <tr><td><code>--color-primary-light</code></td><td><code>#e8f3ec</code></td><td>Active backgrounds, hover states</td></tr>
+          <tr><td><code>--color-surface</code></td><td><code>#ffffff</code></td><td>Cards, modals, main content</td></tr>
+          <tr><td><code>--color-bg</code></td><td><code>#f4f4f5</code></td><td>Page background</td></tr>
+          <tr><td><code>--color-sidebar</code></td><td><code>#1e1e2e</code></td><td>Dark sidebar</td></tr>
+          <tr><td><code>--color-text</code></td><td><code>#111827</code></td><td>Primary text</td></tr>
+          <tr><td><code>--color-muted</code></td><td><code>#6b7280</code></td><td>Secondary text, labels</td></tr>
+          <tr><td><code>--color-border</code></td><td><code>#e5e7eb</code></td><td>All borders</td></tr>
+          <tr><td><code>--color-danger</code></td><td><code>#c53030</code></td><td>Errors, delete buttons</td></tr>
+          <tr><td><code>--color-warning</code></td><td><code>#b45309</code></td><td>Warnings, fee overdue</td></tr>
+          <tr><td><code>--radius-sm</code></td><td><code>6px</code></td><td>Buttons, inputs, badges</td></tr>
+          <tr><td><code>--radius-md</code></td><td><code>10px</code></td><td>Cards, panels</td></tr>
+          <tr><td><code>--radius-lg</code></td><td><code>16px</code></td><td>Modals, large cards</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Font Choice</h3>
+    <p>Use <strong>Inter</strong> for UI (readable at small sizes) and <strong>DM Sans</strong> for headings. Both are free on Google Fonts. Set up these text styles in Figma:</p>
+    <ul style="margin:0.5rem 0 0.5rem 1.5rem;color:var(--ink2);font-size:0.9rem;line-height:2;">
+      <li><strong>Heading 1:</strong> DM Sans 28px / 600 weight</li>
+      <li><strong>Heading 2:</strong> DM Sans 22px / 600 weight</li>
+      <li><strong>Body:</strong> Inter 14px / 400 weight</li>
+      <li><strong>Label:</strong> Inter 12px / 500 weight / uppercase + letter-spacing</li>
+      <li><strong>Caption:</strong> Inter 12px / 400 weight / muted color</li>
+    </ul>
+
+    <h2>Step 2 — Create the Shared Layout</h2>
+    <p>Every authenticated page in Shule shares the same shell. Design this once in Figma as a <strong>Master Component</strong>, then all other screens use it.</p>
+
+    <div class="card">
+      <h3>App Shell Structure</h3>
+      <pre><code>┌─────────────────────────────────────────┐
+│  SIDEBAR (240px dark)  │  MAIN CONTENT  │
+│                         │               │
+│  [School Logo + Name]   │  [Top Bar]    │
+│  ─────────────────────  │  [Page Title] │
+│  Dashboard              │               │
+│  Students          ▸    │  [Content]    │
+│  Staff             ▸    │               │
+│  Fees              ▸    │               │
+│  Exams             ▸    │               │
+│  Reports           ▸    │               │
+│  ─────────────────────  │               │
+│  [User Avatar + Name]   │               │
+│  [Role Badge]           │               │
+│  [Logout]               │               │
+└─────────────────────────────────────────┘</code></pre>
+      <p style="margin-top:0.75rem;font-size:0.9rem;">The sidebar items change completely per role. A Teacher sees: Dashboard, My Classes, Exam Journal, Attendance, Messages. A Bursar sees: Dashboard, Fee Ledger, Import Fees, Send Reminders, Salary, Messages.</p>
+    </div>
+
+    <h2>Step 3 — Design These Screens (In Order)</h2>
+    <p>This is the exact order to wireframe. Do rough boxes first (low-fidelity), get approval, then polish (high-fidelity).</p>
+
+    <div class="wireframe-grid">
+      <div class="wireframe-card">
+        <div class="wireframe-preview">🔐</div>
+        <div class="wireframe-label">Login Page</div>
+        <div class="wireframe-sub">School logo, email + password, role auto-detected</div>
+      </div>
+      <div class="wireframe-card">
+        <div class="wireframe-preview">📊</div>
+        <div class="wireframe-label">Principal Dashboard</div>
+        <div class="wireframe-sub">KPI cards, alerts, academic overview</div>
+      </div>
+      <div class="wireframe-card">
+        <div class="wireframe-preview">👤</div>
+        <div class="wireframe-label">Student Registration</div>
+        <div class="wireframe-sub">3-step wizard, photo upload, guardian info</div>
+      </div>
+      <div class="wireframe-card">
+        <div class="wireframe-preview">💰</div>
+        <div class="wireframe-label">Fee Ledger</div>
+        <div class="wireframe-sub">Inline editing, import wizard, balance calc</div>
+      </div>
+      <div class="wireframe-card">
+        <div class="wireframe-preview">📝</div>
+        <div class="wireframe-label">Exam Journal</div>
+        <div class="wireframe-sub">Assessment types, mark entry table</div>
+      </div>
+      <div class="wireframe-card">
+        <div class="wireframe-preview">📄</div>
+        <div class="wireframe-label">Report Card Preview</div>
+        <div class="wireframe-sub">CBC layout, competency scores, grade</div>
+      </div>
+      <div class="wireframe-card">
+        <div class="wireframe-preview">👨‍🏫</div>
+        <div class="wireframe-label">Teacher Dashboard</div>
+        <div class="wireframe-sub">My classes, curriculum coverage bar</div>
+      </div>
+      <div class="wireframe-card">
+        <div class="wireframe-preview">👨‍👧</div>
+        <div class="wireframe-label">Parent Portal</div>
+        <div class="wireframe-sub">Results, fee balance, attendance, notices</div>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <span class="callout-icon">💡</span>
+      <div class="callout-body">
+        <p><strong>Claude Prompt for wireframe feedback:</strong> "I'm designing the Bursar fee ledger screen for a Ugandan secondary school management system. The Bursar needs to see a list of students with their fee balances, be able to edit records inline, filter by class and balance status, and send SMS reminders. What columns and UI elements should this table have? What actions should be in the top bar?" — Ask this before drawing anything.</p>
+      </div>
+    </div>
+
+    <h2>Step 4 — Present to the School</h2>
+    <p>Export your Figma designs as a shareable link (click Share → Anyone with the link can view). Present to the school's IT Admin or Principal using Figma's presentation mode. Get written approval (even a WhatsApp message saying "approved") before moving to code.</p>
+
+    <div class="callout warning">
+      <span class="callout-icon">⚠️</span>
+      <div class="callout-body">
+        <p><strong>Ask the school these questions during the presentation:</strong> What is your school's primary brand color? Do you want the system in English only or also Luganda? Do you use boarders and day scholars distinction? Do you currently use SchoolPay? What is the current class naming convention (S.1 East? Form 1A?)</p>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- PHASE 2 — PROJECT SETUP -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="phase-2">
+    <div class="phase-header">
+      <div class="phase-number">2</div>
+      <div>
+        <div class="phase-title">Project Setup & Scaffolding</div>
+        <div class="phase-desc">Create the React + TypeScript + Vite project, configure Tailwind, install all dependencies, and connect to Supabase. You only do this once.</div>
+        <div class="phase-duration">⏱ 1 Day</div>
+      </div>
+    </div>
+
+    <h2>Create the Vite Project</h2>
+    <p>Open your terminal, navigate to where you want the project folder, and run:</p>
+    <pre><code>npm create vite@latest shule -- --template react-ts
+cd shule
+npm install</code></pre>
+
+    <h2>Install All Dependencies</h2>
+    <p>This installs everything Shule needs. Run this once:</p>
+    <pre><code><span class="comment"># Core dependencies</span>
+npm install @supabase/supabase-js       <span class="comment"># Supabase client</span>
+npm install @tanstack/react-query       <span class="comment"># Data fetching + caching</span>
+npm install react-router-dom            <span class="comment"># Page routing</span>
+npm install react-hook-form             <span class="comment"># Form handling</span>
+npm install zod                         <span class="comment"># Form validation schemas</span>
+npm install @hookform/resolvers         <span class="comment"># Connect zod to react-hook-form</span>
+
+<span class="comment"># UI Components</span>
+npm install @radix-ui/react-dialog      <span class="comment"># Accessible modals</span>
+npm install @radix-ui/react-select      <span class="comment"># Accessible dropdowns</span>
+npm install @radix-ui/react-tabs        <span class="comment"># Accessible tabs</span>
+npm install lucide-react                <span class="comment"># Icons</span>
+npm install clsx                        <span class="comment"># Conditional classnames</span>
+
+<span class="comment"># Data & Exports</span>
+npm install recharts                    <span class="comment"># Charts</span>
+npm install xlsx                        <span class="comment"># Excel import/export</span>
+npm install jspdf jspdf-autotable       <span class="comment"># PDF generation</span>
+npm install dexie                       <span class="comment"># IndexedDB for offline</span>
+
+<span class="comment"># Tailwind</span>
+npm install -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p</code></pre>
+
+    <h2>Configure Tailwind</h2>
+    <p>Replace the contents of <code>tailwind.config.js</code> with:</p>
+    <pre><code><span class="comment">/** @type {import('tailwindcss').Config} */</span>
+export default {
+  content: [<span class="string">"./index.html"</span>, <span class="string">"./src/**/*.{js,ts,jsx,tsx}"</span>],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          DEFAULT: <span class="string">"#1a6b3c"</span>,
+          light: <span class="string">"#e8f3ec"</span>,
+          dark: <span class="string">"#145530"</span>,
+        },
+        sidebar: <span class="string">"#1e1e2e"</span>,
+      },
+      fontFamily: {
+        sans: [<span class="string">"Inter"</span>, <span class="string">"sans-serif"</span>],
+        heading: [<span class="string">"DM Sans"</span>, <span class="string">"sans-serif"</span>],
+      },
+    },
+  },
+  plugins: [],
+}</code></pre>
+
+    <h2>Set Up Environment Variables</h2>
+    <p>Create a file called <code>.env.local</code> in your project root (never commit this to GitHub):</p>
+    <pre><code>VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+SHULE_MODE=cloud</code></pre>
+
+    <p>Create a <code>.env.example</code> (safe to commit, no real values):</p>
+    <pre><code>VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+SHULE_MODE=cloud</code></pre>
+
+    <p>Add <code>.env.local</code> to your <code>.gitignore</code>:</p>
+    <pre><code>node_modules
+dist
+.env.local
+.env.*.local</code></pre>
+
+    <h2>Create the Supabase Client</h2>
+    <p>Create <code>src/lib/supabase.ts</code>:</p>
+    <pre><code><span class="keyword">import</span> { createClient } <span class="keyword">from</span> <span class="string">'@supabase/supabase-js'</span>
+
+<span class="keyword">const</span> supabaseUrl = <span class="keyword">import</span>.meta.env.VITE_SUPABASE_URL
+<span class="keyword">const</span> supabaseAnonKey = <span class="keyword">import</span>.meta.env.VITE_SUPABASE_ANON_KEY
+
+<span class="keyword">if</span> (!supabaseUrl || !supabaseAnonKey) {
+  <span class="keyword">throw new</span> Error(<span class="string">'Missing Supabase environment variables'</span>)
+}
+
+<span class="keyword">export const</span> supabase = createClient(supabaseUrl, supabaseAnonKey)</code></pre>
+
+    <h2>Project Folder Structure</h2>
+    <p>Create this folder structure inside <code>src/</code>. Structure is architecture — do this right from the start:</p>
+    <pre><code>src/
+├── components/          <span class="comment"># Shared reusable components</span>
+│   ├── ui/              <span class="comment"># Base UI: Button, Input, Modal, Card</span>
+│   ├── layout/          <span class="comment"># AppShell, Sidebar, TopBar</span>
+│   └── shared/          <span class="comment"># StudentCard, FeeStatusBadge, etc.</span>
+├── pages/               <span class="comment"># One folder per role</span>
+│   ├── auth/            <span class="comment"># Login, ForgotPassword</span>
+│   ├── principal/
+│   ├── deputy/
+│   ├── dos/
+│   ├── secretary/
+│   ├── bursar/
+│   ├── teacher/
+│   ├── student/
+│   └── parent/
+├── hooks/               <span class="comment"># Custom React hooks</span>
+│   ├── useAuth.ts
+│   ├── useStudents.ts
+│   └── useFees.ts
+├── lib/                 <span class="comment"># Utilities and clients</span>
+│   ├── supabase.ts
+│   ├── queryClient.ts
+│   └── utils.ts
+├── types/               <span class="comment"># TypeScript type definitions</span>
+│   ├── database.ts      <span class="comment"># Generated from Supabase</span>
+│   └── app.ts           <span class="comment"># Your custom types</span>
+└── store/               <span class="comment"># Global state (React Context)</span>
+    └── AuthContext.tsx</code></pre>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- PHASE 3 — AUTH & ROLES -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="phase-3">
+    <div class="phase-header">
+      <div class="phase-number">3</div>
+      <div>
+        <div class="phase-title">Authentication & Role System</div>
+        <div class="phase-desc">This is the most critical phase. Get auth and roles wrong, and the entire system is insecure. Build this before any feature.</div>
+        <div class="phase-duration">⏱ 3–4 Days</div>
+      </div>
+    </div>
+
+    <div class="callout danger">
+      <span class="callout-icon">🚨</span>
+      <div class="callout-body">
+        <p><strong>Never trust the frontend alone.</strong> Every role restriction you build in React (hiding buttons, blocking routes) must ALSO be enforced by Supabase Row Level Security policies. A teacher who knows the URL <code>/fees/ledger</code> must hit a database-level wall, not just be redirected by React.</p>
+      </div>
+    </div>
+
+    <h2>How Shule Auth Works</h2>
+    <p>Supabase handles authentication (email + password). But we need to store each user's role. We do this by adding a <code>role</code> column to the <code>staff</code> table and using a JWT custom claim to pass it through.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Create User in Supabase Auth</h3>
+          <p>When the Secretary registers a teacher, two things happen: (1) Create a Supabase Auth user with email + temporary password, (2) Insert a row in the <code>staff</code> table with <code>auth_user_id</code> linking to the auth user. The Secretary sets the role during registration.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Inject Role into JWT via Database Function</h3>
+          <p>In Supabase SQL Editor, create this function (runs when any user logs in):</p>
+          <pre><code><span class="comment">-- This function adds the user's role to their login token</span>
+CREATE OR REPLACE FUNCTION public.custom_access_token_hook(event jsonb)
+RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE
+  user_role text;
+  user_school_id uuid;
+BEGIN
+  SELECT s.role, s.school_id INTO user_role, user_school_id
+  FROM public.staff s
+  WHERE s.auth_user_id = (event->>'user_id')::uuid;
+  
+  IF user_role IS NOT NULL THEN
+    event := jsonb_set(event, '{claims,user_role}', to_jsonb(user_role));
+    event := jsonb_set(event, '{claims,school_id}', to_jsonb(user_school_id));
+  END IF;
+  
+  RETURN event;
+END;
+$$;</code></pre>
+          <p>Then in Supabase Dashboard → Authentication → Hooks → add this as a "Custom Access Token" hook.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Build the AuthContext in React</h3>
+          <p>Create <code>src/store/AuthContext.tsx</code>. This makes the current user's role available everywhere in your app:</p>
+          <pre><code><span class="keyword">import</span> { createContext, useContext, useEffect, useState } <span class="keyword">from</span> <span class="string">'react'</span>
+<span class="keyword">import</span> { supabase } <span class="keyword">from</span> <span class="string">'../lib/supabase'</span>
+
+<span class="keyword">type</span> UserRole = <span class="string">'principal'</span> | <span class="string">'deputy'</span> | <span class="string">'dos'</span> | <span class="string">'secretary'</span> | 
+  <span class="string">'bursar'</span> | <span class="string">'class_teacher'</span> | <span class="string">'teacher'</span> | <span class="string">'student'</span> | <span class="string">'parent'</span>
+
+<span class="keyword">type</span> AuthUser = {
+  id: string
+  email: string
+  role: UserRole
+  schoolId: string
+  name: string
+}
+
+<span class="keyword">const</span> AuthContext = createContext&lt;{ user: AuthUser | null; loading: boolean }&gt;(
+  { user: null, loading: true }
+)
+
+<span class="keyword">export function</span> <span class="func">AuthProvider</span>({ children }) {
+  <span class="keyword">const</span> [user, setUser] = useState(null)
+  <span class="keyword">const</span> [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      <span class="keyword">if</span> (session) {
+        <span class="comment">// Extract role from JWT custom claims</span>
+        <span class="keyword">const</span> claims = session.user.app_metadata
+        setUser({
+          id: session.user.id,
+          email: session.user.email!,
+          role: claims.user_role,
+          schoolId: claims.school_id,
+          name: claims.full_name,
+        })
+      }
+      setLoading(false)
+    })
+
+    <span class="keyword">const</span> { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_, session) => {
+        <span class="keyword">if</span> (session) {
+          <span class="keyword">const</span> claims = session.user.app_metadata
+          setUser({ id: session.user.id, email: session.user.email!, 
+            role: claims.user_role, schoolId: claims.school_id, name: claims.full_name })
+        } <span class="keyword">else</span> { setUser(null) }
+      }
+    )
+
+    <span class="keyword">return</span> () => subscription.unsubscribe()
+  }, [])
+
+  <span class="keyword">return</span> &lt;AuthContext.Provider value={{ user, loading }}&gt;{children}&lt;/AuthContext.Provider&gt;
+}
+
+<span class="keyword">export const</span> useAuth = () => useContext(AuthContext)</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Build the Route Guard</h3>
+          <p>This component redirects users to the right dashboard and blocks unauthorized routes:</p>
+          <pre><code><span class="comment">// src/components/layout/ProtectedRoute.tsx</span>
+<span class="keyword">export function</span> <span class="func">ProtectedRoute</span>({ allowedRoles, children }) {
+  <span class="keyword">const</span> { user, loading } = useAuth()
+  
+  <span class="keyword">if</span> (loading) <span class="keyword">return</span> &lt;LoadingSpinner /&gt;
+  <span class="keyword">if</span> (!user) <span class="keyword">return</span> &lt;Navigate to=<span class="string">"/login"</span> /&gt;
+  <span class="keyword">if</span> (!allowedRoles.includes(user.role)) {
+    <span class="keyword">return</span> &lt;AccessDenied /&gt;  <span class="comment">// HARD BLOCK — not redirect</span>
+  }
+  
+  <span class="keyword">return</span> children
+}
+
+<span class="comment">// Usage:</span>
+&lt;Route path=<span class="string">"/fees/*"</span> element={
+  &lt;ProtectedRoute allowedRoles={[<span class="string">'principal'</span>, <span class="string">'bursar'</span>]}&gt;
+    &lt;FeeRoutes /&gt;
+  &lt;/ProtectedRoute&gt;
+} /&gt;</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <h2>Role → Route Mapping</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Role</th><th>Login Redirect</th><th>Finance Routes</th><th>Student Create</th></tr></thead>
+        <tbody>
+          <tr><td><span class="chip principal">Principal</span></td><td><code>/principal/dashboard</code></td><td>Summary only</td><td>✅ Yes</td></tr>
+          <tr><td><span class="chip deputy">Deputy Principal</span></td><td><code>/deputy/dashboard</code></td><td>❌ Hard block</td><td>❌ No</td></tr>
+          <tr><td><span class="chip dos">Director of Studies</span></td><td><code>/dos/dashboard</code></td><td>❌ Hard block</td><td>❌ No</td></tr>
+          <tr><td><span class="chip secretary">Secretary</span></td><td><code>/secretary/dashboard</code></td><td>Status flag only</td><td>✅ Yes (primary)</td></tr>
+          <tr><td><span class="chip bursar">Bursar</span></td><td><code>/bursar/dashboard</code></td><td>✅ Full access</td><td>❌ No</td></tr>
+          <tr><td><span class="chip teacher">Teacher</span></td><td><code>/teacher/dashboard</code></td><td>❌ Hard block</td><td>❌ No</td></tr>
+          <tr><td><span class="chip student">Student</span></td><td><code>/student/portal</code></td><td>Own fees only</td><td>❌ No</td></tr>
+          <tr><td><span class="chip parent">Parent</span></td><td><code>/parent/portal</code></td><td>Child fees only</td><td>❌ No</td></tr>
+          <tr><td><span class="chip it">IT Admin</span></td><td><code>/admin/dashboard</code></td><td>None</td><td>❌ No</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- PHASE 4 — DATABASE -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="phase-4">
+    <div class="phase-header">
+      <div class="phase-number">4</div>
+      <div>
+        <div class="phase-title">Database Schema & RLS Policies</div>
+        <div class="phase-desc">Create all the tables in Supabase and lock them down with Row Level Security. Every table. Every policy. No exceptions.</div>
+        <div class="phase-duration">⏱ 2–3 Days</div>
+      </div>
+    </div>
+
+    <h2>Core Tables — Create in This Order</h2>
+    <p>Run this SQL in the Supabase SQL Editor. Start with tables that have no foreign keys, then add tables that depend on them.</p>
+
+    <pre><code><span class="comment">-- ① School Profile (every table will reference this)</span>
+CREATE TABLE school_profile (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_name TEXT NOT NULL,
+  short_name TEXT,
+  logo_url TEXT,
+  motto TEXT,
+  primary_color TEXT DEFAULT <span class="string">'#1a6b3c'</span>,
+  curriculum TEXT DEFAULT <span class="string">'ncdc_uganda'</span>,
+  deployment_mode TEXT DEFAULT <span class="string">'local'</span>,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+<span class="comment">-- ② Departments</span>
+CREATE TABLE departments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id UUID REFERENCES school_profile(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  accent_color TEXT,
+  head_teacher_id UUID,
+  archived BOOLEAN DEFAULT false
+);
+
+<span class="comment">-- ③ Academic Years</span>
+CREATE TABLE academic_years (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id UUID REFERENCES school_profile(id) ON DELETE CASCADE,
+  label TEXT NOT NULL,
+  term1_start DATE, term1_end DATE,
+  term2_start DATE, term2_end DATE,
+  term3_start DATE, term3_end DATE,
+  is_active BOOLEAN DEFAULT false
+);
+
+<span class="comment">-- ④ Classes</span>
+CREATE TABLE classes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id UUID REFERENCES school_profile(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  level TEXT,
+  academic_year_id UUID REFERENCES academic_years(id)
+);
+
+<span class="comment">-- ⑤ Streams</span>
+CREATE TABLE streams (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id UUID REFERENCES school_profile(id) ON DELETE CASCADE,
+  class_id UUID REFERENCES classes(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  class_teacher_id UUID
+);
+
+<span class="comment">-- ⑥ Staff (includes auth_user_id to link to Supabase Auth)</span>
+CREATE TABLE staff (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id UUID REFERENCES school_profile(id) ON DELETE CASCADE,
+  auth_user_id UUID UNIQUE REFERENCES auth.users(id),
+  staff_number TEXT,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN (
+    'principal','deputy','dos','secretary','bursar',
+    'class_teacher','teacher','it_admin'
+  )),
+  department_id UUID REFERENCES departments(id),
+  subjects TEXT[],
+  classes UUID[],
+  qualification_level INT,
+  employment_type TEXT,
+  salary_band TEXT,
+  photo_url TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+<span class="comment">-- ⑦ Students</span>
+CREATE TABLE students (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id UUID REFERENCES school_profile(id) ON DELETE CASCADE,
+  admission_number TEXT NOT NULL,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  dob DATE,
+  gender TEXT,
+  class_id UUID REFERENCES classes(id),
+  stream_id UUID REFERENCES streams(id),
+  photo_url TEXT,
+  medical_notes TEXT,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active','suspended','expelled')),
+  enrolled_at DATE DEFAULT CURRENT_DATE,
+  UNIQUE (school_id, admission_number)
+);</code></pre>
+
+    <h2>RLS Policies — The Security Layer</h2>
+    <p>Enable RLS on <em>every</em> table, then add policies. Here are the most critical ones:</p>
+
+    <pre><code><span class="comment">-- Enable RLS on students table</span>
+ALTER TABLE students ENABLE ROW LEVEL SECURITY;
+
+<span class="comment">-- Helper function to get role from JWT</span>
+CREATE OR REPLACE FUNCTION auth.user_role()
+RETURNS TEXT AS $$
+  SELECT coalesce(current_setting('request.jwt.claims', true)::json->>'user_role', '')
+$$ LANGUAGE sql STABLE;
+
+CREATE OR REPLACE FUNCTION auth.user_school_id()
+RETURNS UUID AS $$
+  SELECT (current_setting('request.jwt.claims', true)::json->>'school_id')::uuid
+$$ LANGUAGE sql STABLE;
+
+<span class="comment">-- STUDENTS: Teachers cannot INSERT or UPDATE</span>
+CREATE POLICY "secretary_principal_can_insert_students"
+ON students FOR INSERT
+TO authenticated
+WITH CHECK (
+  school_id = auth.user_school_id()
+  AND auth.user_role() IN ('secretary', 'principal')
+);
+
+CREATE POLICY "all_staff_can_view_students_basic"
+ON students FOR SELECT
+TO authenticated
+USING (school_id = auth.user_school_id());
+
+<span class="comment">-- FEE_PAYMENTS: Only Bursar and Principal can read</span>
+ALTER TABLE fee_payments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "bursar_principal_only_fee_payments"
+ON fee_payments FOR ALL
+TO authenticated
+USING (
+  school_id = auth.user_school_id()
+  AND auth.user_role() IN ('bursar', 'principal')
+);
+
+<span class="comment">-- EXAM_RESULTS: Teachers only see their own</span>
+CREATE POLICY "teacher_sees_own_results"
+ON exam_results FOR SELECT
+TO authenticated
+USING (
+  school_id = auth.user_school_id()
+  AND (
+    auth.user_role() IN ('principal', 'dos', 'secretary')
+    OR teacher_id = auth.uid()
+  )
+);</code></pre>
+
+    <div class="callout tip">
+      <span class="callout-icon">💡</span>
+      <div class="callout-body">
+        <p><strong>Claude Prompt for RLS help:</strong> "I'm using Supabase Row Level Security. I need a policy on the `messages` table that lets staff read their own messages (where from_user_id or to_user_id = their ID), and lets the Principal read ALL messages for their school. The school_id must also match. Write this SQL policy."</p>
+      </div>
+    </div>
+
+    <h2>Insert Demo Data</h2>
+    <p>The document specifies <code>school_id = '00000000-0000-0000-0000-000000000001'</code> for demo data. Create at least one demo school profile and a few students/staff so you can test your UI without blank screens.</p>
+
+    <pre><code><span class="comment">-- Insert demo school</span>
+INSERT INTO school_profile (id, school_name, short_name, primary_color)
+VALUES (
+  '00000000-0000-0000-0000-000000000001',
+  'Kampala Junior Academy',
+  'KJA',
+  '#1a6b3c'
+);</code></pre>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- PHASE 5 — MODULES -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="phase-5">
+    <div class="phase-header">
+      <div class="phase-number">5</div>
+      <div>
+        <div class="phase-title">Build Module by Module</div>
+        <div class="phase-desc">Now build each feature in priority order. Every module follows the same pattern: Page → Hook → Supabase Query → Component. Use Claude as your coding mentor throughout.</div>
+        <div class="phase-duration">⏱ 6–10 Weeks</div>
+      </div>
+    </div>
+
+    <h2>The Module Build Pattern</h2>
+    <p>For every feature you build, follow this exact sequence:</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Write the TypeScript Types First</h3>
+          <p>In <code>src/types/app.ts</code>, define what the data looks like. This prevents bugs later.</p>
+          <pre><code><span class="keyword">export type</span> Student = {
+  id: string
+  schoolId: string
+  admissionNumber: string
+  firstName: string
+  lastName: string
+  classId: string | null
+  streamId: string | null
+  gender: <span class="string">'male'</span> | <span class="string">'female'</span>
+  status: <span class="string">'active'</span> | <span class="string">'suspended'</span> | <span class="string">'expelled'</span>
+}</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Write the Data Hook</h3>
+          <p>Create a custom hook in <code>src/hooks/</code> that handles fetching and caching:</p>
+          <pre><code><span class="comment">// src/hooks/useStudents.ts</span>
+<span class="keyword">export function</span> <span class="func">useStudents</span>(classId?: string) {
+  <span class="keyword">return</span> useQuery({
+    queryKey: [<span class="string">'students'</span>, classId],
+    queryFn: <span class="keyword">async</span> () => {
+      <span class="keyword">let</span> query = supabase
+        .from(<span class="string">'students'</span>)
+        .select(<span class="string">'id, admission_number, first_name, last_name, class_id, stream_id, status'</span>)
+        .order(<span class="string">'first_name'</span>)
+      
+      <span class="keyword">if</span> (classId) query = query.eq(<span class="string">'class_id'</span>, classId)
+      
+      <span class="keyword">const</span> { data, error } = <span class="keyword">await</span> query
+      <span class="keyword">if</span> (error) <span class="keyword">throw</span> error
+      <span class="keyword">return</span> data
+    }
+  })
+}</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Build the UI Component</h3>
+          <p>Use the hook in your page component. Keep pages thin — they just connect data to UI:</p>
+          <pre><code><span class="keyword">export function</span> <span class="func">StudentsPage</span>() {
+  <span class="keyword">const</span> { data: students, isLoading } = useStudents()
+  
+  <span class="keyword">if</span> (isLoading) <span class="keyword">return</span> &lt;Spinner /&gt;
+  
+  <span class="keyword">return</span> (
+    &lt;div&gt;
+      &lt;PageHeader title=<span class="string">"Students"</span> action={&lt;RegisterStudentButton /&gt;} /&gt;
+      &lt;StudentTable students={students ?? []} /&gt;
+    &lt;/div&gt;
+  )
+}</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <h2>MVP Module Priority Order</h2>
+    <p>Build in this exact order. The school needs these first. Do not start module 5 until module 4 works end-to-end.</p>
+
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-week">Week 1–2 · Priority 1</div>
+        <div class="tl-title"><span class="tag mvp">MVP</span> Login + Role-Based Dashboards</div>
+        <div class="tl-body">Login page, auth flow, role redirect, sidebar per role, empty dashboards with correct nav items. Roles: Principal, Secretary, Bursar, Teacher, Student. Test that each role can only see their own routes.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 3 · Priority 2</div>
+        <div class="tl-title"><span class="tag mvp">MVP</span> Student Registration (Secretary)</div>
+        <div class="tl-body">3-step wizard: personal info → class placement → guardian info. Admission number auto-generation. Photo upload. This is the Secretary's #1 task. Get this right.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 4 · Priority 3</div>
+        <div class="tl-title"><span class="tag mvp">MVP</span> Fee Ledger + Import (Bursar)</div>
+        <div class="tl-body">Excel/CSV import wizard with column mapping. Inline fee editing. Balance auto-calculation. Fee status flag visible to Secretary (paid/unpaid/partial — no amounts).</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 5 · Priority 4</div>
+        <div class="tl-title"><span class="tag mvp">MVP</span> Exam Journal + Mark Entry (Teacher)</div>
+        <div class="tl-body">Create exam journal entry, enter marks manually in a table, import from Excel/CSV. Score distribution chart. CA auto-increment (C1, C2…). This unlocks report cards.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 6 · Priority 5</div>
+        <div class="tl-title"><span class="tag mvp">MVP</span> Report Card Generation (Secretary + Principal)</div>
+        <div class="tl-body">Generate PDF from built-in CBC template. DRAFT → READY → APPROVED → RELEASED workflow. Principal approve button. Batch download. This is the biggest visible win for the school.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 7 · Priority 6</div>
+        <div class="tl-title"><span class="tag mvp">MVP</span> Attendance + Parent Portal</div>
+        <div class="tl-body">Teacher marks attendance. Parent portal login shows: fee balance, results, attendance, released report card. Secretary generates parent access links.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 8 · Priority 7</div>
+        <div class="tl-title"><span class="tag v2">V2</span> Staff Messaging + Announcements</div>
+        <div class="tl-body">In-app chat between staff. Read receipts. Announcements channel. DoS performance report attachments.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 9 · Priority 8</div>
+        <div class="tl-title"><span class="tag v2">V2</span> SMS/WhatsApp Reminders (Bursar)</div>
+        <div class="tl-body">Africa's Talking API integration. Bulk SMS fee reminders. Delivery log. Offline queue.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Week 10 · Priority 9</div>
+        <div class="tl-title"><span class="tag v2">V2</span> DoS Dashboard + Curriculum Plan</div>
+        <div class="tl-body">School-wide academic analytics. Teacher performance. Curriculum coverage timeline. Timetable management.</div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <h2>Key Module: Excel Import Wizard</h2>
+    <p>This appears in 4 places: student import, staff import, fee import, and mark import. Build it once as a reusable component.</p>
+
+    <pre><code><span class="comment">// The import wizard flow:</span>
+<span class="comment">// 1. Upload file (accept .xlsx, .xls, .csv, .ods)</span>
+<span class="comment">// 2. Parse columns using SheetJS</span>
+<span class="comment">// 3. Show column mapping UI (auto-detect + manual override)</span>
+<span class="comment">// 4. Preview table (green = valid, yellow = warning, red = error)</span>
+<span class="comment">// 5. Confirm → upsert to Supabase</span>
+
+<span class="keyword">import</span> * as XLSX <span class="keyword">from</span> <span class="string">'xlsx'</span>
+
+<span class="keyword">export async function</span> <span class="func">parseExcelFile</span>(file: File) {
+  <span class="keyword">const</span> buffer = <span class="keyword">await</span> file.arrayBuffer()
+  <span class="keyword">const</span> workbook = XLSX.read(buffer)
+  <span class="keyword">const</span> sheet = workbook.Sheets[workbook.SheetNames[<span class="num">0</span>]]
+  <span class="keyword">return</span> XLSX.utils.sheet_to_json(sheet, { header: <span class="num">1</span> })
+}
+
+<span class="comment">// The auto-detect logic maps common column names to Shule fields</span>
+<span class="keyword">const</span> COLUMN_ALIASES: Record&lt;string, string&gt; = {
+  <span class="string">'admission no'</span>: <span class="string">'admission_number'</span>,
+  <span class="string">'adm no'</span>: <span class="string">'admission_number'</span>,
+  <span class="string">'student name'</span>: <span class="string">'full_name'</span>,
+  <span class="string">'amount paid'</span>: <span class="string">'amount_paid'</span>,
+  <span class="string">'score'</span>: <span class="string">'score'</span>,
+  <span class="string">'marks'</span>: <span class="string">'score'</span>,
+}</code></pre>
+
+    <h2>Key Module: Report Card PDF (CBC Format)</h2>
+    <p>The Uganda NCDC CBC report card formula is specific. Implement this exactly:</p>
+
+    <div class="card">
+      <h3>CBC Grade Calculation (Uganda)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Variable</th><th>Formula</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>max_points</code></td><td><code>assessed × 3</code></td><td>Each CA competency is out of 3</td></tr>
+            <tr><td><code>out_of_20</code></td><td><code>(total_points / max_points) × 20</code></td><td>CA contributes 20%</td></tr>
+            <tr><td><code>out_of_80</code></td><td>End-of-term exam score</td><td>Exam contributes 80%</td></tr>
+            <tr><td><code>total</code></td><td><code>out_of_20 + out_of_80</code></td><td>Final subject mark out of 100</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h4>Grade Scale</h4>
+      <div class="role-chips">
+        <span class="chip dos">A = 90–100</span>
+        <span class="chip principal">B = 75–89</span>
+        <span class="chip secretary">C = 65–74</span>
+        <span class="chip bursar">D = 50–64</span>
+        <span class="chip teacher" style="color:#c53030;background:#fff5f5;border-color:#feb2b2;">E = 1–49</span>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- PHASE 6 — PWA & OFFLINE -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="phase-6">
+    <div class="phase-header">
+      <div class="phase-number">6</div>
+      <div>
+        <div class="phase-title">PWA & Offline Capability</div>
+        <div class="phase-desc">Make Shule installable and functional when the local server or internet is unavailable. Power cuts are real in Ugandan schools.</div>
+        <div class="phase-duration">⏱ 3–4 Days</div>
+      </div>
+    </div>
+
+    <h2>Install Vite PWA Plugin</h2>
+    <pre><code>npm install -D vite-plugin-pwa</code></pre>
+
+    <p>Update <code>vite.config.ts</code>:</p>
+    <pre><code><span class="keyword">import</span> { VitePWA } <span class="keyword">from</span> <span class="string">'vite-plugin-pwa'</span>
+
+export default defineConfig({
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: <span class="string">'autoUpdate'</span>,
+      manifest: {
+        name: <span class="string">'Shule — School Management'</span>,
+        short_name: <span class="string">'Shule'</span>,
+        theme_color: <span class="string">'#1a6b3c'</span>,
+        icons: [
+          { src: <span class="string">'/icon-192.png'</span>, sizes: <span class="string">'192x192'</span>, type: <span class="string">'image/png'</span> },
+          { src: <span class="string">'/icon-512.png'</span>, sizes: <span class="string">'512x512'</span>, type: <span class="string">'image/png'</span> }
+        ]
+      },
+      workbox: {
+        globPatterns: [<span class="string">'**/*.{js,css,html,ico,png,svg}'</span>],
+        runtimeCaching: [{
+          urlPattern: /^https:\/\/.*\.supabase\.co/,
+          handler: <span class="string">'NetworkFirst'</span>,
+          options: { cacheName: <span class="string">'supabase-api'</span> }
+        }]
+      }
+    })
+  ]
+})</code></pre>
+
+    <h2>Set Up IndexedDB with Dexie</h2>
+    <p>Create <code>src/lib/db.ts</code> for offline data storage:</p>
+    <pre><code><span class="keyword">import</span> Dexie <span class="keyword">from</span> <span class="string">'dexie'</span>
+
+<span class="keyword">class</span> ShuleDatabase <span class="keyword">extends</span> Dexie {
+  students!: Dexie.Table
+  staff!: Dexie.Table
+  syncQueue!: Dexie.Table
+
+  constructor() {
+    super(<span class="string">'shule'</span>)
+    this.version(<span class="num">1</span>).stores({
+      students: <span class="string">'id, schoolId, admissionNumber, classId'</span>,
+      staff: <span class="string">'id, schoolId, role'</span>,
+      syncQueue: <span class="string">'++id, tableName, actionType, status, createdAt'</span>,
+    })
+  }
+}
+
+export const db = new ShuleDatabase()
+
+<span class="comment">// Queue a write for when network returns</span>
+export async function queueSync(tableName: string, action: string, payload: any) {
+  await db.syncQueue.add({
+    tableName,
+    actionType: action,
+    payload,
+    status: <span class="string">'pending'</span>,
+    createdAt: new Date()
+  })
+}</code></pre>
+
+    <h2>The Offline Banner</h2>
+    <p>Show a banner when the local server is unreachable:</p>
+    <pre><code><span class="keyword">export function</span> <span class="func">OfflineBanner</span>() {
+  <span class="keyword">const</span> [isOnline, setIsOnline] = useState(navigator.onLine)
+  
+  useEffect(() => {
+    window.addEventListener(<span class="string">'online'</span>, () => setIsOnline(true))
+    window.addEventListener(<span class="string">'offline'</span>, () => setIsOnline(false))
+  }, [])
+  
+  <span class="keyword">if</span> (isOnline) <span class="keyword">return null</span>
+  
+  <span class="keyword">return</span> (
+    &lt;div className=<span class="string">"fixed top-0 inset-x-0 bg-amber-500 text-white text-sm text-center py-2"</span>&gt;
+      ⚠️ You are offline — changes saved locally and will sync when connection returns
+    &lt;/div&gt;
+  )
+}</code></pre>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- PHASE 7 — SCHOOL INSTALLATION -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="phase-7">
+    <div class="phase-header">
+      <div class="phase-number">7</div>
+      <div>
+        <div class="phase-title">Physical School Installation</div>
+        <div class="phase-desc">This is where the software meets the physical world. Install Shule on a school's local server, configure their WiFi network, and set up all staff devices. Plan for a full day on-site.</div>
+        <div class="phase-duration">⏱ 1–2 Days on site</div>
+      </div>
+    </div>
+
+    <div class="callout warning">
+      <span class="callout-icon">⚠️</span>
+      <div class="callout-body">
+        <p><strong>Bring everything with you.</strong> Schools often have slow or no internet during your visit. Arrive with: a USB drive containing the full Shule build + Docker images, a network switch if needed, printed IP address configuration sheets, and printed login credentials for all staff.</p>
+      </div>
+    </div>
+
+    <h2>What You Need Before Going to School</h2>
+    <ul class="checklist" id="install-checklist">
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">A dedicated PC or server to act as the Shule server (min: 8GB RAM, 256GB SSD, i5 or better)</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">Ubuntu Server 22.04 LTS installed on the server machine (download ISO in advance)</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">Docker and Docker Compose installed</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">The Shule production build (npm run build) on a USB drive</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">Supabase self-hosted Docker images downloaded</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">A WiFi router or access to the school's existing network</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">Credentials list: all staff email + temporary passwords (printed, sealed envelope)</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">School data preloaded: students, staff, classes, fee structure</span></li>
+    </ul>
+
+    <h2>Installation Steps on School Day</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Set Up the Server Machine</h3>
+          <p>Install Ubuntu Server 22.04. Assign a static local IP address (e.g. <code>192.168.1.100</code>). This address must never change — all staff devices will bookmark this IP.</p>
+          <pre><code><span class="comment"># Install Docker</span>
+sudo apt update && sudo apt upgrade -y
+sudo apt install docker.io docker-compose -y
+sudo systemctl enable docker
+
+<span class="comment"># Create the shule directory</span>
+mkdir /opt/shule && cd /opt/shule</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Deploy Supabase Self-Hosted</h3>
+          <pre><code><span class="comment"># Clone Supabase self-hosted starter</span>
+git clone https://github.com/supabase/supabase
+cd supabase/docker
+cp .env.example .env
+
+<span class="comment"># Edit .env — set your passwords (save these securely!)</span>
+nano .env
+
+<span class="comment"># Start Supabase</span>
+docker compose up -d
+
+<span class="comment"># Check it's running (Studio at http://192.168.1.100:3000)</span>
+docker compose ps</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Deploy the Shule Frontend</h3>
+          <p>Copy the <code>dist/</code> folder from your USB drive. Serve it with Nginx:</p>
+          <pre><code>sudo apt install nginx -y
+
+<span class="comment"># Copy built frontend</span>
+sudo cp -r /path/to/usb/dist /var/www/shule
+
+<span class="comment"># Configure Nginx</span>
+sudo nano /etc/nginx/sites-available/shule</code></pre>
+          <pre><code>server {
+    listen 80;
+    server_name 192.168.1.100;
+    root /var/www/shule;
+    index index.html;
+    
+    <span class="comment"># For React Router — serve index.html for all routes</span>
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    
+    <span class="comment"># API proxy to local Supabase</span>
+    location /api/ {
+        proxy_pass http://localhost:8000/;
+    }
+}</code></pre>
+          <pre><code>sudo ln -s /etc/nginx/sites-available/shule /etc/nginx/sites-enabled/
+sudo systemctl restart nginx</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Connect Staff Devices to the Network</h3>
+          <p>Every staff laptop, tablet, or phone must be on the same WiFi network as the server. On each device:</p>
+          <ul style="margin:0.5rem 0 0.5rem 1.5rem;color:var(--ink2);font-size:0.9rem;line-height:2;">
+            <li>Open Chrome or Firefox</li>
+            <li>Navigate to <code>http://192.168.1.100</code></li>
+            <li>Shule loads — click "Install App" in the browser for PWA install</li>
+            <li>Log in with their provided credentials</li>
+          </ul>
+          <div class="callout tip">
+            <span class="callout-icon">💡</span>
+            <div class="callout-body"><p>Create a QR code pointing to <code>http://192.168.1.100</code>. Print and paste it in the staffroom. Staff scan it to open Shule on their phones.</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h3>Run a Training Session</h3>
+          <p>Spend 2–3 hours with the key staff. Train in this order:</p>
+          <ul style="margin:0.5rem 0 0.5rem 1.5rem;color:var(--ink2);font-size:0.9rem;line-height:2;">
+            <li><strong>IT Admin</strong> (30 min) — Settings, user management, password resets</li>
+            <li><strong>Secretary</strong> (45 min) — Student registration, import data, generate portal links</li>
+            <li><strong>Bursar</strong> (45 min) — Import fees, add payments, send reminders</li>
+            <li><strong>Teachers</strong> (30 min) — Exam journal, enter marks, attendance</li>
+            <li><strong>Principal</strong> (30 min) — Dashboard, approve report cards, audit log</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <h2>Server Maintenance Tasks</h2>
+    <div class="card-grid">
+      <div class="card">
+        <h3>Daily Automatic Backup</h3>
+        <p>Set up a cron job that backs up the PostgreSQL database to a USB drive every night at midnight:</p>
+        <pre style="font-size:11px;"><code>0 0 * * * pg_dump shule > /mnt/backup/shule_$(date +\%Y\%m\%d).sql</code></pre>
+      </div>
+      <div class="card">
+        <h3>Power Cut Recovery</h3>
+        <p>Configure the server to auto-start Docker and Nginx on boot:</p>
+        <pre style="font-size:11px;"><code>sudo systemctl enable docker
+sudo systemctl enable nginx</code></pre>
+        <p style="font-size:0.85rem;">After a power cut, staff simply reconnect to WiFi — the server will have restarted all services automatically.</p>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- PHASE 8 — MVP HANDOFF -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="phase-8">
+    <div class="phase-header">
+      <div class="phase-number">8</div>
+      <div>
+        <div class="phase-title">MVP Definition & Handoff</div>
+        <div class="phase-desc">What exactly constitutes a working MVP? What must be done before you hand over to the school? This checklist is your exit criteria.</div>
+        <div class="phase-duration">⏱ Ongoing</div>
+      </div>
+    </div>
+
+    <h2>MVP Exit Criteria</h2>
+    <p>Shule is MVP-ready when ALL of the following are true:</p>
+    <ul class="checklist" id="mvp-checklist">
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">All 9 roles can log in and see their correct dashboard with correct sidebar</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">Secretary can register a new student through the 3-step wizard</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">Bursar can import fee statements from Excel and add new payments</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">Teacher can create an exam journal entry, enter marks, and view charts</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">Report cards can be generated as PDF in CBC format with correct grade formula</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">Principal can approve and release report cards</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">Parent portal shows results, fees, attendance (read-only)</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">Finance data is completely invisible to Teacher, Deputy, DoS roles (tested)</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">RLS policies block unauthorized database access (tested with Supabase inspector)</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">App works offline (IndexedDB) and syncs on reconnect</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">App is installable as PWA on Chrome (Android) and Safari (iOS)</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">All lists are virtualised (no more than 50 DOM rows)</span></li>
+      <li><span class="check-box" onclick="toggleCheck(this)"></span><span class="check-label">Page load on local LAN is under 2 seconds</span></li>
+    </ul>
+
+    <div class="callout tip">
+      <span class="callout-icon">🎉</span>
+      <div class="callout-body">
+        <p><strong>When these are all checked, you have a real product.</strong> Not perfect — real. A school Bursar can use the fee ledger. A teacher can mark an exam. A parent can see their child's results. That is enough to start charging for the product.</p>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- CLAUDE PROMPTS -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="claude-prompts">
+    <h2>Claude Prompt Templates</h2>
+    <p>Use these prompts throughout your build. The key is to be <strong>specific</strong> about what you need and always provide context.</p>
+
+    <h3>🔐 For Auth & Security</h3>
+    <pre><code>"I'm building Shule, a school management system using React + Supabase. I need to write an RLS 
+policy for the [TABLE_NAME] table. The rule is: [DESCRIBE THE RULE IN PLAIN ENGLISH]. 
+My JWT custom claims include user_role and school_id. Write the SQL policy."</code></pre>
+
+    <h3>📊 For Supabase Queries</h3>
+    <pre><code>"I'm using Supabase with React Query. I need to fetch [WHAT DATA] from the [TABLE] table.
+I need to join it with [OTHER TABLE] to get [ADDITIONAL FIELDS]. I only want to return 
+these specific columns: [LIST THEM]. The user's school_id is in their JWT as school_id.
+Write the TypeScript function using @supabase/supabase-js."</code></pre>
+
+    <h3>🎨 For UI Components</h3>
+    <pre><code>"I need a React + Tailwind CSS component for [DESCRIBE THE COMPONENT]. It should:
+- Show [LIST WHAT IT SHOWS]
+- Allow the user to [LIST ACTIONS]
+- Be accessible (keyboard navigable, ARIA labels)
+- Work on mobile (screens from 320px wide)
+Show me the full component code and explain each part."</code></pre>
+
+    <h3>📄 For PDF Generation</h3>
+    <pre><code>"I need to generate a PDF report card using jsPDF for a Uganda NCDC CBC curriculum school. 
+The student has these subjects: [LIST]. For each subject they have:
+- CA scores (C1, C2, C3...) each out of 3 points
+- End of term exam score out of 80
+The final grade is (CA total/max × 20) + exam = total out of 100.
+Grade A=90-100, B=75-89, C=65-74, D=50-64, E=1-49.
+Generate the PDF layout code in jsPDF."</code></pre>
+
+    <h3>🐛 For Debugging</h3>
+    <pre><code>"I'm getting this error in my Shule app: [PASTE THE FULL ERROR].
+Here's the relevant code: [PASTE THE CODE].
+Here's what I expected to happen: [DESCRIBE].
+Here's what actually happened: [DESCRIBE].
+What's wrong and how do I fix it? Explain what caused the error so I understand it."</code></pre>
+
+    <h3>🏗️ For Architecture Decisions</h3>
+    <pre><code>"In my Shule system, I need to [DESCRIBE THE PROBLEM]. I'm thinking of solving it by 
+[YOUR IDEA]. Given that I'm using React + Supabase and the system must work offline on a 
+local LAN, is this a good approach? What are the tradeoffs? Is there a better way?"</code></pre>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- ENV VARS -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="env-vars">
+    <h2>Environment Variables Reference</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Variable</th><th>Purpose</th><th>Where</th><th>Safe to Commit?</th></tr></thead>
+        <tbody>
+          <tr><td><code>VITE_SUPABASE_URL</code></td><td>Supabase project URL</td><td>.env.local</td><td>❌ No (use .env.example)</td></tr>
+          <tr><td><code>VITE_SUPABASE_ANON_KEY</code></td><td>Public anon key (RLS enforced)</td><td>.env.local</td><td>❌ No</td></tr>
+          <tr><td><code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>Bypasses RLS — server only</td><td>Server env only</td><td>❌ NEVER in frontend</td></tr>
+          <tr><td><code>SHULE_MODE</code></td><td>cloud / local / hybrid</td><td>.env.local</td><td>✅ Yes (.env.example)</td></tr>
+          <tr><td><code>SHULE_ADMIN_KEY</code></td><td>HQ admin dashboard access</td><td>Server env only</td><td>❌ No</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- RESOURCES -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="resources">
+    <h2>All Resources</h2>
+    <p>Every tool and documentation link you'll need during this build:</p>
+
+    <h3>Core Technologies</h3>
+    <div class="resources">
+      <a href="https://supabase.com/docs" target="_blank" class="resource-link">
+        <span class="rl-icon">🗄️</span>
+        <span class="rl-label">Supabase Docs</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+      <a href="https://react.dev" target="_blank" class="resource-link">
+        <span class="rl-icon">⚛️</span>
+        <span class="rl-label">React Docs</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+      <a href="https://www.typescriptlang.org/docs" target="_blank" class="resource-link">
+        <span class="rl-icon">🔷</span>
+        <span class="rl-label">TypeScript Docs</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+      <a href="https://tailwindcss.com/docs" target="_blank" class="resource-link">
+        <span class="rl-icon">🎨</span>
+        <span class="rl-label">Tailwind CSS Docs</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+      <a href="https://tanstack.com/query/v5" target="_blank" class="resource-link">
+        <span class="rl-icon">🔄</span>
+        <span class="rl-label">TanStack Query v5</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+      <a href="https://react-hook-form.com" target="_blank" class="resource-link">
+        <span class="rl-icon">📝</span>
+        <span class="rl-label">React Hook Form</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+      <a href="https://dexie.org/docs" target="_blank" class="resource-link">
+        <span class="rl-icon">💾</span>
+        <span class="rl-label">Dexie.js (IndexedDB)</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+      <a href="https://vite-pwa-org.netlify.app" target="_blank" class="resource-link">
+        <span class="rl-icon">📱</span>
+        <span class="rl-label">Vite PWA Plugin</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+    </div>
+
+    <h3>Design</h3>
+    <div class="resources">
+      <a href="https://figma.com" target="_blank" class="resource-link">
+        <span class="rl-icon">🎭</span>
+        <span class="rl-label">Figma (Design)</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+      <a href="https://lucide.dev" target="_blank" class="resource-link">
+        <span class="rl-icon">✏️</span>
+        <span class="rl-label">Lucide Icons</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+      <a href="https://fonts.google.com/specimen/Inter" target="_blank" class="resource-link">
+        <span class="rl-icon">🔤</span>
+        <span class="rl-label">Inter Font</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+    </div>
+
+    <h3>Uganda / East Africa Specific</h3>
+    <div class="resources">
+      <a href="https://africastalking.com/docs" target="_blank" class="resource-link">
+        <span class="rl-icon">📱</span>
+        <span class="rl-label">Africa's Talking SMS API</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+      <a href="https://developers.facebook.com/docs/whatsapp" target="_blank" class="resource-link">
+        <span class="rl-icon">💬</span>
+        <span class="rl-label">WhatsApp Cloud API</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+      <a href="https://ncdc.go.ug" target="_blank" class="resource-link">
+        <span class="rl-icon">🏫</span>
+        <span class="rl-label">NCDC Uganda (Curriculum)</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+    </div>
+
+    <h3>Server & Infrastructure</h3>
+    <div class="resources">
+      <a href="https://supabase.com/docs/guides/self-hosting/docker" target="_blank" class="resource-link">
+        <span class="rl-icon">🐳</span>
+        <span class="rl-label">Supabase Self-Hosting Guide</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+      <a href="https://ubuntu.com/download/server" target="_blank" class="resource-link">
+        <span class="rl-icon">🐧</span>
+        <span class="rl-label">Ubuntu Server 22.04 LTS</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+      <a href="https://nginx.org/en/docs" target="_blank" class="resource-link">
+        <span class="rl-icon">🌐</span>
+        <span class="rl-label">Nginx Docs</span>
+        <span class="rl-arrow">↗</span>
+      </a>
+    </div>
+
+    <div class="callout info" style="margin-top:2rem;">
+      <span class="callout-icon">📌</span>
+      <div class="callout-body">
+        <p><strong>Keep this guide open as your building reference.</strong> Bookmark it, share it between your team, and return to each phase as you progress. Update the checklists as you complete tasks — those checkboxes work! When you're stuck, re-read the relevant phase and use the Claude prompt templates. You've got this. 🇺🇬</p>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+</div>
+
+<script>
+  function toggleCheck(el) {
+    el.classList.toggle('done');
+    const label = el.nextElementSibling;
+    if (label) label.classList.toggle('done');
+  }
+
+  // Active nav on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav-link');
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === '#' + entry.target.id);
+        });
+      }
+    });
+  }, { rootMargin: '-20% 0% -70% 0%' });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
