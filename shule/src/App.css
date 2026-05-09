@@ -1,0 +1,10 @@
+/* App-level overrides only */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: #f4f4f5;
+  font-family: "Inter", sans-serif;
+}
