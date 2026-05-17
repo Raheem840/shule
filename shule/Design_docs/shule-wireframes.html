@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shule — All Role Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --brand:#0d9488;--brand-dark:#0f766e;--brand-light:#f0fdfa;--brand-glow:rgba(13,148,136,.15);
+  --bg:#f8fafc;--surface:#fff;--surface2:#f1f5f9;
+  --sb-bg:#0f172a;--sb-border:rgba(255,255,255,.06);--sb-label:#2a3f55;
+  --sb-item:#4a6a85;--sb-item-hover:#b0d0e8;--sb-item-hover-bg:rgba(255,255,255,.03);
+  --sb-active:#0dd9c4;--sb-active-bg:rgba(13,217,196,.07);
+  --sb-pill-bg:rgba(13,217,196,.06);--sb-pill-border:rgba(13,217,196,.1);
+  --sb-icon-bg:linear-gradient(135deg,rgba(13,217,196,.25),rgba(8,145,178,.15));
+  --sb-icon-border:rgba(13,217,196,.2);--sb-icon-color:#0dd9c4;
+  --sb-user-nm:#d1e8f0;--sb-user-role:#3a5470;
+  --sb-badge:#f43f5e;--sb-count-bg:rgba(255,255,255,.05);--sb-count-color:#3a5470;
+  --border:#e2e8f0;--border2:#cbd5e1;
+  --txt:#0f172a;--txt2:#475569;--txt3:#94a3b8;
+  --green:#10b981;--green-bg:#d1fae5;--green-txt:#047857;
+  --amber:#f59e0b;--amber-bg:#fef3c7;--amber-txt:#b45309;
+  --red:#f43f5e;--red-bg:#ffe4e6;--red-txt:#be123c;
+  --blue:#0ea5e9;--blue-bg:#e0f2fe;--blue-txt:#0369a1;
+  --violet:#8b5cf6;--violet-bg:#ede9fe;--violet-txt:#6d28d9;
+  --font:'Plus Jakarta Sans',sans-serif;--font2:'Space Grotesk',sans-serif;--mono:'JetBrains Mono',monospace;
+  --r:10px;--r-lg:14px;--r-xl:20px;
+  --sh:0 1px 3px rgba(15,23,42,.07),0 1px 2px rgba(15,23,42,.04);
+  --sh-md:0 4px 16px rgba(15,23,42,.09);
+}
+/* DARK MODE — including sidebar */
+[data-theme=dark]{
+  --bg:#070d1a;--surface:rgba(13,24,45,.7);--surface2:rgba(10,20,38,.8);
+  --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.12);
+  --txt:#e2f0f9;--txt2:#7da4c0;--txt3:#3a5470;
+  --brand:#0dd9c4;--brand-dark:#09a898;--brand-light:rgba(13,217,196,.08);--brand-glow:rgba(13,217,196,.2);
+  --green-bg:rgba(16,185,129,.12);--green-txt:#34d399;
+  --amber-bg:rgba(245,158,11,.12);--amber-txt:#fbbf24;
+  --red-bg:rgba(244,63,94,.12);--red-txt:#fb7185;
+  --blue-bg:rgba(14,165,233,.12);--blue-txt:#38bdf8;
+  --violet-bg:rgba(139,92,246,.12);--violet-txt:#a78bfa;
+  /* SIDEBAR in dark mode — subtly lighter, teal glow */
+  --sb-bg:rgba(6,16,38,.95);
+  --sb-border:rgba(13,217,196,.08);
+  --sb-label:rgba(13,217,196,.25);
+  --sb-item:#4a7a95;--sb-item-hover:#c0e0f5;--sb-item-hover-bg:rgba(13,217,196,.05);
+  --sb-pill-bg:rgba(13,217,196,.08);--sb-pill-border:rgba(13,217,196,.15);
+  --sb-user-nm:#c0e0f5;--sb-user-role:#2a5470;
+  --sb-count-bg:rgba(13,217,196,.06);--sb-count-color:#2a5a70;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:var(--font);background:#030711;color:#e2f0f9;font-size:14px;line-height:1.6;overflow-x:hidden;}
+
+/* ── DOC NAV ── */
+.dnav{position:sticky;top:0;z-index:999;background:rgba(3,7,17,.93);backdrop-filter:blur(20px);border-bottom:1px solid rgba(13,217,196,.1);display:flex;align-items:center;padding:0 1.5rem;overflow-x:auto;scrollbar-width:none;}
+.dnav::-webkit-scrollbar{display:none;}
+.dbrand{font-family:var(--font2);font-weight:900;font-size:1rem;background:linear-gradient(135deg,#0dd9c4,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;padding:.9rem 1.2rem .9rem 0;border-right:1px solid rgba(255,255,255,.06);margin-right:.4rem;white-space:nowrap;flex-shrink:0;}
+.dnav a{font-size:11.5px;font-weight:700;color:#5a7a96;text-decoration:none;padding:.9rem .8rem;white-space:nowrap;border-bottom:2px solid transparent;transition:all .18s;font-family:var(--font2);}
+.dnav a:hover{color:#0dd9c4;}
+.dnav a.on{color:#0dd9c4;border-bottom-color:#0dd9c4;}
+
+/* ── SCREEN WRAPPER ── */
+.ws{padding:4rem 2rem 2rem;max-width:1420px;margin:0 auto;}
+.slbl{font-size:10px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:#0dd9c4;margin-bottom:.35rem;}
+.stitle{font-family:var(--font2);font-size:1.55rem;font-weight:800;color:#e2f0f9;margin-bottom:.25rem;letter-spacing:-.5px;}
+.sdesc{font-size:12.5px;color:#5a7a96;margin-bottom:1.75rem;}
+.sframe{border-radius:var(--r-xl);overflow:hidden;border:1px solid rgba(13,217,196,.1);box-shadow:0 0 0 1px rgba(255,255,255,.03),0 40px 100px rgba(0,0,0,.7);}
+.divline{border:none;height:1px;background:linear-gradient(90deg,transparent,rgba(13,217,196,.07),transparent);max-width:1420px;margin:0 auto;}
+
+/* ── APP ROOT (theme host) ── */
+.ar{background:var(--bg);color:var(--txt);transition:background .25s,color .25s;}
+.shell{display:flex;height:660px;}
+
+/* ── SIDEBAR — tokens-driven, both modes ── */
+.sb{width:228px;min-width:228px;flex-shrink:0;
+  background:var(--sb-bg);
+  border-right:1px solid var(--sb-border);
+  display:flex;flex-direction:column;overflow-y:auto;z-index:2;
+  transition:background .25s,border-color .25s;}
+.sb::-webkit-scrollbar{width:0;}
+.sbtop{padding:1.35rem 1.1rem 1rem;border-bottom:1px solid var(--sb-border);transition:border-color .25s;}
+.sbrand{display:flex;align-items:center;gap:.65rem;margin-bottom:1.1rem;}
+.slogo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#0dd9c4,#0891b2);display:flex;align-items:center;justify-content:center;font-family:var(--font2);font-size:15px;font-weight:900;color:#030711;flex-shrink:0;box-shadow:0 0 18px rgba(13,217,196,.4);}
+.sname{font-family:var(--font2);font-size:13.5px;font-weight:900;background:linear-gradient(135deg,#0dd9c4,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.3px;}
+.ssub{font-size:9px;color:var(--sb-user-role);letter-spacing:1.5px;text-transform:uppercase;transition:color .25s;}
+.spill{background:var(--sb-pill-bg);border:1px solid var(--sb-pill-border);border-radius:var(--r);padding:.55rem .75rem;display:flex;align-items:center;gap:.5rem;transition:all .25s;}
+.sicon{width:28px;height:28px;border-radius:7px;flex-shrink:0;background:var(--sb-icon-bg);border:1px solid var(--sb-icon-border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--sb-icon-color);font-family:var(--font2);transition:all .25s;}
+.snm{font-size:11.5px;font-weight:700;color:var(--sb-user-nm);line-height:1.2;transition:color .25s;}
+.ssubtxt{font-size:9.5px;color:var(--sb-user-role);transition:color .25s;}
+.ngl{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--sb-label);padding:.85rem 1.1rem .25rem;transition:color .25s;}
+.ni{display:flex;align-items:center;gap:.6rem;padding:.52rem 1.1rem;font-size:12.5px;font-weight:700;color:var(--sb-item);cursor:pointer;border-left:2px solid transparent;transition:all .15s;text-decoration:none;font-family:var(--font2);}
+.ni:hover{color:var(--sb-item-hover);background:var(--sb-item-hover-bg);}
+.ni.on{color:var(--sb-active);border-left-color:var(--sb-active);background:var(--sb-active-bg);font-weight:800;}
+.ico{width:18px;height:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.ico svg{width:15px;height:15px;}
+.nb{margin-left:auto;font-size:9px;font-weight:800;background:var(--sb-badge);color:#fff;padding:1px 5px;border-radius:8px;}
+.nc{margin-left:auto;font-size:9px;color:var(--sb-count-color);background:var(--sb-count-bg);padding:1px 6px;border-radius:5px;transition:all .25s;}
+.sbbot{margin-top:auto;padding:.8rem 1.1rem;border-top:1px solid var(--sb-border);transition:border-color .25s;}
+.upill{display:flex;align-items:center;gap:.55rem;padding:.5rem .65rem;background:var(--sb-pill-bg);border:1px solid var(--sb-pill-border);border-radius:var(--r);cursor:pointer;transition:all .25s;}
+.uava{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;flex-shrink:0;font-family:var(--font2);}
+.unm{font-size:11.5px;font-weight:700;color:var(--sb-user-nm);line-height:1.2;transition:color .25s;}
+.urole{font-size:9.5px;color:var(--sb-user-role);transition:color .25s;}
+.udot{width:7px;height:7px;border-radius:50%;background:#10b981;margin-left:auto;flex-shrink:0;box-shadow:0 0 6px #10b981;}
+
+/* ── TOPBAR ── */
+.ma{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);transition:background .25s;}
+.tb{height:56px;padding:0 1.4rem;display:flex;align-items:center;gap:.75rem;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;box-shadow:var(--sh);transition:all .25s;}
+[data-theme=dark] .tb{backdrop-filter:blur(20px);}
+.tbtitle{font-family:var(--font2);font-size:15px;font-weight:900;color:var(--txt);flex:1;letter-spacing:-.4px;transition:color .25s;}
+.tbsub{font-size:11px;color:var(--txt3);font-weight:400;margin-left:6px;transition:color .25s;}
+
+/* ── THEME TOGGLE ── */
+.ttog{width:58px;height:28px;border-radius:14px;position:relative;cursor:pointer;
+  background:linear-gradient(135deg,#1e293b,#334155);
+  border:1px solid rgba(255,255,255,.1);
+  transition:all .3s;flex-shrink:0;display:flex;align-items:center;padding:2px;}
+[data-theme=light] .ttog{background:linear-gradient(135deg,#e2e8f0,#f1f5f9);border-color:var(--border2);}
+.tknob{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#0dd9c4,#0891b2);box-shadow:0 0 10px rgba(13,217,196,.5);display:flex;align-items:center;justify-content:center;font-size:11px;transition:transform .3s cubic-bezier(.34,1.56,.64,1);}
+[data-theme=light] .tknob{transform:translateX(28px);background:linear-gradient(135deg,#f59e0b,#f97316);box-shadow:0 0 10px rgba(245,158,11,.5);}
+.tico{width:34px;height:34px;border-radius:var(--r);background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txt2);position:relative;transition:all .15s;flex-shrink:0;}
+.tico:hover{border-color:var(--brand);color:var(--brand);}
+.tico svg{width:15px;height:15px;}
+.ndot{position:absolute;top:4px;right:4px;width:7px;height:7px;background:#f43f5e;border-radius:50%;border:1.5px solid var(--surface);box-shadow:0 0 4px #f43f5e;}
+.tbtn{display:inline-flex;align-items:center;gap:.4rem;padding:.42rem .9rem;border-radius:var(--r);font-size:12px;font-weight:800;cursor:pointer;font-family:var(--font2);white-space:nowrap;transition:all .18s;border:1px solid var(--border);background:var(--surface2);color:var(--txt2);}
+.tbtn:hover{border-color:var(--brand);color:var(--brand);}
+.tbtn.p{background:linear-gradient(135deg,var(--brand),var(--brand-dark));border-color:transparent;color:#030711;box-shadow:0 4px 16px var(--brand-glow);}
+.tbtn svg{width:12px;height:12px;}
+
+/* ── CONTENT ── */
+.mc{flex:1;overflow-y:auto;padding:1.4rem 1.5rem;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.mc::-webkit-scrollbar{width:4px;}
+.mc::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh);position:relative;overflow:hidden;transition:all .25s;}
+.card:hover{box-shadow:var(--sh-md);}
+[data-theme=dark] .card{backdrop-filter:blur(20px);border-top-color:rgba(255,255,255,.09);}
+[data-theme=dark] .card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(13,217,196,.025) 0%,transparent 50%);pointer-events:none;}
+.chd{padding:.85rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;transition:border-color .25s;}
+.ct{font-family:var(--font2);font-size:13px;font-weight:800;color:var(--txt);transition:color .25s;}
+.cb{padding:1.1rem;}
+
+/* ── KPI ── */
+.kg{display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem;margin-bottom:1rem;}
+.kc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.1rem;position:relative;overflow:hidden;transition:all .25s;box-shadow:var(--sh);}
+.kc:hover{transform:translateY(-2px);box-shadow:var(--sh-md);}
+[data-theme=dark] .kc{backdrop-filter:blur(16px);}
+.kiw{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:.75rem;}
+.kiw svg{width:18px;height:18px;}
+.kl{font-size:10.5px;font-weight:800;color:var(--txt3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.2rem;}
+.kv{font-family:var(--font2);font-size:24px;font-weight:900;color:var(--txt);letter-spacing:-1.5px;line-height:1;margin-bottom:.3rem;}
+.ks{font-size:11px;color:var(--txt3);}
+.kbar{position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 var(--r-lg) var(--r-lg);}
+.up{color:#10b981;font-weight:800;}.dn{color:#f43f5e;font-weight:800;}
+
+/* ── BADGES ── */
+.b{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;font-family:var(--font2);}
+.bt{background:rgba(13,217,196,.12);color:#0dd9c4;border:1px solid rgba(13,217,196,.2);}
+.bg{background:var(--green-bg);color:var(--green-txt);border:1px solid rgba(16,185,129,.2);}
+.ba{background:var(--amber-bg);color:var(--amber-txt);border:1px solid rgba(245,158,11,.2);}
+.br{background:var(--red-bg);color:var(--red-txt);border:1px solid rgba(244,63,94,.2);}
+.bb{background:var(--blue-bg);color:var(--blue-txt);border:1px solid rgba(14,165,233,.2);}
+.bv{background:var(--violet-bg);color:var(--violet-txt);border:1px solid rgba(139,92,246,.2);}
+.bm{background:var(--surface2);color:var(--txt2);border:1px solid var(--border);}
+.sd{width:6px;height:6px;border-radius:50%;display:inline-block;}
+.sdg{background:#10b981;box-shadow:0 0 4px #10b981;}.sda{background:#f59e0b;}.sdr{background:#f43f5e;box-shadow:0 0 4px #f43f5e;}
+
+/* ── TABLE ── */
+.dt{width:100%;border-collapse:collapse;font-size:12.5px;}
+.dt th{text-align:left;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:var(--txt3);padding:.55rem .85rem;border-bottom:1px solid var(--border);background:var(--surface2);font-family:var(--font2);transition:all .25s;}
+.dt td{padding:.65rem .85rem;border-bottom:1px solid var(--border);color:var(--txt2);vertical-align:middle;transition:all .2s;}
+.dt tr:last-child td{border-bottom:none;}
+.dt tr:hover td{background:var(--brand-light);color:var(--txt);}
+
+/* ── FORM ── */
+.fl{display:block;font-size:11px;font-weight:800;color:var(--txt2);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.5px;font-family:var(--font2);}
+.fi{width:100%;padding:.55rem .85rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:12.5px;font-family:var(--font);color:var(--txt);outline:none;transition:all .18s;}
+.fi:focus{border-color:var(--brand);background:var(--brand-light);box-shadow:0 0 0 3px var(--brand-glow);}
+.fi::placeholder{color:var(--txt3);}
+.fsel{width:100%;padding:.55rem 2.2rem .55rem .85rem;background:var(--surface2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right .75rem center;border:1px solid var(--border);border-radius:var(--r);font-size:12.5px;font-family:var(--font);color:var(--txt);outline:none;appearance:none;transition:all .18s;}
+.fg{margin-bottom:.85rem;}
+
+/* ── PROGRESS ── */
+.pt{background:var(--surface2);border-radius:6px;overflow:hidden;transition:background .25s;}
+.pf{height:100%;border-radius:6px;}
+.pft{background:linear-gradient(90deg,#0f766e,#0dd9c4);}
+.pfg{background:linear-gradient(90deg,#047857,#10b981);}
+.pfa{background:linear-gradient(90deg,#b45309,#f59e0b);}
+.pfr{background:linear-gradient(90deg,#be123c,#f43f5e);}
+.pfb{background:linear-gradient(90deg,#0369a1,#0ea5e9);}
+
+/* ── ALERT ── */
+.al{display:flex;align-items:flex-start;gap:.6rem;padding:.7rem .9rem;border-radius:var(--r);font-size:12px;margin-bottom:.6rem;border-left:3px solid;}
+.ala{background:var(--amber-bg);border-color:var(--amber);color:var(--amber-txt);}
+.alr{background:var(--red-bg);border-color:var(--red);color:var(--red-txt);}
+.alg{background:var(--green-bg);border-color:var(--green);color:var(--green-txt);}
+.alt{background:var(--brand-light);border-color:var(--brand);color:var(--brand-dark);}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:3px;background:var(--surface2);border-radius:10px;padding:3px;width:fit-content;margin-bottom:1rem;border:1px solid var(--border);transition:all .25s;}
+.tab{padding:.3rem .9rem;border-radius:8px;font-size:12px;font-weight:800;color:var(--txt3);cursor:pointer;font-family:var(--font2);white-space:nowrap;transition:all .18s;}
+.tab.on{background:var(--surface);color:var(--txt);box-shadow:var(--sh);}
+[data-theme=dark] .tab.on{background:rgba(13,217,196,.1);color:#0dd9c4;border:1px solid rgba(13,217,196,.15);}
+
+/* ── WIZARD ── */
+.wiz{display:flex;align-items:center;margin-bottom:1.5rem;}
+.wn{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex-shrink:0;font-family:var(--font2);transition:all .25s;}
+.wn.d{background:var(--brand);color:#030711;box-shadow:0 0 12px var(--brand-glow);}
+.wn.a{background:var(--brand-light);color:var(--brand);border:2px solid var(--brand);}
+.wn.p{background:var(--surface2);color:var(--txt3);border:1px solid var(--border);}
+.wl{font-size:11.5px;font-weight:800;color:var(--txt3);font-family:var(--font2);}
+.wl.a{color:var(--brand);}
+.wline{flex:1;height:2px;margin:0 .6rem;border-radius:2px;}
+.wline.d{background:linear-gradient(90deg,var(--brand),rgba(13,217,196,.3));}
+.wline.p{background:var(--border);}
+
+/* ── DONUT ── */
+.dw{position:relative;display:inline-flex;align-items:center;justify-content:center;}
+.dsvg{transform:rotate(-90deg);}
+.dcenter{position:absolute;text-align:center;}
+.dval{font-family:var(--font2);font-weight:900;font-size:17px;color:var(--txt);display:block;line-height:1;}
+.dlbl{font-size:9px;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+
+/* ── CHARTS ── */
+.bsvg{width:100%;overflow:visible;}
+.br2{transition:opacity .15s;cursor:pointer;}
+.br2:hover{opacity:.8;}
+.cl{font-size:9px;fill:var(--txt3);font-family:var(--font2);font-weight:700;}
+.cv{font-size:9px;fill:var(--txt2);font-family:var(--font2);font-weight:800;}
+.lp{fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.la{opacity:.12;}
+.cdot{cursor:pointer;}
+
+/* ── ANIMATIONS ── */
+@keyframes fillBar{from{transform:scaleY(0);transform-origin:bottom;}to{transform:scaleY(1);transform-origin:bottom;}}
+@keyframes drawLine{from{stroke-dashoffset:1000;}to{stroke-dashoffset:0;}}
+@keyframes spinDonut{from{stroke-dashoffset:300;}to{stroke-dashoffset:var(--de,0);}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.abar{animation:fillBar .8s cubic-bezier(.22,1,.36,1) both;}
+.aline{stroke-dasharray:1000;animation:drawLine 1.5s ease both;}
+.acard{animation:fadeUp .5s ease both;}
+
+/* ── LAYOUT ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem;}
+.g24{display:grid;grid-template-columns:2fr 1.25fr;gap:.85rem;}
+.g32{display:grid;grid-template-columns:1.6fr 1fr;gap:.85rem;}
+.fx{display:flex;align-items:center;}
+.fxb{display:flex;align-items:center;justify-content:space-between;}
+.fxg{display:flex;align-items:center;gap:.5rem;}
+.mb1{margin-bottom:.85rem;}.mb2{margin-bottom:1.35rem;}
+.sep{height:1px;background:var(--border);margin:.75rem 0;transition:background .25s;}
+.ava{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;flex-shrink:0;font-family:var(--font2);}
+</style>
+</head>
+<body>
+<nav class="dnav">
+  <div class="dbrand">⬡ Shule Wireframes</div>
+  <a href="#secretary" class="on">Secretary</a>
+  <a href="#bursar">Bursar</a>
+  <a href="#teacher">Teacher</a>
+  <a href="#dos">DoS</a>
+  <a href="#deputy">Deputy</a>
+  <a href="#parent">Parent</a>
+  <a href="#student">Student</a>
+  <a href="#it">IT Admin</a>
+</nav>
+
+<!-- ═══ SECRETARY ═══ -->
+<section id="secretary" class="ws">
+  <div class="slbl">Screen 03 · Secretary</div>
+  <div class="stitle">Student Registration — 3-Step Wizard</div>
+  <div class="sdesc">Step 2: Academic placement. Auto-generated admission number, live preview card, completion tracker. Sidebar switches between light ↔ dark with the topbar toggle.</div>
+  <div class="sframe">
+    <div class="ar" id="sec-root" data-theme="light">
+      <div class="shell">
+        <nav class="sb">
+          <div class="sbtop">
+            <div class="sbrand"><div class="slogo">S</div><div><div class="sname">Shule</div><div class="ssub">School OS</div></div></div>
+            <div class="spill"><div class="sicon">K</div><div><div class="snm">Kampala Junior</div><div class="ssubtxt">Secretary Portal</div></div></div>
+          </div>
+          <div class="ngl">Main</div>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Dashboard</a>
+          <a class="ni on"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>Students</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg></span>Staff</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span>Classes</a>
+          <div class="ngl">Limited Access</div>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span>Fee Status</a>
+          <div class="ngl">Reports</div>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>Report Cards</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></span>Portal Links</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>Import Data</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span>Messages</a>
+          <div class="sbbot">
+            <div class="upill">
+              <div class="uava" style="background:rgba(236,72,153,.15);color:#f472b6;">AN</div>
+              <div><div class="unm">Aisha Nakazibwe</div><div class="urole">Secretary</div></div>
+              <div class="udot"></div>
+            </div>
+          </div>
+        </nav>
+        <div class="ma">
+          <div class="tb">
+            <div style="flex:1;"><span class="tbtitle">Register New Student</span><span class="tbsub">Step 2 of 3</span></div>
+            <div class="ttog" onclick="tog('sec-root','sec-k')"><div class="tknob" id="sec-k">🌙</div></div>
+            <div class="tbtn">✕ Cancel</div>
+            <div class="tbtn p">Continue → Step 3</div>
+          </div>
+          <div class="mc">
+            <div class="wiz mb2">
+              <div style="display:flex;align-items:center;gap:.4rem;"><div class="wn d">✓</div><span class="wl a">Personal Info</span></div>
+              <div class="wline d"></div>
+              <div style="display:flex;align-items:center;gap:.4rem;"><div class="wn a">2</div><span class="wl a">Academic Placement</span></div>
+              <div class="wline p"></div>
+              <div style="display:flex;align-items:center;gap:.4rem;"><div class="wn p">3</div><span class="wl">Guardian Info</span></div>
+            </div>
+            <div class="g24">
+              <div class="card">
+                <div class="chd"><span class="ct">Academic Placement</span><span class="b bt">Step 2</span></div>
+                <div class="cb">
+                  <div class="g2">
+                    <div class="fg">
+                      <label class="fl">Admission Number</label>
+                      <div style="position:relative;">
+                        <input class="fi" value="KJA/2025/0848" readonly style="background:var(--brand-light);border-color:var(--brand);color:var(--brand);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;padding-right:4rem;">
+                        <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:9px;background:var(--brand);color:#030711;padding:2px 6px;border-radius:5px;font-weight:900;font-family:var(--font2);">AUTO</span>
+                      </div>
+                      <div style="font-size:10px;color:var(--brand);margin-top:3px;opacity:.8;">✓ Unique per school · sequential</div>
+                    </div>
+                    <div class="fg">
+                      <label class="fl">Enrollment Date</label>
+                      <input class="fi" type="date" value="2025-05-13">
+                    </div>
+                  </div>
+                  <div class="g2">
+                    <div class="fg"><label class="fl">Class</label><select class="fsel"><option>Senior 1 (S.1)</option><option>Senior 2</option><option>Senior 3</option><option>Senior 4</option></select></div>
+                    <div class="fg"><label class="fl">Stream</label><select class="fsel"><option>East</option><option>West</option><option>North</option><option>South</option></select></div>
+                  </div>
+                  <div class="fg"><label class="fl">Previous School</label><input class="fi" placeholder="e.g. Kibuli Primary School, Kampala"></div>
+                  <div class="g2">
+                    <div class="fg"><label class="fl">Student Type</label><select class="fsel"><option>Day Scholar</option><option>Boarder</option></select></div>
+                    <div class="fg"><label class="fl">Religion</label><select class="fsel"><option>Christian</option><option>Muslim</option><option>Other</option></select></div>
+                  </div>
+                  <div class="fg"><label class="fl">Medical / Special Needs (optional)</label><textarea class="fi" placeholder="Any conditions, allergies, or requirements…" style="height:52px;resize:none;"></textarea></div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.85rem;">
+                <div class="card" style="border-color:var(--brand);background:var(--brand-light);">
+                  <div class="chd" style="background:transparent;border-bottom-color:rgba(13,148,136,.15);"><span class="ct" style="color:var(--brand);">Student Preview</span></div>
+                  <div class="cb">
+                    <div style="display:flex;gap:.85rem;align-items:flex-start;margin-bottom:1rem;">
+                      <div style="width:52px;height:52px;border-radius:12px;background:var(--brand-light);border:2px dashed var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      </div>
+                      <div>
+                        <div style="font-family:var(--font2);font-size:14px;font-weight:900;color:var(--txt);">Amara Nantongo</div>
+                        <div style="font-size:11.5px;color:var(--txt2);margin-top:2px;">Female · DOB: 12 Mar 2010</div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--brand);margin-top:4px;font-weight:700;">KJA/2025/0848</div>
+                        <div style="margin-top:6px;display:flex;gap:4px;"><span class="b bg">Active</span><span class="b bt">S.1 East</span></div>
+                      </div>
+                    </div>
+                    <div class="sep"></div>
+                    <div style="display:flex;flex-direction:column;gap:.45rem;">
+                      <div class="fxb" style="font-size:12px;"><span style="color:var(--brand);font-weight:800;">✓ Personal Info</span><span class="b bg" style="font-size:9.5px;">Done</span></div>
+                      <div class="fxb" style="font-size:12px;"><span style="color:var(--brand);font-weight:900;">⟳ Academic Placement</span><span class="b ba" style="font-size:9.5px;">In Progress</span></div>
+                      <div class="fxb" style="font-size:12px;"><span style="color:var(--txt3);">○ Guardian Info</span><span class="b bm" style="font-size:9.5px;">Pending</span></div>
+                    </div>
+                    <div style="margin-top:.85rem;">
+                      <div class="pt" style="height:7px;"><div class="pf pft" style="width:55%;"></div></div>
+                      <div style="font-size:10.5px;color:var(--txt3);margin-top:4px;">55% complete · 1 step remaining</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="chd"><span class="ct">Bulk Import?</span></div>
+                  <div class="cb" style="font-size:12px;color:var(--txt2);line-height:1.65;">
+                    Have many students? Use the Excel import wizard instead.
+                    <div style="margin-top:.65rem;"><div class="tbtn" style="display:inline-flex;color:var(--brand);border-color:rgba(13,148,136,.25);">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Import from Excel
+                    </div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<hr class="divline">
+
+<!-- ═══ BURSAR ═══ -->
+<section id="bursar" class="ws">
+  <div class="slbl">Screen 04 · Bursar</div>
+  <div class="stitle">Fee Ledger</div>
+  <div class="sdesc">Inline editable ledger, animated donut (collection split), import/export, SMS reminders. Finance hard-blocked for other roles at DB level via RLS.</div>
+  <div class="sframe">
+    <div class="ar" id="bur-root" data-theme="light">
+      <div class="shell">
+        <nav class="sb">
+          <div class="sbtop">
+            <div class="sbrand"><div class="slogo">S</div><div><div class="sname">Shule</div><div class="ssub">School OS</div></div></div>
+            <div class="spill"><div class="sicon">K</div><div><div class="snm">Kampala Junior</div><div class="ssubtxt">Bursar Portal</div></div></div>
+          </div>
+          <div class="ngl">Finance</div>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Dashboard</a>
+          <a class="ni on"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg></span>Fee Ledger</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>Import Fees</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>Fee Structure</a>
+          <div class="ngl">Payments</div>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>Add Payment</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></span>SMS Reminders</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>Delivery Log</a>
+          <div class="ngl">Payroll</div>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg></span>Salary Records</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>Fee Reports</a>
+          <div class="sbbot">
+            <div class="upill">
+              <div class="uava" style="background:rgba(245,158,11,.15);color:#fbbf24;">JM</div>
+              <div><div class="unm">James Mutebi</div><div class="urole">Bursar</div></div>
+              <div class="udot"></div>
+            </div>
+          </div>
+        </nav>
+        <div class="ma">
+          <div class="tb">
+            <div style="flex:1;"><span class="tbtitle">Fee Ledger</span><span class="tbsub">Term 2 · 2025 · 847 students</span></div>
+            <div class="ttog" onclick="tog('bur-root','bur-k')"><div class="tknob" id="bur-k">🌙</div></div>
+            <select class="fsel" style="width:auto;font-size:11.5px;padding:.3rem 1.6rem .3rem .6rem;height:32px;border-radius:var(--r);"><option>All Classes</option><option>S.1</option><option>S.2</option><option>S.3</option></select>
+            <select class="fsel" style="width:auto;font-size:11.5px;padding:.3rem 1.6rem .3rem .6rem;height:32px;border-radius:var(--r);"><option>All Status</option><option>Paid</option><option>Partial</option><option>Unpaid</option></select>
+            <div class="tbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Import</div>
+            <div class="tbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 16 12 21 17 16"/><line x1="12" y1="21" x2="12" y2="3"/></svg>Export</div>
+            <div class="tbtn p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Add Payment</div>
+          </div>
+          <div class="mc">
+            <div class="g4 mb1">
+              <div class="kc acard"><div class="kl">Total Due</div><div class="kv" style="font-size:18px;">UGX 62.8M</div><div class="ks">847 students</div><div class="kbar" style="background:linear-gradient(90deg,#0f766e,#0dd9c4);"></div></div>
+              <div class="kc acard" style="animation-delay:.08s;"><div class="kl">Collected</div><div class="kv" style="font-size:18px;color:#10b981;">42.6M</div><div class="ks">68% of target</div><div class="kbar" style="background:linear-gradient(90deg,#047857,#10b981);"></div></div>
+              <div class="kc acard" style="animation-delay:.16s;"><div class="kl">Outstanding</div><div class="kv" style="font-size:18px;color:#f43f5e;">20.2M</div><div class="ks">289 unpaid</div><div class="kbar" style="background:linear-gradient(90deg,#be123c,#f43f5e);"></div></div>
+              <div class="kc acard" style="animation-delay:.24s;"><div class="kl">Fully Paid</div><div class="kv" style="font-size:18px;color:var(--brand);">558</div><div class="ks">66% of students</div><div class="kbar" style="background:linear-gradient(90deg,#0f766e,#0dd9c4);"></div></div>
+            </div>
+            <div class="g32">
+              <div class="card">
+                <div class="chd">
+                  <div style="display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:0 .75rem;gap:.5rem;height:30px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input placeholder="Search student or adm. no…" style="border:none;background:transparent;font-size:12px;color:var(--txt);font-family:var(--font);outline:none;width:180px;">
+                  </div>
+                  <div class="fxg"><span style="font-size:11px;color:var(--txt3);">1–50 of 847</span><div class="tbtn" style="font-size:11px;padding:.25rem .6rem;color:var(--red-txt);border-color:rgba(244,63,94,.2);">Remind 289 Unpaid</div></div>
+                </div>
+                <table class="dt">
+                  <thead><tr><th><input type="checkbox" style="accent-color:var(--brand);"></th><th>Student</th><th>Adm. No.</th><th>Class</th><th>Due</th><th>Paid</th><th>Balance</th><th>Status</th><th>Last Pmt</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td><input type="checkbox" checked style="accent-color:var(--brand);"></td><td><div class="fxg"><div class="ava" style="width:26px;height:26px;background:var(--green-bg);color:var(--green-txt);font-size:10px;">AN</div><div><div style="font-weight:700;color:var(--txt);font-size:12.5px;">Akello Nantongo</div><div style="font-size:10.5px;color:var(--txt3);">S.1 East</div></div></div></td><td><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt3);">KJA/2025/001</span></td><td>S.1 East</td><td style="color:var(--txt2);">850,000</td><td style="color:#10b981;font-weight:800;">850,000</td><td style="color:#10b981;font-weight:900;">0</td><td><span class="b bg"><span class="sd sdg"></span>Paid</span></td><td style="font-size:11px;color:var(--txt3);">12 May</td><td><span style="font-size:11.5px;color:var(--blue-txt);cursor:pointer;font-weight:800;">Edit</span></td></tr>
+                    <tr><td><input type="checkbox" style="accent-color:var(--brand);"></td><td><div class="fxg"><div class="ava" style="width:26px;height:26px;background:var(--amber-bg);color:var(--amber-txt);font-size:10px;">OM</div><div><div style="font-weight:700;color:var(--txt);font-size:12.5px;">Okello Michael</div><div style="font-size:10.5px;color:var(--txt3);">S.1 East</div></div></div></td><td><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt3);">KJA/2025/002</span></td><td>S.1 East</td><td style="color:var(--txt2);">850,000</td><td style="color:#f59e0b;font-weight:800;">500,000</td><td style="color:#f59e0b;font-weight:900;">350,000</td><td><span class="b ba"><span class="sd sda"></span>Partial</span></td><td style="font-size:11px;color:var(--txt3);">28 Apr</td><td><div class="fxg"><span style="font-size:11.5px;color:var(--blue-txt);cursor:pointer;font-weight:800;">Edit</span><span style="font-size:11.5px;color:var(--amber-txt);cursor:pointer;font-weight:800;">Remind</span></div></td></tr>
+                    <tr><td><input type="checkbox" style="accent-color:var(--brand);"></td><td><div class="fxg"><div class="ava" style="width:26px;height:26px;background:var(--red-bg);color:var(--red-txt);font-size:10px;">NK</div><div><div style="font-weight:700;color:var(--txt);font-size:12.5px;">Nakato Kizito</div><div style="font-size:10.5px;color:var(--txt3);">S.1 West</div></div></div></td><td><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt3);">KJA/2025/003</span></td><td>S.1 West</td><td style="color:var(--txt2);">850,000</td><td style="color:#f43f5e;">—</td><td style="color:#f43f5e;font-weight:900;">850,000</td><td><span class="b br"><span class="sd sdr"></span>Unpaid</span></td><td style="font-size:11px;color:var(--txt3);">—</td><td><div class="fxg"><span style="font-size:11.5px;color:var(--blue-txt);cursor:pointer;font-weight:800;">Edit</span><span style="font-size:11.5px;color:var(--red-txt);cursor:pointer;font-weight:800;">Remind</span></div></td></tr>
+                    <tr><td><input type="checkbox" checked style="accent-color:var(--brand);"></td><td><div class="fxg"><div class="ava" style="width:26px;height:26px;background:var(--blue-bg);color:var(--blue-txt);font-size:10px;">KJ</div><div><div style="font-weight:700;color:var(--txt);font-size:12.5px;">Kyaligonza James</div><div style="font-size:10.5px;color:var(--txt3);">S.3 East</div></div></div></td><td><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt3);">KJA/2023/104</span></td><td>S.3 East</td><td style="color:var(--txt2);">920,000</td><td style="color:#10b981;font-weight:800;">920,000</td><td style="color:#10b981;font-weight:900;">0</td><td><span class="b bg"><span class="sd sdg"></span>Paid</span></td><td style="font-size:11px;color:var(--txt3);">1 May</td><td><span style="font-size:11.5px;color:var(--blue-txt);cursor:pointer;font-weight:800;">Edit</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <!-- Donut + actions -->
+              <div style="display:flex;flex-direction:column;gap:.85rem;">
+                <div class="card">
+                  <div class="chd"><span class="ct">Collection Split</span></div>
+                  <div class="cb" style="display:flex;flex-direction:column;align-items:center;gap:.75rem;">
+                    <div class="dw" style="width:100px;height:100px;">
+                      <svg class="dsvg" width="100" height="100" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="38" fill="none" stroke="var(--surface2)" stroke-width="11"/>
+                        <circle cx="50" cy="50" r="38" fill="none" stroke="#10b981" stroke-width="11" stroke-linecap="round" stroke-dasharray="162 239" style="animation:spinDonut 1.2s cubic-bezier(.22,1,.36,1) both;--de:162;stroke-dashoffset:300;"/>
+                        <circle cx="50" cy="50" r="38" fill="none" stroke="#f59e0b" stroke-width="11" stroke-linecap="round" stroke-dasharray="28.7 239" stroke-dashoffset="-162" style="opacity:.9;"/>
+                        <circle cx="50" cy="50" r="38" fill="none" stroke="#f43f5e" stroke-width="11" stroke-linecap="round" stroke-dasharray="48 239" stroke-dashoffset="-190.7" style="opacity:.9;"/>
+                      </svg>
+                      <div class="dcenter"><span class="dval">68%</span><span class="dlbl">Collected</span></div>
+                    </div>
+                    <div style="width:100%;display:flex;flex-direction:column;gap:.35rem;">
+                      <div class="fxb" style="font-size:11.5px;"><span style="display:flex;align-items:center;gap:5px;color:var(--txt2);"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>Paid</span><strong style="color:var(--txt);">558 (66%)</strong></div>
+                      <div class="fxb" style="font-size:11.5px;"><span style="display:flex;align-items:center;gap:5px;color:var(--txt2);"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Partial</span><strong style="color:var(--txt);">117 (14%)</strong></div>
+                      <div class="fxb" style="font-size:11.5px;"><span style="display:flex;align-items:center;gap:5px;color:var(--txt2);"><span style="width:8px;height:8px;border-radius:50%;background:#f43f5e;display:inline-block;"></span>Unpaid</span><strong style="color:var(--txt);">172 (20%)</strong></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="chd"><span class="ct">Quick Actions</span></div>
+                  <div class="cb" style="display:flex;flex-direction:column;gap:.5rem;">
+                    <div class="tbtn p" style="justify-content:center;">Bulk SMS Reminder</div>
+                    <div class="tbtn" style="justify-content:center;">Export PDF Statement</div>
+                    <div class="tbtn" style="justify-content:center;">Export Excel</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<hr class="divline">
+<!-- ═══ TEACHER ═══ -->
+<section id="teacher" class="ws">
+  <div class="slbl">Screen 05 · Teacher</div>
+  <div class="stitle">Exam Journal & Mark Entry</div>
+  <div class="sdesc">Animated bar chart score distributions, inline mark entry with grade auto-calc (CBC), Mark as Ready flow.</div>
+  <div class="sframe">
+    <div class="ar" id="tch-root" data-theme="light">
+      <div class="shell">
+        <nav class="sb">
+          <div class="sbtop">
+            <div class="sbrand"><div class="slogo">S</div><div><div class="sname">Shule</div><div class="ssub">School OS</div></div></div>
+            <div class="spill"><div class="sicon">K</div><div><div class="snm">Kampala Junior</div><div class="ssubtxt">Teacher Portal</div></div></div>
+          </div>
+          <div class="ngl">My Teaching</div>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Dashboard</a>
+          <a class="ni on"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg></span>Exam Journal</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>Enter Marks</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Attendance</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></span>Curriculum</a>
+          <div class="ngl">Reports</div>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>Report Preview</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span>Messages <span class="nb">2</span></a>
+          <div class="sbbot"><div class="upill"><div class="uava" style="background:rgba(14,165,233,.15);color:#38bdf8;">SO</div><div><div class="unm">Samuel Okwir</div><div class="urole">Teacher · Maths</div></div><div class="udot"></div></div></div>
+        </nav>
+        <div class="ma">
+          <div class="tb">
+            <div style="flex:1;"><span class="tbtitle">Exam Journal — Mathematics</span><span class="tbsub">S.3 East · S.3 West · S.4 East</span></div>
+            <div class="ttog" onclick="tog('tch-root','tch-k')"><div class="tknob" id="tch-k">🌙</div></div>
+            <div class="tbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Import Marks</div>
+            <div class="tbtn p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>New Entry</div>
+          </div>
+          <div class="mc">
+            <div class="tabs mb1"><div class="tab on">All</div><div class="tab">S.3 East</div><div class="tab">S.3 West</div><div class="tab">S.4 East</div></div>
+            <div class="g2 mb1">
+              <div class="card" style="border-color:var(--brand);background:var(--brand-light);">
+                <div class="chd" style="background:transparent;border-bottom-color:rgba(13,148,136,.15);">
+                  <div><span class="b bt">Mid-Term Test</span><div style="font-family:var(--font2);font-size:13px;font-weight:900;color:var(--txt);margin-top:5px;">Maths Mid-Term · S.3 East</div><div style="font-size:11px;color:var(--txt3);">8 May 2025 · Term 2 · /50 · Pass: 25</div></div>
+                  <span style="color:var(--brand);font-size:11.5px;font-weight:900;cursor:pointer;font-family:var(--font2);">View →</span>
+                </div>
+                <div class="cb">
+                  <div style="font-size:10px;font-weight:800;color:var(--txt3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Score Distribution · 42 students</div>
+                  <svg viewBox="0 0 260 60" style="width:100%;height:60px;overflow:visible;">
+                    <defs>
+                      <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0dd9c4"/><stop offset="100%" stop-color="#0d9488" stop-opacity=".7"/></linearGradient>
+                      <linearGradient id="gg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#047857" stop-opacity=".7"/></linearGradient>
+                      <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#b45309" stop-opacity=".7"/></linearGradient>
+                      <linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f43f5e"/><stop offset="100%" stop-color="#be123c" stop-opacity=".7"/></linearGradient>
+                    </defs>
+                    <line x1="0" y1="0" x2="260" y2="0" stroke="var(--border)" stroke-width=".5"/>
+                    <line x1="0" y1="30" x2="260" y2="30" stroke="var(--border)" stroke-width=".5" stroke-dasharray="4,3"/>
+                    <rect class="br2 abar" x="5"   y="42" width="18" height="18" rx="3" fill="url(#rg)" style="animation-delay:.05s;"/>
+                    <rect class="br2 abar" x="30"  y="30" width="18" height="30" rx="3" fill="url(#rg)" style="animation-delay:.1s;"/>
+                    <rect class="br2 abar" x="55"  y="20" width="18" height="40" rx="3" fill="url(#ag)" style="animation-delay:.15s;"/>
+                    <rect class="br2 abar" x="80"  y="5"  width="18" height="55" rx="3" fill="url(#tg)" style="animation-delay:.2s;"/>
+                    <rect class="br2 abar" x="105" y="0"  width="18" height="60" rx="3" fill="url(#gg)" style="animation-delay:.25s;"/>
+                    <rect class="br2 abar" x="130" y="8"  width="18" height="52" rx="3" fill="url(#tg)" style="animation-delay:.3s;"/>
+                    <rect class="br2 abar" x="155" y="15" width="18" height="45" rx="3" fill="url(#tg)" style="animation-delay:.35s;"/>
+                    <rect class="br2 abar" x="180" y="28" width="18" height="32" rx="3" fill="url(#ag)" style="animation-delay:.4s;"/>
+                    <rect class="br2 abar" x="205" y="40" width="18" height="20" rx="3" fill="url(#rg)" style="animation-delay:.45s;"/>
+                    <rect class="br2 abar" x="230" y="50" width="18" height="10" rx="3" fill="url(#rg)" style="animation-delay:.5s;"/>
+                  </svg>
+                  <div style="margin-top:.7rem;display:flex;gap:5px;flex-wrap:wrap;">
+                    <span class="b bt" style="font-size:10px;">Exceptional: 8</span><span class="b bb" style="font-size:10px;">Passed: 24</span><span class="b ba" style="font-size:10px;">Needs work: 7</span><span class="b br" style="font-size:10px;">Poor: 3</span>
+                  </div>
+                  <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid rgba(13,148,136,.15);font-size:12px;font-weight:800;color:var(--brand);font-family:var(--font2);">Avg: 34/50 (68%) · Pass rate: 76%</div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="chd"><div><span class="b bb">CA3 — Written</span><div style="font-family:var(--font2);font-size:13px;font-weight:900;color:var(--txt);margin-top:5px;">Maths CA3 · S.3 East</div><div style="font-size:11px;color:var(--txt3);">20 Apr 2025 · /30</div></div><span style="color:var(--blue-txt);font-size:11.5px;font-weight:900;cursor:pointer;font-family:var(--font2);">View →</span></div>
+                <div class="cb">
+                  <div style="font-size:10px;font-weight:800;color:var(--txt3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Score Distribution · 42 students</div>
+                  <svg viewBox="0 0 260 60" style="width:100%;height:60px;overflow:visible;">
+                    <line x1="0" y1="0" x2="260" y2="0" stroke="var(--border)" stroke-width=".5"/>
+                    <line x1="0" y1="30" x2="260" y2="30" stroke="var(--border)" stroke-width=".5" stroke-dasharray="4,3"/>
+                    <rect class="br2 abar" x="5"   y="52" width="18" height="8"  rx="3" fill="url(#rg)" style="animation-delay:.05s;"/>
+                    <rect class="br2 abar" x="30"  y="38" width="18" height="22" rx="3" fill="url(#ag)" style="animation-delay:.1s;"/>
+                    <rect class="br2 abar" x="55"  y="20" width="18" height="40" rx="3" fill="url(#tg)" style="animation-delay:.15s;"/>
+                    <rect class="br2 abar" x="80"  y="0"  width="18" height="60" rx="3" fill="url(#gg)" style="animation-delay:.2s;"/>
+                    <rect class="br2 abar" x="105" y="4"  width="18" height="56" rx="3" fill="url(#tg)" style="animation-delay:.25s;"/>
+                    <rect class="br2 abar" x="130" y="10" width="18" height="50" rx="3" fill="url(#tg)" style="animation-delay:.3s;"/>
+                    <rect class="br2 abar" x="155" y="18" width="18" height="42" rx="3" fill="url(#tg)" style="animation-delay:.35s;"/>
+                    <rect class="br2 abar" x="180" y="30" width="18" height="30" rx="3" fill="url(#ag)" style="animation-delay:.4s;"/>
+                    <rect class="br2 abar" x="205" y="42" width="18" height="18" rx="3" fill="url(#ag)" style="animation-delay:.45s;"/>
+                    <rect class="br2 abar" x="230" y="50" width="18" height="10" rx="3" fill="url(#rg)" style="animation-delay:.5s;"/>
+                  </svg>
+                  <div style="margin-top:.7rem;display:flex;gap:5px;flex-wrap:wrap;"><span class="b bt" style="font-size:10px;">Exceptional: 12</span><span class="b bb" style="font-size:10px;">Passed: 22</span><span class="b ba" style="font-size:10px;">Needs work: 6</span><span class="b br" style="font-size:10px;">Poor: 2</span></div>
+                  <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--border);font-size:12px;font-weight:800;color:#10b981;font-family:var(--font2);">Avg: 22/30 (73%) · Pass rate: 81%</div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="chd"><span class="ct">Mark Entry — Maths Mid-Term · S.3 East</span><div class="fxg"><span style="font-size:11px;color:var(--txt3);">42 students · click score to edit</span><div class="tbtn" style="font-size:11px;padding:.25rem .7rem;color:var(--brand);border-color:rgba(13,148,136,.25);">Mark as Ready →</div></div></div>
+              <table class="dt">
+                <thead><tr><th>#</th><th>Student</th><th>Adm. No.</th><th>Score /50</th><th>Grade</th><th>Remarks</th></tr></thead>
+                <tbody>
+                  <tr><td style="color:var(--txt3);">1</td><td><div class="fxg"><div class="ava" style="width:22px;height:22px;font-size:9px;background:var(--green-bg);color:var(--green-txt);">AN</div>Akello N.</div></td><td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt3);">001</td><td><input style="width:50px;padding:3px 7px;background:var(--brand-light);border:1.5px solid var(--brand);border-radius:6px;font-size:12.5px;font-weight:800;color:var(--brand);text-align:center;font-family:var(--font2);outline:none;" value="47"></td><td><span class="b bt">A</span></td><td style="font-size:11.5px;color:var(--txt3);">Excellent</td></tr>
+                  <tr><td style="color:var(--txt3);">2</td><td><div class="fxg"><div class="ava" style="width:22px;height:22px;font-size:9px;background:var(--blue-bg);color:var(--blue-txt);">OM</div>Okello M.</div></td><td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt3);">002</td><td><input style="width:50px;padding:3px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12.5px;color:var(--txt);text-align:center;font-family:var(--font2);outline:none;" value="38"></td><td><span class="b bb">B</span></td><td style="font-size:11.5px;color:var(--txt3);">Good</td></tr>
+                  <tr><td style="color:var(--txt3);">3</td><td><div class="fxg"><div class="ava" style="width:22px;height:22px;font-size:9px;background:var(--red-bg);color:var(--red-txt);">NK</div>Nakato K.</div></td><td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt3);">003</td><td><input style="width:50px;padding:3px 7px;background:var(--red-bg);border:1.5px solid var(--red);border-radius:6px;font-size:12.5px;color:var(--red-txt);text-align:center;font-family:var(--font2);outline:none;" value="22"></td><td><span class="b br">E</span></td><td style="font-size:11.5px;color:var(--txt3);">Needs support</td></tr>
+                  <tr><td style="color:var(--txt3);">4</td><td><div class="fxg"><div class="ava" style="width:22px;height:22px;font-size:9px;background:var(--violet-bg);color:var(--violet-txt);">KJ</div>Kyaligonza J.</div></td><td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt3);">104</td><td><input style="width:50px;padding:3px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12.5px;color:var(--txt);text-align:center;font-family:var(--font2);outline:none;" value="41"></td><td><span class="b bt">A</span></td><td style="font-size:11.5px;color:var(--txt3);">Very good</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<hr class="divline">
+
+<!-- ═══ DoS ═══ -->
+<section id="dos" class="ws">
+  <div class="slbl">Screen 06 · Director of Studies</div>
+  <div class="stitle">Academic Analytics Dashboard</div>
+  <div class="sdesc">Pass rate line chart, curriculum coverage bars, teacher activity table, flagged classes. Animated line with area fill.</div>
+  <div class="sframe">
+    <div class="ar" id="dos-root" data-theme="light">
+      <div class="shell">
+        <nav class="sb">
+          <div class="sbtop">
+            <div class="sbrand"><div class="slogo">S</div><div><div class="sname">Shule</div><div class="ssub">School OS</div></div></div>
+            <div class="spill"><div class="sicon">K</div><div><div class="snm">Kampala Junior</div><div class="ssubtxt">DoS Portal</div></div></div>
+          </div>
+          <div class="ngl">Academic</div>
+          <a class="ni on"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>Dashboard</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></span>Subjects</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span>Classes</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>Teachers</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/></svg></span>Curriculum Plan</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg></span>All Journals</a>
+          <div class="ngl">Tools</div>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Timetable</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span>Messages</a>
+          <div class="sbbot"><div class="upill"><div class="uava" style="background:rgba(139,92,246,.15);color:#a78bfa;">RN</div><div><div class="unm">Rose Nambi</div><div class="urole">Dir. of Studies</div></div><div class="udot"></div></div></div>
+        </nav>
+        <div class="ma">
+          <div class="tb">
+            <div style="flex:1;"><span class="tbtitle">Academic Overview</span><span class="tbsub">Term 2 · 2025</span></div>
+            <div class="ttog" onclick="tog('dos-root','dos-k')"><div class="tknob" id="dos-k">🌙</div></div>
+            <div class="tbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 16 12 21 17 16"/></svg>Export</div>
+          </div>
+          <div class="mc">
+            <div class="g4 mb2">
+              <div class="kc"><div class="kl">School Pass Rate</div><div class="kv">78%</div><div class="ks"><span class="up">↑ 4%</span> vs Term 1</div><div class="kbar" style="background:linear-gradient(90deg,#0f766e,#0dd9c4);"></div></div>
+              <div class="kc"><div class="kl">Assessments</div><div class="kv">184</div><div class="ks">14 active teachers</div><div class="kbar" style="background:linear-gradient(90deg,#047857,#10b981);"></div></div>
+              <div class="kc"><div class="kl">Curriculum</div><div class="kv">76%</div><div class="ks">Term 62% elapsed</div><div class="kbar" style="background:linear-gradient(90deg,#b45309,#f59e0b);"></div></div>
+              <div class="kc"><div class="kl">Flagged Classes</div><div class="kv" style="color:#f43f5e;">3</div><div class="ks">Pass rate &lt; 60%</div><div class="kbar" style="background:linear-gradient(90deg,#be123c,#f43f5e);"></div></div>
+            </div>
+            <div class="g2">
+              <div class="card">
+                <div class="chd"><span class="ct">Pass Rate Trend — Weekly</span><span class="b bt">8 weeks</span></div>
+                <div class="cb" style="padding:.85rem 1.1rem;">
+                  <svg viewBox="0 0 380 80" style="width:100%;height:80px;overflow:visible;">
+                    <defs><linearGradient id="la" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0dd9c4" stop-opacity=".2"/><stop offset="100%" stop-color="#0dd9c4" stop-opacity="0"/></linearGradient></defs>
+                    <line x1="0" y1="0"  x2="380" y2="0"  stroke="var(--border)" stroke-width=".5"/>
+                    <line x1="0" y1="27" x2="380" y2="27" stroke="var(--border)" stroke-width=".5" stroke-dasharray="4,3"/>
+                    <line x1="0" y1="53" x2="380" y2="53" stroke="var(--border)" stroke-width=".5" stroke-dasharray="4,3"/>
+                    <text x="2" y="-2" class="cl">100%</text><text x="2" y="25" class="cl">80%</text><text x="2" y="51" class="cl">60%</text>
+                    <path d="M30,30 L82,24 L134,35 L186,20 L238,28 L290,15 L342,22 L380,18 L380,80 L30,80 Z" fill="url(#la)" class="la"/>
+                    <path d="M30,30 L82,24 L134,35 L186,20 L238,28 L290,15 L342,22 L380,18" class="lp aline" stroke="#0dd9c4" stroke-width="2.5"/>
+                    <circle cx="30"  cy="30" r="4" fill="#0dd9c4" class="cdot" stroke="var(--surface)" stroke-width="2"/>
+                    <circle cx="82"  cy="24" r="4" fill="#0dd9c4" class="cdot" stroke="var(--surface)" stroke-width="2"/>
+                    <circle cx="134" cy="35" r="4" fill="#f59e0b" class="cdot" stroke="var(--surface)" stroke-width="2"/>
+                    <circle cx="186" cy="20" r="4" fill="#0dd9c4" class="cdot" stroke="var(--surface)" stroke-width="2"/>
+                    <circle cx="238" cy="28" r="4" fill="#0dd9c4" class="cdot" stroke="var(--surface)" stroke-width="2"/>
+                    <circle cx="290" cy="15" r="5" fill="#10b981" class="cdot" stroke="var(--surface)" stroke-width="2"/>
+                    <circle cx="342" cy="22" r="4" fill="#0dd9c4" class="cdot" stroke="var(--surface)" stroke-width="2"/>
+                    <circle cx="380" cy="18" r="4" fill="#0dd9c4" class="cdot" stroke="var(--surface)" stroke-width="2"/>
+                    <text x="30"  y="78" class="cl" text-anchor="middle">W1</text>
+                    <text x="82"  y="78" class="cl" text-anchor="middle">W2</text>
+                    <text x="134" y="78" class="cl" text-anchor="middle">W3</text>
+                    <text x="186" y="78" class="cl" text-anchor="middle">W4</text>
+                    <text x="238" y="78" class="cl" text-anchor="middle">W5</text>
+                    <text x="290" y="78" class="cl" text-anchor="middle" fill="#10b981" font-weight="800">W6★</text>
+                    <text x="342" y="78" class="cl" text-anchor="middle">W7</text>
+                    <text x="380" y="78" class="cl" text-anchor="middle">W8</text>
+                  </svg>
+                </div>
+              </div>
+              <div class="card">
+                <div class="chd"><span class="ct">Curriculum Coverage</span><span style="font-size:11px;color:var(--txt3);">Term 62% elapsed</span></div>
+                <div class="cb" style="display:flex;flex-direction:column;gap:.6rem;">
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:600;">English · S.3</span><span class="up" style="font-size:12px;">91%</span></div><div class="pt" style="height:6px;"><div class="pf pfg" style="width:91%;"></div></div></div>
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:600;">History · S.2</span><span style="color:var(--brand);font-weight:800;font-size:12px;">88%</span></div><div class="pt" style="height:6px;"><div class="pf pft" style="width:88%;"></div></div></div>
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:600;">Mathematics · S.3</span><span style="color:var(--brand);font-weight:800;font-size:12px;">82%</span></div><div class="pt" style="height:6px;"><div class="pf pft" style="width:82%;"></div></div></div>
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:600;">Biology · S.3</span><span style="color:var(--amber-txt);font-weight:800;font-size:12px;">64%</span></div><div class="pt" style="height:6px;"><div class="pf pfa" style="width:64%;"></div></div></div>
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:600;">Physics · S.4</span><span style="color:var(--red-txt);font-weight:800;font-size:12px;">51%</span></div><div class="pt" style="height:6px;"><div class="pf pfr" style="width:51%;"></div></div></div>
+                  <div class="al ala" style="margin-top:.3rem;margin-bottom:0;font-size:11.5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg><div>Physics (S.4) at 51% — <strong style="cursor:pointer;text-decoration:underline;color:var(--brand);">Message Mr. Ssali</strong></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<hr class="divline">
+
+<!-- ═══ DEPUTY ═══ -->
+<section id="deputy" class="ws">
+  <div class="slbl">Screen 07 · Deputy Principal</div>
+  <div class="stitle">Discipline & Attendance</div>
+  <div class="sdesc">Discipline records table, attendance progress bars by class, timetable status KPI. Finance hard-blocked at DB.</div>
+  <div class="sframe">
+    <div class="ar" id="dep-root" data-theme="light">
+      <div class="shell">
+        <nav class="sb">
+          <div class="sbtop">
+            <div class="sbrand"><div class="slogo">S</div><div><div class="sname">Shule</div><div class="ssub">School OS</div></div></div>
+            <div class="spill"><div class="sicon">K</div><div><div class="snm">Kampala Junior</div><div class="ssubtxt">Deputy Portal</div></div></div>
+          </div>
+          <div class="ngl">Overview</div>
+          <a class="ni on"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Dashboard</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>Discipline</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Timetable</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>Students</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span>Messages</a>
+          <div class="sbbot"><div class="upill"><div class="uava" style="background:rgba(34,211,238,.12);color:#22d3ee;">BK</div><div><div class="unm">Brian Kibirige</div><div class="urole">Deputy Principal</div></div><div class="udot"></div></div></div>
+        </nav>
+        <div class="ma">
+          <div class="tb">
+            <div style="flex:1;"><span class="tbtitle">Deputy Dashboard</span><span class="tbsub">Week 14 · Term 2</span></div>
+            <div class="ttog" onclick="tog('dep-root','dep-k')"><div class="tknob" id="dep-k">🌙</div></div>
+            <div class="tbtn p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Add Record</div>
+          </div>
+          <div class="mc">
+            <div class="g3 mb2">
+              <div class="kc"><div class="kl">Discipline Cases</div><div class="kv">14</div><div class="ks">This term · 3 pending</div><div class="kbar" style="background:linear-gradient(90deg,#0f766e,#0dd9c4);"></div></div>
+              <div class="kc"><div class="kl">Attendance Rate</div><div class="kv">91%</div><div class="ks">School-wide this week</div><div class="kbar" style="background:linear-gradient(90deg,#047857,#10b981);"></div></div>
+              <div class="kc"><div class="kl">Timetable Clashes</div><div class="kv" style="color:#10b981;">0</div><div class="ks">All clear today</div><div class="kbar" style="background:linear-gradient(90deg,#047857,#10b981);"></div></div>
+            </div>
+            <div class="g2">
+              <div class="card">
+                <div class="chd"><span class="ct">Discipline Records</span><div class="tbtn" style="font-size:11px;padding:.25rem .6rem;">View All</div></div>
+                <table class="dt">
+                  <thead><tr><th>Student</th><th>Class</th><th>Nature</th><th>Date</th><th>Status</th></tr></thead>
+                  <tbody>
+                    <tr><td style="color:var(--txt);font-weight:700;">Mutebi A.</td><td>S.2 West</td><td style="font-size:11.5px;">Truancy</td><td style="font-size:11px;color:var(--txt3);">10 May</td><td><span class="b bg" style="font-size:10px;">Resolved</span></td></tr>
+                    <tr><td style="color:var(--txt);font-weight:700;">Namusisi P.</td><td>S.3 East</td><td style="font-size:11.5px;">Fighting</td><td style="font-size:11px;color:var(--txt3);">8 May</td><td><span class="b br" style="font-size:10px;">Pending</span></td></tr>
+                    <tr><td style="color:var(--txt);font-weight:700;">Ssemwanga K.</td><td>S.1 North</td><td style="font-size:11.5px;">Late arrival</td><td style="font-size:11px;color:var(--txt3);">6 May</td><td><span class="b bm" style="font-size:10px;">Closed</span></td></tr>
+                    <tr><td style="color:var(--txt);font-weight:700;">Kyabaggu T.</td><td>S.4 East</td><td style="font-size:11.5px;">Academic fraud</td><td style="font-size:11px;color:var(--txt3);">2 May</td><td><span class="b br" style="font-size:10px;">Escalated</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="card">
+                <div class="chd"><span class="ct">Attendance — This Week</span></div>
+                <div class="cb" style="display:flex;flex-direction:column;gap:.6rem;">
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:600;">S.1 East</span><span class="up" style="font-size:12px;">96%</span></div><div class="pt" style="height:6px;"><div class="pf pft" style="width:96%;"></div></div></div>
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:600;">S.1 West</span><span style="color:var(--brand);font-weight:800;font-size:12px;">93%</span></div><div class="pt" style="height:6px;"><div class="pf pft" style="width:93%;"></div></div></div>
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:600;">S.2 East</span><span style="color:var(--amber-txt);font-weight:800;font-size:12px;">81%</span></div><div class="pt" style="height:6px;"><div class="pf pfa" style="width:81%;"></div></div></div>
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:600;">S.2 West</span><span style="color:var(--red-txt);font-weight:800;font-size:12px;">78%</span></div><div class="pt" style="height:6px;"><div class="pf pfr" style="width:78%;"></div></div></div>
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:600;">S.3 East</span><span class="up" style="font-size:12px;">94%</span></div><div class="pt" style="height:6px;"><div class="pf pfg" style="width:94%;"></div></div></div>
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:600;">S.4 East</span><span style="color:var(--brand);font-weight:800;font-size:12px;">91%</span></div><div class="pt" style="height:6px;"><div class="pf pft" style="width:91%;"></div></div></div>
+                  <div class="al ala" style="margin-top:.3rem;margin-bottom:0;font-size:11.5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg><div>S.2 West at 78% — below 80% threshold</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<hr class="divline">
+
+<!-- ═══ PARENT ═══ -->
+<section id="parent" class="ws">
+  <div class="slbl">Screen 08 · Parent</div>
+  <div class="stitle">Parent Portal</div>
+  <div class="sdesc">Child's CBC results, fee statement, attendance, report card download. Read-only. Isolated per child via RLS — parent A cannot see parent B's child data.</div>
+  <div class="sframe">
+    <div class="ar" id="par-root" data-theme="light">
+      <div class="shell">
+        <nav class="sb" style="width:200px;min-width:200px;">
+          <div class="sbtop">
+            <div class="sbrand"><div class="slogo">S</div><div><div class="sname">Shule</div><div class="ssub">Parent Portal</div></div></div>
+            <div class="spill"><div class="sicon" style="color:#10b981;">A</div><div><div class="snm">Amara Nantongo</div><div class="ssubtxt">S.1 East · 2025</div></div></div>
+          </div>
+          <a class="ni on"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Overview</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>Results</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span>Fee Balance</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Attendance</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg></span>Report Cards</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span>Notices</a>
+          <div class="sbbot"><div class="upill"><div class="uava" style="background:rgba(16,185,129,.12);color:#10b981;">MN</div><div><div class="unm">Margaret N.</div><div class="urole">Parent</div></div><div class="udot" style="background:#10b981;box-shadow:0 0 6px #10b981;"></div></div></div>
+        </nav>
+        <div class="ma">
+          <div class="tb">
+            <div style="flex:1;"><span class="tbtitle">Amara Nantongo</span><span class="tbsub">S.1 East · KJA/2025/0848</span></div>
+            <div class="ttog" onclick="tog('par-root','par-k')"><div class="tknob" id="par-k">🌙</div></div>
+            <span class="b bg">Active Student</span>
+          </div>
+          <div class="mc">
+            <div class="g3 mb2">
+              <div class="kc"><div class="kl">Fee Balance</div><div class="kv" style="font-size:18px;color:var(--amber-txt);">350K</div><div class="ks">UGX · partial</div><div class="kbar" style="background:linear-gradient(90deg,#b45309,#f59e0b);"></div></div>
+              <div class="kc"><div class="kl">Attendance</div><div class="kv" style="font-size:18px;">94%</div><div class="ks">3 absences this term</div><div class="kbar" style="background:linear-gradient(90deg,#047857,#10b981);"></div></div>
+              <div class="kc"><div class="kl">Class Rank</div><div class="kv" style="font-size:18px;">5th</div><div class="ks">of 42 students</div><div class="kbar" style="background:linear-gradient(90deg,#0f766e,#0dd9c4);"></div></div>
+            </div>
+            <div class="g2">
+              <div class="card">
+                <div class="chd"><span class="ct">Term 2 Results — CBC Format</span><span class="b bt">7 subjects</span></div>
+                <table class="dt">
+                  <thead><tr><th>Subject</th><th>CA /20</th><th>Exam /80</th><th>Total</th><th>Grade</th></tr></thead>
+                  <tbody>
+                    <tr><td style="color:var(--txt);font-weight:700;">Mathematics</td><td>18</td><td>74</td><td style="font-weight:900;color:var(--txt);">92</td><td><span class="b bt">A</span></td></tr>
+                    <tr><td style="color:var(--txt);font-weight:700;">History</td><td>18</td><td>72</td><td style="font-weight:900;color:var(--txt);">90</td><td><span class="b bt">A</span></td></tr>
+                    <tr><td style="color:var(--txt);font-weight:700;">English</td><td>16</td><td>70</td><td style="font-weight:900;color:var(--txt);">86</td><td><span class="b bb">B</span></td></tr>
+                    <tr><td style="color:var(--txt);font-weight:700;">Biology</td><td>17</td><td>68</td><td style="font-weight:900;color:var(--txt);">85</td><td><span class="b bb">B</span></td></tr>
+                    <tr><td style="color:var(--txt);font-weight:700;">Physics</td><td>15</td><td>62</td><td style="font-weight:900;color:var(--txt);">77</td><td><span class="b bb">B</span></td></tr>
+                  </tbody>
+                </table>
+                <div style="padding:.5rem .85rem;background:var(--brand-light);border-top:1px solid rgba(13,148,136,.15);font-size:12px;font-weight:800;color:var(--brand);font-family:var(--font2);">Average: 86% · Grade B · Rank: 5 / 42</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.85rem;">
+                <div class="card">
+                  <div class="chd"><span class="ct">Fee Statement · Term 2</span></div>
+                  <div class="cb">
+                    <div class="fxb" style="font-size:12.5px;margin-bottom:.4rem;"><span style="color:var(--txt3);">Total fees due</span><span style="font-weight:800;color:var(--txt);">UGX 850,000</span></div>
+                    <div class="fxb" style="font-size:12.5px;margin-bottom:.4rem;"><span style="color:var(--txt3);">Amount paid</span><span style="font-weight:800;color:#10b981;">UGX 500,000</span></div>
+                    <div class="sep"></div>
+                    <div class="fxb"><span style="font-size:13px;font-weight:800;color:var(--txt);">Balance</span><span style="font-size:15px;font-weight:900;color:var(--amber-txt);">UGX 350,000</span></div>
+                    <div class="pt" style="margin-top:.75rem;height:7px;"><div class="pf pfa" style="width:59%;"></div></div>
+                    <div style="font-size:10.5px;color:var(--txt3);margin-top:4px;">59% paid</div>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="chd"><span class="ct">Report Cards</span></div>
+                  <div class="cb" style="padding:.75rem 1.1rem;">
+                    <div class="fxb" style="padding:.35rem 0;"><div><div style="font-size:12.5px;font-weight:700;color:var(--txt);">Term 1 · 2025</div><div style="font-size:11px;color:var(--txt3);">Released 28 Apr 2025</div></div><div class="tbtn" style="font-size:11px;padding:.25rem .65rem;color:var(--brand);border-color:rgba(13,148,136,.25);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 16 12 21 17 16"/><line x1="12" y1="21" x2="12" y2="3"/></svg>Download PDF</div></div>
+                    <div class="sep"></div>
+                    <div class="fxb" style="padding:.35rem 0;"><div><div style="font-size:12.5px;font-weight:700;color:var(--txt);">Term 2 · 2025</div><div style="font-size:11px;color:var(--amber-txt);">Not yet released</div></div><span class="b ba">Pending</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<hr class="divline">
+
+<!-- ═══ STUDENT ═══ -->
+<section id="student" class="ws">
+  <div class="slbl">Screen 09 · Student</div>
+  <div class="stitle">Student Portal</div>
+  <div class="sdesc">Own results with progress bars, fee balance, attendance KPIs, end-of-term survey CTA, notices.</div>
+  <div class="sframe">
+    <div class="ar" id="stu-root" data-theme="light">
+      <div class="shell">
+        <nav class="sb">
+          <div class="sbtop">
+            <div class="sbrand"><div class="slogo">S</div><div><div class="sname">Shule</div><div class="ssub">School OS</div></div></div>
+            <div class="spill"><div class="sicon">K</div><div><div class="snm">Kampala Junior</div><div class="ssubtxt">S.1 East · 2025</div></div></div>
+          </div>
+          <div class="ngl">My Portal</div>
+          <a class="ni on"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Overview</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>My Results</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span>My Fees</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Attendance</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg></span>Report Cards</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span>Notices</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>Term Survey <span class="nb">!</span></a>
+          <div class="sbbot"><div class="upill"><div class="uava" style="background:rgba(13,217,196,.12);color:#0dd9c4;">AN</div><div><div class="unm">Amara Nantongo</div><div class="urole">Student · S.1 East</div></div><div class="udot"></div></div></div>
+        </nav>
+        <div class="ma">
+          <div class="tb">
+            <div style="flex:1;"><span class="tbtitle">My Dashboard</span><span class="tbsub">Term 2 · 2025 · KJA/2025/0848</span></div>
+            <div class="ttog" onclick="tog('stu-root','stu-k')"><div class="tknob" id="stu-k">🌙</div></div>
+          </div>
+          <div class="mc">
+            <div class="g4 mb2">
+              <div class="kc"><div class="kl">Average Score</div><div class="kv" style="color:var(--brand);">86%</div><div class="ks"><span class="up">↑ 3%</span> vs Term 1</div><div class="kbar" style="background:linear-gradient(90deg,#0f766e,#0dd9c4);"></div></div>
+              <div class="kc"><div class="kl">Class Rank</div><div class="kv">5th</div><div class="ks">of 42 students</div><div class="kbar" style="background:linear-gradient(90deg,#0f766e,#0dd9c4);"></div></div>
+              <div class="kc"><div class="kl">Attendance</div><div class="kv" style="color:#10b981;">94%</div><div class="ks">3 absences</div><div class="kbar" style="background:linear-gradient(90deg,#047857,#10b981);"></div></div>
+              <div class="kc"><div class="kl">Fee Balance</div><div class="kv" style="color:var(--amber-txt);font-size:20px;">350K</div><div class="ks">UGX · partial</div><div class="kbar" style="background:linear-gradient(90deg,#b45309,#f59e0b);"></div></div>
+            </div>
+            <div class="g2">
+              <div class="card">
+                <div class="chd"><span class="ct">My Results — Term 2</span></div>
+                <div class="cb" style="display:flex;flex-direction:column;gap:.65rem;">
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:700;">Mathematics</span><span style="font-weight:900;color:var(--brand);font-family:var(--font2);">92% · A</span></div><div class="pt" style="height:6px;"><div class="pf pft" style="width:92%;"></div></div></div>
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:700;">History</span><span style="font-weight:900;color:var(--brand);font-family:var(--font2);">90% · A</span></div><div class="pt" style="height:6px;"><div class="pf pft" style="width:90%;"></div></div></div>
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:700;">English</span><span style="font-weight:900;color:var(--blue-txt);font-family:var(--font2);">86% · B</span></div><div class="pt" style="height:6px;"><div class="pf pfb" style="width:86%;"></div></div></div>
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:700;">Biology</span><span style="font-weight:900;color:var(--blue-txt);font-family:var(--font2);">85% · B</span></div><div class="pt" style="height:6px;"><div class="pf pfb" style="width:85%;"></div></div></div>
+                  <div><div class="fxb" style="margin-bottom:4px;font-size:12px;"><span style="color:var(--txt);font-weight:700;">Physics</span><span style="font-weight:900;color:var(--blue-txt);font-family:var(--font2);">77% · B</span></div><div class="pt" style="height:6px;"><div class="pf pfb" style="width:77%;"></div></div></div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.85rem;">
+                <div class="card" style="border-color:var(--brand);background:var(--brand-light);">
+                  <div class="chd" style="background:transparent;border-bottom-color:rgba(13,148,136,.15);"><span class="ct" style="color:var(--brand);">End of Term Survey</span><span class="b bt">New</span></div>
+                  <div class="cb" style="font-size:12.5px;color:var(--txt2);line-height:1.6;">The Director of Studies wants your feedback on Term 2. Takes 2 minutes.
+                    <button style="display:block;margin-top:.75rem;padding:.5rem 1.2rem;background:linear-gradient(135deg,var(--brand),var(--brand-dark));border:none;border-radius:var(--r);font-family:var(--font2);font-size:12px;font-weight:900;color:#fff;cursor:pointer;box-shadow:0 4px 14px var(--brand-glow);">Take the Survey →</button>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="chd"><span class="ct">School Notices</span><span class="b bm">3 new</span></div>
+                  <div>
+                    <div style="padding:.6rem 1.1rem;border-bottom:1px solid var(--border);"><div style="font-size:12px;font-weight:700;color:var(--txt);">End of Term Exams — 26 May</div><div style="font-size:11px;color:var(--txt3);">Principal · 2 days ago</div></div>
+                    <div style="padding:.6rem 1.1rem;border-bottom:1px solid var(--border);"><div style="font-size:12px;font-weight:700;color:var(--txt);">Library Hours Extended</div><div style="font-size:11px;color:var(--txt3);">Deputy · 5 days ago</div></div>
+                    <div style="padding:.6rem 1.1rem;"><div style="font-size:12px;font-weight:700;color:var(--txt);">Sports Day — 30 May</div><div style="font-size:11px;color:var(--txt3);">Secretary · 1 week ago</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<hr class="divline">
+
+<!-- ═══ IT ADMIN ═══ -->
+<section id="it" class="ws" style="padding-bottom:5rem;">
+  <div class="slbl">Screen 10 · IT Administrator</div>
+  <div class="stitle">System Administration</div>
+  <div class="sdesc">User login states, password resets, storage KPIs, API config (Africa's Talking + WhatsApp), school profile, system health.</div>
+  <div class="sframe">
+    <div class="ar" id="it-root" data-theme="light">
+      <div class="shell">
+        <nav class="sb">
+          <div class="sbtop">
+            <div class="sbrand"><div class="slogo">S</div><div><div class="sname">Shule</div><div class="ssub">School OS</div></div></div>
+            <div class="spill"><div class="sicon">K</div><div><div class="snm">Kampala Junior</div><div class="ssubtxt">IT Admin Portal</div></div></div>
+          </div>
+          <div class="ngl">System</div>
+          <a class="ni on"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Dashboard</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></span>Users</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></span>Password Resets <span class="nb">2</span></a>
+          <div class="ngl">Settings</div>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span>School Profile</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></span>SMS / WhatsApp</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg></span>Report Templates</a>
+          <a class="ni"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M21 12h-2M19.07 19.07l-1.41-1.41M12 21v-2M4.93 19.07l1.41-1.41M3 12h2M4.93 4.93l1.41 1.41"/></svg></span>System Settings</a>
+          <div class="sbbot"><div class="upill"><div class="uava" style="background:rgba(100,116,139,.2);color:#94a3b8;">IT</div><div><div class="unm">Admin Account</div><div class="urole">IT Administrator</div></div><div class="udot"></div></div></div>
+        </nav>
+        <div class="ma">
+          <div class="tb">
+            <div style="flex:1;"><span class="tbtitle">System Administration</span><span class="tbsub">Kampala Junior Academy</span></div>
+            <div class="ttog" onclick="tog('it-root','it-k')"><div class="tknob" id="it-k">🌙</div></div>
+            <div class="tbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2"/></svg>Sync Check</div>
+          </div>
+          <div class="mc">
+            <div class="g4 mb2">
+              <div class="kc"><div class="kl">Active Users</div><div class="kv" style="color:#10b981;">18</div><div class="ks">of 24 accounts now</div><div class="kbar" style="background:linear-gradient(90deg,#047857,#10b981);"></div></div>
+              <div class="kc"><div class="kl">Last Backup</div><div class="kv" style="font-size:18px;">2h ago</div><div class="ks">Auto · 03:00 AM daily</div><div class="kbar" style="background:linear-gradient(90deg,#0f766e,#0dd9c4);"></div></div>
+              <div class="kc"><div class="kl">Storage Used</div><div class="kv">38%</div><div class="ks">14.2 GB of 37 GB</div><div class="kbar" style="background:linear-gradient(90deg,#b45309,#f59e0b);"></div></div>
+              <div class="kc"><div class="kl">Reset Requests</div><div class="kv" style="color:var(--amber-txt);">2</div><div class="ks">Pending resets</div><div class="kbar" style="background:linear-gradient(90deg,#b45309,#f59e0b);"></div></div>
+            </div>
+            <div class="g2">
+              <div class="card">
+                <div class="chd"><span class="ct">User Login Status</span><span class="b bg"><span class="sd sdg"></span> 18 online</span></div>
+                <table class="dt">
+                  <thead><tr><th>User</th><th>Role</th><th>Last Login</th><th>Status</th><th>Action</th></tr></thead>
+                  <tbody>
+                    <tr><td style="color:var(--txt);font-weight:700;">Dr. P. Kato</td><td><span class="b bm" style="font-size:10px;">Principal</span></td><td style="font-size:11px;color:var(--txt3);">Today 7:42am</td><td><span class="b bg" style="font-size:10px;"><span class="sd sdg"></span>Online</span></td><td><span style="font-size:11.5px;color:var(--blue-txt);cursor:pointer;font-weight:800;">Reset PWD</span></td></tr>
+                    <tr><td style="color:var(--txt);font-weight:700;">A. Nakazibwe</td><td><span class="b bm" style="font-size:10px;">Secretary</span></td><td style="font-size:11px;color:var(--txt3);">Today 8:05am</td><td><span class="b bg" style="font-size:10px;"><span class="sd sdg"></span>Online</span></td><td><span style="font-size:11.5px;color:var(--blue-txt);cursor:pointer;font-weight:800;">Reset PWD</span></td></tr>
+                    <tr><td style="color:var(--txt);font-weight:700;">J. Mutebi</td><td><span class="b bm" style="font-size:10px;">Bursar</span></td><td style="font-size:11px;color:var(--txt3);">Today 8:22am</td><td><span class="b bg" style="font-size:10px;"><span class="sd sdg"></span>Online</span></td><td><span style="font-size:11.5px;color:var(--blue-txt);cursor:pointer;font-weight:800;">Reset PWD</span></td></tr>
+                    <tr><td style="color:var(--txt);font-weight:700;">S. Okwir</td><td><span class="b bm" style="font-size:10px;">Teacher</span></td><td style="font-size:11px;color:var(--txt3);">Yesterday 4pm</td><td><span class="b bm" style="font-size:10px;">Offline</span></td><td><span style="font-size:11.5px;color:var(--blue-txt);cursor:pointer;font-weight:800;">Reset PWD</span></td></tr>
+                    <tr><td style="color:var(--txt);font-weight:700;">B. Kibirige</td><td><span class="b bm" style="font-size:10px;">Deputy</span></td><td style="font-size:11px;color:var(--txt3);">Today 7:58am</td><td><span class="b bg" style="font-size:10px;"><span class="sd sdg"></span>Online</span></td><td><span style="font-size:11.5px;color:var(--blue-txt);cursor:pointer;font-weight:800;">Reset PWD</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.85rem;">
+                <div class="card">
+                  <div class="chd"><span class="ct">Communication APIs</span></div>
+                  <div class="cb">
+                    <div class="fxb" style="margin-bottom:.75rem;">
+                      <div class="fxg"><div style="width:36px;height:36px;border-radius:9px;background:var(--green-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green-txt)" stroke-width="2" width="18" height="18"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></div><div><div style="font-size:12.5px;font-weight:800;color:var(--txt);">Africa's Talking · SMS</div><div style="font-size:11px;color:var(--txt3);">Sender: KJA-SCHOOL</div></div></div>
+                      <span class="b bg">Connected</span>
+                    </div>
+                    <div class="fxb">
+                      <div class="fxg"><div style="width:36px;height:36px;border-radius:9px;background:var(--green-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green-txt)" stroke-width="2" width="18" height="18"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><div><div style="font-size:12.5px;font-weight:800;color:var(--txt);">WhatsApp Cloud API</div><div style="font-size:11px;color:var(--txt3);">Not yet configured</div></div></div>
+                      <div class="tbtn" style="font-size:11px;padding:.25rem .65rem;color:var(--brand);border-color:rgba(13,148,136,.25);">Configure</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="card" style="border-color:var(--brand);background:var(--brand-light);">
+                  <div class="chd" style="background:transparent;border-bottom-color:rgba(13,148,136,.15);"><span class="ct" style="color:var(--brand);">School Profile</span></div>
+                  <div class="cb" style="display:flex;gap:.85rem;align-items:flex-start;">
+                    <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));display:flex;align-items:center;justify-content:center;font-family:var(--font2);font-size:18px;font-weight:900;color:#fff;flex-shrink:0;box-shadow:0 4px 14px var(--brand-glow);">K</div>
+                    <div style="flex:1;">
+                      <div style="font-family:var(--font2);font-size:13.5px;font-weight:900;color:var(--txt);">Kampala Junior Academy</div>
+                      <div style="font-size:11.5px;color:var(--txt2);margin-top:2px;">Nakasero, Kampala · Est. 1998</div>
+                      <div style="font-size:11px;color:var(--txt3);">CBC · NCDC Uganda</div>
+                      <div style="margin-top:.7rem;"><div class="tbtn" style="display:inline-flex;font-size:11.5px;color:var(--brand);border-color:rgba(13,148,136,.25);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit Profile</div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<div style="text-align:center;padding:3.5rem 2rem;border-top:1px solid rgba(13,217,196,.06);">
+  <div style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:900;background:linear-gradient(135deg,#0dd9c4,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.4rem;">⬡ Shule — All Role Wireframes</div>
+  <div style="font-size:12px;color:#3a5470;">Secretary · Bursar · Teacher · DoS · Deputy · Parent · Student · IT Admin</div>
+  <div style="font-size:11px;color:#2a3f55;margin-top:.3rem;">Light default · Full sidebar + main theme toggle · Animated charts · Modern SVG icons · Teal/Cyan palette</div>
+</div>
+
+<script>
+function tog(rootId, knobId) {
+  const r = document.getElementById(rootId);
+  const k = document.getElementById(knobId);
+  const next = r.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  r.setAttribute('data-theme', next);
+  if (k) k.textContent = next === 'dark' ? '🌙' : '☀️';
+}
+const links = document.querySelectorAll('.dnav a');
+links.forEach(l => l.addEventListener('click', function(e){
+  e.preventDefault();
+  const t = document.querySelector(this.getAttribute('href'));
+  if(t) t.scrollIntoView({behavior:'smooth',block:'start'});
+  links.forEach(x=>x.classList.remove('on'));
+  this.classList.add('on');
+}));
+const sections = document.querySelectorAll('section[id]');
+const io = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting) links.forEach(l=>l.classList.toggle('on',l.getAttribute('href')==='#'+e.target.id));
+  });
+},{rootMargin:'-25% 0% -65% 0%'});
+sections.forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

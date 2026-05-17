@@ -225,6 +225,7 @@ export function calculateCBCGrade(total: number): 'A' | 'B' | 'C' | 'D' | 'E' {
   if (total >= 90) return 'A'
   if (total >= 75) return 'B'
   if (total >= 65) return 'C'
+  
   if (total >= 50) return 'D'
   return 'E'
 }

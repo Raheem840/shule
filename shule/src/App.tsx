@@ -1,22 +1,117 @@
-function App() {
-  return (
-    <div className="min-h-screen bg-[#f4f4f5] flex items-center justify-center">
-      <div className="bg-white rounded-[10px] p-8 shadow-sm border border-[#e5e7eb] text-center">
-        <div className="w-12 h-12 rounded-full bg-[#1a6b3c] flex items-center justify-center mx-auto mb-4">
-          <span className="text-white font-bold text-lg">S</span>
-        </div>
-        <h1 className="text-2xl font-semibold text-[#111827] mb-2">
-          Shule
-        </h1>
-        <p className="text-[#6b7280] text-sm">
-          School Management System — Uganda
-        </p>
-        <div className="mt-4 px-3 py-1 bg-[#e8f3ec] text-[#1a6b3c] text-xs font-semibold rounded-full inline-block">
-          Setup complete ✓
-        </div>
-      </div>
-    </div>
-  )
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { useAuth } from './store/AuthContext'
+import { ProtectedRoute } from './components/layout/ProtectedRoute'
+import type { UserRole } from './store/AuthContext'
+
+// ─── Placeholder pages (we'll replace these with real ones) ───
+const Placeholder = ({ label }: { label: string }) => (
+  <div style={{
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    height: '100vh', fontFamily: 'Space Grotesk, sans-serif',
+    flexDirection: 'column', gap: 8
+  }}>
+    <div style={{ fontSize: 32 }}>🚧</div>
+    <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>{label}</div>
+    <div style={{ fontSize: 12, color: '#94a3b8' }}>Coming soon</div>
+  </div>
+)
+
+// ─── Login page (minimal — we'll style it properly next) ──────
+import { LoginPage } from './pages/auth/LoginPage'
+
+// ─── Role → home route ────────────────────────────────────────
+const ROLE_HOME: Record<UserRole, string> = {
+  principal:     '/principal/dashboard',
+  deputy:        '/deputy/dashboard',
+  dos:           '/dos/dashboard',
+  secretary:     '/secretary/dashboard',
+  bursar:        '/bursar/dashboard',
+  class_teacher: '/teacher/dashboard',
+  teacher:       '/teacher/dashboard',
+  student:       '/student/portal',
+  parent:        '/parent/portal',
+  it_admin:      '/admin/dashboard',
 }
 
-export default App
+function RoleRedirect() {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user)   return <Navigate to="/login" replace />
+  return <Navigate to={ROLE_HOME[user.role]} replace />
+}
+
+export default function App() {
+  return (
+    <Routes>
+      {/* Public */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/"      element={<RoleRedirect />} />
+
+      {/* Principal */}
+      <Route path="/principal/*" element={
+        <ProtectedRoute allowedRoles={['principal']}>
+          <Placeholder label="Principal Dashboard" />
+        </ProtectedRoute>
+      } />
+
+      {/* Deputy */}
+      <Route path="/deputy/*" element={
+        <ProtectedRoute allowedRoles={['deputy', 'principal']}>
+          <Placeholder label="Deputy Dashboard" />
+        </ProtectedRoute>
+      } />
+
+      {/* DoS */}
+      <Route path="/dos/*" element={
+        <ProtectedRoute allowedRoles={['dos', 'principal']}>
+          <Placeholder label="Director of Studies" />
+        </ProtectedRoute>
+      } />
+
+      {/* Secretary */}
+      <Route path="/secretary/*" element={
+        <ProtectedRoute allowedRoles={['secretary', 'principal']}>
+          <Placeholder label="Secretary Dashboard" />
+        </ProtectedRoute>
+      } />
+
+      {/* Bursar — finance hard block */}
+      <Route path="/bursar/*" element={
+        <ProtectedRoute allowedRoles={['bursar', 'principal']}>
+          <Placeholder label="Bursar Dashboard" />
+        </ProtectedRoute>
+      } />
+
+      {/* Teacher */}
+      <Route path="/teacher/*" element={
+        <ProtectedRoute allowedRoles={['teacher', 'class_teacher', 'dos', 'principal']}>
+          <Placeholder label="Teacher Dashboard" />
+        </ProtectedRoute>
+      } />
+
+      {/* Student */}
+      <Route path="/student/*" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <Placeholder label="Student Portal" />
+        </ProtectedRoute>
+      } />
+
+      {/* Parent */}
+      <Route path="/parent/*" element={
+        <ProtectedRoute allowedRoles={['parent']}>
+          <Placeholder label="Parent Portal" />
+        </ProtectedRoute>
+      } />
+
+      {/* IT Admin */}
+      <Route path="/admin/*" element={
+        <ProtectedRoute allowedRoles={['it_admin', 'principal']}>
+          <Placeholder label="IT Admin Dashboard" />
+        </ProtectedRoute>
+      } />
+
+      {/* Catch-all */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
+}

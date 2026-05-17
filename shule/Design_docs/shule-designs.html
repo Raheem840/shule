@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shule — Design System & UI Screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS — LIGHT (DEFAULT) + DARK
+═══════════════════════════════════════════════ */
+:root {
+  /* === TEAL PALETTE (Primary) === */
+  --teal-50:  #f0fdfa; --teal-100: #ccfbf1; --teal-200: #99f6e4;
+  --teal-300: #5eead4; --teal-400: #2dd4bf; --teal-500: #14b8a6;
+  --teal-600: #0d9488; --teal-700: #0f766e; --teal-800: #115e59;
+  --teal-900: #134e4a;
+
+  /* === SLATE NEUTRALS === */
+  --slate-50:  #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1; --slate-400: #94a3b8; --slate-500: #64748b;
+  --slate-600: #475569; --slate-700: #334155; --slate-800: #1e293b;
+  --slate-900: #0f172a;
+
+  /* === SEMANTIC === */
+  --emerald-500: #10b981; --emerald-100: #d1fae5; --emerald-700: #047857;
+  --amber-500: #f59e0b;   --amber-100:  #fef3c7; --amber-700: #b45309;
+  --rose-500: #f43f5e;    --rose-100:   #ffe4e6; --rose-700: #be123c;
+  --sky-500: #0ea5e9;     --sky-100:    #e0f2fe; --sky-700: #0369a1;
+  --violet-500: #8b5cf6;  --violet-100: #ede9fe; --violet-700: #6d28d9;
+  --orange-500: #f97316;  --orange-100: #ffedd5; --orange-700: #c2410c;
+
+  /* === LIGHT MODE SURFACES === */
+  --bg:        #f8fafc;
+  --surface:   #ffffff;
+  --surface2:  #f1f5f9;
+  --sidebar-bg:#0f172a;
+  --border:    #e2e8f0;
+  --border2:   #cbd5e1;
+
+  /* === TEXT === */
+  --txt-primary:   #0f172a;
+  --txt-secondary: #475569;
+  --txt-muted:     #94a3b8;
+  --txt-inverse:   #f8fafc;
+
+  /* === PRIMARY BRAND === */
+  --brand:        #0d9488;
+  --brand-light:  #f0fdfa;
+  --brand-dark:   #0f766e;
+  --brand-glow:   rgba(13,148,136,0.15);
+
+  /* === SHADOWS (Light) === */
+  --shadow-sm: 0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
+  --shadow-md: 0 4px 16px rgba(15,23,42,0.08), 0 2px 6px rgba(15,23,42,0.04);
+  --shadow-lg: 0 12px 40px rgba(15,23,42,0.1), 0 4px 12px rgba(15,23,42,0.06);
+  --shadow-brand: 0 4px 20px rgba(13,148,136,0.25);
+
+  /* === RADIUS === */
+  --r-sm: 6px; --r: 10px; --r-lg: 14px; --r-xl: 20px;
+
+  /* FONT */
+  --font: 'Plus Jakarta Sans', sans-serif;
+  --font2: 'Space Grotesk', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+/* === DARK MODE OVERRIDES === */
+[data-theme="dark"] {
+  --bg:        #070d1a;
+  --surface:   #0d1829;
+  --surface2:  #111f35;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.12);
+  --txt-primary:   #e2f0f9;
+  --txt-secondary: #7da4c0;
+  --txt-muted:     #3a5470;
+  --brand:        #0dd9c4;
+  --brand-light:  rgba(13,217,196,0.08);
+  --brand-dark:   #09a898;
+  --brand-glow:   rgba(13,217,196,0.2);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.5);
+  --shadow-brand: 0 4px 20px rgba(13,217,196,0.3);
+
+  /* Semantic overrides for dark */
+  --emerald-100: rgba(16,185,129,0.12);  --emerald-700: #34d399;
+  --amber-100:   rgba(245,158,11,0.12);  --amber-700:   #fbbf24;
+  --rose-100:    rgba(244,63,94,0.12);   --rose-700:    #fb7185;
+  --sky-100:     rgba(14,165,233,0.12);  --sky-700:     #38bdf8;
+  --violet-100:  rgba(139,92,246,0.12);  --violet-700:  #a78bfa;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: #030711;
+  color: var(--txt-primary);
+  font-size: 14px; line-height: 1.6;
+  overflow-x: hidden;
+  transition: background 0.3s, color 0.3s;
+}
+
+/* ═══════════════════════════════
+   TOP DOC NAV
+═══════════════════════════════ */
+.doc-nav {
+  position: sticky; top: 0; z-index: 999;
+  background: rgba(3,7,17,0.92);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(13,217,196,0.1);
+  display: flex; align-items: center;
+  padding: 0 1.5rem; gap: 0;
+  overflow-x: auto; scrollbar-width: none;
+}
+.doc-nav::-webkit-scrollbar { display: none; }
+.nav-brand {
+  font-family: var(--font2); font-weight: 800; font-size: 1rem;
+  background: linear-gradient(135deg, #0dd9c4, #22d3ee);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  padding: 0.9rem 1.25rem 0.9rem 0;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  margin-right: 0.4rem; white-space: nowrap; flex-shrink: 0;
+  letter-spacing: -0.3px;
+}
+.doc-nav a {
+  font-size: 11.5px; font-weight: 600; color: #5a7a96;
+  text-decoration: none; padding: 0.9rem 0.8rem;
+  white-space: nowrap; border-bottom: 2px solid transparent;
+  transition: all 0.18s; font-family: var(--font2);
+  letter-spacing: 0.1px;
+}
+.doc-nav a:hover { color: #0dd9c4; }
+.doc-nav a.active { color: #0dd9c4; border-bottom-color: #0dd9c4; }
+
+/* ═══════════════════════════════
+   SCREEN WRAPPERS
+═══════════════════════════════ */
+.screen-section { padding: 4rem 2rem 2rem; max-width: 1420px; margin: 0 auto; }
+.screen-label {
+  font-size: 10px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase;
+  color: #0dd9c4; margin-bottom: 0.35rem;
+}
+.screen-title {
+  font-family: var(--font2); font-size: 1.6rem; font-weight: 700;
+  color: #e2f0f9; margin-bottom: 0.25rem; letter-spacing: -0.5px;
+}
+.screen-desc { font-size: 12.5px; color: #5a7a96; margin-bottom: 1.75rem; }
+.screen-frame {
+  border-radius: var(--r-xl); overflow: hidden;
+  border: 1px solid rgba(13,217,196,0.1);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 40px 100px rgba(0,0,0,0.7), 0 0 80px rgba(13,217,196,0.03);
+}
+.sep-line {
+  border: none; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(13,217,196,0.07), transparent);
+  max-width: 1420px; margin: 0 auto;
+}
+
+/* ═══════════════════════════════════════════════
+   THE ACTUAL APP THEME — light/dark via [data-theme]
+═══════════════════════════════════════════════ */
+.app-root {
+  background: var(--bg);
+  color: var(--txt-primary);
+  transition: background 0.25s, color 0.25s;
+}
+
+/* ═══════════════════════════════
+   SIDEBAR
+═══════════════════════════════ */
+.app-shell { display: flex; height: 660px; }
+.sidebar {
+  width: 228px; min-width: 228px; flex-shrink: 0;
+  background: var(--sidebar-bg);
+  display: flex; flex-direction: column;
+  overflow-y: auto; position: relative; z-index: 2;
+  transition: background 0.25s;
+}
+.sidebar::-webkit-scrollbar { width: 0; }
+[data-theme="dark"] .sidebar { background: rgba(5,12,28,0.95); border-right: 1px solid rgba(13,217,196,0.07); }
+
+.sb-top {
+  padding: 1.35rem 1.1rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.sb-brand { display: flex; align-items: center; gap: 0.65rem; margin-bottom: 1.1rem; }
+.sb-logo {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: linear-gradient(135deg, #0dd9c4, #0891b2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font2); font-size: 15px; font-weight: 900;
+  color: #030711; flex-shrink: 0;
+  box-shadow: 0 0 18px rgba(13,217,196,0.4);
+}
+.sb-brand-text .name {
+  font-family: var(--font2); font-size: 13.5px; font-weight: 800;
+  background: linear-gradient(135deg, #0dd9c4, #22d3ee);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: -0.3px;
+}
+.sb-brand-text .sub { font-size: 9px; color: #3a5470; letter-spacing: 1.5px; text-transform: uppercase; }
+
+.school-pill {
+  background: rgba(13,217,196,0.06); border: 1px solid rgba(13,217,196,0.1);
+  border-radius: var(--r); padding: 0.55rem 0.75rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.school-icon {
+  width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(13,217,196,0.25), rgba(8,145,178,0.15));
+  border: 1px solid rgba(13,217,196,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; color: #0dd9c4; font-family: var(--font2);
+}
+.school-info .nm { font-size: 11.5px; font-weight: 700; color: #d1e8f0; line-height: 1.2; }
+.school-info .sub { font-size: 9.5px; color: #3a5470; }
+
+.nav-grp-label {
+  font-size: 9px; font-weight: 800; letter-spacing: 2px;
+  text-transform: uppercase; color: #2a3f55;
+  padding: 0.85rem 1.1rem 0.25rem;
+}
+.nav-i {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.52rem 1.1rem; font-size: 12.5px; font-weight: 600;
+  color: #4a6a85; cursor: pointer; position: relative;
+  border-left: 2px solid transparent; transition: all 0.15s;
+  text-decoration: none; font-family: var(--font2);
+}
+.nav-i:hover { color: #b0d0e8; background: rgba(255,255,255,0.03); }
+.nav-i.on { color: #0dd9c4; border-left-color: #0dd9c4; background: rgba(13,217,196,0.07); font-weight: 700; }
+/* SVG icon container */
+.ni { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.ni svg { width: 15px; height: 15px; }
+.nbadge {
+  margin-left: auto; font-size: 9px; font-weight: 800;
+  background: #f43f5e; color: #fff;
+  padding: 1px 5px; border-radius: 8px;
+}
+.ncount {
+  margin-left: auto; font-size: 9px; color: #3a5470;
+  background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 5px;
+}
+
+.sb-bottom {
+  margin-top: auto; padding: 0.8rem 1.1rem;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.user-pill {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.5rem 0.65rem;
+  background: rgba(13,217,196,0.05); border: 1px solid rgba(13,217,196,0.1);
+  border-radius: var(--r); cursor: pointer;
+}
+.u-ava {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800; flex-shrink: 0; font-family: var(--font2);
+}
+.u-name { font-size: 11.5px; font-weight: 700; color: #d1e8f0; line-height: 1.2; }
+.u-role { font-size: 9.5px; color: #3a5470; }
+.u-dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; margin-left: auto; flex-shrink: 0; box-shadow: 0 0 6px #10b981; }
+
+/* ═══════════════════════════════
+   TOPBAR
+═══════════════════════════════ */
+.main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); transition: background 0.25s; }
+
+.topbar {
+  height: 56px; padding: 0 1.4rem;
+  display: flex; align-items: center; gap: 0.75rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; position: relative; z-index: 3;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.25s, border-color 0.25s;
+}
+[data-theme="dark"] .topbar {
+  background: rgba(5,12,28,0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.tb-title {
+  font-family: var(--font2); font-size: 15px; font-weight: 800;
+  color: var(--txt-primary); flex: 1; letter-spacing: -0.4px;
+  transition: color 0.25s;
+}
+.tb-sub { font-size: 11px; color: var(--txt-muted); font-weight: 400; margin-left: 6px; transition: color 0.25s; }
+
+/* ── Theme Toggle Button ── */
+.theme-toggle {
+  width: 60px; height: 30px; border-radius: 15px; position: relative; cursor: pointer;
+  background: linear-gradient(135deg, #1e293b, #334155);
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.3s; flex-shrink: 0;
+  display: flex; align-items: center; padding: 3px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.2);
+}
+[data-theme="light"] .theme-toggle { background: linear-gradient(135deg, #e2e8f0, #f1f5f9); border-color: var(--border2); }
+.toggle-knob {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: linear-gradient(135deg, #0dd9c4, #0891b2);
+  box-shadow: 0 0 10px rgba(13,217,196,0.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  transform: translateX(0px);
+}
+[data-theme="light"] .toggle-knob { transform: translateX(30px); background: linear-gradient(135deg, #f59e0b, #f97316); box-shadow: 0 0 10px rgba(245,158,11,0.5); }
+
+.tb-icon {
+  width: 34px; height: 34px; border-radius: var(--r);
+  background: var(--surface2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--txt-secondary); position: relative;
+  transition: all 0.15s; flex-shrink: 0;
+}
+.tb-icon:hover { border-color: var(--brand); color: var(--brand); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.tb-icon svg { width: 16px; height: 16px; }
+.tb-icon .ndot {
+  position: absolute; top: 4px; right: 4px;
+  width: 7px; height: 7px; background: #f43f5e; border-radius: 50%;
+  border: 1.5px solid var(--surface); box-shadow: 0 0 5px #f43f5e;
+}
+
+.tb-btn {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.42rem 0.9rem; border-radius: var(--r);
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: var(--font2); white-space: nowrap; transition: all 0.18s;
+  border: 1px solid var(--border); background: var(--surface2); color: var(--txt-secondary);
+}
+.tb-btn:hover { border-color: var(--brand); color: var(--brand); }
+.tb-btn.primary {
+  background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+  border-color: transparent; color: #030711; font-weight: 800;
+  box-shadow: var(--shadow-brand);
+}
+.tb-btn.primary:hover { opacity: 0.92; transform: translateY(-1px); }
+.tb-btn svg { width: 13px; height: 13px; }
+
+/* ═══════════════════════════════
+   CONTENT AREA
+═══════════════════════════════ */
+.main-content {
+  flex: 1; overflow-y: auto; padding: 1.4rem 1.5rem;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.main-content::-webkit-scrollbar { width: 4px; }
+.main-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ═══════════════════════════════
+   CARDS
+═══════════════════════════════ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  position: relative; overflow: hidden;
+  transition: background 0.25s, border-color 0.25s, box-shadow 0.2s;
+}
+.card:hover { box-shadow: var(--shadow-md); }
+[data-theme="dark"] .card {
+  background: rgba(13,24,45,0.6);
+  backdrop-filter: blur(20px);
+  border-color: rgba(255,255,255,0.06);
+  border-top-color: rgba(255,255,255,0.09);
+}
+[data-theme="dark"] .card::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(13,217,196,0.025) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.card-hd {
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  transition: border-color 0.25s;
+}
+.card-title { font-family: var(--font2); font-size: 13px; font-weight: 700; color: var(--txt-primary); transition: color 0.25s; }
+.card-body { padding: 1.1rem; }
+
+/* ═══════════════════════════════
+   KPI CARDS
+═══════════════════════════════ */
+.kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.85rem; margin-bottom: 1rem; }
+.kpi-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 1.1rem;
+  position: relative; overflow: hidden;
+  transition: all 0.25s; cursor: default;
+  box-shadow: var(--shadow-sm);
+}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+[data-theme="dark"] .kpi-card {
+  background: rgba(13,24,45,0.6); backdrop-filter: blur(16px);
+  border-color: rgba(255,255,255,0.06);
+}
+
+.kpi-icon-wrap {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 0.8rem; flex-shrink: 0;
+}
+.kpi-icon-wrap svg { width: 20px; height: 20px; }
+.kpi-lbl { font-size: 10.5px; font-weight: 700; color: var(--txt-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.2rem; transition: color 0.25s; }
+.kpi-val { font-family: var(--font2); font-size: 26px; font-weight: 800; color: var(--txt-primary); letter-spacing: -1.5px; line-height: 1; margin-bottom: 0.35rem; transition: color 0.25s; }
+.kpi-sub { font-size: 11px; color: var(--txt-muted); display: flex; align-items: center; gap: 4px; transition: color 0.25s; }
+.kpi-accent-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; border-radius: 0 0 var(--r-lg) var(--r-lg); }
+
+.trend-up { color: #10b981; font-weight: 700; }
+.trend-dn { color: #f43f5e; font-weight: 700; }
+
+/* ═══════════════════════════════
+   BADGES
+═══════════════════════════════ */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; font-weight: 700; padding: 3px 9px;
+  border-radius: 20px; font-family: var(--font2);
+}
+.badge.teal   { background: rgba(13,217,196,0.12); color: #0dd9c4; border: 1px solid rgba(13,217,196,0.2); }
+.badge.green  { background: var(--emerald-100); color: var(--emerald-700); border: 1px solid rgba(16,185,129,0.2); }
+.badge.amber  { background: var(--amber-100);   color: var(--amber-700);   border: 1px solid rgba(245,158,11,0.2); }
+.badge.red    { background: var(--rose-100);    color: var(--rose-700);    border: 1px solid rgba(244,63,94,0.2); }
+.badge.blue   { background: var(--sky-100);     color: var(--sky-700);     border: 1px solid rgba(14,165,233,0.2); }
+.badge.violet { background: var(--violet-100);  color: var(--violet-700);  border: 1px solid rgba(139,92,246,0.2); }
+.badge.gray   { background: var(--surface2);    color: var(--txt-secondary); border: 1px solid var(--border); }
+.sdot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.sdot.g { background: #10b981; box-shadow: 0 0 4px #10b981; }
+.sdot.a { background: #f59e0b; }
+.sdot.r { background: #f43f5e; box-shadow: 0 0 4px #f43f5e; }
+
+/* ═══════════════════════════════
+   TABLE
+═══════════════════════════════ */
+.dtable { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.dtable th {
+  text-align: left; font-size: 10px; font-weight: 800; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--txt-muted);
+  padding: 0.55rem 0.85rem; border-bottom: 1px solid var(--border);
+  background: var(--surface2); font-family: var(--font2);
+  transition: all 0.25s;
+}
+.dtable td { padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--border); color: var(--txt-secondary); vertical-align: middle; transition: all 0.25s; }
+.dtable tr:last-child td { border-bottom: none; }
+.dtable tr:hover td { background: var(--brand-light); color: var(--txt-primary); }
+
+/* ═══════════════════════════════
+   FORM ELEMENTS
+═══════════════════════════════ */
+.flabel { display: block; font-size: 11px; font-weight: 700; color: var(--txt-secondary); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.5px; font-family: var(--font2); transition: color 0.25s; }
+.finput {
+  width: 100%; padding: 0.55rem 0.85rem;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--r); font-size: 12.5px; font-family: var(--font);
+  color: var(--txt-primary); outline: none; transition: all 0.18s;
+}
+.finput:focus { border-color: var(--brand); background: var(--brand-light); box-shadow: 0 0 0 3px var(--brand-glow); }
+.finput::placeholder { color: var(--txt-muted); }
+.fselect {
+  width: 100%; padding: 0.55rem 2.2rem 0.55rem 0.85rem;
+  background: var(--surface2)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+    no-repeat right 0.75rem center;
+  border: 1px solid var(--border); border-radius: var(--r);
+  font-size: 12.5px; font-family: var(--font);
+  color: var(--txt-primary); outline: none; appearance: none;
+  transition: all 0.18s;
+}
+.fgroup { margin-bottom: 0.85rem; }
+
+/* ═══════════════════════════════
+   PROGRESS
+═══════════════════════════════ */
+.prog-track { background: var(--surface2); border-radius: 6px; overflow: hidden; transition: background 0.25s; }
+.prog-fill { height: 100%; border-radius: 6px; position: relative; transition: width 1.2s cubic-bezier(0.22,1,0.36,1); }
+.prog-fill.teal   { background: linear-gradient(90deg, #0f766e, #0dd9c4); }
+.prog-fill.green  { background: linear-gradient(90deg, #047857, #10b981); }
+.prog-fill.amber  { background: linear-gradient(90deg, #b45309, #f59e0b); }
+.prog-fill.red    { background: linear-gradient(90deg, #be123c, #f43f5e); }
+.prog-fill.blue   { background: linear-gradient(90deg, #0369a1, #0ea5e9); }
+
+/* ═══════════════════════════════
+   ALERTS
+═══════════════════════════════ */
+.alert {
+  display: flex; align-items: flex-start; gap: 0.6rem;
+  padding: 0.7rem 0.9rem; border-radius: var(--r);
+  font-size: 12px; margin-bottom: 0.6rem;
+  border-left: 3px solid;
+}
+.alert.amber { background: var(--amber-100); border-color: var(--amber-500); color: var(--amber-700); }
+.alert.red   { background: var(--rose-100);  border-color: var(--rose-500);  color: var(--rose-700); }
+.alert.green { background: var(--emerald-100); border-color: var(--emerald-500); color: var(--emerald-700); }
+.alert.teal  { background: var(--brand-light); border-color: var(--brand); color: var(--brand-dark); }
+
+/* ═══════════════════════════════
+   PILL TABS
+═══════════════════════════════ */
+.ptabs { display: flex; gap: 3px; background: var(--surface2); border-radius: 10px; padding: 3px; width: fit-content; margin-bottom: 1rem; border: 1px solid var(--border); transition: all 0.25s; }
+.ptab { padding: 0.3rem 0.9rem; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--txt-muted); cursor: pointer; font-family: var(--font2); white-space: nowrap; transition: all 0.18s; }
+.ptab.on { background: var(--surface); color: var(--txt-primary); box-shadow: var(--shadow-sm); }
+[data-theme="dark"] .ptab.on { background: rgba(13,217,196,0.1); color: #0dd9c4; border: 1px solid rgba(13,217,196,0.15); }
+
+/* ═══════════════════════════════
+   LAYOUT UTILS
+═══════════════════════════════ */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+.g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem; }
+.g4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.85rem; }
+.g24 { display: grid; grid-template-columns: 2fr 1.25fr; gap: 0.85rem; }
+.g32 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 0.85rem; }
+.fx  { display: flex; align-items: center; }
+.fxb { display: flex; align-items: center; justify-content: space-between; }
+.fxg { display: flex; align-items: center; gap: 0.5rem; }
+.mb1 { margin-bottom: 0.85rem; }
+.mb2 { margin-bottom: 1.35rem; }
+.sep { height: 1px; background: var(--border); margin: 0.75rem 0; transition: background 0.25s; }
+
+/* ═══════════════════════════════
+   AVATAR
+═══════════════════════════════ */
+.ava { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0; font-family: var(--font2); }
+
+/* ═══════════════════════════════
+   ANIMATED SVG CHARTS
+═══════════════════════════════ */
+
+/* — DONUT — */
+.donut-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+.donut-svg { transform: rotate(-90deg); }
+.donut-ring { fill: none; stroke-linecap: round; }
+.donut-track { fill: none; }
+.donut-center { position: absolute; text-align: center; }
+.donut-val { font-family: var(--font2); font-weight: 800; font-size: 18px; color: var(--txt-primary); display: block; line-height: 1; transition: color 0.25s; }
+.donut-lbl { font-size: 9.5px; color: var(--txt-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* — BAR CHART SVG — */
+.bar-svg { width: 100%; overflow: visible; }
+.bar-rect { transition: opacity 0.15s; cursor: pointer; }
+.bar-rect:hover { opacity: 0.8; }
+.chart-label { font-size: 9px; fill: var(--txt-muted); font-family: var(--font2); font-weight: 600; transition: fill 0.25s; }
+.chart-val { font-size: 9px; fill: var(--txt-secondary); font-family: var(--font2); font-weight: 700; transition: fill 0.25s; }
+
+/* — LINE CHART SVG — */
+.line-path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.line-area { opacity: 0.12; }
+.chart-dot { cursor: pointer; transition: r 0.15s; }
+.chart-dot:hover { r: 5px; }
+
+/* — SPARKLINE — */
+.spark { display: inline-flex; align-items: flex-end; gap: 2px; height: 24px; }
+.sp { width: 4px; border-radius: 2px; background: var(--brand); opacity: 0.3; }
+.sp.hi { opacity: 1; box-shadow: 0 0 4px var(--brand); }
+
+/* Animations */
+@keyframes fillBar {
+  from { transform: scaleY(0); transform-origin: bottom; }
+  to   { transform: scaleY(1); transform-origin: bottom; }
+}
+@keyframes drawLine {
+  from { stroke-dashoffset: 1000; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes spinDonut {
+  from { stroke-dashoffset: 300; }
+  to   { stroke-dashoffset: var(--dash-end); }
+}
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 var(--brand-glow); }
+  50% { box-shadow: 0 0 0 6px transparent; }
+}
+@keyframes orbFloat {
+  0% { transform: translate(0,0) scale(1); }
+  100% { transform: translate(15px,25px) scale(1.04); }
+}
+
+.anim-bar { animation: fillBar 0.8s cubic-bezier(0.22,1,0.36,1) both; }
+.anim-line { stroke-dasharray: 1000; animation: drawLine 1.5s ease both; }
+.anim-kpi { animation: countUp 0.5s ease both; }
+.anim-card { animation: fadeSlideIn 0.5s ease both; }
+
+/* dark ambient orbs */
+.amb { position: absolute; border-radius: 50%; filter: blur(70px); pointer-events: none; animation: orbFloat 9s ease-in-out infinite alternate; }
+
+/* ═══════════════════════════════
+   WIZARD STEPS
+═══════════════════════════════ */
+.wiz { display: flex; align-items: center; margin-bottom: 1.5rem; }
+.wnum { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex-shrink: 0; font-family: var(--font2); transition: all 0.25s; }
+.wnum.done { background: var(--brand); color: #030711; box-shadow: 0 0 12px var(--brand-glow); }
+.wnum.act  { background: var(--brand-light); color: var(--brand); border: 2px solid var(--brand); }
+.wnum.pend { background: var(--surface2); color: var(--txt-muted); border: 1px solid var(--border); }
+.wlbl { font-size: 11.5px; font-weight: 700; color: var(--txt-muted); font-family: var(--font2); transition: color 0.25s; }
+.wlbl.act { color: var(--brand); }
+.wlbl.done { color: var(--txt-secondary); }
+.wline { flex: 1; height: 2px; margin: 0 0.6rem; border-radius: 2px; transition: background 0.25s; }
+.wline.done { background: linear-gradient(90deg, var(--brand), rgba(13,217,196,0.3)); }
+.wline.pend { background: var(--border); }
+
+/* — MODERN SVG ICONS — */
+/* We'll use inline SVG paths for all icons — no emojis */
+</style>
+</head>
+<body>
+
+<!-- ══ TOP NAV ══════════════════════════════ -->
+<nav class="doc-nav">
+  <div class="nav-brand">⬡ Shule</div>
+  <a href="#palette" class="active">🎨 Palette</a>
+  <a href="#login">Login</a>
+  <a href="#principal">Principal</a>
+  <a href="#secretary">Secretary</a>
+  <a href="#bursar">Bursar</a>
+  <a href="#teacher">Teacher</a>
+  <a href="#dos">DoS</a>
+  <a href="#deputy">Deputy</a>
+  <a href="#parent">Parent</a>
+  <a href="#student">Student</a>
+  <a href="#it">IT Admin</a>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════
+  SECTION 0 — COLOR PALETTE & DESIGN TOKENS REFERENCE
+══════════════════════════════════════════════════════ -->
+<section id="palette" class="screen-section">
+  <div class="screen-label">Design System · Section 00</div>
+  <div class="screen-title">Color Palette & Design Tokens</div>
+  <div class="screen-desc">Official reference — replaces Figma. All colors, typography, radius, shadow, and component states.</div>
+
+  <div style="background:#0d1829; border:1px solid rgba(13,217,196,0.1); border-radius:20px; padding:2rem; box-shadow:0 40px 100px rgba(0,0,0,0.6);">
+
+    <!-- PRIMARY TEAL SCALE -->
+    <div style="margin-bottom:2rem;">
+      <div style="font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:#3a5470; margin-bottom:0.75rem;">Primary — Teal Scale</div>
+      <div style="display:grid; grid-template-columns:repeat(9,1fr); gap:6px;">
+        <div style="text-align:center;">
+          <div style="height:52px; background:#f0fdfa; border-radius:8px; margin-bottom:5px; border:1px solid rgba(255,255,255,0.05);"></div>
+          <div style="font-size:9.5px; color:#4a6a85; font-family:'JetBrains Mono',monospace;">50</div>
+          <div style="font-size:9px; color:#3a5470;">#f0fdfa</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="height:52px; background:#ccfbf1; border-radius:8px; margin-bottom:5px;"></div>
+          <div style="font-size:9.5px; color:#4a6a85; font-family:'JetBrains Mono',monospace;">100</div>
+          <div style="font-size:9px; color:#3a5470;">#ccfbf1</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="height:52px; background:#5eead4; border-radius:8px; margin-bottom:5px;"></div>
+          <div style="font-size:9.5px; color:#4a6a85; font-family:'JetBrains Mono',monospace;">300</div>
+          <div style="font-size:9px; color:#3a5470;">#5eead4</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="height:52px; background:#2dd4bf; border-radius:8px; margin-bottom:5px;"></div>
+          <div style="font-size:9.5px; color:#4a6a85; font-family:'JetBrains Mono',monospace;">400</div>
+          <div style="font-size:9px; color:#3a5470;">#2dd4bf</div>
+        </div>
+        <div style="text-align:center; position:relative;">
+          <div style="height:52px; background:#14b8a6; border-radius:8px; margin-bottom:5px; box-shadow:0 0 16px rgba(20,184,166,0.5);"></div>
+          <div style="font-size:9.5px; color:#0dd9c4; font-family:'JetBrains Mono',monospace; font-weight:800;">500 ★</div>
+          <div style="font-size:9px; color:#0dd9c4;">#14b8a6</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="height:52px; background:#0d9488; border-radius:8px; margin-bottom:5px; box-shadow:0 0 16px rgba(13,148,136,0.4);"></div>
+          <div style="font-size:9.5px; color:#0dd9c4; font-family:'JetBrains Mono',monospace; font-weight:800;">600 ★</div>
+          <div style="font-size:9px; color:#0dd9c4;">#0d9488</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="height:52px; background:#0f766e; border-radius:8px; margin-bottom:5px;"></div>
+          <div style="font-size:9.5px; color:#4a6a85; font-family:'JetBrains Mono',monospace;">700</div>
+          <div style="font-size:9px; color:#3a5470;">#0f766e</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="height:52px; background:#115e59; border-radius:8px; margin-bottom:5px;"></div>
+          <div style="font-size:9.5px; color:#4a6a85; font-family:'JetBrains Mono',monospace;">800</div>
+          <div style="font-size:9px; color:#3a5470;">#115e59</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="height:52px; background:#134e4a; border-radius:8px; margin-bottom:5px;"></div>
+          <div style="font-size:9.5px; color:#4a6a85; font-family:'JetBrains Mono',monospace;">900</div>
+          <div style="font-size:9px; color:#3a5470;">#134e4a</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEMANTIC COLORS -->
+    <div style="margin-bottom:2rem;">
+      <div style="font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:#3a5470; margin-bottom:0.75rem;">Semantic Colors</div>
+      <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:10px;">
+        <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); border-radius:10px; padding:0.85rem;">
+          <div style="width:32px;height:32px;background:#10b981;border-radius:7px;margin-bottom:0.6rem;box-shadow:0 0 12px rgba(16,185,129,0.4);"></div>
+          <div style="font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:800; color:#34d399; margin-bottom:2px;">Emerald</div>
+          <div style="font-size:10px; color:#2a5040; font-family:'JetBrains Mono',monospace;">#10b981</div>
+          <div style="font-size:10px; color:#4a6a85; margin-top:4px;">Success · Paid · Active</div>
+        </div>
+        <div style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.2); border-radius:10px; padding:0.85rem;">
+          <div style="width:32px;height:32px;background:#f59e0b;border-radius:7px;margin-bottom:0.6rem;box-shadow:0 0 12px rgba(245,158,11,0.4);"></div>
+          <div style="font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:800; color:#fbbf24; margin-bottom:2px;">Amber</div>
+          <div style="font-size:10px; color:#5a3a00; font-family:'JetBrains Mono',monospace;">#f59e0b</div>
+          <div style="font-size:10px; color:#4a6a85; margin-top:4px;">Warning · Partial · Pending</div>
+        </div>
+        <div style="background:rgba(244,63,94,0.08); border:1px solid rgba(244,63,94,0.2); border-radius:10px; padding:0.85rem;">
+          <div style="width:32px;height:32px;background:#f43f5e;border-radius:7px;margin-bottom:0.6rem;box-shadow:0 0 12px rgba(244,63,94,0.4);"></div>
+          <div style="font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:800; color:#fb7185; margin-bottom:2px;">Rose</div>
+          <div style="font-size:10px; color:#5a0020; font-family:'JetBrains Mono',monospace;">#f43f5e</div>
+          <div style="font-size:10px; color:#4a6a85; margin-top:4px;">Danger · Unpaid · Alerts</div>
+        </div>
+        <div style="background:rgba(14,165,233,0.08); border:1px solid rgba(14,165,233,0.2); border-radius:10px; padding:0.85rem;">
+          <div style="width:32px;height:32px;background:#0ea5e9;border-radius:7px;margin-bottom:0.6rem;box-shadow:0 0 12px rgba(14,165,233,0.4);"></div>
+          <div style="font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:800; color:#38bdf8; margin-bottom:2px;">Sky Blue</div>
+          <div style="font-size:10px; color:#003a5a; font-family:'JetBrains Mono',monospace;">#0ea5e9</div>
+          <div style="font-size:10px; color:#4a6a85; margin-top:4px;">Info · Links · Secondary</div>
+        </div>
+        <div style="background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.2); border-radius:10px; padding:0.85rem;">
+          <div style="width:32px;height:32px;background:#8b5cf6;border-radius:7px;margin-bottom:0.6rem;box-shadow:0 0 12px rgba(139,92,246,0.4);"></div>
+          <div style="font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:800; color:#a78bfa; margin-bottom:2px;">Violet</div>
+          <div style="font-size:10px; color:#2d1a5a; font-family:'JetBrains Mono',monospace;">#8b5cf6</div>
+          <div style="font-size:10px; color:#4a6a85; margin-top:4px;">DoS · Special badges</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SURFACES + TYPOGRAPHY + RADII -->
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; margin-bottom:2rem;">
+      <!-- Surfaces -->
+      <div>
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:#3a5470; margin-bottom:0.65rem;">Surfaces — Light Mode</div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <div style="width:32px;height:32px;background:#f8fafc;border-radius:6px;border:1px solid rgba(255,255,255,0.1);flex-shrink:0;"></div>
+            <div><div style="font-size:11px;font-weight:700;color:#7da4c0;">--bg / #f8fafc</div><div style="font-size:9.5px;color:#3a5470;">Page background</div></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <div style="width:32px;height:32px;background:#ffffff;border-radius:6px;border:1px solid rgba(255,255,255,0.15);flex-shrink:0;"></div>
+            <div><div style="font-size:11px;font-weight:700;color:#7da4c0;">--surface / #ffffff</div><div style="font-size:9.5px;color:#3a5470;">Cards, modals, topbar</div></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <div style="width:32px;height:32px;background:#f1f5f9;border-radius:6px;border:1px solid rgba(255,255,255,0.08);flex-shrink:0;"></div>
+            <div><div style="font-size:11px;font-weight:700;color:#7da4c0;">--surface2 / #f1f5f9</div><div style="font-size:9.5px;color:#3a5470;">Inputs, table headers</div></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <div style="width:32px;height:32px;background:#0f172a;border-radius:6px;flex-shrink:0;"></div>
+            <div><div style="font-size:11px;font-weight:700;color:#7da4c0;">--sidebar / #0f172a</div><div style="font-size:9.5px;color:#3a5470;">Sidebar always dark</div></div>
+          </div>
+        </div>
+      </div>
+      <!-- Typography -->
+      <div>
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:#3a5470; margin-bottom:0.65rem;">Typography</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div><div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:800;color:#e2f0f9;letter-spacing:-0.5px;">Aa — Space Grotesk 800</div><div style="font-size:9.5px;color:#3a5470;">Headings, KPIs, brand marks</div></div>
+          <div><div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;color:#7da4c0;">Aa — Plus Jakarta Sans 600</div><div style="font-size:9.5px;color:#3a5470;">Body, labels, nav items</div></div>
+          <div><div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;color:#0dd9c4;">KJA/2025/0848 — JetBrains Mono</div><div style="font-size:9.5px;color:#3a5470;">Admission nos., IDs, amounts</div></div>
+          <div style="margin-top:4px;">
+            <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#3a5470; margin-bottom:3px;">SIZE SCALE</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <span style="font-size:10px;color:#4a6a85;">9px</span><span style="font-size:10px;color:#4a6a85;">10px</span><span style="font-size:11px;color:#4a6a85;">11px</span><span style="font-size:12px;color:#4a6a85;">12px</span><span style="font-size:13px;color:#7da4c0;">13px</span><span style="font-size:14px;color:#7da4c0;">14px</span><span style="font-size:16px;color:#b0d0e8;">16px</span><span style="font-size:20px;color:#e2f0f9;font-weight:800;">20</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Radii + Shadows -->
+      <div>
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:#3a5470; margin-bottom:0.65rem;">Radii & Spacing</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex;align-items:center;gap:0.6rem;">
+            <div style="width:28px;height:28px;background:#0d9488;border-radius:6px;flex-shrink:0;opacity:0.8;"></div>
+            <div><div style="font-size:11px;font-weight:700;color:#7da4c0;">r-sm: 6px</div><div style="font-size:9.5px;color:#3a5470;">Badges, small chips</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.6rem;">
+            <div style="width:28px;height:28px;background:#0d9488;border-radius:10px;flex-shrink:0;"></div>
+            <div><div style="font-size:11px;font-weight:700;color:#7da4c0;">r: 10px</div><div style="font-size:9.5px;color:#3a5470;">Inputs, buttons, small cards</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.6rem;">
+            <div style="width:28px;height:28px;background:#0d9488;border-radius:14px;flex-shrink:0;"></div>
+            <div><div style="font-size:11px;font-weight:700;color:#7da4c0;">r-lg: 14px</div><div style="font-size:9.5px;color:#3a5470;">Cards, panels</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.6rem;">
+            <div style="width:28px;height:28px;background:#0d9488;border-radius:20px;flex-shrink:0;"></div>
+            <div><div style="font-size:11px;font-weight:700;color:#7da4c0;">r-xl: 20px</div><div style="font-size:9.5px;color:#3a5470;">Modals, screen frames</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPONENT STATES -->
+    <div>
+      <div style="font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:#3a5470; margin-bottom:0.75rem;">Component States & Tokens</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(13,217,196,0.12);color:#0dd9c4;border:1px solid rgba(13,217,196,0.25);">● Active</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(16,185,129,0.12);color:#34d399;border:1px solid rgba(16,185,129,0.25);">● Paid</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(245,158,11,0.12);color:#fbbf24;border:1px solid rgba(245,158,11,0.25);">● Partial</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(244,63,94,0.12);color:#fb7185;border:1px solid rgba(244,63,94,0.25);">● Unpaid</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(14,165,233,0.12);color:#38bdf8;border:1px solid rgba(14,165,233,0.25);">● Info</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(139,92,246,0.12);color:#a78bfa;border:1px solid rgba(139,92,246,0.25);">● Special</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(255,255,255,0.05);color:#4a6a85;border:1px solid rgba(255,255,255,0.08);">● Inactive</span>
+        <div style="height:28px;background:linear-gradient(135deg,#0d9488,#0f766e);border-radius:8px;padding:0 12px;display:inline-flex;align-items:center;font-size:11.5px;font-weight:800;color:#030711;font-family:'Space Grotesk',sans-serif;box-shadow:0 4px 14px rgba(13,148,136,0.35);">Primary Button</div>
+        <div style="height:28px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:0 12px;display:inline-flex;align-items:center;font-size:11.5px;font-weight:700;color:#7da4c0;font-family:'Space Grotesk',sans-serif;">Ghost Button</div>
+        <div style="height:28px;background:rgba(244,63,94,0.12);border:1px solid rgba(244,63,94,0.2);border-radius:8px;padding:0 12px;display:inline-flex;align-items:center;font-size:11.5px;font-weight:700;color:#fb7185;font-family:'Space Grotesk',sans-serif;">Danger Button</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="sep-line">
+
+<!-- ══════════════════════════════════════════
+  HELPER: renders a themed app shell wrapper
+  data-theme applied to .app-root on each screen
+══════════════════════════════════════════ -->
+
+<!-- SCREEN 1 — LOGIN -->
+<section id="login" class="screen-section">
+  <div class="screen-label">Screen 01 · All Roles</div>
+  <div class="screen-title">Login Page</div>
+  <div class="screen-desc">Glassmorphic panel on ambient mesh. Light mode default. Role auto-detected from credentials — no role dropdown.</div>
+  <div class="screen-frame">
+    <div class="app-root" data-theme="light" style="height:560px; position:relative; overflow:hidden;">
+      <!-- Ambient background mesh (light) -->
+      <div style="position:absolute;inset:0;background:linear-gradient(135deg,#f0fdfa 0%,#f8fafc 50%,#e0f2fe 100%);z-index:0;"></div>
+      <div style="position:absolute;width:500px;height:500px;background:radial-gradient(circle,rgba(13,148,136,0.12),transparent 65%);top:-150px;left:-80px;border-radius:50%;z-index:0;"></div>
+      <div style="position:absolute;width:400px;height:400px;background:radial-gradient(circle,rgba(14,165,233,0.08),transparent 65%);bottom:-100px;right:-60px;border-radius:50%;z-index:0;"></div>
+      <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(13,148,136,0.06) 1px,transparent 1px);background-size:28px 28px;z-index:0;"></div>
+
+      <div style="position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;height:100%;">
+        <!-- Left branding -->
+        <div style="display:flex;flex-direction:column;justify-content:center;padding:3.5rem 3rem;">
+          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:2.5rem;">
+            <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#0d9488,#0f766e);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:900;color:#fff;box-shadow:0 8px 24px rgba(13,148,136,0.35);">S</div>
+            <div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:1.3rem;font-weight:900;color:#0f766e;letter-spacing:-0.5px;">Shule</div>
+              <div style="font-size:9.5px;color:#94a3b8;letter-spacing:2px;text-transform:uppercase;">School Management System</div>
+            </div>
+          </div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:2.3rem;font-weight:900;color:#0f172a;line-height:1.15;letter-spacing:-1.5px;margin-bottom:1rem;">Your school.<br><span style="color:#0d9488;">One platform.</span></div>
+          <div style="font-size:13px;color:#64748b;line-height:1.85;margin-bottom:2rem;">Students · Fees · Exams · Attendance<br>Reports · Staff · Parent Portal</div>
+          <!-- Feature chips -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <div style="display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:#475569;box-shadow:0 1px 3px rgba(15,23,42,0.06);">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Offline First
+            </div>
+            <div style="display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:#475569;box-shadow:0 1px 3px rgba(15,23,42,0.06);">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2.5"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>PWA Ready
+            </div>
+            <div style="display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:#475569;box-shadow:0 1px 3px rgba(15,23,42,0.06);">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Real-time
+            </div>
+          </div>
+          <div style="margin-top:1.75rem;display:flex;gap:6px;">
+            <span style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:6px;padding:4px 9px;font-size:10.5px;font-weight:700;color:#0d9488;">🇺🇬 Uganda</span>
+            <span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:4px 9px;font-size:10.5px;font-weight:600;color:#64748b;">🇰🇪 Kenya</span>
+            <span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:4px 9px;font-size:10.5px;font-weight:600;color:#64748b;">🇹🇿 Tanzania</span>
+          </div>
+        </div>
+        <!-- Right: glass login card -->
+        <div style="display:flex;align-items:center;justify-content:center;padding:2rem;">
+          <div style="width:100%;max-width:360px;background:rgba(255,255,255,0.8);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.9);border-top:1px solid rgba(255,255,255,1);border-radius:20px;padding:2.25rem;box-shadow:0 20px 60px rgba(15,23,42,0.12),0 4px 16px rgba(15,23,42,0.06);">
+            <div style="margin-bottom:1.75rem;">
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:1.25rem;font-weight:900;color:#0f172a;margin-bottom:0.3rem;letter-spacing:-0.5px;">Welcome back</div>
+              <div style="font-size:12.5px;color:#94a3b8;">Sign in to your school account</div>
+            </div>
+            <div style="margin-bottom:0.75rem;">
+              <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:0.3rem;text-transform:uppercase;letter-spacing:0.5px;font-family:'Space Grotesk',sans-serif;">Email address</label>
+              <div style="display:flex;align-items:center;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:0 0.85rem;gap:0.5rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z"/><path d="M22 6l-10 7L2 6"/></svg>
+                <input type="email" value="aisha@kja.edu.ug" style="flex:1;padding:0.55rem 0;border:none;background:transparent;font-size:12.5px;color:#0f172a;font-family:'Plus Jakarta Sans',sans-serif;outline:none;">
+              </div>
+            </div>
+            <div style="margin-bottom:1.25rem;">
+              <label style="display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700;color:#475569;margin-bottom:0.3rem;text-transform:uppercase;letter-spacing:0.5px;font-family:'Space Grotesk',sans-serif;">Password <span style="color:#0d9488;font-size:10.5px;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500;">Forgot password?</span></label>
+              <div style="display:flex;align-items:center;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:0 0.85rem;gap:0.5rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                <input type="password" placeholder="••••••••" style="flex:1;padding:0.55rem 0;border:none;background:transparent;font-size:12.5px;color:#0f172a;font-family:'Plus Jakarta Sans',sans-serif;outline:none;">
+              </div>
+            </div>
+            <button style="width:100%;padding:0.75rem;background:linear-gradient(135deg,#0d9488,#0f766e);border:none;border-radius:10px;font-family:'Space Grotesk',sans-serif;font-size:13.5px;font-weight:800;color:#fff;cursor:pointer;box-shadow:0 4px 20px rgba(13,148,136,0.35);letter-spacing:0.2px;">
+              Sign in to Shule →
+            </button>
+            <div style="margin-top:1.25rem;padding:0.75rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:11px;color:#94a3b8;text-align:center;line-height:1.7;">
+              New to Shule? Your IT Admin or Secretary provides<br>your login credentials. Data stays at your school.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="sep-line">
+
+<!-- SCREEN 2 — PRINCIPAL DASHBOARD (LIGHT DEFAULT + DARK TOGGLE) -->
+<section id="principal" class="screen-section">
+  <div class="screen-label">Screen 02 · Principal</div>
+  <div class="screen-title">Principal Dashboard</div>
+  <div class="screen-desc">KPI cards · Animated donut (fee collection) · Animated bar chart (term pass rates) · Report card approvals · Alerts. Click ☀️/🌙 to toggle theme.</div>
+  <div class="screen-frame">
+    <div class="app-root" id="principal-root" data-theme="light">
+      <div class="app-shell">
+        <!-- SIDEBAR (always dark) -->
+        <nav class="sidebar">
+          <div class="sb-top">
+            <div class="sb-brand">
+              <div class="sb-logo">S</div>
+              <div class="sb-brand-text"><div class="name">Shule</div><div class="sub">School OS</div></div>
+            </div>
+            <div class="school-pill">
+              <div class="school-icon">K</div>
+              <div class="school-info"><div class="nm">Kampala Junior Academy</div><div class="sub">Nakasero · Est. 1998</div></div>
+            </div>
+          </div>
+          <div class="nav-grp-label">Overview</div>
+          <a class="nav-i on">
+            <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Dashboard
+          </a>
+          <a class="nav-i">
+            <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>Analytics
+          </a>
+          <a class="nav-i">
+            <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>Audit Log
+          </a>
+          <div class="nav-grp-label">School</div>
+          <a class="nav-i">
+            <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></span>Students <span class="ncount">847</span>
+          </a>
+          <a class="nav-i">
+            <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg></span>Staff <span class="ncount">24</span>
+          </a>
+          <a class="nav-i">
+            <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>Classes
+          </a>
+          <div class="nav-grp-label">Academic</div>
+          <a class="nav-i">
+            <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></span>Report Cards <span class="nbadge">3</span>
+          </a>
+          <a class="nav-i">
+            <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Academic Year
+          </a>
+          <div class="nav-grp-label">Communication</div>
+          <a class="nav-i">
+            <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span>Messages <span class="nbadge">5</span>
+          </a>
+          <a class="nav-i">
+            <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></span>Announcements
+          </a>
+          <a class="nav-i">
+            <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M21 12h-2M19.07 19.07l-1.41-1.41M12 21v-2M4.93 19.07l1.41-1.41M3 12h2M4.93 4.93l1.41 1.41"/></svg></span>Settings
+          </a>
+          <div class="sb-bottom">
+            <div class="user-pill">
+              <div class="u-ava" style="background:rgba(245,158,11,0.2);color:#fbbf24;">PK</div>
+              <div><div class="u-name">Dr. P. Kato</div><div class="u-role">Principal</div></div>
+              <div class="u-dot"></div>
+            </div>
+          </div>
+        </nav>
+
+        <!-- MAIN -->
+        <div class="main-area">
+          <div class="topbar">
+            <div style="flex:1;">
+              <span class="tb-title">Good morning, Dr. Kato</span>
+              <span class="tb-sub">Tuesday · 13 May 2025 · Term 2</span>
+            </div>
+            <!-- THEME TOGGLE -->
+            <div class="theme-toggle" onclick="toggleTheme('principal-root')" title="Toggle light/dark mode">
+              <div class="toggle-knob" id="principal-knob">🌙</div>
+            </div>
+            <div class="tb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+            <div class="tb-icon" style="position:relative;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+              <div class="ndot"></div>
+            </div>
+            <div style="width:32px;height:32px;border-radius:50%;background:rgba(245,158,11,0.15);border:2px solid rgba(245,158,11,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#f59e0b;font-family:'Space Grotesk',sans-serif;flex-shrink:0;cursor:pointer;">PK</div>
+          </div>
+
+          <div class="main-content">
+            <!-- KPI GRID -->
+            <div class="kpi-grid mb2">
+              <div class="kpi-card anim-card" style="animation-delay:0s;">
+                <div class="kpi-icon-wrap" style="background:#f0fdfa;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                </div>
+                <div class="kpi-lbl">Total Students</div>
+                <div class="kpi-val">847</div>
+                <div class="kpi-sub"><span class="trend-up">↑ 23</span>&nbsp;enrolled this term</div>
+                <div class="kpi-accent-bar" style="background:linear-gradient(90deg,#0f766e,#0dd9c4);"></div>
+              </div>
+              <div class="kpi-card anim-card" style="animation-delay:0.08s;">
+                <div class="kpi-icon-wrap" style="background:#d1fae5;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                </div>
+                <div class="kpi-lbl">Fees Collected</div>
+                <div class="kpi-val">68%</div>
+                <div class="kpi-sub">UGX 42.6M of 62.8M</div>
+                <div class="kpi-accent-bar" style="background:linear-gradient(90deg,#047857,#10b981);"></div>
+              </div>
+              <div class="kpi-card anim-card" style="animation-delay:0.16s;">
+                <div class="kpi-icon-wrap" style="background:#fef3c7;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                </div>
+                <div class="kpi-lbl">Pass Rate</div>
+                <div class="kpi-val">78%</div>
+                <div class="kpi-sub"><span class="trend-up">↑ 4%</span>&nbsp;vs last term</div>
+                <div class="kpi-accent-bar" style="background:linear-gradient(90deg,#b45309,#f59e0b);"></div>
+              </div>
+              <div class="kpi-card anim-card" style="animation-delay:0.24s;">
+                <div class="kpi-icon-wrap" style="background:#ffe4e6;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                </div>
+                <div class="kpi-lbl">Attendance</div>
+                <div class="kpi-val">91%</div>
+                <div class="kpi-sub"><span class="trend-dn">12</span>&nbsp;students below 80%</div>
+                <div class="kpi-accent-bar" style="background:linear-gradient(90deg,#be123c,#f43f5e);"></div>
+              </div>
+            </div>
+
+            <div class="g2 mb1">
+              <!-- ALERTS + APPROVALS -->
+              <div>
+                <div class="alert amber">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  <div><strong>3 report cards</strong> awaiting your approval — S.3 East, S.3 West, S.4 East</div>
+                </div>
+                <div class="alert red">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  <div>Fee collection <strong>32% behind target</strong> for S.1 East — 18 students unpaid</div>
+                </div>
+                <div class="alert green">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <div>Curriculum coverage at <strong>76%</strong> — on track for term end</div>
+                </div>
+                <!-- Report card approval mini-card -->
+                <div class="card" style="margin-top:0.65rem;">
+                  <div class="card-hd">
+                    <span class="card-title">Pending Report Card Approvals</span>
+                    <span class="badge amber">3 ready</span>
+                  </div>
+                  <table class="dtable">
+                    <thead><tr><th>Class</th><th>Stream</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody>
+                      <tr><td style="font-weight:700;color:var(--txt-primary);">S.3</td><td>East</td><td><span class="badge green"><span class="sdot g"></span> Ready</span></td><td><span style="color:var(--brand);font-size:11.5px;font-weight:800;cursor:pointer;font-family:'Space Grotesk',sans-serif;">Approve ✓</span></td></tr>
+                      <tr><td style="font-weight:700;color:var(--txt-primary);">S.3</td><td>West</td><td><span class="badge green"><span class="sdot g"></span> Ready</span></td><td><span style="color:var(--brand);font-size:11.5px;font-weight:800;cursor:pointer;font-family:'Space Grotesk',sans-serif;">Approve ✓</span></td></tr>
+                      <tr><td style="font-weight:700;color:var(--txt-primary);">S.4</td><td>East</td><td><span class="badge amber">In Review</span></td><td><span style="color:var(--txt-muted);font-size:11.5px;">Waiting…</span></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- CHARTS PANEL: DONUT + BAR -->
+              <div style="display:flex;flex-direction:column;gap:0.85rem;">
+                <!-- Donut chart: fee collection -->
+                <div class="card">
+                  <div class="card-hd"><span class="card-title">Fee Collection — Term 2</span><span class="badge green">68%</span></div>
+                  <div class="card-body" style="display:flex;align-items:center;gap:1.25rem;">
+                    <!-- Animated donut SVG -->
+                    <div class="donut-wrap" style="width:90px;height:90px;flex-shrink:0;">
+                      <svg class="donut-svg" width="90" height="90" viewBox="0 0 90 90">
+                        <circle class="donut-track" cx="45" cy="45" r="36" stroke="var(--surface2)" stroke-width="10" fill="none"/>
+                        <!-- Paid (68%) -->
+                        <circle cx="45" cy="45" r="36" fill="none" stroke="#10b981" stroke-width="10" stroke-linecap="round"
+                          stroke-dasharray="153.9 226.2"
+                          style="animation:spinDonut 1.2s cubic-bezier(0.22,1,0.36,1) both; --dash-end:153.9; stroke-dashoffset:300;">
+                        </circle>
+                        <!-- Partial (12%) -->
+                        <circle cx="45" cy="45" r="36" fill="none" stroke="#f59e0b" stroke-width="10" stroke-linecap="round"
+                          stroke-dasharray="27.1 226.2" stroke-dashoffset="-153.9"
+                          style="opacity:0.9;">
+                        </circle>
+                      </svg>
+                      <div class="donut-center">
+                        <span class="donut-val">68%</span>
+                        <span class="donut-lbl">Paid</span>
+                      </div>
+                    </div>
+                    <div style="flex:1;">
+                      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+                        <div class="fxb" style="font-size:11.5px;"><span style="display:flex;align-items:center;gap:5px;color:var(--txt-secondary);"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>Paid in full</span><strong style="color:var(--txt-primary);">558</strong></div>
+                        <div class="fxb" style="font-size:11.5px;"><span style="display:flex;align-items:center;gap:5px;color:var(--txt-secondary);"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Partial</span><strong style="color:var(--txt-primary);">117</strong></div>
+                        <div class="fxb" style="font-size:11.5px;"><span style="display:flex;align-items:center;gap:5px;color:var(--txt-secondary);"><span style="width:8px;height:8px;border-radius:50%;background:#f43f5e;display:inline-block;"></span>Unpaid</span><strong style="color:var(--txt-primary);">172</strong></div>
+                        <div class="sep"></div>
+                        <div class="fxb" style="font-size:11.5px;"><span style="color:var(--txt-muted);">Total due</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--txt-primary);">UGX 62.8M</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bar chart: subject pass rates -->
+                <div class="card">
+                  <div class="card-hd"><span class="card-title">Subject Pass Rates</span><span style="font-size:11px;color:var(--txt-muted);">Term 2 · 2025</span></div>
+                  <div class="card-body" style="padding:0.85rem 1.1rem;">
+                    <svg class="bar-svg" viewBox="0 0 280 90" style="height:90px;">
+                      <!-- Y grid -->
+                      <line x1="0" y1="0" x2="280" y2="0" stroke="var(--border)" stroke-width="0.5"/>
+                      <line x1="0" y1="30" x2="280" y2="30" stroke="var(--border)" stroke-width="0.5"/>
+                      <line x1="0" y1="60" x2="280" y2="60" stroke="var(--border)" stroke-width="0.5"/>
+                      <text x="0" y="-2" class="chart-label" style="font-size:7px;">100%</text>
+                      <text x="0" y="28" class="chart-label" style="font-size:7px;">67%</text>
+                      <text x="0" y="58" class="chart-label" style="font-size:7px;">33%</text>
+                      <!-- Math 82% -->
+                      <rect class="bar-rect anim-bar" x="18" y="14.4" width="22" height="75.6" rx="4" fill="url(#barTeal)" style="animation-delay:0.1s;"/>
+                      <text x="29" y="88" class="chart-label" text-anchor="middle">Math</text>
+                      <text x="29" y="11" class="chart-val" text-anchor="middle" font-weight="800">82%</text>
+                      <!-- Eng 91% -->
+                      <rect class="bar-rect anim-bar" x="58" y="7.2" width="22" height="82.8" rx="4" fill="url(#barGreen)" style="animation-delay:0.18s;"/>
+                      <text x="69" y="88" class="chart-label" text-anchor="middle">Eng</text>
+                      <text x="69" y="4" class="chart-val" text-anchor="middle" font-weight="800">91%</text>
+                      <!-- Bio 74% -->
+                      <rect class="bar-rect anim-bar" x="98" y="23.4" width="22" height="66.6" rx="4" fill="url(#barAmber)" style="animation-delay:0.26s;"/>
+                      <text x="109" y="88" class="chart-label" text-anchor="middle">Bio</text>
+                      <text x="109" y="20" class="chart-val" text-anchor="middle" font-weight="800" fill="#f59e0b">74%</text>
+                      <!-- Phy 68% -->
+                      <rect class="bar-rect anim-bar" x="138" y="28.8" width="22" height="61.2" rx="4" fill="url(#barRed)" style="animation-delay:0.34s;"/>
+                      <text x="149" y="88" class="chart-label" text-anchor="middle">Phy</text>
+                      <text x="149" y="25" class="chart-val" text-anchor="middle" font-weight="800" fill="#f43f5e">68%</text>
+                      <!-- Hist 88% -->
+                      <rect class="bar-rect anim-bar" x="178" y="10.8" width="22" height="79.2" rx="4" fill="url(#barTeal)" style="animation-delay:0.42s;"/>
+                      <text x="189" y="88" class="chart-label" text-anchor="middle">Hist</text>
+                      <text x="189" y="7" class="chart-val" text-anchor="middle" font-weight="800">88%</text>
+                      <!-- Chem 71% -->
+                      <rect class="bar-rect anim-bar" x="218" y="26.1" width="22" height="63.9" rx="4" fill="url(#barAmber)" style="animation-delay:0.5s;"/>
+                      <text x="229" y="88" class="chart-label" text-anchor="middle">Chem</text>
+                      <text x="229" y="23" class="chart-val" text-anchor="middle" font-weight="800" fill="#f59e0b">71%</text>
+                      <!-- Gradients -->
+                      <defs>
+                        <linearGradient id="barTeal" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0dd9c4"/><stop offset="100%" stop-color="#0d9488" stop-opacity="0.7"/></linearGradient>
+                        <linearGradient id="barGreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#047857" stop-opacity="0.7"/></linearGradient>
+                        <linearGradient id="barAmber" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#b45309" stop-opacity="0.7"/></linearGradient>
+                        <linearGradient id="barRed" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f43f5e"/><stop offset="100%" stop-color="#be123c" stop-opacity="0.7"/></linearGradient>
+                        <linearGradient id="lineTeal" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0dd9c4" stop-opacity="0.25"/><stop offset="100%" stop-color="#0dd9c4" stop-opacity="0"/></linearGradient>
+                      </defs>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- LINE CHART: attendance trend -->
+            <div class="card">
+              <div class="card-hd">
+                <span class="card-title">Attendance Trend — Term 2, 2025</span>
+                <div class="fxg"><span class="badge teal">91% avg</span><span style="font-size:11px;color:var(--txt-muted);">8 weeks</span></div>
+              </div>
+              <div class="card-body" style="padding:0.85rem 1.1rem;">
+                <svg viewBox="0 0 460 80" style="width:100%;height:80px;overflow:visible;">
+                  <!-- Grid -->
+                  <line x1="0" y1="0"  x2="460" y2="0"  stroke="var(--border)" stroke-width="0.5"/>
+                  <line x1="0" y1="20" x2="460" y2="20" stroke="var(--border)" stroke-width="0.5"/>
+                  <line x1="0" y1="40" x2="460" y2="40" stroke="var(--border)" stroke-width="0.5"/>
+                  <line x1="0" y1="60" x2="460" y2="60" stroke="var(--border)" stroke-width="0.5"/>
+                  <text x="2" y="-2"  class="chart-label">100%</text>
+                  <text x="2" y="18"  class="chart-label">93%</text>
+                  <text x="2" y="38"  class="chart-label">85%</text>
+                  <text x="2" y="58"  class="chart-label">75%</text>
+                  <!-- Area fill -->
+                  <path d="M40,12 L100,8 L160,16 L220,10 L280,14 L340,6 L400,10 L460,12 L460,80 L40,80 Z"
+                    fill="url(#lineTeal)" class="line-area"/>
+                  <!-- Line -->
+                  <path d="M40,12 L100,8 L160,16 L220,10 L280,14 L340,6 L400,10 L460,12"
+                    class="line-path anim-line" stroke="#0dd9c4" stroke-width="2.5"/>
+                  <!-- Dots -->
+                  <circle cx="40"  cy="12" r="4" fill="#0dd9c4" class="chart-dot" stroke="var(--surface)" stroke-width="2"/>
+                  <circle cx="100" cy="8"  r="4" fill="#0dd9c4" class="chart-dot" stroke="var(--surface)" stroke-width="2"/>
+                  <circle cx="160" cy="16" r="4" fill="#f59e0b" class="chart-dot" stroke="var(--surface)" stroke-width="2"/>
+                  <circle cx="220" cy="10" r="4" fill="#0dd9c4" class="chart-dot" stroke="var(--surface)" stroke-width="2"/>
+                  <circle cx="280" cy="14" r="4" fill="#0dd9c4" class="chart-dot" stroke="var(--surface)" stroke-width="2"/>
+                  <circle cx="340" cy="6"  r="5" fill="#10b981" class="chart-dot" stroke="var(--surface)" stroke-width="2"/>
+                  <circle cx="400" cy="10" r="4" fill="#0dd9c4" class="chart-dot" stroke="var(--surface)" stroke-width="2"/>
+                  <circle cx="460" cy="12" r="4" fill="#0dd9c4" class="chart-dot" stroke="var(--surface)" stroke-width="2"/>
+                  <!-- Week labels -->
+                  <text x="40"  y="78" class="chart-label" text-anchor="middle">Wk1</text>
+                  <text x="100" y="78" class="chart-label" text-anchor="middle">Wk2</text>
+                  <text x="160" y="78" class="chart-label" text-anchor="middle">Wk3</text>
+                  <text x="220" y="78" class="chart-label" text-anchor="middle">Wk4</text>
+                  <text x="280" y="78" class="chart-label" text-anchor="middle">Wk5</text>
+                  <text x="340" y="78" class="chart-label" text-anchor="middle" fill="#10b981" font-weight="800">Wk6★</text>
+                  <text x="400" y="78" class="chart-label" text-anchor="middle">Wk7</text>
+                  <text x="460" y="78" class="chart-label" text-anchor="middle">Wk8</text>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="sep-line">
+<div style="text-align:center;padding:3rem 2rem;border-top:1px solid rgba(13,217,196,0.06);">
+  <div style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:900;background:linear-gradient(135deg,#0dd9c4,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:0.4rem;">⬡ Shule Design System v1.0</div>
+  <div style="font-size:12px;color:#3a5470;">Color Palette · Login · Principal Dashboard (Light+Dark, Animated Charts)</div>
+  <div style="font-size:11px;color:#2a3f55;margin-top:0.3rem;">Wireframes file coming next — then Week 3 Auth</div>
+</div>
+
+<script>
+function toggleTheme(rootId) {
+  const root = document.getElementById(rootId);
+  const knob = document.getElementById(rootId.replace('-root','-knob'));
+  const current = root.getAttribute('data-theme');
+  const next = current === 'light' ? 'dark' : 'light';
+  root.setAttribute('data-theme', next);
+  if (knob) knob.textContent = next === 'dark' ? '🌙' : '☀️';
+}
+
+// Nav active highlight on scroll
+const sections = document.querySelectorAll('section[id]');
+const links = document.querySelectorAll('.doc-nav a');
+links.forEach(l => l.addEventListener('click', function(e){
+  e.preventDefault();
+  const t = document.querySelector(this.getAttribute('href'));
+  if(t) t.scrollIntoView({behavior:'smooth',block:'start'});
+  links.forEach(x=>x.classList.remove('active'));
+  this.classList.add('active');
+}));
+const io = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting) links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')==='#'+e.target.id));
+  });
+},{rootMargin:'-25% 0% -65% 0%'});
+sections.forEach(s=>io.observe(s));
+
+// Animate progress fills on scroll
+const progs = document.querySelectorAll('.prog-fill');
+const progObs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{ if(e.isIntersecting) e.target.style.width = e.target.getAttribute('data-w') || e.target.style.width; });
+},{threshold:0.1});
+progs.forEach(p=>progObs.observe(p));
+</script>
+</body>
+</html>
