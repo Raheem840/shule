@@ -15,7 +15,7 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, error, helper, options, placeholder, leftIcon, id, style, ...props }, ref) => {
+  ({ label, error, helper, options, placeholder, leftIcon, id, className = '', style, ...props }, ref) => {
     const selectId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
 
     return (
@@ -30,6 +30,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
               fontFamily: 'var(--font2)',
+              transition: 'color 0.25s',
             }}
           >
             {label}
@@ -56,6 +57,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           <select
             ref={ref}
             id={selectId}
+            // sui-select → CSS :focus ring in index.css
+            className={`sui-select ${className}`.trim()}
             style={{
               width: '100%',
               padding: leftIcon ? '0.55rem 2.2rem 0.55rem 2.2rem' : '0.55rem 2.2rem 0.55rem 0.85rem',
@@ -65,11 +68,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               fontSize: 12.5,
               fontFamily: 'var(--font1)',
               color: 'var(--txt)',
-              outline: 'none',
               appearance: 'none',
               WebkitAppearance: 'none',
-              cursor: 'pointer',
-              transition: 'all 0.18s',
               ...style,
             }}
             {...props}
@@ -86,7 +86,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             ))}
           </select>
 
-          {/* Chevron arrow */}
+          {/* Chevron — always in top-right corner */}
           <span
             style={{
               position: 'absolute',

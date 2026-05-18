@@ -2,6 +2,7 @@ import { ReactNode, CSSProperties, HTMLAttributes } from 'react'
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode
+  hoverable?: boolean
 }
 
 interface CardHeaderProps extends HTMLAttributes<HTMLDivElement> {
@@ -13,17 +14,16 @@ interface CardBodyProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode
 }
 
-export function Card({ children, style, ...props }: CardProps) {
+export function Card({ children, hoverable = true, className = '', style, ...props }: CardProps) {
   return (
     <div
+      className={`sui-card ${className}`.trim()}
       style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderRadius: 'var(--r-lg)',
         boxShadow: 'var(--sh-sm)',
-        position: 'relative',
-        overflow: 'hidden',
-        transition: 'background 0.25s, border-color 0.25s, box-shadow 0.2s',
+        // hover + dark mode glassmorphism applied via .sui-card in index.css
         ...style,
       }}
       {...props}
@@ -33,9 +33,10 @@ export function Card({ children, style, ...props }: CardProps) {
   )
 }
 
-export function CardHeader({ title, action, style, ...props }: CardHeaderProps) {
+export function CardHeader({ title, action, className = '', style, ...props }: CardHeaderProps) {
   return (
     <div
+      className={className}
       style={{
         padding: '0.85rem 1.1rem',
         borderBottom: '1px solid var(--border)',
@@ -53,6 +54,7 @@ export function CardHeader({ title, action, style, ...props }: CardHeaderProps) 
           fontSize: 13,
           fontWeight: 800,
           color: 'var(--txt)',
+          transition: 'color 0.25s',
         }}
       >
         {title}
@@ -62,9 +64,9 @@ export function CardHeader({ title, action, style, ...props }: CardHeaderProps) 
   )
 }
 
-export function CardBody({ children, style, ...props }: CardBodyProps) {
+export function CardBody({ children, className = '', style, ...props }: CardBodyProps) {
   return (
-    <div style={{ padding: '1.1rem', ...style }} {...props}>
+    <div className={className} style={{ padding: '1.1rem', ...style }} {...props}>
       {children}
     </div>
   )

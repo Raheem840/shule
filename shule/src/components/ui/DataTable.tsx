@@ -36,11 +36,11 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
       fill="none"
       stroke="currentColor"
       strokeWidth="2.5"
-      style={{ opacity: active ? 1 : 0.3, flexShrink: 0 }}
+      style={{ opacity: active ? 1 : 0.25, flexShrink: 0, transition: 'opacity 0.15s' }}
     >
-      {dir === 'asc' || !active
-        ? <path d="M12 19V5M5 12l7-7 7 7" />
-        : <path d="M12 5v14M19 12l-7 7-7-7" />
+      {active && dir === 'desc'
+        ? <path d="M12 5v14M19 12l-7 7-7-7" />
+        : <path d="M12 19V5M5 12l7-7 7 7" />
       }
     </svg>
   )
@@ -50,15 +50,20 @@ function SkeletonRow({ columns, selectable }: { columns: Column<unknown>[]; sele
   return (
     <tr>
       {selectable && (
-        <td style={tdStyle}>
+        <td style={tdBase}>
           <span className="shule-skeleton" style={{ display: 'block', width: 14, height: 14, borderRadius: 3 }} />
         </td>
       )}
       {columns.map((col, i) => (
-        <td key={i} style={tdStyle}>
+        <td key={i} style={tdBase}>
           <span
             className="shule-skeleton"
-            style={{ display: 'block', height: 13, width: col.width ?? '80%', borderRadius: 4 }}
+            style={{
+              display: 'block',
+              height: 13,
+              width: `${55 + (i * 17) % 35}%`,
+              borderRadius: 4,
+            }}
           />
         </td>
       ))}
@@ -66,7 +71,7 @@ function SkeletonRow({ columns, selectable }: { columns: Column<unknown>[]; sele
   )
 }
 
-const thStyle: CSSProperties = {
+const thBase: CSSProperties = {
   textAlign: 'left',
   fontSize: 10,
   fontWeight: 900,
@@ -79,14 +84,16 @@ const thStyle: CSSProperties = {
   fontFamily: 'var(--font2)',
   whiteSpace: 'nowrap',
   userSelect: 'none',
+  transition: 'color 0.2s',
 }
 
-const tdStyle: CSSProperties = {
+const tdBase: CSSProperties = {
   padding: '0.65rem 0.85rem',
   borderBottom: '1px solid var(--border)',
   color: 'var(--txt2)',
   verticalAlign: 'middle',
   fontSize: 12.5,
+  transition: 'background 0.1s, color 0.1s',
 }
 
 export function DataTable<T extends Record<string, unknown>>({
@@ -108,8 +115,11 @@ export function DataTable<T extends Record<string, unknown>>({
 
   const handleSort = useCallback((key: string) => {
     setSortKey(prev => {
-      if (prev === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-      else setSortDir('asc')
+      if (prev === key) {
+        setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+      } else {
+        setSortDir('asc')
+      }
       return key
     })
   }, [])
@@ -140,24 +150,17 @@ export function DataTable<T extends Record<string, unknown>>({
   function toggleRow(id: string) {
     if (!onSelectionChange || !selectedIds) return
     const next = new Set(selectedIds)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
+    next.has(id) ? next.delete(id) : next.add(id)
     onSelectionChange(next)
   }
 
   return (
     <div style={{ overflowX: 'auto', ...style }}>
-      <table
-        style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          fontSize: 12.5,
-        }}
-      >
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
             {selectable && (
-              <th style={{ ...thStyle, width: 40 }}>
+              <th style={{ ...thBase, width: 40 }}>
                 <input
                   type="checkbox"
                   checked={isAllSelected}
@@ -170,11 +173,12 @@ export function DataTable<T extends Record<string, unknown>>({
             {columns.map(col => (
               <th
                 key={col.key}
+                // sui-th-sortable → hover tint in index.css
+                className={col.sortable ? 'sui-th-sortable' : ''}
                 style={{
-                  ...thStyle,
+                  ...thBase,
                   width: col.width,
                   textAlign: col.align ?? 'left',
-                  cursor: col.sortable ? 'pointer' : 'default',
                 }}
                 onClick={col.sortable ? () => handleSort(col.key) : undefined}
               >
@@ -199,7 +203,7 @@ export function DataTable<T extends Record<string, unknown>>({
               <td
                 colSpan={columns.length + (selectable ? 1 : 0)}
                 style={{
-                  ...tdStyle,
+                  ...tdBase,
                   textAlign: 'center',
                   padding: '3rem 1rem',
                   color: 'var(--txt3)',
@@ -208,8 +212,18 @@ export function DataTable<T extends Record<string, unknown>>({
               >
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
                   {emptyIcon ?? (
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.3 }}>
-                      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    <svg
+                      width="40"
+                      height="40"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      style={{ opacity: 0.2 }}
+                    >
+                      <path d="M10.5 21l5-5h4M3 21l7-7m0 0L3 7l7 7m0 0l7 7" />
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
                     </svg>
                   )}
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{emptyMessage}</span>
@@ -224,23 +238,14 @@ export function DataTable<T extends Record<string, unknown>>({
               return (
                 <tr
                   key={id}
+                  // sui-tr → CSS :hover on all td children in index.css
+                  // sui-tr-selected → keeps brand-light background when selected
+                  className={`sui-tr${isSelected ? ' sui-tr-selected' : ''}`}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  style={{
-                    cursor: onRowClick ? 'pointer' : 'default',
-                    background: isSelected ? 'var(--brand-light)' : 'transparent',
-                    transition: 'background 0.12s',
-                  }}
-                  onMouseEnter={e => {
-                    if (!isSelected)
-                      (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface2)'
-                  }}
-                  onMouseLeave={e => {
-                    if (!isSelected)
-                      (e.currentTarget as HTMLTableRowElement).style.background = 'transparent'
-                  }}
+                  style={{ cursor: onRowClick ? 'pointer' : 'default' }}
                 >
                   {selectable && (
-                    <td style={tdStyle} onClick={e => { e.stopPropagation(); toggleRow(id) }}>
+                    <td style={tdBase} onClick={e => { e.stopPropagation(); toggleRow(id) }}>
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -250,14 +255,7 @@ export function DataTable<T extends Record<string, unknown>>({
                     </td>
                   )}
                   {columns.map(col => (
-                    <td
-                      key={col.key}
-                      style={{
-                        ...tdStyle,
-                        textAlign: col.align ?? 'left',
-                        color: isSelected ? 'var(--txt)' : 'var(--txt2)',
-                      }}
-                    >
+                    <td key={col.key} style={{ ...tdBase, textAlign: col.align ?? 'left' }}>
                       {col.render ? col.render(row, idx) : String(row[col.key] ?? '—')}
                     </td>
                   ))}

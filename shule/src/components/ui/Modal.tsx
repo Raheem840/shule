@@ -23,32 +23,22 @@ const sizeWidths: Record<Size, string> = {
 export function Modal({ open, onClose, title, size = 'md', children, footer }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
   }, [open, onClose])
 
-  // Focus trap — put focus inside modal when it opens
   useEffect(() => {
     if (open) {
-      // Small delay so the portal has rendered
       const id = setTimeout(() => dialogRef.current?.focus(), 10)
       return () => clearTimeout(id)
     }
   }, [open])
 
-  // Lock body scroll while open
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
+    document.body.style.overflow = open ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [open])
 
@@ -65,27 +55,27 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
         justifyContent: 'center',
         padding: '1rem',
       }}
-      onClick={e => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       {/* Backdrop */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'rgba(3,7,17,0.6)',
-          backdropFilter: 'blur(4px)',
+          background: 'rgba(3,7,17,0.65)',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
         }}
       />
 
-      {/* Dialog */}
+      {/* Dialog — sui-modal-dialog → fadeUp animation in index.css */}
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
+        className="sui-modal-dialog"
         style={{
           position: 'relative',
           width: '100%',
@@ -98,7 +88,6 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
           flexDirection: 'column',
           maxHeight: '90vh',
           outline: 'none',
-          animation: 'fadeUp 0.18s ease both',
         }}
       >
         {/* Header */}
@@ -138,7 +127,6 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                flexShrink: 0,
                 transition: 'all 0.15s',
               }}
             >
@@ -153,7 +141,7 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
         <div
           style={{
             flex: 1,
-            overflow: 'auto',
+            overflowY: 'auto',
             padding: '1.25rem',
             scrollbarWidth: 'thin',
             scrollbarColor: 'var(--border) transparent',
@@ -184,11 +172,6 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
   )
 }
 
-// Convenience exports for consistent modal footers
 export function ModalCancelButton({ onClose }: { onClose: () => void }) {
-  return (
-    <Button variant="secondary" onClick={onClose}>
-      Cancel
-    </Button>
-  )
+  return <Button variant="secondary" onClick={onClose}>Cancel</Button>
 }

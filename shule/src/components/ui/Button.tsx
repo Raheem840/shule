@@ -11,6 +11,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: ReactNode
 }
 
+// Static visual properties — hover/focus states are in index.css .sui-btn-*
 const variantStyles: Record<Variant, CSSProperties> = {
   primary: {
     background: 'linear-gradient(135deg, var(--brand), var(--brand-dark))',
@@ -26,7 +27,7 @@ const variantStyles: Record<Variant, CSSProperties> = {
   },
   danger: {
     background: 'var(--danger-bg)',
-    color: 'var(--danger)',
+    color: 'var(--danger-txt)',
     border: '1px solid rgba(244,63,94,0.25)',
   },
   ghost: {
@@ -48,6 +49,7 @@ export function Button({
   icon,
   children,
   disabled,
+  className = '',
   style,
   ...props
 }: ButtonProps) {
@@ -56,6 +58,7 @@ export function Button({
   return (
     <button
       disabled={isDisabled}
+      className={`sui-btn sui-btn-${variant} ${className}`.trim()}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -65,9 +68,8 @@ export function Button({
         fontFamily: 'var(--font2)',
         cursor: isDisabled ? 'not-allowed' : 'pointer',
         whiteSpace: 'nowrap',
-        transition: 'all 0.18s',
-        opacity: isDisabled ? 0.55 : 1,
         outline: 'none',
+        opacity: isDisabled ? 0.55 : 1,
         ...sizeStyles[size],
         ...variantStyles[variant],
         ...style,

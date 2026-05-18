@@ -9,7 +9,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, helper, leftIcon, rightSlot, id, style, ...props }, ref) => {
+  ({ label, error, helper, leftIcon, rightSlot, id, className = '', style, ...props }, ref) => {
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
 
     return (
@@ -24,6 +24,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
               fontFamily: 'var(--font2)',
+              transition: 'color 0.25s',
             }}
           >
             {label}
@@ -40,6 +41,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
                 display: 'flex',
                 alignItems: 'center',
                 pointerEvents: 'none',
+                zIndex: 1,
               }}
             >
               {leftIcon}
@@ -49,6 +51,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
+            // sui-input → CSS :focus ring in index.css
+            // sui-input-error → keeps red ring while focused on an errored field
+            className={`sui-input ${error ? 'sui-input-error' : ''} ${className}`.trim()}
             style={{
               width: '100%',
               padding: leftIcon ? '0.55rem 0.85rem 0.55rem 2.2rem' : '0.55rem 0.85rem',
@@ -59,26 +64,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               fontSize: 12.5,
               fontFamily: 'var(--font1)',
               color: 'var(--txt)',
-              outline: 'none',
-              transition: 'all 0.18s',
-              boxShadow: error ? '0 0 0 3px rgba(244,63,94,0.1)' : 'none',
               ...style,
-            }}
-            onFocus={e => {
-              if (!error) {
-                e.target.style.borderColor = 'var(--brand)'
-                e.target.style.background = 'var(--brand-light)'
-                e.target.style.boxShadow = '0 0 0 3px rgba(13,148,136,0.12)'
-              }
-              props.onFocus?.(e)
-            }}
-            onBlur={e => {
-              if (!error) {
-                e.target.style.borderColor = 'var(--border)'
-                e.target.style.background = 'var(--surface2)'
-                e.target.style.boxShadow = 'none'
-              }
-              props.onBlur?.(e)
             }}
             {...props}
           />
@@ -91,6 +77,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
                 display: 'flex',
                 alignItems: 'center',
                 color: 'var(--txt3)',
+                pointerEvents: 'none',
               }}
             >
               {rightSlot}
