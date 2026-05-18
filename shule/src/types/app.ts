@@ -1,15 +1,12 @@
-// app.ts — all TypeScript types for the Shule system.
-// TypeScript types are like contracts. When you say a Student has a firstName,
-// TypeScript will warn you anywhere you forget to provide it or misspell it.
-// This file is the single source of truth for what every data shape looks like.
+// app.ts — single source of truth for all TypeScript types in Shule.
+// Types are contracts. TypeScript enforces them everywhere in the codebase.
+// Field names: camelCase here → snake_case in Supabase column names.
 
 // ── ROLES ──────────────────────────────────────────────────────────────────
-// A union type — UserRole can be exactly one of these strings, nothing else.
-// TypeScript will error if you type 'busar' (typo) anywhere in the codebase.
 export type UserRole =
   | 'principal'
   | 'deputy'
-  | 'dos'            // Director of Studies
+  | 'dos'
   | 'secretary'
   | 'bursar'
   | 'class_teacher'
@@ -19,81 +16,127 @@ export type UserRole =
   | 'it_admin'
 
 // ── AUTH USER ──────────────────────────────────────────────────────────────
-// What we store in AuthContext after a user logs in.
-// Comes from the JWT custom claims we'll set up in Supabase.
 export type AuthUser = {
-  id: string          // Supabase Auth user UUID
+  id: string
   email: string
-  role: UserRole      // Drives what they can see and do
-  schoolId: string    // Every query filters by this — multi-school isolation
+  role: UserRole
+  schoolId: string
   name: string
+  studentIds?: string[]  // parent only — from JWT claims
 }
 
 // ── SCHOOL ─────────────────────────────────────────────────────────────────
+// Maps to: school_profile
 export type School = {
   id: string
   schoolName: string
-  shortName: string | null  // null means "not provided yet" — always be explicit
+  shortName: string | null
   logoUrl: string | null
   motto: string | null
   primaryColor: string
-  curriculum: string        // 'ncdc_uganda', 'cbc_kenya', etc.
+  curriculum: string
   deploymentMode: 'cloud' | 'local' | 'hybrid'
 }
 
+// ── DEPARTMENT ─────────────────────────────────────────────────────────────
+// Maps to: departments
+// Groups subjects under a head of department (HoD).
+export type Department = {
+  id: string
+  schoolId: string
+  name: string                  // e.g. "Sciences", "Humanities"
+  hodId: string | null          // FK → staff.id — can be vacant
+}
+
+// ── ACADEMIC YEAR ──────────────────────────────────────────────────────────
+// Maps to: academic_years
+// Every query that could return cross-year data must filter by academicYearId.
+export type AcademicYear = {
+  id: string
+  schoolId: string
+  name: string                  // e.g. "2025", "2024/2025"
+  startDate: string             // ISO date
+  endDate: string               // ISO date
+  isCurrent: boolean            // only one can be true per school at a time
+}
+
 // ── STUDENTS ───────────────────────────────────────────────────────────────
+// Maps to: students
 export type Student = {
   id: string
   schoolId: string
-  admissionNumber: string   // Unique per school e.g. KJA-2025-001
+  admissionNumber: string       // e.g. KJA/2025/0848 — unique per school
   firstName: string
   lastName: string
-  dob: string | null        // ISO date string e.g. "2010-03-15"
+  dateOfBirth: string | null    // ISO date e.g. "2010-03-15"
   gender: 'male' | 'female' | null
-  classId: string | null    // FK to classes table
-  streamId: string | null   // FK to streams table e.g. "East", "West"
+  nationality: string | null    // e.g. "Ugandan"
+  religion: string | null       // e.g. "Christian", "Muslim"
+  classId: string | null
+  streamId: string | null
+  studentType: 'day' | 'boarder' | null
+  previousSchool: string | null
   photoUrl: string | null
   medicalNotes: string | null
   status: 'active' | 'suspended' | 'expelled'
-  enrolledAt: string
+  enrolledAt: string            // ISO date
 }
 
-// Guardian is stored separately — one student can have up to 2
-export type Guardian = {
+// ── STUDENT GUARDIAN ───────────────────────────────────────────────────────
+// Maps to: student_guardians
+// One student can have up to 2 guardians. Only one should be isPrimary.
+export type StudentGuardian = {
   id: string
   schoolId: string
   studentId: string
-  guardianName: string
-  relationship: string      // 'mother', 'father', 'uncle', etc.
+  fullName: string
+  relationship: string          // 'mother' | 'father' | 'uncle' | 'aunt' | etc.
   phone: string
   email: string | null
-  doNotContact: boolean     // Bursar won't SMS this guardian if true
-  communicationPreference: 'sms' | 'whatsapp' | 'both'
+  isPrimary: boolean
+  doNotContact: boolean         // bursar won't SMS this guardian
+  commsPreference: 'sms' | 'whatsapp' | 'both'
 }
 
 // ── STAFF ──────────────────────────────────────────────────────────────────
+// Maps to: staff
 export type Staff = {
   id: string
   schoolId: string
-  authUserId: string        // Links to Supabase Auth — how they log in
+  authUserId: string
   staffNumber: string
   firstName: string
   lastName: string
   role: UserRole
   departmentId: string | null
-  subjects: string[]        // Array of subject IDs they teach
-  classes: string[]         // Array of class IDs they're assigned to
-  qualificationLevel: number | null  // 1-7 Uganda MoES scale
+  subjects: string[]            // array of subject IDs they teach
+  classes: string[]             // array of class IDs they're assigned to
+  qualificationLevel: number | null   // 1–7 Uganda MoES scale
   employmentType: 'permanent' | 'contract' | 'part_time' | null
   photoUrl: string | null
   isActive: boolean
 }
 
+// ── STAFF DOCUMENT ─────────────────────────────────────────────────────────
+// Maps to: staff_documents
+// Stores HR documents: contracts, certificates, appraisal letters, etc.
+export type StaffDocument = {
+  id: string
+  schoolId: string
+  staffId: string
+  documentType: string          // e.g. "contract", "certificate", "appraisal"
+  fileName: string
+  fileUrl: string
+  uploadedBy: string            // Staff ID of uploader
+  uploadedAt: string            // ISO datetime
+}
+
 // ── CLASSES & STREAMS ──────────────────────────────────────────────────────
+// Maps to: classes, streams
 export type Class = {
   id: string
   schoolId: string
-  name: string              // e.g. "S.3", "P.6", "Form 2"
+  name: string                  // e.g. "S.1", "S.3", "Form 2"
   level: string | null
   academicYearId: string | null
 }
@@ -102,11 +145,24 @@ export type Stream = {
   id: string
   schoolId: string
   classId: string
-  name: string              // e.g. "East", "West", "A", "B"
+  name: string                  // e.g. "East", "West", "A", "B"
   classTeacherId: string | null
 }
 
+// ── SUBJECT ────────────────────────────────────────────────────────────────
+// Maps to: subjects
+export type Subject = {
+  id: string
+  schoolId: string
+  name: string                  // e.g. "Mathematics", "Biology"
+  code: string | null           // e.g. "MTH", "BIO"
+  departmentId: string | null
+  isCompulsory: boolean
+  paperCount: number            // 1 or 2 — Uganda UNEB subjects can have 2 papers
+}
+
 // ── FEES ───────────────────────────────────────────────────────────────────
+// Maps to: fee_payments
 export type FeePayment = {
   id: string
   schoolId: string
@@ -114,32 +170,31 @@ export type FeePayment = {
   feeTypeId: string
   amountDue: number
   amountPaid: number
-  balance: number           // Computed: amountDue - amountPaid
+  balance: number               // computed: amountDue - amountPaid
   paymentDate: string | null
   receiptNumber: string | null
-  term: number              // 1, 2, or 3
-  year: number              // e.g. 2025
+  term: number                  // 1, 2, or 3
+  year: number
   notes: string | null
-  imported: boolean         // true if this record came from Excel import
+  imported: boolean             // true if this came from Excel import
 }
 
 // Secretary sees this only — no amounts, just the status flag
 export type FeeStatus = 'paid' | 'partial' | 'unpaid'
 
 // ── EXAMS ──────────────────────────────────────────────────────────────────
-// Uganda NCDC CBC has specific assessment types — we model all of them
+// Maps to: exam_journal, exam_results
 export type AssessmentType =
-  | 'aoi'               // Activity of Integration
-  | 'dit'               // DIT Assignment
+  | 'aoi'
+  | 'dit'
   | 'beginning_of_term'
   | 'mid_term'
   | 'end_of_term'
-  | 'ca'                // Continuous Assessment (auto-increments C1, C2, C3...)
+  | 'ca'
   | 'practical'
   | 'class_test'
   | 'assignment'
 
-// The journal is the exam metadata — not the marks themselves
 export type ExamJournal = {
   id: string
   schoolId: string
@@ -154,10 +209,9 @@ export type ExamJournal = {
   passMark: number
   term: number
   year: number
-  notes: string | null  // Teacher's personal reflection
+  notes: string | null
 }
 
-// One row per student per exam
 export type ExamResult = {
   id: string
   schoolId: string
@@ -173,7 +227,6 @@ export type ExamResult = {
 
 // ── REPORT CARDS ───────────────────────────────────────────────────────────
 // Status moves in one direction: draft → ready → approved → released
-// Only the Principal can approve. Only released cards show on Parent Portal.
 export type ReportCardStatus = 'draft' | 'ready' | 'approved' | 'released'
 
 export type ReportCard = {
@@ -191,6 +244,7 @@ export type ReportCard = {
 }
 
 // ── ATTENDANCE ─────────────────────────────────────────────────────────────
+// Maps to: attendance
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
 
 export type Attendance = {
@@ -198,13 +252,12 @@ export type Attendance = {
   schoolId: string
   studentId: string
   classId: string
-  date: string            // ISO date e.g. "2025-05-08"
+  date: string
   status: AttendanceStatus
-  recordedBy: string      // Staff ID who marked it
+  recordedBy: string            // Staff ID
 }
 
 // ── MESSAGES ───────────────────────────────────────────────────────────────
-// Staff-only. Principal can read all via audit log (not this table directly).
 export type Message = {
   id: string
   schoolId: string
@@ -213,36 +266,58 @@ export type Message = {
   body: string
   attachmentUrl: string | null
   sentAt: string
-  readAt: string | null   // null means unread
+  readAt: string | null         // null means unread
 }
 
-// ── CBC GRADE CALCULATIONS ─────────────────────────────────────────────────
-// These are pure functions — same input always gives same output.
-// We put them here so any component can import and use them consistently.
+// ── CBC GRADE CALCULATION ──────────────────────────────────────────────────
+// CBCResult bundles all the output from one calculation into one object.
+// Components receive this and can destructure what they need.
+export type CBCResult = {
+  outOf20: number               // CA score scaled to /20
+  examScore: number             // end-of-term score (out of 80)
+  total: number                 // outOf20 + examScore (out of 100)
+  grade: 'A' | 'B' | 'C' | 'D' | 'E'
+}
 
-// Converts a total mark (0-100) to a Uganda NCDC letter grade
+// Grade thresholds — Uganda NCDC scale
 export function calculateCBCGrade(total: number): 'A' | 'B' | 'C' | 'D' | 'E' {
   if (total >= 90) return 'A'
   if (total >= 75) return 'B'
   if (total >= 65) return 'C'
-  
   if (total >= 50) return 'D'
   return 'E'
 }
 
-// Calculates final subject total from CA scores + end of term exam
-// totalPoints = sum of all competency scores (each out of 3)
+// Calculates final subject total from CA scores + end-of-term exam.
+// totalPoints = sum of all competency scores (each marked 1–3)
 // assessed    = number of competencies completed
-// examScore   = end of term exam mark out of 80
+// examScore   = end-of-term exam mark out of 80
 export function calculateCBCTotal(
   totalPoints: number,
   assessed: number,
   examScore: number
 ): number {
-  const maxPoints = assessed * 3                              // max possible CA score
-  const outOf20 = maxPoints > 0                              // CA contributes 20%
-    ? (totalPoints / maxPoints) * 20
+  const maxPoints = assessed * 3
+  const outOf20 = maxPoints > 0 ? (totalPoints / maxPoints) * 20 : 0
+  return Math.round((outOf20 + examScore) * 10) / 10
+}
+
+// Full convenience function — returns a CBCResult object in one call.
+// Use this in components: const result = calcCBC(points, assessed, examScore)
+export function calcCBC(
+  totalPoints: number,
+  assessed: number,
+  examScore: number
+): CBCResult {
+  const maxPoints = assessed * 3
+  const outOf20 = maxPoints > 0
+    ? Math.round((totalPoints / maxPoints) * 20 * 10) / 10
     : 0
-  const total = outOf20 + examScore                          // exam contributes 80%
-  return Math.round(total * 10) / 10                         // round to 1 decimal
+  const total = Math.round((outOf20 + examScore) * 10) / 10
+  return {
+    outOf20,
+    examScore,
+    total,
+    grade: calculateCBCGrade(total),
+  }
 }

@@ -87,6 +87,35 @@
   --sh-md:    0 4px 16px rgba(0,0,0,0.25);
   --sh-lg:    0 12px 40px rgba(0,0,0,0.3);
   --sh-brand: 0 4px 20px rgba(13,217,196,0.2);
+
+  /* Semantic overrides for dark mode — badges/toasts use these */
+  --success:      #34d399;  --success-bg: rgba(16,185,129,0.12);
+  --warning:      #fbbf24;  --warning-bg: rgba(245,158,11,0.12);
+  --danger:       #fb7185;  --danger-bg:  rgba(244,63,94,0.12);
+  --info:         #38bdf8;  --info-bg:    rgba(14,165,233,0.12);
+  --violet:       #a78bfa;  --violet-bg:  rgba(139,92,246,0.12);
+}
+
+/* ═══════════════════════════════════════════════════
+   GLOBAL ANIMATIONS
+═══════════════════════════════════════════════════ */
+@keyframes shule-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes shule-shimmer {
+  from { background-position: -600px 0; }
+  to   { background-position:  600px 0; }
+}
+.shule-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface2) 25%,
+    var(--border)   50%,
+    var(--surface2) 75%
+  );
+  background-size: 1200px 100%;
+  animation: shule-shimmer 1.6s ease-in-out infinite;
+  border-radius: 4px;
 }
 
 /* ═══════════════════════════════════════════════════
