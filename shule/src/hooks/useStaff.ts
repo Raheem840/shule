@@ -137,28 +137,33 @@ export function useStaffById(id: string | null | undefined) {
 // staleTime: 0 prevents two registrations colliding on the same number.
 export function useNextStaffNumber() {
   const { user } = useAuth()
-  const year = new Date().getFullYear()
 
   return useQuery({
     queryKey: ['next-staff-num', user?.schoolId],
     enabled:  !!user?.schoolId,
     staleTime: 0,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('staff')
-        .select('staff_number')
-        .eq('school_id', user!.schoolId)
-        .order('staff_number', { ascending: false })
-        .limit(1)
+      const [staffRes, schoolRes] = await Promise.all([
+        supabase
+          .from('staff')
+          .select('staff_number')
+          .eq('school_id', user!.schoolId)
+          .order('staff_number', { ascending: false })
+          .limit(1),
+        supabase
+          .from('school_profile')
+          .select('short_name')
+          .eq('id', user!.schoolId)
+          .single(),
+      ])
 
-      if (error) throw error
+      if (staffRes.error) throw staffRes.error
 
-      if (!data || data.length === 0) return `STF/${year}/0001`
-
-      const last = data[0].staff_number as string
-      const seq  = parseInt(last.split('/').pop() ?? '0', 10)
-      const next = isNaN(seq) ? 1 : seq + 1
-      return `STF/${year}/${String(next).padStart(4, '0')}`
+      const prefix = (schoolRes.data?.short_name as string | null) ?? 'STF'
+      const last   = staffRes.data?.[0]?.staff_number as string | undefined
+      const seq    = last ? parseInt(last.split('/').pop() ?? '0', 10) : 0
+      const next   = isNaN(seq) ? 1 : seq + 1
+      return `${prefix}/STAFF/${String(next).padStart(3, '0')}`
     },
   })
 }

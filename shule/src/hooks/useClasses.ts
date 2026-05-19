@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import type { Class, Stream, Subject, Department } from '../types/app'
@@ -121,6 +121,49 @@ export function useDepartments() {
         accentColor:   (r.accent_color as string) ?? null,
         archived:      (r.archived as boolean) ?? false,
       } satisfies Department))
+    },
+  })
+}
+
+// ── useCreateStream ────────────────────────────────────────────
+export function useCreateStream() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ classId, name }: { classId: string; name: string }) => {
+      const { data, error } = await supabase
+        .from('streams')
+        .insert({ school_id: user!.schoolId, class_id: classId, name: name.trim() })
+        .select('id')
+        .single()
+
+      if (error) throw error
+      return data.id as string
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['streams', user?.schoolId] })
+    },
+  })
+}
+
+// ── useMoveStudent ─────────────────────────────────────────────
+export function useMoveStudent() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ studentId, toStreamId }: { studentId: string; toStreamId: string }) => {
+      const { error } = await supabase
+        .from('students')
+        .update({ stream_id: toStreamId })
+        .eq('id', studentId)
+        .eq('school_id', user!.schoolId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
     },
   })
 }

@@ -208,7 +208,8 @@ export type ParentAccount = {
   fullName: string
   studentIds: string[]      // children this parent can access
   authUserId: string | null // linked Supabase auth user
-  createdBy: string         // staff.id of Secretary who created
+  tempPassword: string | null // plain text temp password; requires re-auth to view
+  createdBy: string
   createdAt: string
 }
 
@@ -252,7 +253,7 @@ export type ExamResult = {
   subjectId: string
   score: number
   grade: 'A' | 'B' | 'C' | 'D' | 'E'
-  term: number
+  term: string
   year: number
   teacherId: string
 }

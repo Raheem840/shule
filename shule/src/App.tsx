@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { AppShell } from './components/layout/AppShell'
 import { LoginPage } from './pages/auth/LoginPage'
 import { SecretaryStudentsPage }    from './pages/secretary/SecretaryStudentsPage'
+import { SecretaryStaffPage }       from './pages/secretary/SecretaryStaffPage'
 import { ClassListPage }            from './pages/secretary/ClassListPage'
 import { ParentCredentialsPage }    from './pages/secretary/ParentCredentialsPage'
 import type { UserRole } from './store/AuthContext'
@@ -131,7 +132,7 @@ export default function App() {
       }>
         <Route path="/secretary/dashboard"    element={<Placeholder label="Secretary Dashboard" />} />
         <Route path="/secretary/students"     element={<SecretaryStudentsPage />} />
-        <Route path="/secretary/staff"        element={<Placeholder label="Staff" />} />
+        <Route path="/secretary/staff"        element={<SecretaryStaffPage />} />
         <Route path="/secretary/classes"      element={<ClassListPage />} />
         <Route path="/secretary/fee-status"   element={<Placeholder label="Fee Status" />} />
         <Route path="/secretary/report-cards" element={<Placeholder label="Report Cards" />} />
