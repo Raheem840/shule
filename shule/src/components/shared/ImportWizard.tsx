@@ -93,7 +93,7 @@ const ALIASES: Record<string, string[]> = {
   last_name:        ['last name','lastname','lname','surname','family name'],
   full_name:        ['full name','fullname','name','staff name'],
   admission_number: ['adm no','admission no','admission number','reg no','student id','adm number'],
-  date_of_birth:    ['dob','date of birth','birth date','birthdate'],
+  dob:              ['dob','date of birth','birth date','birthdate'],
   gender:           ['gender','sex'],
   nationality:      ['nationality','country'],
   religion:         ['religion','faith'],

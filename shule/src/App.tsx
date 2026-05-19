@@ -3,7 +3,9 @@ import { useAuth } from './store/AuthContext'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { AppShell } from './components/layout/AppShell'
 import { LoginPage } from './pages/auth/LoginPage'
-import { SecretaryStudentsPage } from './pages/secretary/SecretaryStudentsPage'
+import { SecretaryStudentsPage }    from './pages/secretary/SecretaryStudentsPage'
+import { ClassListPage }            from './pages/secretary/ClassListPage'
+import { ParentCredentialsPage }    from './pages/secretary/ParentCredentialsPage'
 import type { UserRole } from './store/AuthContext'
 
 // ─── Placeholder page (used until real dashboards are built) ──────────────────
@@ -130,10 +132,10 @@ export default function App() {
         <Route path="/secretary/dashboard"    element={<Placeholder label="Secretary Dashboard" />} />
         <Route path="/secretary/students"     element={<SecretaryStudentsPage />} />
         <Route path="/secretary/staff"        element={<Placeholder label="Staff" />} />
-        <Route path="/secretary/classes"      element={<Placeholder label="Classes" />} />
+        <Route path="/secretary/classes"      element={<ClassListPage />} />
         <Route path="/secretary/fee-status"   element={<Placeholder label="Fee Status" />} />
         <Route path="/secretary/report-cards" element={<Placeholder label="Report Cards" />} />
-        <Route path="/secretary/portal-links" element={<Placeholder label="Portal Links" />} />
+        <Route path="/secretary/portal-links" element={<ParentCredentialsPage />} />
         <Route path="/secretary/import"       element={<Placeholder label="Import Data" />} />
         <Route path="/secretary/messages"     element={<Placeholder label="Messages" />} />
       </Route>

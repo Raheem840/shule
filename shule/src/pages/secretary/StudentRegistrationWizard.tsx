@@ -313,7 +313,7 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
     registerMutation.mutate({
       firstName:       values.firstName,
       lastName:        values.lastName,
-      dateOfBirth:     n(values.dateOfBirth),
+      dob:             n(values.dateOfBirth),
       gender:          (values.gender as 'male' | 'female') || null,
       nationality:     n(values.nationality),
       religion:        n(values.religion),

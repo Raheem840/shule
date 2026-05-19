@@ -8,13 +8,13 @@ import type { Student, StudentGuardian } from '../types/app'
 // Detail view adds the heavy optional fields.
 const LIST_COLS = [
   'id', 'school_id', 'admission_number', 'first_name', 'last_name',
-  'date_of_birth', 'gender', 'class_id', 'stream_id', 'student_type',
+  'dob', 'gender', 'class_id', 'stream_id', 'student_type',
   'photo_url', 'status', 'enrolled_at',
 ].join(', ')
 
 const DETAIL_COLS = [
   'id', 'school_id', 'admission_number', 'first_name', 'last_name',
-  'date_of_birth', 'gender', 'nationality', 'religion', 'class_id',
+  'dob', 'gender', 'nationality', 'religion', 'class_id',
   'stream_id', 'student_type', 'previous_school', 'photo_url',
   'medical_notes', 'status', 'enrolled_at',
 ].join(', ')
@@ -36,7 +36,7 @@ function toStudent(r: AnyRow): Student {
     admissionNumber: r.admission_number as string,
     firstName:       r.first_name as string,
     lastName:        r.last_name as string,
-    dateOfBirth:     (r.date_of_birth as string) ?? null,
+    dob:             (r.dob as string) ?? null,
     gender:          (r.gender as Student['gender']) ?? null,
     nationality:     (r.nationality as string) ?? null,
     religion:        (r.religion as string) ?? null,
@@ -197,7 +197,7 @@ export type RegisterStudentInput = {
   // Step 1 — Personal info
   firstName:     string
   lastName:      string
-  dateOfBirth:   string | null
+  dob:           string | null
   gender:        Student['gender']
   nationality:   string | null
   religion:      string | null
@@ -236,7 +236,7 @@ export function useRegisterStudent() {
           admission_number: input.admissionNumber,
           first_name:       input.firstName,
           last_name:        input.lastName,
-          date_of_birth:    input.dateOfBirth,
+          dob:              input.dob,
           gender:           input.gender,
           nationality:      input.nationality,
           religion:         input.religion,
@@ -295,7 +295,7 @@ export function useUpdateStudent() {
       const patch: AnyRow = {}
       if (fields.firstName      !== undefined) patch.first_name       = fields.firstName
       if (fields.lastName       !== undefined) patch.last_name        = fields.lastName
-      if (fields.dateOfBirth    !== undefined) patch.date_of_birth    = fields.dateOfBirth
+      if (fields.dob            !== undefined) patch.dob              = fields.dob
       if (fields.gender         !== undefined) patch.gender           = fields.gender
       if (fields.nationality    !== undefined) patch.nationality      = fields.nationality
       if (fields.religion       !== undefined) patch.religion         = fields.religion

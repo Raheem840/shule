@@ -25,7 +25,7 @@ const OPTIONAL: ColumnSpec[] = [
     key: 'student_type', label: 'Student Type', required: false,
     validate: v => ['day','boarder'].includes(v.toLowerCase()) ? null : 'Must be Day or Boarder',
   },
-  { key: 'date_of_birth',   label: 'Date of Birth',   required: false },
+  { key: 'dob',             label: 'Date of Birth',   required: false },
   { key: 'stream',          label: 'Stream',           required: false },
   { key: 'nationality',     label: 'Nationality',      required: false },
   { key: 'religion',        label: 'Religion',         required: false },
@@ -66,7 +66,7 @@ export function SecretaryStudentsPage() {
         admission_number: row.admission_number,
         first_name:       row.first_name,
         last_name:        row.last_name,
-        date_of_birth:    row.date_of_birth?.trim() || null,
+        dob:              row.dob?.trim() || null,
         gender:           (['m','male'].includes((row.gender ?? '').toLowerCase().trim()))
                             ? 'male'
                             : (['f','female'].includes((row.gender ?? '').toLowerCase().trim()))

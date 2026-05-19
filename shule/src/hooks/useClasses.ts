@@ -74,7 +74,7 @@ export function useSubjects(departmentId?: string | null) {
     queryFn: async () => {
       let q = supabase
         .from('subjects')
-        .select('id, school_id, name, code, department_id, is_compulsory, paper_count')
+        .select('id, school_id, name, curriculum_code, department_id, is_compulsory, paper_count')
         .eq('school_id', user!.schoolId)
         .order('name', { ascending: true })
 
@@ -87,7 +87,7 @@ export function useSubjects(departmentId?: string | null) {
         id:           r.id as string,
         schoolId:     r.school_id as string,
         name:         r.name as string,
-        code:         (r.code as string) ?? null,
+        curriculumCode: (r.curriculum_code as string) ?? null,
         departmentId: (r.department_id as string) ?? null,
         isCompulsory: r.is_compulsory as boolean,
         paperCount:   r.paper_count as number,
@@ -107,7 +107,7 @@ export function useDepartments() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('departments')
-        .select('id, school_id, name, hod_id')
+        .select('id, school_id, name, head_teacher_id, accent_color, archived')
         .eq('school_id', user!.schoolId)
         .order('name', { ascending: true })
 
@@ -117,7 +117,9 @@ export function useDepartments() {
         id:       r.id as string,
         schoolId: r.school_id as string,
         name:     r.name as string,
-        hodId:    (r.hod_id as string) ?? null,
+        headTeacherId: (r.head_teacher_id as string) ?? null,
+        accentColor:   (r.accent_color as string) ?? null,
+        archived:      (r.archived as boolean) ?? false,
       } satisfies Department))
     },
   })

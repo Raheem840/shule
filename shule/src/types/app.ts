@@ -45,7 +45,9 @@ export type Department = {
   id: string
   schoolId: string
   name: string                  // e.g. "Sciences", "Humanities"
-  hodId: string | null          // FK → staff.id — can be vacant
+  headTeacherId: string | null   // FK -> staff.id
+  accentColor: string | null     // hex colour shown on dept badges
+  archived: boolean
 }
 
 // ── ACADEMIC YEAR ──────────────────────────────────────────────────────────
@@ -57,7 +59,13 @@ export type AcademicYear = {
   name: string                  // e.g. "2025", "2024/2025"
   startDate: string             // ISO date
   endDate: string               // ISO date
-  isCurrent: boolean            // only one can be true per school at a time
+  isActive: boolean
+  term1Start: string | null
+  term1End: string | null
+  term2Start: string | null
+  term2End: string | null
+  term3Start: string | null
+  term3End: string | null
 }
 
 // ── STUDENTS ───────────────────────────────────────────────────────────────
@@ -68,7 +76,7 @@ export type Student = {
   admissionNumber: string       // e.g. KJA/2025/0848 — unique per school
   firstName: string
   lastName: string
-  dateOfBirth: string | null    // ISO date e.g. "2010-03-15"
+  dob: string | null             // ISO date; was dateOfBirth
   gender: 'male' | 'female' | null
   nationality: string | null    // e.g. "Ugandan"
   religion: string | null       // e.g. "Christian", "Muslim"
@@ -79,7 +87,8 @@ export type Student = {
   photoUrl: string | null
   medicalNotes: string | null
   status: 'active' | 'suspended' | 'expelled'
-  enrolledAt: string            // ISO date
+  enrolledAt: string
+  createdBy: string | null
 }
 
 // ── STUDENT GUARDIAN ───────────────────────────────────────────────────────
@@ -103,7 +112,7 @@ export type StudentGuardian = {
 export type Staff = {
   id: string
   schoolId: string
-  authUserId: string
+  authUserId: string | null
   staffNumber: string
   firstName: string
   lastName: string
@@ -111,7 +120,16 @@ export type Staff = {
   departmentId: string | null
   subjects: string[]            // array of subject IDs they teach
   classes: string[]             // array of class IDs they're assigned to
-  qualificationLevel: number | null   // 1–7 Uganda MoES scale
+  qualificationLevel: number | null
+  qualificationTitle: string | null
+  institution: string | null
+  graduationYear: number | null
+  phone: string | null
+  email: string | null
+  dateOfBirth: string | null
+  gender: 'male' | 'female' | null
+  nationalId: string | null
+  joinDate: string | null
   employmentType: 'permanent' | 'contract' | 'part_time' | null
   photoUrl: string | null
   isActive: boolean
@@ -155,7 +173,7 @@ export type Subject = {
   id: string
   schoolId: string
   name: string                  // e.g. "Mathematics", "Biology"
-  code: string | null           // e.g. "MTH", "BIO"
+  curriculumCode: string | null  // was code
   departmentId: string | null
   isCompulsory: boolean
   paperCount: number            // 1 or 2 — Uganda UNEB subjects can have 2 papers
@@ -180,6 +198,20 @@ export type FeePayment = {
 }
 
 // Secretary sees this only — no amounts, just the status flag
+// ── PARENT ACCOUNT ─────────────────────────────────────────────────────────
+// Maps to: parent_accounts
+export type ParentAccount = {
+  id: string
+  schoolId: string
+  email: string
+  phone: string | null
+  fullName: string
+  studentIds: string[]      // children this parent can access
+  authUserId: string | null // linked Supabase auth user
+  createdBy: string         // staff.id of Secretary who created
+  createdAt: string
+}
+
 export type FeeStatus = 'paid' | 'partial' | 'unpaid'
 
 // ── EXAMS ──────────────────────────────────────────────────────────────────
@@ -207,7 +239,7 @@ export type ExamJournal = {
   date: string
   totalMarks: number
   passMark: number
-  term: number
+  term: string                   // TEXT in DB
   year: number
   notes: string | null
 }
