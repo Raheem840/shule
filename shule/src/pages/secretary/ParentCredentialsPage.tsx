@@ -82,14 +82,18 @@ function useCreateParentAccount() {
           email:        input.email,
           phone:        input.phone,
           student_ids:  input.studentIds,
+          // Stored as plain text — acceptable for a local LAN system where
+          // the Secretary workflow is the only way this value is created.
+          // TODO Week 8: after Edge Function creates the real Supabase Auth user,
+          // clear temp_password from this row — it should not persist after first login.
+          // UPDATE parent_accounts SET temp_password = NULL WHERE id = parentAccountId
           temp_password: input.tempPassword,
           created_by:   user!.id,
-          // TODO: create Supabase Auth user via Edge Function (Week 8)
-          // When IT Admin activates this account, call:
+          // TODO Week 8: create Supabase Auth user via Edge Function (do NOT use Admin API from frontend)
           // supabase.functions.invoke('create-parent-auth-user', {
           //   body: { parentAccountId, email, tempPassword }
           // })
-          // This creates auth.users entry and sets auth_user_id on this row.
+          // Edge Function sets auth_user_id on this row, then clears temp_password.
         })
         .select('id')
         .single()

@@ -65,7 +65,9 @@ export function LoginPage() {
     }
 
     const jwt  = decodeJWT(token)
-    const role = jwt.app_metadata?.user_role as UserRole | undefined
+    // Read from app_metadata (hook used {claims,app_metadata,user_role})
+    // OR from top-level (hook used {claims,user_role}) — handle both.
+    const role = (jwt.app_metadata?.user_role ?? jwt.user_role) as UserRole | undefined
 
     if (!role) {
       setError('Account not linked to a school role. Contact your IT Admin.')

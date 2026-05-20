@@ -51,21 +51,25 @@ function decodeJWT(token: string): Record<string, any> {
 function sessionToUser(session: Session | null): AuthUser | null {
   if (!session) return null
 
-  // Decode the actual JWT to get our custom hook claims
+  // Decode the actual JWT to get our custom hook claims.
+  // The hook may place claims either inside app_metadata or at the top level
+  // of the JWT payload depending on which jsonb_set path was used in the SQL.
+  // We read from both locations so the app works with either hook variant.
   const jwt = decodeJWT(session.access_token)
 
-  // Our hook puts claims inside app_metadata
   const meta = jwt.app_metadata ?? {}
 
-  const role     = meta.user_role  as UserRole
-  const schoolId = meta.school_id  as string
-  const name     = meta.full_name  as string
-  const studentIds = meta.student_ids as string[] | undefined
+  // Prefer app_metadata path; fall back to top-level claim
+  const role       = (meta.user_role   ?? jwt.user_role)   as UserRole      | undefined
+  const schoolId   = (meta.school_id   ?? jwt.school_id)   as string        | undefined
+  const name       = (meta.full_name   ?? jwt.full_name)   as string        | undefined
+  const studentIds = (meta.student_ids ?? jwt.student_ids) as string[]      | undefined
 
   if (!role || !schoolId) {
     console.warn('Shule: JWT custom claims missing.', {
-      jwt_keys: Object.keys(jwt),
-      app_metadata: meta
+      jwt_keys:     Object.keys(jwt),
+      app_metadata: meta,
+      top_level:    { user_role: jwt.user_role, school_id: jwt.school_id },
     })
     return null
   }
