@@ -398,7 +398,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
         {/* ── STEP 1 — PERSONAL ──────────────────────────── */}
         {step === 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-            <input ref={photoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
+            <input ref={photoRef} type="file" accept="image/*" aria-label="Upload staff photo" style={{ display: 'none' }} onChange={handlePhotoChange} />
             <div onClick={() => photoRef.current?.click()}
               style={{ border: `2px dashed ${photoDataUrl ? 'var(--brand)' : 'var(--border)'}`, borderRadius: 'var(--r-lg)', padding: '0.85rem 1.1rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', background: photoDataUrl ? 'var(--brand-light)' : 'var(--surface2)', transition: 'all 0.15s' }}>
               {photoDataUrl ? (

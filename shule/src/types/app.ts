@@ -303,27 +303,50 @@ export type Message = {
 }
 
 // ── CBC GRADE CALCULATION ──────────────────────────────────────────────────
-// CBCResult bundles all the output from one calculation into one object.
-// Components receive this and can destructure what they need.
+// CBCResult bundles every output value into one object.
+// The Week 7 report card PDF generator reads all fields directly from here.
 export type CBCResult = {
-  outOf20: number               // CA score scaled to /20
-  examScore: number             // end-of-term score (out of 80)
-  total: number                 // outOf20 + examScore (out of 100)
+  totalPoints: number              // raw sum of competency scores (0–3 each)
+  maxPoints: number                // assessed × 3 (maximum achievable)
+  outOf20: number                  // CA score scaled to /20
+  examScore: number                // end-of-term exam mark (out of 80)
+  total: number                    // outOf20 + examScore (out of 100)
   grade: 'A' | 'B' | 'C' | 'D' | 'E'
+  gradePoints: 1 | 2 | 3 | 4 | 5  // UNEB grade point: A=5, B=4, C=3, D=2, E=1
+  descriptor: string               // UNEB wording: Exceptional/Outstanding/Satisfactory/Basic/Elementary
 }
 
-// Grade thresholds — Uganda NCDC scale
+// UNEB CBC grade scale — A 80–100 · B 70–79 · C 60–69 · D 50–59 · E 0–49
+// Pass threshold is 50 (grade D). Score distribution charts draw their reference
+// line at 50, not at any other value.
 export function calculateCBCGrade(total: number): 'A' | 'B' | 'C' | 'D' | 'E' {
-  if (total >= 90) return 'A'
-  if (total >= 75) return 'B'
-  if (total >= 65) return 'C'
+  if (total >= 80) return 'A'
+  if (total >= 70) return 'B'
+  if (total >= 60) return 'C'
   if (total >= 50) return 'D'
   return 'E'
 }
 
+const GRADE_POINTS: Record<'A' | 'B' | 'C' | 'D' | 'E', 1 | 2 | 3 | 4 | 5> = {
+  A: 5, B: 4, C: 3, D: 2, E: 1,
+}
+
+// Exact UNEB descriptor wording — do not paraphrase or substitute.
+const GRADE_DESCRIPTORS: Record<'A' | 'B' | 'C' | 'D' | 'E', string> = {
+  A: 'Exceptional',
+  B: 'Outstanding',
+  C: 'Satisfactory',
+  D: 'Basic',
+  E: 'Elementary',
+}
+
 // Calculates final subject total from CA scores + end-of-term exam.
-// totalPoints = sum of all competency scores (each marked 1–3)
-// assessed    = number of competencies completed
+// totalPoints = sum of all competency scores — each scored 0, 1, 2, or 3:
+//   3 = Naturalization/Characterization (highest)
+//   2 = Precision/Valuing
+//   1 = Imitation/Receiving (entry level)
+//   0 = not demonstrated / absent
+// assessed    = number of competencies completed this term
 // examScore   = end-of-term exam mark out of 80
 export function calculateCBCTotal(
   totalPoints: number,
@@ -335,8 +358,8 @@ export function calculateCBCTotal(
   return Math.round((outOf20 + examScore) * 10) / 10
 }
 
-// Full convenience function — returns a CBCResult object in one call.
-// Use this in components: const result = calcCBC(points, assessed, examScore)
+// Full convenience function — returns a complete CBCResult in one call.
+// Usage: const result = calcCBC(totalPoints, assessed, examScore)
 export function calcCBC(
   totalPoints: number,
   assessed: number,
@@ -347,10 +370,15 @@ export function calcCBC(
     ? Math.round((totalPoints / maxPoints) * 20 * 10) / 10
     : 0
   const total = Math.round((outOf20 + examScore) * 10) / 10
+  const grade = calculateCBCGrade(total)
   return {
+    totalPoints,
+    maxPoints,
     outOf20,
     examScore,
     total,
-    grade: calculateCBCGrade(total),
+    grade,
+    gradePoints: GRADE_POINTS[grade],
+    descriptor:  GRADE_DESCRIPTORS[grade],
   }
 }

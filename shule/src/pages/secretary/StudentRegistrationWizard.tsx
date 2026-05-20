@@ -400,7 +400,7 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
           {step === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {/* Photo upload zone */}
-              <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
+              <input ref={photoInputRef} type="file" accept="image/*" aria-label="Upload student photo" style={{ display: 'none' }} onChange={handlePhotoChange} />
               <div
                 onClick={() => photoInputRef.current?.click()}
                 style={{ border: `2px dashed ${photoDataUrl ? 'var(--brand)' : 'var(--border)'}`, borderRadius: 'var(--r-lg)', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', background: photoDataUrl ? 'var(--brand-light)' : 'var(--surface2)', transition: 'border-color 0.15s, background 0.15s' }}
