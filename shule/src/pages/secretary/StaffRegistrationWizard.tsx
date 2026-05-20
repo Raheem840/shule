@@ -328,7 +328,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
       role:               values.role as UserRole,
       staffNumber:        values.staffNumber,
       departmentId:       n(values.departmentId),
-      employmentType:     (values.employmentType as 'permanent' | 'contract' | 'part_time') || null,
+      employmentType:     (values.employmentType as 'permanent' | 'contract' | 'volunteer') || null,
       joinDate:           n(values.employmentDate),
       subjects:           values.subjects,
       classes:            values.classes,

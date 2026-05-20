@@ -130,7 +130,7 @@ export type Staff = {
   gender: 'male' | 'female' | null
   nationalId: string | null
   joinDate: string | null
-  employmentType: 'permanent' | 'contract' | 'part_time' | null
+  employmentType: 'permanent' | 'contract' | 'volunteer' | null
   photoUrl: string | null
   isActive: boolean
 }

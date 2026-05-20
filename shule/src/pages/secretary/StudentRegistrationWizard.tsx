@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { useForm, useWatch, useFieldArray, Control, FieldErrors } from 'react-hook-form'
+import { useForm, useWatch, useFieldArray } from 'react-hook-form'
+import type { Control, FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery } from '@tanstack/react-query'

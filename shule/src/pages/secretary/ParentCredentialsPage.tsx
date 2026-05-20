@@ -1,11 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { useStudents } from '../../hooks/useStudents'
+import { useClasses } from '../../hooks/useClasses'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
@@ -17,7 +16,20 @@ import type { ParentAccount, Student } from '../../types/app'
 
 type AnyRow = Record<string, unknown>
 
+// ── Temp password generator ───────────────────────────────────
+// Uses unambiguous characters only (no I, l, O, 0, 1)
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+  let pw = ''
+  const arr = new Uint8Array(10)
+  crypto.getRandomValues(arr)
+  for (let i = 0; i < 10; i++) pw += chars[arr[i] % chars.length]
+  return pw
+}
+
 // ── useParentAccounts ─────────────────────────────────────────
+// Fetches all parent accounts including temp_password.
+// temp_password is only shown to Secretary after password re-auth.
 function useParentAccounts() {
   const { user } = useAuth()
 
@@ -27,7 +39,7 @@ function useParentAccounts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('parent_accounts')
-        .select('id, school_id, email, phone, full_name, student_ids, auth_user_id, created_by, created_at')
+        .select('id, school_id, email, phone, full_name, student_ids, auth_user_id, temp_password, created_by, created_at')
         .eq('school_id', user!.schoolId)
         .order('created_at', { ascending: false })
 
@@ -41,6 +53,7 @@ function useParentAccounts() {
         fullName:    r.full_name as string,
         studentIds:  (r.student_ids as string[]) ?? [],
         authUserId:  (r.auth_user_id as string) ?? null,
+        tempPassword:(r.temp_password as string) ?? null,
         createdBy:   r.created_by as string,
         createdAt:   r.created_at as string,
       } satisfies ParentAccount))
@@ -55,20 +68,28 @@ function useCreateParentAccount() {
 
   return useMutation({
     mutationFn: async (input: {
-      fullName:   string
-      email:      string
-      phone:      string | null
-      studentIds: string[]
+      fullName:    string
+      email:       string
+      phone:       string | null
+      studentIds:  string[]
+      tempPassword: string
     }) => {
       const { data, error } = await supabase
         .from('parent_accounts')
         .insert({
-          school_id:   user!.schoolId,
-          full_name:   input.fullName,
-          email:       input.email,
-          phone:       input.phone,
-          student_ids: input.studentIds,
-          created_by:  user!.id,
+          school_id:    user!.schoolId,
+          full_name:    input.fullName,
+          email:        input.email,
+          phone:        input.phone,
+          student_ids:  input.studentIds,
+          temp_password: input.tempPassword,
+          created_by:   user!.id,
+          // TODO: create Supabase Auth user via Edge Function (Week 8)
+          // When IT Admin activates this account, call:
+          // supabase.functions.invoke('create-parent-auth-user', {
+          //   body: { parentAccountId, email, tempPassword }
+          // })
+          // This creates auth.users entry and sets auth_user_id on this row.
         })
         .select('id')
         .single()
@@ -82,234 +103,173 @@ function useCreateParentAccount() {
   })
 }
 
-// ── useLinkStudentToParent ────────────────────────────────────
-function useLinkStudentToParent() {
-  const { user } = useAuth()
-  const qc = useQueryClient()
+// ── Copy button ───────────────────────────────────────────────
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
 
-  return useMutation({
-    mutationFn: async ({ parentId, studentId }: { parentId: string; studentId: string }) => {
-      // Fetch current student_ids array
-      const { data, error: fetchErr } = await supabase
-        .from('parent_accounts')
-        .select('student_ids')
-        .eq('id', parentId)
-        .eq('school_id', user!.schoolId)
-        .single()
-
-      if (fetchErr) throw fetchErr
-
-      const existing = (data.student_ids as string[]) ?? []
-      if (existing.includes(studentId)) return // already linked
-
-      const { error } = await supabase
-        .from('parent_accounts')
-        .update({ student_ids: [...existing, studentId] })
-        .eq('id', parentId)
-
-      if (error) throw error
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['parent-accounts'] })
-    },
-  })
-}
-
-// ── Create modal form schema ──────────────────────────────────
-const createSchema = z.object({
-  fullName: z.string().min(2, 'Full name is required'),
-  email:    z.string().email('Valid email required'),
-  phone:    z.string().optional(),
-})
-type CreateForm = z.infer<typeof createSchema>
-
-// ── Student picker inside create modal ────────────────────────
-function StudentPicker({
-  selected,
-  onChange,
-}: {
-  selected: string[]
-  onChange: (ids: string[]) => void
-}) {
-  const [search, setSearch] = useState('')
-  const { data: students = [], isLoading } = useStudents({
-    search: search.length >= 2 ? search : undefined,
-  })
-
-  const displayed = search.length < 2 ? [] : students.slice(0, 8)
-
-  function toggle(id: string) {
-    onChange(selected.includes(id) ? selected.filter(s => s !== id) : [...selected, id])
+  async function handleCopy() {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
-    <div>
-      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font2)', marginBottom: 8 }}>
-        Link Students
-      </div>
-      <Input
-        placeholder="Search by name or admission number…"
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-      />
-
-      {search.length >= 2 && (
-        <div style={{ marginTop: 8, maxHeight: 200, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--r)' }}>
-          {isLoading ? (
-            <div style={{ padding: '1rem', display: 'flex', justifyContent: 'center' }}><LoadingSpinner size="sm" /></div>
-          ) : displayed.length === 0 ? (
-            <div style={{ padding: '0.75rem 1rem', fontSize: 12, color: 'var(--txt3)' }}>No students found</div>
-          ) : (
-            displayed.map(s => {
-              const isSelected = selected.includes(s.id)
-              return (
-                <div
-                  key={s.id}
-                  onClick={() => toggle(s.id)}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 0.85rem', cursor: 'pointer', background: isSelected ? 'var(--brand-light)' : 'transparent', borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }}
-                >
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
-                      {s.firstName} {s.lastName}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginTop: 1 }}>
-                      {s.admissionNumber}
-                    </div>
-                  </div>
-                  {isSelected && (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="3">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                  )}
-                </div>
-              )
-            })
-          )}
-        </div>
+    <button
+      onClick={handleCopy}
+      style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700, color: copied ? 'var(--success)' : 'var(--txt2)', cursor: 'pointer', fontFamily: 'var(--font2)', display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s', flexShrink: 0 }}
+    >
+      {copied ? (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
       )}
-
-      {selected.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: 8 }}>
-          {selected.map(id => (
-            <Badge key={id} variant="teal">
-              Linked · {id.slice(0, 8)}…
-            </Badge>
-          ))}
-        </div>
-      )}
-    </div>
+      {copied ? 'Copied' : 'Copy'}
+    </button>
   )
 }
 
-// ── Create parent modal ───────────────────────────────────────
-function CreateParentModal({
-  open,
+// ── Generate Access Modal ─────────────────────────────────────
+function GenerateAccessModal({
+  student,
   onClose,
-  students,
 }: {
-  open:     boolean
-  onClose:  () => void
-  students: Student[]
+  student: Student
+  onClose: () => void
 }) {
-  const [linkedIds,      setLinkedIds]      = useState<string[]>([])
-  const [showCredential, setShowCredential] = useState(false)
-  const [createdEmail,   setCreatedEmail]   = useState('')
+  const [fullName,  setFullName]  = useState('')
+  const [email,     setEmail]     = useState('')
+  const [phone,     setPhone]     = useState('')
+  const [done,      setDone]      = useState(false)
+  const [tempPw,    setTempPw]    = useState('')
+  const [emailErr,  setEmailErr]  = useState('')
 
-  const { success: ok, error: err } = useToast()
+  const { error: err } = useToast()
   const createMutation = useCreateParentAccount()
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<CreateForm>({
-    resolver: zodResolver(createSchema),
-  })
+  const portalUrl = `${window.location.origin}/parent/portal`
 
-  function handleClose() {
-    reset()
-    setLinkedIds([])
-    setShowCredential(false)
-    setCreatedEmail('')
-    onClose()
-  }
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email.includes('@')) { setEmailErr('Enter a valid email address'); return }
+    setEmailErr('')
 
-  async function onSubmit(values: CreateForm) {
-    if (linkedIds.length === 0) {
-      err('Link at least one student before creating the account')
-      return
-    }
-
+    const pw = generateTempPassword()
     createMutation.mutate({
-      fullName:   values.fullName,
-      email:      values.email,
-      phone:      values.phone?.trim() || null,
-      studentIds: linkedIds,
+      fullName:     fullName.trim(),
+      email:        email.trim().toLowerCase(),
+      phone:        phone.trim() || null,
+      studentIds:   [student.id],
+      tempPassword: pw,
     }, {
-      onSuccess: () => {
-        setCreatedEmail(values.email)
-        setShowCredential(true)
-        ok(`Parent account created for ${values.fullName}`)
-      },
-      onError: e => err(e.message),
+      onSuccess: () => { setTempPw(pw); setDone(true) },
+      onError:   e  => err(e.message),
     })
   }
 
   return (
     <Modal
-      open={open}
-      onClose={handleClose}
-      title={showCredential ? 'Account Created' : 'Create Parent Account'}
+      open
+      onClose={onClose}
+      title={done ? 'Access Generated' : 'Generate Parent Access'}
       size="md"
     >
-      {showCredential ? (
-        // ── Credential summary screen ─────────────────────
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', alignItems: 'center', textAlign: 'center' }}>
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--success-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5">
+      {done ? (
+        // ── Success screen ────────────────────────────────────
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.85rem 1rem', background: 'var(--success-bg)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 'var(--r-lg)' }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
-          </div>
-          <div>
-            <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, color: 'var(--txt)' }}>
-              Account ready
+            <div>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: 'var(--txt)' }}>
+                Account created for {student.firstName} {student.lastName}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>
+                Share these credentials with the parent/guardian
+              </div>
             </div>
-            <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 4 }}>
-              Parent account created for <strong>{createdEmail}</strong>
-            </div>
-          </div>
-
-          <div style={{ width: '100%', padding: '1rem', background: 'var(--info-bg)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: 'var(--r-lg)', textAlign: 'left' }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--info)', marginBottom: 8 }}>
-              NEXT STEPS
-            </div>
-            <ul style={{ margin: 0, paddingLeft: '1.2rem', fontSize: 12.5, color: 'var(--txt2)', lineHeight: 1.8 }}>
-              <li>Share the email address with the parent</li>
-              <li>Ask IT Admin to activate the login and set a password</li>
-              <li>
-                {/* TODO: implement Edge Function for auth user creation — Week 8 */}
-                Magic link / password reset will be sent automatically once IT Admin activates the account
-              </li>
-            </ul>
           </div>
 
-          <Button variant="primary" onClick={handleClose} style={{ width: '100%' }}>Done</Button>
+          {[
+            { label: 'Login Email',       value: email.trim().toLowerCase() },
+            { label: 'Temporary Password', value: tempPw },
+            { label: 'Portal URL',         value: portalUrl },
+          ].map(({ label, value }) => (
+            <div key={label}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.6px', fontFamily: 'var(--font2)', marginBottom: 6 }}>
+                {label}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.6rem 0.85rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', fontFamily: 'var(--font3)', fontSize: 13, color: 'var(--txt)', wordBreak: 'break-all' }}>
+                <span style={{ flex: 1 }}>{value}</span>
+                <CopyButton text={value} />
+              </div>
+            </div>
+          ))}
+
+          <div style={{ padding: '0.75rem 1rem', background: 'var(--info-bg)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: 'var(--r)', fontSize: 12, color: 'var(--txt2)' }}>
+            The parent cannot log in yet. IT Admin must activate the account in Week 8.
+          </div>
+
+          <Button variant="primary" onClick={onClose} style={{ width: '100%' }}>Done</Button>
         </div>
       ) : (
-        // ── Create form ───────────────────────────────────
-        <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <Input label="Parent / Guardian Full Name *" {...register('fullName')}
-            error={errors.fullName?.message} placeholder="e.g. Nakato Sarah" />
+        // ── Create form ───────────────────────────────────────
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Student info header */}
+          <div style={{ padding: '0.75rem 1rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--brand-light)', border: '1.5px solid var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 12, color: 'var(--brand)', flexShrink: 0 }}>
+              {student.firstName[0]}{student.lastName[0]}
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--txt)' }}>
+                {student.firstName} {student.lastName}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>
+                {student.admissionNumber}
+              </div>
+            </div>
+          </div>
 
-          <Input label="Email Address *" type="email" {...register('email')}
-            error={errors.email?.message} placeholder="parent@email.com"
-            helper="This becomes their login — must be unique" />
+          <Input
+            label="Parent / Guardian Full Name *"
+            placeholder="e.g. Nakato Sarah"
+            value={fullName}
+            onChange={e => setFullName(e.target.value)}
+            required
+          />
 
-          <Input label="Phone" type="tel" {...register('phone')}
-            placeholder="+256 700 000 000" />
+          <Input
+            label="Email Address *"
+            type="email"
+            placeholder="parent@email.com"
+            value={email}
+            onChange={e => { setEmail(e.target.value); setEmailErr('') }}
+            error={emailErr}
+            helper="This becomes their login — must be unique"
+            required
+          />
 
-          <StudentPicker selected={linkedIds} onChange={setLinkedIds} />
+          <Input
+            label="Phone (optional)"
+            type="tel"
+            placeholder="+256 700 000 000"
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+          />
+
+          <div style={{ padding: '0.6rem 0.85rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', fontSize: 12, color: 'var(--txt3)' }}>
+            A temporary password will be generated automatically. The parent logs in with it after IT Admin activates the account.
+          </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', paddingTop: 4 }}>
-            <Button variant="secondary" type="button" onClick={handleClose}>Cancel</Button>
-            <Button variant="primary" type="submit" loading={createMutation.isPending}>
-              Create Account
+            <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+            <Button
+              variant="primary"
+              type="submit"
+              loading={createMutation.isPending}
+              disabled={!fullName.trim() || !email.trim()}
+            >
+              Generate Access
             </Button>
           </div>
         </form>
@@ -318,162 +278,180 @@ function CreateParentModal({
   )
 }
 
-// ── Parent account row ────────────────────────────────────────
-function ParentRow({
+// ── View Credentials Modal ────────────────────────────────────
+// Step 1: Secretary re-enters password.
+// Step 2: Credentials shown after successful re-auth.
+function ViewCredentialsModal({
   account,
-  students,
-  onLink,
-}: {
-  account:  ParentAccount
-  students: Student[]
-  onLink:   (parentId: string) => void
-}) {
-  const linkedStudents = students.filter(s => account.studentIds.includes(s.id))
-  const hasAuth        = !!account.authUserId
-
-  return (
-    <tr className="sui-tr">
-      <td style={{ padding: '0.85rem 1rem' }}>
-        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>{account.fullName}</div>
-        <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginTop: 2 }}>{account.email}</div>
-      </td>
-      <td style={{ padding: '0.85rem 1rem' }}>
-        {account.phone
-          ? <span style={{ fontSize: 12, color: 'var(--txt2)', fontFamily: 'var(--font3)' }}>{account.phone}</span>
-          : <span style={{ fontSize: 12, color: 'var(--txt3)' }}>—</span>}
-      </td>
-      <td style={{ padding: '0.85rem 1rem' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-          {linkedStudents.length === 0
-            ? <Badge variant="amber">No students linked</Badge>
-            : linkedStudents.map(s => (
-                <Badge key={s.id} variant="teal">
-                  {s.firstName} {s.lastName}
-                </Badge>
-              ))
-          }
-        </div>
-      </td>
-      <td style={{ padding: '0.85rem 1rem' }}>
-        <Badge variant={hasAuth ? 'green' : 'muted'} dot>
-          {hasAuth ? 'Active' : 'Pending activation'}
-        </Badge>
-      </td>
-      <td style={{ padding: '0.85rem 1rem' }}>
-        <div style={{ fontSize: 11, color: 'var(--txt3)' }}>
-          {new Date(account.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-        </div>
-      </td>
-      <td style={{ padding: '0.85rem 1rem' }}>
-        <button
-          onClick={() => onLink(account.id)}
-          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, color: 'var(--txt2)', cursor: 'pointer', fontFamily: 'var(--font2)', transition: 'border-color 0.15s, color 0.15s' }}
-        >
-          Link Student
-        </button>
-      </td>
-    </tr>
-  )
-}
-
-// ── Link student modal ────────────────────────────────────────
-function LinkStudentModal({
-  parentId,
   onClose,
 }: {
-  parentId: string | null
-  onClose:  () => void
+  account: ParentAccount
+  onClose: () => void
 }) {
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [search, setSearch]         = useState('')
-  const { success: ok, error: err } = useToast()
-  const linkMutation = useLinkStudentToParent()
-  const { data: students = [] } = useStudents({
-    search: search.length >= 2 ? search : undefined,
-  })
+  const [step,     setStep]     = useState<'auth' | 'show'>('auth')
+  const [password, setPassword] = useState('')
+  const [authErr,  setAuthErr]  = useState('')
+  const [loading,  setLoading]  = useState(false)
 
-  function handleLink() {
-    if (!parentId || !selectedId) return
-    linkMutation.mutate({ parentId, studentId: selectedId }, {
-      onSuccess: () => { ok('Student linked to parent account'); onClose() },
-      onError:   e  => err(e.message),
+  const { user } = useAuth()
+  const portalUrl = `${window.location.origin}/parent/portal`
+
+  async function handleReAuth(e: React.FormEvent) {
+    e.preventDefault()
+    if (!password) { setAuthErr('Enter your password'); return }
+    setLoading(true)
+    setAuthErr('')
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email:    user!.email,
+      password,
     })
+
+    setLoading(false)
+    if (error) {
+      setAuthErr('Incorrect password. Try again.')
+    } else {
+      setStep('show')
+    }
   }
 
   return (
-    <Modal open={!!parentId} onClose={onClose} title="Link Student to Parent" size="sm">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <Input
-          placeholder="Search student by name or admission no…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-
-        {search.length >= 2 && (
-          <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r)', maxHeight: 240, overflowY: 'auto' }}>
-            {students.slice(0, 8).map(s => (
-              <div
-                key={s.id}
-                onClick={() => setSelectedId(s.id)}
-                style={{ padding: '0.65rem 0.85rem', cursor: 'pointer', background: selectedId === s.id ? 'var(--brand-light)' : 'transparent', borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }}
-              >
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
-                  {s.firstName} {s.lastName}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginTop: 1 }}>
-                  {s.admissionNumber}
-                </div>
-              </div>
-            ))}
+    <Modal open onClose={onClose} title="View Parent Credentials" size="sm">
+      {step === 'auth' ? (
+        // ── Password confirmation ─────────────────────────────
+        <form onSubmit={handleReAuth} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ padding: '0.75rem 1rem', background: 'var(--warning-bg)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 'var(--r)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#92400e" strokeWidth="2" style={{ flexShrink: 0, marginTop: 1 }}>
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+            <p style={{ margin: 0, fontSize: 12.5, color: '#92400e', lineHeight: 1.6 }}>
+              Re-enter your password to reveal this parent's credentials.
+            </p>
           </div>
-        )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" disabled={!selectedId} loading={linkMutation.isPending} onClick={handleLink}>
-            Link Student
-          </Button>
+          <Input
+            label="Your Password"
+            type="password"
+            placeholder="Enter your login password"
+            value={password}
+            onChange={e => { setPassword(e.target.value); setAuthErr('') }}
+            error={authErr}
+            autoFocus
+          />
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+            <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" type="submit" loading={loading}>
+              Confirm
+            </Button>
+          </div>
+        </form>
+      ) : (
+        // ── Credentials display ───────────────────────────────
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 2 }}>
+            {account.fullName}
+          </div>
+
+          {[
+            { label: 'Login Email',        value: account.email },
+            { label: 'Temporary Password', value: account.tempPassword ?? '(not set — contact IT Admin)' },
+            { label: 'Portal URL',          value: portalUrl },
+          ].map(({ label, value }) => (
+            <div key={label}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.6px', fontFamily: 'var(--font2)', marginBottom: 6 }}>
+                {label}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.6rem 0.85rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r)' }}>
+                <span style={{ flex: 1, fontFamily: 'var(--font3)', fontSize: 13, color: 'var(--txt)', wordBreak: 'break-all' }}>{value}</span>
+                {account.tempPassword || label !== 'Temporary Password' ? (
+                  <CopyButton text={value} />
+                ) : null}
+              </div>
+            </div>
+          ))}
+
+          <div style={{ padding: '0.6rem 0.85rem', background: 'var(--info-bg)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: 'var(--r)', fontSize: 12, color: 'var(--txt2)' }}>
+            The parent can only log in after IT Admin activates the account.
+          </div>
+
+          <Button variant="primary" onClick={onClose} style={{ width: '100%' }}>Close</Button>
         </div>
-      </div>
+      )}
     </Modal>
   )
 }
 
 // ── Page ──────────────────────────────────────────────────────
 export function ParentCredentialsPage() {
-  const [createOpen,      setCreateOpen]      = useState(false)
-  const [linkingParentId, setLinkingParentId] = useState<string | null>(null)
-  const [search,          setSearch]          = useState('')
+  const [search,             setSearch]             = useState('')
+  const [generateStudentId,  setGenerateStudentId]  = useState<string | null>(null)
+  const [viewCredentials,    setViewCredentials]    = useState<ParentAccount | null>(null)
 
-  const { data: accounts = [], isLoading } = useParentAccounts()
-  const { data: students = [] }            = useStudents({})
+  const { data: students  = [], isLoading: studentsLoading  } = useStudents({})
+  const { data: classes   = [] }                              = useClasses()
+  const { data: accounts  = [], isLoading: accountsLoading  } = useParentAccounts()
 
-  const filtered = search.trim()
-    ? accounts.filter(a =>
-        a.fullName.toLowerCase().includes(search.toLowerCase()) ||
-        a.email.toLowerCase().includes(search.toLowerCase())
+  // Build lookup maps
+  const classMap = new Map(classes.map(c => [c.id, c.name]))
+
+  // Map studentId → parent account (a student can be in multiple accounts' student_ids)
+  const parentByStudentId = new Map<string, ParentAccount>()
+  for (const account of accounts) {
+    for (const sid of account.studentIds) {
+      if (!parentByStudentId.has(sid)) parentByStudentId.set(sid, account)
+    }
+  }
+
+  // Filter students
+  const term = search.trim().toLowerCase()
+  const filtered = term
+    ? students.filter(s =>
+        s.firstName.toLowerCase().includes(term) ||
+        s.lastName.toLowerCase().includes(term)  ||
+        s.admissionNumber.toLowerCase().includes(term)
       )
-    : accounts
+    : students
+
+  const accountCount = accounts.length
+  const isLoading    = studentsLoading || accountsLoading
+
+  // Virtualizer
+  const parentRef = useRef<HTMLDivElement>(null)
+  const virtualizer = useVirtualizer({
+    count:           filtered.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize:    () => 57,
+    overscan:        10,
+  })
+
+  // Stable student lookup for the generate modal
+  const generateStudent = generateStudentId
+    ? students.find(s => s.id === generateStudentId) ?? null
+    : null
+
+  const handleGenerate      = useCallback((id: string) => setGenerateStudentId(id), [])
+  const handleViewCred      = useCallback((acc: ParentAccount) => setViewCredentials(acc), [])
 
   return (
     <div>
       <PageHeader
         title="Parent Portal Access"
-        subtitle={`${accounts.length} parent account${accounts.length !== 1 ? 's' : ''}`}
-        actions={
-          <Button variant="primary" onClick={() => setCreateOpen(true)}
-            leftIcon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>}>
-            Create Account
-          </Button>
-        }
+        subtitle={`${students.length} student${students.length !== 1 ? 's' : ''} · ${accountCount} account${accountCount !== 1 ? 's' : ''} created`}
       />
 
+      {/* Search */}
       <div style={{ marginBottom: '1rem' }}>
         <Input
-          placeholder="Search by parent name or email…"
+          placeholder="Search by student name or admission number…"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          leftIcon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>}
+          leftIcon={
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          }
         />
       </div>
 
@@ -490,55 +468,130 @@ export function ParentCredentialsPage() {
             </svg>
           </div>
           <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, color: 'var(--txt)', marginBottom: 6 }}>
-            {search ? 'No accounts match your search' : 'No parent accounts yet'}
+            {search ? 'No students match your search' : 'No students registered yet'}
           </div>
           {!search && (
-            <div style={{ fontSize: 13, color: 'var(--txt3)', marginBottom: '1.25rem' }}>
-              Create an account to give parents access to their child's results, fees, and reports.
+            <div style={{ fontSize: 13, color: 'var(--txt3)' }}>
+              Register students first, then generate parent portal access from here.
             </div>
-          )}
-          {!search && (
-            <Button variant="primary" onClick={() => setCreateOpen(true)}>
-              Create First Account
-            </Button>
           )}
         </div>
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+          {/* Table header */}
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                {['Parent / Guardian', 'Phone', 'Linked Students', 'Portal Status', 'Created', 'Actions'].map(col => (
+                {['Student', 'Class', 'Portal Status', 'Actions'].map(col => (
                   <th key={col} style={{ textAlign: 'left', fontSize: 10, fontWeight: 900, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--txt3)', padding: '0.6rem 1rem', borderBottom: '1px solid var(--border)', background: 'var(--surface2)', fontFamily: 'var(--font2)', whiteSpace: 'nowrap' }}>
                     {col}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {filtered.map(account => (
-                <ParentRow
-                  key={account.id}
-                  account={account}
-                  students={students}
-                  onLink={id => setLinkingParentId(id)}
-                />
-              ))}
-            </tbody>
           </table>
+
+          {/* Virtualized body */}
+          <div
+            ref={parentRef}
+            style={{ height: Math.min(filtered.length * 57, 560), overflowY: 'auto' }}
+          >
+            <table style={{ width: '100%', borderCollapse: 'collapse', position: 'relative' }}>
+              <tbody style={{ display: 'block', height: virtualizer.getTotalSize() + 'px', position: 'relative' }}>
+                {virtualizer.getVirtualItems().map(vrow => {
+                  const student = filtered[vrow.index]!
+                  return (
+                    <tr
+                      key={student.id}
+                      className="sui-tr"
+                      style={{ position: 'absolute', top: vrow.start + 'px', left: 0, right: 0, height: vrow.size + 'px', display: 'table', width: '100%', tableLayout: 'fixed' }}
+                    >
+                      {/* Name + adm number */}
+                      <td style={{ padding: '0.7rem 1rem', width: '35%' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          {student.photoUrl ? (
+                            <img src={student.photoUrl} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                          ) : (
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--brand-light)', border: '1.5px solid var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 11, color: 'var(--brand)', flexShrink: 0 }}>
+                              {`${student.firstName[0] ?? ''}${student.lastName[0] ?? ''}`.toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
+                              {student.firstName} {student.lastName}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginTop: 1 }}>
+                              {student.admissionNumber}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Class */}
+                      <td style={{ padding: '0.7rem 1rem', width: '20%' }}>
+                        <span style={{ fontSize: 12, color: 'var(--txt2)', fontFamily: 'var(--font2)', fontWeight: 600 }}>
+                          {student.classId ? (classMap.get(student.classId) ?? '—') : '—'}
+                        </span>
+                      </td>
+
+                      {/* Status */}
+                      <td style={{ padding: '0.7rem 1rem', width: '22%' }}>
+                        {parentByStudentId.has(student.id) ? (
+                          <Badge variant="green" dot>Account created</Badge>
+                        ) : (
+                          <Badge variant="muted" dot>No access</Badge>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td style={{ padding: '0.7rem 1rem', width: '23%' }}>
+                        {parentByStudentId.has(student.id) ? (
+                          <button
+                            onClick={() => handleViewCred(parentByStudentId.get(student.id)!)}
+                            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', fontSize: 11.5, fontWeight: 700, color: 'var(--txt2)', cursor: 'pointer', fontFamily: 'var(--font2)', display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s' }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                            View Credentials
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleGenerate(student.id)}
+                            style={{ background: 'var(--brand)', border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: 11.5, fontWeight: 700, color: '#fff', cursor: 'pointer', fontFamily: 'var(--font2)', display: 'flex', alignItems: 'center', gap: 5 }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                            Generate Access
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer count */}
+          <div style={{ padding: '0.6rem 1rem', borderTop: '1px solid var(--border)', background: 'var(--surface2)', fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font2)' }}>
+            Showing {filtered.length} of {students.length} students
+          </div>
         </div>
       )}
 
-      <CreateParentModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        students={students}
-      />
+      {/* Generate Access Modal */}
+      {generateStudent && (
+        <GenerateAccessModal
+          student={generateStudent}
+          onClose={() => setGenerateStudentId(null)}
+        />
+      )}
 
-      <LinkStudentModal
-        parentId={linkingParentId}
-        onClose={() => setLinkingParentId(null)}
-      />
+      {/* View Credentials Modal */}
+      {viewCredentials && (
+        <ViewCredentialsModal
+          account={viewCredentials}
+          onClose={() => setViewCredentials(null)}
+        />
+      )}
     </div>
   )
 }
