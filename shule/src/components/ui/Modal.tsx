@@ -5,31 +5,38 @@ import { Button } from './Button'
 type Size = 'sm' | 'md' | 'lg' | 'xl'
 
 interface ModalProps {
-  open: boolean
-  onClose: () => void
-  title?: string
-  size?: Size
+  open:     boolean
+  onClose:  () => void
+  title?:   string
+  size?:    Size
   children: ReactNode
-  footer?: ReactNode
+  footer?:  ReactNode
 }
 
 const sizeWidths: Record<Size, string> = {
-  sm: '400px',
-  md: '560px',
-  lg: '720px',
-  xl: '900px',
+  sm: '420px',
+  md: '580px',
+  lg: '740px',
+  xl: '920px',
+}
+
+// Portal into .ar so CSS tokens (--modal-bg, dark-mode overrides) cascade correctly.
+function getPortalTarget(): HTMLElement {
+  return (document.querySelector('.ar') as HTMLElement | null) ?? document.body
 }
 
 export function Modal({ open, onClose, title, size = 'md', children, footer }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
 
+  // Escape key
   useEffect(() => {
     if (!open) return
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
   }, [open, onClose])
 
+  // Auto-focus
   useEffect(() => {
     if (open) {
       const id = setTimeout(() => dialogRef.current?.focus(), 10)
@@ -37,6 +44,7 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
     }
   }, [open])
 
+  // Prevent body scroll
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
@@ -57,18 +65,17 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
       }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      {/* Backdrop */}
+      {/* ── Overlay — subtle dark veil, no extra blur so the dialog's blur shines */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'rgba(3,7,17,0.65)',
-          backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
+          background: 'var(--modal-overlay)',
         }}
+        onClick={onClose}
       />
 
-      {/* Dialog — sui-modal-dialog → fadeUp animation in index.css */}
+      {/* ── Glass dialog */}
       <div
         ref={dialogRef}
         role="dialog"
@@ -80,35 +87,43 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
           position: 'relative',
           width: '100%',
           maxWidth: sizeWidths[size],
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--r-xl)',
-          boxShadow: 'var(--sh-lg)',
-          display: 'flex',
-          flexDirection: 'column',
-          maxHeight: '90vh',
-          outline: 'none',
+          /* Frosted glass */
+          background:              'var(--modal-bg)',
+          backdropFilter:          'blur(28px) saturate(200%)',
+          WebkitBackdropFilter:    'blur(28px) saturate(200%)',
+          /* Layered borders: normal sides + brighter top edge */
+          border:                  '1px solid var(--modal-border)',
+          borderTop:               '1.5px solid var(--modal-border-t)',
+          borderRadius:            'var(--r-xl)',
+          boxShadow:               'var(--modal-shadow)',
+          display:                 'flex',
+          flexDirection:           'column',
+          maxHeight:               '90vh',
+          outline:                 'none',
+          overflow:                'hidden',
         }}
       >
-        {/* Header */}
+        {/* ── Header */}
         {title && (
           <div
             style={{
-              padding: '1rem 1.25rem',
-              borderBottom: '1px solid var(--border)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexShrink: 0,
+              padding:         '1rem 1.25rem 0.9rem',
+              borderBottom:    '1px solid var(--modal-divider)',
+              display:         'flex',
+              alignItems:      'center',
+              justifyContent:  'space-between',
+              flexShrink:      0,
+              gap:             '0.75rem',
             }}
           >
             <span
               style={{
-                fontFamily: 'var(--font2)',
-                fontSize: 15,
-                fontWeight: 800,
-                color: 'var(--txt)',
-                letterSpacing: '-0.3px',
+                fontFamily:    'var(--font2)',
+                fontSize:      16,
+                fontWeight:    800,
+                color:         'var(--txt)',
+                letterSpacing: '-0.4px',
+                lineHeight:    1.2,
               }}
             >
               {title}
@@ -116,51 +131,40 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
             <button
               onClick={onClose}
               aria-label="Close"
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 'var(--r)',
-                border: '1px solid var(--border)',
-                background: 'var(--surface2)',
-                color: 'var(--txt2)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.15s',
-              }}
+              className="sui-modal-close"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           </div>
         )}
 
-        {/* Body */}
+        {/* ── Body */}
         <div
           style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '1.25rem',
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'var(--border) transparent',
+            flex:            1,
+            overflowY:       'auto',
+            padding:         '1.25rem',
+            scrollbarWidth:  'thin',
+            scrollbarColor:  'var(--border) transparent',
           }}
         >
           {children}
         </div>
 
-        {/* Footer */}
+        {/* ── Footer */}
         {footer && (
           <div
             style={{
-              padding: '0.9rem 1.25rem',
-              borderTop: '1px solid var(--border)',
-              display: 'flex',
-              alignItems: 'center',
+              padding:        '0.9rem 1.25rem',
+              borderTop:      '1px solid var(--modal-divider)',
+              display:        'flex',
+              alignItems:     'center',
               justifyContent: 'flex-end',
-              gap: '0.5rem',
-              flexShrink: 0,
+              gap:            '0.5rem',
+              flexShrink:     0,
             }}
           >
             {footer}
@@ -168,7 +172,7 @@ export function Modal({ open, onClose, title, size = 'md', children, footer }: M
         )}
       </div>
     </div>,
-    document.body
+    getPortalTarget()
   )
 }
 
