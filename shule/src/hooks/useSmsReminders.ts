@@ -1,0 +1,283 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../store/AuthContext'
+import type { SmsReminder, SmsChannel, FeeStatus } from '../types/app'
+import { calcFeeStatus } from './useFeePayments'
+
+type AnyRow = Record<string, unknown>
+
+// ── Student row for SMS preview table ─────────────────────────
+export type SmsStudentRow = {
+  studentId:       string
+  firstName:       string
+  lastName:        string
+  admissionNumber: string
+  classId:         string | null
+  className:       string
+  streamId:        string | null
+  streamName:      string
+  guardianName:    string
+  guardianPhone:   string
+  balance:         number
+  amountDue:       number
+  amountPaid:      number
+  status:          FeeStatus
+}
+
+export type SmsFilters = {
+  classId?:    string
+  streamId?:   string
+  balanceStatus: 'unpaid' | 'partial' | 'both'
+  minBalance:  number
+  term:        number
+  year:        number
+}
+
+// ── useSmsStudents ────────────────────────────────────────────
+// Returns active students with a contactable guardian and outstanding balance.
+export function useSmsStudents(filters: SmsFilters) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['sms-students', user?.schoolId, filters],
+    enabled:  !!user?.schoolId,
+    queryFn: async () => {
+      const [studentsRes, guardiansRes, paymentsRes, classesRes, streamsRes] = await Promise.all([
+        supabase
+          .from('students')
+          .select('id, first_name, last_name, admission_number, class_id, stream_id')
+          .eq('school_id', user!.schoolId)
+          .eq('status', 'active'),
+        supabase
+          .from('student_guardians')
+          .select('student_id, full_name, phone, is_primary, do_not_contact')
+          .eq('school_id', user!.schoolId)
+          .eq('do_not_contact', false),
+        supabase
+          .from('fee_payments')
+          .select('student_id, amount_due, amount_paid, balance')
+          .eq('school_id', user!.schoolId)
+          .eq('term', filters.term)
+          .eq('year', filters.year),
+        supabase
+          .from('classes')
+          .select('id, name')
+          .eq('school_id', user!.schoolId),
+        supabase
+          .from('streams')
+          .select('id, name')
+          .eq('school_id', user!.schoolId),
+      ])
+
+      if (studentsRes.error)  throw studentsRes.error
+      if (guardiansRes.error) throw guardiansRes.error
+      if (paymentsRes.error)  throw paymentsRes.error
+      if (classesRes.error)   throw classesRes.error
+      if (streamsRes.error)   throw streamsRes.error
+
+      // Build guardian map — prefer primary guardian
+      const anyGuardian     = new Map<string, { name: string; phone: string }>()
+      const primaryGuardian = new Map<string, { name: string; phone: string }>()
+      for (const g of guardiansRes.data ?? []) {
+        const sid = g.student_id as string
+        if (!anyGuardian.has(sid)) {
+          anyGuardian.set(sid, { name: g.full_name as string, phone: g.phone as string })
+        }
+        if (g.is_primary) {
+          primaryGuardian.set(sid, { name: g.full_name as string, phone: g.phone as string })
+        }
+      }
+
+      const classMap  = new Map<string, string>()
+      for (const c of classesRes.data ?? []) classMap.set(c.id as string, c.name as string)
+      const streamMap = new Map<string, string>()
+      for (const s of streamsRes.data ?? []) streamMap.set(s.id as string, s.name as string)
+
+      // Aggregate fee balances per student (a student can have multiple fee rows)
+      const feeMap = new Map<string, { amountDue: number; amountPaid: number; balance: number }>()
+      for (const p of paymentsRes.data ?? []) {
+        const sid  = p.student_id as string
+        const curr = feeMap.get(sid) ?? { amountDue: 0, amountPaid: 0, balance: 0 }
+        curr.amountDue  += Number(p.amount_due)  || 0
+        curr.amountPaid += Number(p.amount_paid) || 0
+        curr.balance    += Number(p.balance)     || 0
+        feeMap.set(sid, curr)
+      }
+
+      let rows: SmsStudentRow[] = []
+      for (const s of studentsRes.data ?? []) {
+        const sid      = s.id as string
+        const fees     = feeMap.get(sid)
+        const guardian = primaryGuardian.get(sid) ?? anyGuardian.get(sid)
+
+        if (!fees || !guardian) continue
+
+        const status = calcFeeStatus(fees.amountPaid, fees.balance)
+        rows.push({
+          studentId:       sid,
+          firstName:       s.first_name as string,
+          lastName:        s.last_name as string,
+          admissionNumber: s.admission_number as string,
+          classId:         (s.class_id as string)  ?? null,
+          className:       classMap.get((s.class_id as string)  ?? '') ?? '—',
+          streamId:        (s.stream_id as string) ?? null,
+          streamName:      streamMap.get((s.stream_id as string) ?? '') ?? '—',
+          guardianName:    guardian.name,
+          guardianPhone:   guardian.phone,
+          balance:         fees.balance,
+          amountDue:       fees.amountDue,
+          amountPaid:      fees.amountPaid,
+          status,
+        })
+      }
+
+      // Apply filters
+      if (filters.classId)  rows = rows.filter(r => r.classId === filters.classId)
+      if (filters.streamId) rows = rows.filter(r => r.streamId === filters.streamId)
+
+      if (filters.balanceStatus === 'unpaid')  rows = rows.filter(r => r.status === 'unpaid')
+      else if (filters.balanceStatus === 'partial') rows = rows.filter(r => r.status === 'partial')
+      else rows = rows.filter(r => r.status !== 'paid') // 'both' = unpaid + partial
+
+      if (filters.minBalance > 0) rows = rows.filter(r => r.balance >= filters.minBalance)
+
+      return rows
+    },
+  })
+}
+
+// ── Delivery log row ───────────────────────────────────────────
+export type ReminderLogRow = SmsReminder & {
+  firstName: string
+  lastName:  string
+}
+
+export function useSmsReminderLog() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['sms-log', user?.schoolId],
+    enabled:  !!user?.schoolId,
+    queryFn: async () => {
+      const [remindersRes, studentsRes] = await Promise.all([
+        supabase
+          .from('sms_reminders')
+          .select('id, school_id, student_id, guardian_phone, channel, message, status, sent_at, created_at')
+          .eq('school_id', user!.schoolId)
+          .order('created_at', { ascending: false })
+          .limit(500),
+        supabase
+          .from('students')
+          .select('id, first_name, last_name')
+          .eq('school_id', user!.schoolId),
+      ])
+
+      if (remindersRes.error) throw remindersRes.error
+      if (studentsRes.error)  throw studentsRes.error
+
+      const studentMap = new Map<string, { firstName: string; lastName: string }>()
+      for (const s of studentsRes.data ?? []) {
+        studentMap.set(s.id as string, {
+          firstName: s.first_name as string,
+          lastName:  s.last_name as string,
+        })
+      }
+
+      return (remindersRes.data ?? []).map(r => {
+        const stu = studentMap.get(r.student_id as string)
+        return {
+          id:            r.id as string,
+          schoolId:      r.school_id as string,
+          studentId:     r.student_id as string,
+          guardianPhone: r.guardian_phone as string,
+          channel:       r.channel as SmsChannel,
+          message:       r.message as string,
+          status:        r.status as SmsReminder['status'],
+          sentAt:        (r.sent_at as string) ?? null,
+          createdAt:     r.created_at as string,
+          firstName:     stu?.firstName ?? '',
+          lastName:      stu?.lastName ?? '',
+        } satisfies ReminderLogRow
+      })
+    },
+  })
+}
+
+// ── useSendReminders ──────────────────────────────────────────
+// Inserts rows into both sms_reminders AND send_queue.
+// Does NOT call Africa's Talking — that's Week 9.
+export type SendReminderInput = {
+  studentId:     string
+  guardianPhone: string
+  channel:       SmsChannel
+  message:       string
+}
+
+export function useSendReminders() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (reminders: SendReminderInput[]) => {
+      const reminderRows = reminders.map(r => ({
+        school_id:     user!.schoolId,
+        student_id:    r.studentId,
+        guardian_phone: r.guardianPhone,
+        channel:       r.channel,
+        message:       r.message,
+        status:        'pending',
+        sent_at:       null,
+      }))
+
+      const { data: inserted, error: reminderErr } = await supabase
+        .from('sms_reminders')
+        .insert(reminderRows)
+        .select('id, student_id, guardian_phone, channel, message')
+
+      if (reminderErr) throw reminderErr
+
+      const queueRows = (inserted ?? []).map(r => ({
+        school_id:  user!.schoolId,
+        channel:    r.channel,
+        to:         r.guardian_phone,
+        message:    r.message,
+        student_id: r.student_id,
+        status:     'pending',
+      }))
+
+      if (queueRows.length > 0) {
+        const { error: queueErr } = await supabase
+          .from('send_queue')
+          .insert(queueRows)
+        if (queueErr) throw queueErr
+      }
+
+      return inserted?.length ?? 0
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sms-log',   user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['sms-count', user?.schoolId] })
+    },
+  })
+}
+
+// ── useRetryReminder ──────────────────────────────────────────
+export function useRetryReminder() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (reminderId: string) => {
+      const { error } = await supabase
+        .from('sms_reminders')
+        .update({ status: 'pending' })
+        .eq('id', reminderId)
+        .eq('school_id', user!.schoolId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sms-log', user?.schoolId] })
+    },
+  })
+}

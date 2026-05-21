@@ -180,21 +180,33 @@ export type Subject = {
 }
 
 // ── FEES ───────────────────────────────────────────────────────────────────
-// Maps to: fee_payments
+// Maps to: fee_structure — one row per fee type per term per academic year
+export type FeeStructure = {
+  id:             string
+  schoolId:       string
+  name:           string                         // e.g. "School Fees", "Boarding Fees"
+  amount:         number                         // UGX per student
+  appliesTo:      'all' | 'boarders' | 'day_scholars'
+  term:           1 | 2 | 3
+  isActive:       boolean
+  academicYearId: string
+}
+
+// Maps to: fee_payments — one row per student per fee type per term
 export type FeePayment = {
-  id: string
-  schoolId: string
-  studentId: string
-  feeTypeId: string
-  amountDue: number
-  amountPaid: number
-  balance: number               // computed: amountDue - amountPaid
-  paymentDate: string | null
+  id:            string
+  schoolId:      string
+  studentId:     string
+  feeTypeId:     string | null   // FK → fee_structure.id; null for imported records
+  amountDue:     number
+  amountPaid:    number
+  balance:       number          // computed: amountDue - amountPaid
+  paymentDate:   string | null
   receiptNumber: string | null
-  term: number                  // 1, 2, or 3
-  year: number
-  notes: string | null
-  imported: boolean             // true if this came from Excel import
+  term:          number          // 1, 2, or 3
+  year:          number
+  notes:         string | null
+  imported:      boolean         // true if this row came from Excel import
 }
 
 // Secretary sees this only — no amounts, just the status flag
@@ -214,6 +226,23 @@ export type ParentAccount = {
 }
 
 export type FeeStatus = 'paid' | 'partial' | 'unpaid'
+
+// ── SMS / WHATSAPP COMMS ────────────────────────────────────────────────────
+export type SmsChannel = 'sms' | 'whatsapp'
+export type SmsStatus  = 'pending' | 'sent' | 'delivered' | 'failed'
+
+// Maps to: sms_reminders
+export type SmsReminder = {
+  id:            string
+  schoolId:      string
+  studentId:     string
+  guardianPhone: string
+  channel:       SmsChannel
+  message:       string
+  status:        SmsStatus
+  sentAt:        string | null
+  createdAt:     string
+}
 
 // ── EXAMS ──────────────────────────────────────────────────────────────────
 // Maps to: exam_journal, exam_results

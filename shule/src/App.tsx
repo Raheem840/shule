@@ -7,6 +7,10 @@ import { SecretaryStudentsPage }    from './pages/secretary/SecretaryStudentsPag
 import { SecretaryStaffPage }       from './pages/secretary/SecretaryStaffPage'
 import { ClassListPage }            from './pages/secretary/ClassListPage'
 import { ParentCredentialsPage }    from './pages/secretary/ParentCredentialsPage'
+import { BursarDashboard }          from './pages/bursar/BursarDashboard'
+import { FeeStructurePage }         from './pages/bursar/FeeStructurePage'
+import { FeeLedgerPage }            from './pages/bursar/FeeLedgerPage'
+import { SmsReminderPage }          from './pages/bursar/SmsReminderPage'
 import type { UserRole } from './store/AuthContext'
 
 // ─── Placeholder page (used until real dashboards are built) ──────────────────
@@ -147,12 +151,11 @@ export default function App() {
           <AppShell />
         </ProtectedRoute>
       }>
-        <Route path="/bursar/dashboard"     element={<Placeholder label="Bursar Dashboard" />} />
-        <Route path="/bursar/fees"          element={<Placeholder label="Fee Ledger" />} />
-        <Route path="/bursar/import"        element={<Placeholder label="Import Fees" />} />
-        <Route path="/bursar/fee-structure" element={<Placeholder label="Fee Structure" />} />
+        <Route path="/bursar/dashboard"     element={<BursarDashboard />} />
+        <Route path="/bursar/fees"          element={<FeeLedgerPage />} />
+        <Route path="/bursar/fee-structure" element={<FeeStructurePage />} />
+        <Route path="/bursar/reminders"     element={<SmsReminderPage />} />
         <Route path="/bursar/add-payment"   element={<Placeholder label="Add Payment" />} />
-        <Route path="/bursar/reminders"     element={<Placeholder label="SMS Reminders" />} />
         <Route path="/bursar/delivery-log"  element={<Placeholder label="Delivery Log" />} />
         <Route path="/bursar/salaries"      element={<Placeholder label="Salary Records" />} />
         <Route path="/bursar/reports"       element={<Placeholder label="Fee Reports" />} />
