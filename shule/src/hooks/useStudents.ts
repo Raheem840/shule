@@ -77,12 +77,12 @@ export type StudentFilters = {
 // ── useStudents ────────────────────────────────────────────────
 // Returns the full list for the school, optionally filtered.
 // search is done client-side — the list is typically < 2000 rows.
-export function useStudents(filters: StudentFilters = {}) {
+export function useStudents(filters: StudentFilters = {}, enabled = true) {
   const { user } = useAuth()
 
   return useQuery({
     queryKey: ['students', user?.schoolId, filters],
-    enabled:  !!user?.schoolId,
+    enabled:  !!user?.schoolId && enabled,
     queryFn: async () => {
       let q = supabase
         .from('students')

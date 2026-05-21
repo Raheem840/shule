@@ -1,11 +1,10 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Cell,
 } from 'recharts'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useRef } from 'react'
 import { useExamJournalById, usePublishJournal } from '../../hooks/useExamJournal'
 import { useExamResults, useSaveMarks } from '../../hooks/useExamResults'
 import { useStudents } from '../../hooks/useStudents'
@@ -75,7 +74,7 @@ function ScoreDistChart({
   passMark:   number
   isCA:       boolean
 }) {
-  const bucketData = useMemo(() => {
+  const { bucketData, refX } = useMemo(() => {
     const scores = Array.from(marks.values())
       .filter(m => !m.isAbsent && m.score !== null)
       .map(m => m.score as number)
@@ -85,10 +84,10 @@ function ScoreDistChart({
         range: String(v),
         count: scores.filter(s => s === v).length,
       }))
-      return counts
+      return { bucketData: counts, refX: String(passMark) }
     }
 
-    const step = totalMarks <= 20 ? 5 : totalMarks <= 50 ? 10 : 10
+    const step = totalMarks <= 20 ? 5 : 10
     const buckets: { range: string; min: number; count: number }[] = []
     for (let min = 0; min < totalMarks; min += step) {
       const max = Math.min(min + step - 0.5, totalMarks)
@@ -98,13 +97,13 @@ function ScoreDistChart({
         count: scores.filter(s => s >= min && s <= max).length,
       })
     }
-    return buckets
-  }, [marks, totalMarks, isCA])
-
-  const refX = isCA ? String(passMark) : bucketData.find(b => {
-    if ('min' in b) return (b as { min: number }).min <= passMark && passMark < (b as { min: number }).min + 10
-    return false
-  })?.range
+    // Find the bucket that contains passMark using adjacent bucket boundaries
+    const refBucket = buckets.find((b, idx) => {
+      const nextMin = buckets[idx + 1]?.min ?? Infinity
+      return b.min <= passMark && passMark < nextMin
+    })
+    return { bucketData: buckets, refX: refBucket?.range }
+  }, [marks, totalMarks, isCA, passMark])
 
   return (
     <div style={{ padding: '16px 0' }}>
@@ -123,12 +122,12 @@ function ScoreDistChart({
             />
           )}
           <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={40}>
-            {bucketData.map((entry, i) => (
-              <Cell key={i} fill={
-                'min' in entry && (entry as { min: number }).min >= passMark
-                  ? 'var(--success)' : 'var(--danger)'
-              } />
-            ))}
+            {bucketData.map((entry, i) => {
+              const passes = isCA
+                ? Number(entry.range) >= passMark
+                : 'min' in entry && (entry as { min: number }).min >= passMark
+              return <Cell key={i} fill={passes ? 'var(--success)' : 'var(--danger)'} />
+            })}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -240,11 +239,10 @@ export function MarkEntryPage() {
   const saveMarks                                     = useSaveMarks()
   const publish                                       = usePublishJournal()
 
-  const { data: students = [], isLoading: studentsLoading } = useStudents({
-    classId:  journal?.classId,
-    streamId: journal?.streamId ?? undefined,
-    status:   'active',
-  })
+  const { data: students = [], isLoading: studentsLoading } = useStudents(
+    { classId: journal?.classId, streamId: journal?.streamId ?? undefined, status: 'active' },
+    !!journal,
+  )
 
   // Local marks state: studentId → { score, isAbsent }
   const [marks, setMarks] = useState<Map<string, { score: number | null; isAbsent: boolean }>>(new Map())

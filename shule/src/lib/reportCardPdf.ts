@@ -48,6 +48,16 @@ export type ReportCardPdfData = {
 
 // ── Helpers ────────────────────────────────────────────────────
 
+function ensureSpace(doc: jsPDF, y: number, needed: number): number {
+  const pageH = 297
+  const marginBottom = 14
+  if (y + needed > pageH - marginBottom) {
+    doc.addPage()
+    return 14
+  }
+  return y
+}
+
 function fmtDate(iso: string | null): string {
   if (!iso) return '—'
   try {
@@ -209,7 +219,17 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
     },
     columnStyles: {
       0: { halign: 'left', cellWidth: subjectW },
-      // Grade column — last column, always
+      // CA columns
+      ...Object.fromEntries(
+        Array.from({ length: maxCA }, (_, i) => [i + 1, { halign: 'center', cellWidth: caW }])
+      ),
+      // Pts, Max, /20, Exam, Total
+      [maxCA + 1]: { halign: 'center', cellWidth: numW },
+      [maxCA + 2]: { halign: 'center', cellWidth: numW },
+      [maxCA + 3]: { halign: 'center', cellWidth: numW },
+      [maxCA + 4]: { halign: 'center', cellWidth: numW },
+      [maxCA + 5]: { halign: 'center', cellWidth: totalW },
+      // Grade — last column
       [headers.length - 1]: { halign: 'center', cellWidth: gradeW, fontStyle: 'bold' },
     },
     didParseCell: data => {
@@ -230,6 +250,7 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6
 
   // ── Overall Performance ──────────────────────────────────────
+  y = ensureSpace(doc, y, 20)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.setTextColor(13, 148, 136)
@@ -247,29 +268,34 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
   doc.line(M, y, W - M, y)
   y += 5
 
-  // ── Attendance ───────────────────────────────────────────────
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  doc.setTextColor(13, 148, 136)
-  doc.text('ATTENDANCE', M, y)
-  doc.setTextColor(0)
-  y += 5
+  // ── Attendance (hidden when no data collected yet) ───────────
+  if (d.daysPresent > 0 || d.daysAbsent > 0) {
+    y = ensureSpace(doc, y, 20)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(13, 148, 136)
+    doc.text('ATTENDANCE', M, y)
+    doc.setTextColor(0)
+    y += 5
 
-  const total       = d.daysPresent + d.daysAbsent
-  const attendRate  = total > 0 ? Math.round((d.daysPresent / total) * 100) : 0
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  doc.text(
-    `Days Present: ${d.daysPresent}    Days Absent: ${d.daysAbsent}    Attendance Rate: ${attendRate}%`,
-    M, y,
-  )
-  y += 7
+    const total      = d.daysPresent + d.daysAbsent
+    const attendRate = Math.round((d.daysPresent / total) * 100)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.text(
+      `Days Present: ${d.daysPresent}    Days Absent: ${d.daysAbsent}    Attendance Rate: ${attendRate}%`,
+      M, y,
+    )
+    y += 7
 
-  doc.setDrawColor(226, 232, 240)
-  doc.line(M, y, W - M, y)
-  y += 5
+    doc.setDrawColor(226, 232, 240)
+    doc.line(M, y, W - M, y)
+    y += 5
+  }
 
   // ── Class Teacher's Remarks ───────────────────────────────────
+  const remarkLines = doc.splitTextToSize(d.teacherRemarks || '—', W - M * 2)
+  y = ensureSpace(doc, y, 10 + remarkLines.length * 4.5)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.setTextColor(13, 148, 136)
@@ -279,7 +305,6 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
-  const remarkLines = doc.splitTextToSize(d.teacherRemarks || '—', W - M * 2)
   doc.text(remarkLines, M, y)
   y += remarkLines.length * 4.5 + 4
 
@@ -288,6 +313,7 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
   y += 5
 
   // ── Principal's Remarks ───────────────────────────────────────
+  y = ensureSpace(doc, y, 20)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.setTextColor(13, 148, 136)
@@ -302,15 +328,20 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
     doc.text(pLines, M, y)
     y += pLines.length * 4.5 + 4
   } else {
-    doc.text('_'.repeat(80), M, y)
+    doc.setDrawColor(150, 150, 150)
+    doc.setLineWidth(0.3)
+    doc.line(M, y + 2, W - M, y + 2)
+    doc.setDrawColor(226, 232, 240)
     y += 8
   }
 
   doc.setDrawColor(226, 232, 240)
+  doc.setLineWidth(0.3)
   doc.line(M, y, W - M, y)
   y += 5
 
   // ── Footer ────────────────────────────────────────────────────
+  y = ensureSpace(doc, y, 20)
   if (d.nextTermStartDate) {
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
@@ -359,7 +390,11 @@ export function buildSubjectRows(
   for (const [subjectId, subResults] of bySubject) {
     const caEntries = subResults
       .filter(r => r.assessmentType === 'ca')
-      .sort((a, b) => (a.caLabel ?? '').localeCompare(b.caLabel ?? ''))
+      .sort((a, b) => {
+        const numA = parseInt((a.caLabel ?? '').replace(/\D/g, ''), 10) || 0
+        const numB = parseInt((b.caLabel ?? '').replace(/\D/g, ''), 10) || 0
+        return numA - numB
+      })
 
     const etEntry = subResults.find(r => r.assessmentType === 'end_of_term')
 

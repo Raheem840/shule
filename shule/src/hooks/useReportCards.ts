@@ -46,12 +46,28 @@ export function useReportCards(filters: {
     queryKey: ['report-cards', user?.schoolId, filters],
     enabled:  !!user,
     queryFn:  async () => {
+      // Scope to students in the selected class/stream when classId is provided
+      let studentIds: string[] | null = null
+      if (filters.classId) {
+        let sq = supabase
+          .from('students')
+          .select('id')
+          .eq('school_id', user!.schoolId)
+          .eq('class_id', filters.classId)
+        if (filters.streamId) sq = sq.eq('stream_id', filters.streamId)
+        const { data: stus } = await sq
+        studentIds = (stus ?? []).map(s => s.id as string)
+        if (studentIds.length === 0) return []
+      }
+
       let q = supabase
         .from('report_cards')
         .select(RC_COLS)
         .eq('school_id', user!.schoolId)
         .eq('term', filters.term)
         .eq('year', filters.year)
+
+      if (studentIds) q = q.in('student_id', studentIds)
 
       const { data, error } = await q
       if (error) throw error
@@ -158,8 +174,12 @@ export function useStudentReadiness(params: {
         if (missingCA.length > 0) issues.push(`Missing ${missingCA.length} CA mark(s)`)
 
         // Check end-of-term result exists
-        const missingET = etJournalIds.filter(jid => !resultSet.has(`${sid}::${jid}`))
-        if (missingET.length > 0) issues.push(`Missing end-of-term mark(s)`)
+        if (etJournalIds.length === 0) {
+          issues.push('No end-of-term exam created')
+        } else {
+          const missingET = etJournalIds.filter(jid => !resultSet.has(`${sid}::${jid}`))
+          if (missingET.length > 0) issues.push('Missing end-of-term mark(s)')
+        }
 
         // Check remarks
         if (!remarkSet.has(sid)) issues.push('Missing teacher remarks')
@@ -273,9 +293,10 @@ export function useGenerateReportCards() {
         .eq('school_id', schoolId)
         .in('id', studentIds)
 
-      const studentMap = new Map<string, typeof students extends Array<infer T> ? T : never>()
+      type StudentRow = { id: unknown; first_name: unknown; last_name: unknown; admission_number: unknown; gender: unknown }
+      const studentMap = new Map<string, StudentRow>()
       for (const s of (students ?? [])) {
-        studentMap.set(s.id as string, s as unknown as (typeof students extends Array<infer T> ? T : never))
+        studentMap.set(s.id as string, s as StudentRow)
       }
 
       // ── Fetch existing report cards (to check for principal remarks) ─
@@ -471,8 +492,6 @@ function useUpdateStatus(action: 'approve' | 'release' | 'unlock') {
     },
   })
 }
-
-type AnyRow = Record<string, unknown>
 
 export function useApproveReportCard()  { return useUpdateStatus('approve') }
 export function useReleaseReportCard()  { return useUpdateStatus('release') }

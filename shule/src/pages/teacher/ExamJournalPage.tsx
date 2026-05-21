@@ -58,6 +58,12 @@ const journalSchema = z.object({
   // CA
   caComponent: z.enum(['oral','written','project','portfolio']).nullable().optional(),
   caWeighting: z.coerce.number().min(0).max(100).nullable().optional(),
+}).superRefine((data, ctx) => {
+  if (data.assessmentType !== 'ca') {
+    if (!data.totalMarks || data.totalMarks < 1) {
+      ctx.addIssue({ code: 'custom', path: ['totalMarks'], message: 'Total marks is required' })
+    }
+  }
 })
 
 type JournalFormValues = z.infer<typeof journalSchema>
@@ -329,9 +335,11 @@ export function ExamJournalPage() {
   const { data: journals = [], isLoading } = useExamJournals(filters)
   const { data: subjects = [] } = useSubjects()
   const { data: classes  = [] } = useClasses()
+  const { data: streams  = [] } = useStreams()   // no classId → all school streams
 
   const subjectMap = new Map(subjects.map(s => [s.id, s.name]))
   const classMap   = new Map(classes.map(c => [c.id, c.name]))
+  const streamMap  = new Map(streams.map(s => [s.id, s.name]))
 
   return (
     <div style={{ padding: 24 }}>
@@ -376,7 +384,7 @@ export function ExamJournalPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                {['Type', 'Subject', 'Class', 'Term', 'Date', 'Marks', 'Status', ''].map(h => (
+                {['Type', 'Subject', 'Class', 'Stream', 'Term', 'Date', 'Marks', 'Status', ''].map(h => (
                   <th key={h} style={{
                     padding: '10px 14px', textAlign: 'left',
                     fontSize: 11, fontWeight: 700, color: 'var(--txt3)',
@@ -411,6 +419,9 @@ export function ExamJournalPage() {
                   </td>
                   <td style={{ padding: '12px 14px', color: 'var(--txt2)', fontSize: 13 }}>
                     {classMap.get(j.classId) ?? j.classId}
+                  </td>
+                  <td style={{ padding: '12px 14px', color: 'var(--txt3)', fontSize: 12 }}>
+                    {j.streamId ? (streamMap.get(j.streamId) ?? '—') : <span style={{ color: 'var(--txt3)' }}>All</span>}
                   </td>
                   <td style={{ padding: '12px 14px', color: 'var(--txt2)', fontSize: 13 }}>
                     Term {j.term}

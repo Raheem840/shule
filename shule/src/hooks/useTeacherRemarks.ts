@@ -66,40 +66,6 @@ export function useTeacherRemarks(params: {
   })
 }
 
-// ── Fetch remarks for the report card generator (all teachers, all students) ──
-export function useRemarksByStudents(params: {
-  studentIds: string[]
-  term:       string
-  year:       number
-}) {
-  const { user } = useAuth()
-  const { studentIds, term, year } = params
-
-  return useQuery({
-    queryKey: ['remarks-by-students', user?.schoolId, studentIds, term, year],
-    enabled:  !!user && studentIds.length > 0,
-    queryFn:  async () => {
-      const { data, error } = await supabase
-        .from('teacher_remarks')
-        .select(REMARK_COLS)
-        .eq('school_id', user!.schoolId)
-        .in('student_id', studentIds)
-        .eq('term', term)
-        .eq('year', year)
-
-      if (error) throw error
-
-      const map = new Map<string, TeacherRemark>()
-      for (const r of (data ?? [])) {
-        const remark = toRemark(r as AnyRow)
-        // Later remarks overwrite earlier ones (class teacher's remark wins if multiple)
-        map.set(remark.studentId, remark)
-      }
-      return map
-    },
-  })
-}
-
 // ── RemarkRow ──────────────────────────────────────────────────
 export type RemarkRow = {
   studentId: string

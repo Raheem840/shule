@@ -316,7 +316,7 @@ export function PrincipalReportCardsPage() {
                   {card.status === 'approved' && (
                     <Button size="sm" variant="primary"
                       loading={release.isPending}
-                      onClick={() => release.mutate({ reportCardId: card.id })}>
+                      onClick={() => release.mutateAsync({ reportCardId: card.id })}>
                       Release
                     </Button>
                   )}

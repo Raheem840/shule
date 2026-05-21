@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import JSZip from 'jszip'
 import {
   useReportCards,
@@ -69,6 +69,9 @@ export function ReportCardsPage() {
   const [selected,  setSelected]  = useState<Set<string>>(new Set())
   const [progress,  setProgress]  = useState<{ done: number; total: number } | null>(null)
   const [genResult, setGenResult] = useState<{ success: number; failed: number } | null>(null)
+
+  // Clear selection whenever the cohort changes to avoid stale IDs
+  useEffect(() => { setSelected(new Set()) }, [term, year, classId, streamId])
 
   const { data: classes  = [] } = useClasses()
   const { data: streams  = [] } = useStreams(classId || null)
