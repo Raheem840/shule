@@ -393,7 +393,7 @@ export function FeeLedgerPage() {
               .insert({
                 school_id:      user!.schoolId,
                 student_id:     sid,
-                fee_type_id:    null,
+                fee_structure_id: null,
                 amount_due:     amountDue,
                 amount_paid:    amountPaid,
                 balance,

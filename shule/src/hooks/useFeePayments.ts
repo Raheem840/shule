@@ -40,7 +40,7 @@ export function useBursarKpis(term: number, year: number) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('fee_summary_for_principal')
-        .select('expected, collected, outstanding, unpaid_count')
+        .select('total_expected, total_collected, total_outstanding, fully_unpaid_count')
         .eq('school_id', user!.schoolId)
         .eq('term', term)
         .eq('year', year)
@@ -51,10 +51,10 @@ export function useBursarKpis(term: number, year: number) {
 
       const r = data as AnyRow
       return {
-        expected:    Number(r.expected)     || 0,
-        collected:   Number(r.collected)    || 0,
-        outstanding: Number(r.outstanding)  || 0,
-        unpaidCount: Number(r.unpaid_count) || 0,
+        expected:    Number(r.total_expected)     || 0,
+        collected:   Number(r.total_collected)    || 0,
+        outstanding: Number(r.total_outstanding)  || 0,
+        unpaidCount: Number(r.fully_unpaid_count) || 0,
       } satisfies BursarKpis
     },
   })
@@ -432,7 +432,8 @@ export function useUpdatePayment() {
           action:     'UPDATE',
           old_value:  { amount_paid: input.oldAmountPaid, balance: oldBalance },
           new_value:  { amount_paid: input.amountPaid,    balance: newBalance },
-          changed_by: user!.id,
+          user_id:    user!.id,
+          role:       user!.role,
         })
       // Intentionally not throwing on audit error — payment is already saved.
     },
