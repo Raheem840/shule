@@ -403,29 +403,52 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
               <input ref={photoInputRef} type="file" accept="image/*" aria-label="Upload student photo" style={{ display: 'none' }} onChange={handlePhotoChange} />
               <div
                 onClick={() => photoInputRef.current?.click()}
-                style={{ border: `2px dashed ${photoDataUrl ? 'var(--brand)' : 'var(--border)'}`, borderRadius: 'var(--r-lg)', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', background: photoDataUrl ? 'var(--brand-light)' : 'var(--surface2)', transition: 'border-color 0.15s, background 0.15s' }}
+                style={{
+                  border: `2px dashed ${photoDataUrl ? 'var(--brand)' : 'var(--border)'}`,
+                  borderRadius: 'var(--r-lg)',
+                  padding: '1.5rem 1.25rem',
+                  cursor: 'pointer',
+                  background: photoDataUrl ? 'var(--brand-light)' : 'var(--surface2)',
+                  transition: 'border-color 0.18s, background 0.18s',
+                  textAlign: 'center',
+                }}
               >
                 {photoDataUrl ? (
-                  <>
-                    <img src={photoDataUrl} alt="" style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>Photo ready</div>
-                      <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 2 }}>Click to replace</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <img src={photoDataUrl} alt="" style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--brand)', display: 'block' }} />
+                      <div style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--surface)' }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                      </div>
                     </div>
-                    <button type="button" onClick={e => { e.stopPropagation(); setPhotoDataUrl(null) }} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                    <div style={{ flex: 1, textAlign: 'left' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>Photo uploaded</div>
+                      <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 2 }}>Click anywhere to replace</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setPhotoDataUrl(null) }}
+                      style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--danger-bg)', border: '1px solid rgba(244,63,94,0.25)', color: 'var(--danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
                     </button>
-                  </>
+                  </div>
                 ) : (
-                  <>
-                    <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.65rem' }}>
+                    <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--surface)', border: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" strokeWidth="1.4" stroke="var(--txt3)">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                      </svg>
                     </div>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt2)' }}>Upload student photo</div>
-                      <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 2 }}>JPG or PNG · Max 200 KB · Auto-compressed</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt2)' }}>Click to upload a photo</div>
+                      <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 3 }}>JPG or PNG — auto-compressed to 200 KB</div>
                     </div>
-                  </>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', padding: '3px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20 }}>
+                      Optional
+                    </span>
+                  </div>
                 )}
               </div>
 
@@ -521,93 +544,149 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
           {/* STEP 3 — GUARDIANS */}
           {step === 3 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {gFields.map((field, idx) => (
-                <div key={field.id} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '1rem' }}>
-                  {/* Guardian header */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
-                      Guardian {idx + 1}
-                    </span>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      {watch(`guardians.${idx}.isPrimary`) ? (
-                        <Badge variant="teal">Primary</Badge>
-                      ) : (
-                        <button type="button" onClick={() => makePrimary(idx)} style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}>
-                          Set as Primary
-                        </button>
-                      )}
-                      {idx > 0 && (
-                        <button type="button" onClick={() => gRemove(idx)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
+              {gFields.map((field, idx) => {
+                const isPrimary = watch(`guardians.${idx}.isPrimary`)
+                const commsPref = watch(`guardians.${idx}.commsPreference`)
+                const isDNC     = watch(`guardians.${idx}.doNotContact`)
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                      <Input label="Full Name *" {...register(`guardians.${idx}.fullName`)} error={errors.guardians?.[idx]?.fullName?.message} placeholder="Guardian's full name" />
-                      <Select
-                        label="Relationship *"
-                        {...register(`guardians.${idx}.relationship`)}
-                        error={errors.guardians?.[idx]?.relationship?.message}
-                        placeholder="Select"
-                        options={[
-                          { value: 'mother',     label: 'Mother' },
-                          { value: 'father',     label: 'Father' },
-                          { value: 'aunt',       label: 'Aunt' },
-                          { value: 'uncle',      label: 'Uncle' },
-                          { value: 'grandparent',label: 'Grandparent' },
-                          { value: 'sibling',    label: 'Sibling' },
-                          { value: 'guardian',   label: 'Legal Guardian' },
-                          { value: 'other',      label: 'Other' },
-                        ]}
-                      />
-                    </div>
+                return (
+                  <div key={field.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden', boxShadow: 'var(--sh-sm)' }}>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                      <Input label="Phone *" type="tel" {...register(`guardians.${idx}.phone`)} error={errors.guardians?.[idx]?.phone?.message} placeholder="+256 700 000 000" />
-                      <Input label="Email"   type="email" {...register(`guardians.${idx}.email`)} error={errors.guardians?.[idx]?.email?.message} placeholder="guardian@email.com" />
-                    </div>
-
-                    {/* Comms preference */}
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font2)', marginBottom: 8 }}>
-                        Comms Preference
+                    {/* Card header strip */}
+                    <div style={{
+                      padding: '0.7rem 1rem',
+                      background: isPrimary ? 'rgba(13,148,136,0.06)' : 'var(--surface2)',
+                      borderBottom: '1px solid var(--border)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{
+                          width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                          background: isPrimary ? 'var(--brand)' : 'var(--surface)',
+                          border: isPrimary ? 'none' : '1.5px solid var(--border)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 12, fontWeight: 900, fontFamily: 'var(--font2)',
+                          color: isPrimary ? '#fff' : 'var(--txt3)',
+                        }}>
+                          {idx + 1}
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
+                          Guardian {idx + 1}
+                        </span>
+                        {isPrimary && <Badge variant="teal">Primary contact</Badge>}
                       </div>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        {(['sms', 'whatsapp', 'both'] as const).map(pref => {
-                          const checked = watch(`guardians.${idx}.commsPreference`) === pref
-                          return (
-                            <label key={pref} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', border: `1.5px solid ${checked ? 'var(--brand)' : 'var(--border)'}`, borderRadius: 'var(--r)', background: checked ? 'var(--brand-light)' : 'var(--surface)', cursor: 'pointer', transition: 'all 0.15s' }}>
-                              <input type="radio" value={pref} {...register(`guardians.${idx}.commsPreference`)} style={{ accentColor: 'var(--brand)' }} />
-                              <span style={{ fontSize: 11, fontWeight: 700, color: checked ? 'var(--brand)' : 'var(--txt2)' }}>
-                                {pref === 'sms' ? 'SMS' : pref === 'whatsapp' ? 'WhatsApp' : 'Both'}
-                              </span>
-                            </label>
-                          )
-                        })}
+
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        {!isPrimary && (
+                          <button
+                            type="button" onClick={() => makePrimary(idx)}
+                            style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand)', background: 'var(--brand-light)', border: '1px solid rgba(13,148,136,0.3)', borderRadius: 6, cursor: 'pointer', padding: '3px 9px', fontFamily: 'var(--font2)' }}
+                          >
+                            Set primary
+                          </button>
+                        )}
+                        {idx > 0 && (
+                          <button
+                            type="button" onClick={() => gRemove(idx)}
+                            style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--danger-bg)', border: '1px solid rgba(244,63,94,0.2)', color: 'var(--danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                          </button>
+                        )}
                       </div>
                     </div>
 
-                    {/* DNC */}
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                      <input type="checkbox" {...register(`guardians.${idx}.doNotContact`)} style={{ accentColor: 'var(--danger)', width: 14, height: 14 }} />
-                      <span style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 600 }}>
-                        Do Not Contact — exclude from fee reminders and bulk SMS
-                      </span>
-                    </label>
+                    {/* Fields */}
+                    <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                        <Input label="Full Name *" {...register(`guardians.${idx}.fullName`)} error={errors.guardians?.[idx]?.fullName?.message} placeholder="Guardian's full name" />
+                        <Select
+                          label="Relationship *"
+                          {...register(`guardians.${idx}.relationship`)}
+                          error={errors.guardians?.[idx]?.relationship?.message}
+                          placeholder="Select"
+                          options={[
+                            { value: 'mother',      label: 'Mother' },
+                            { value: 'father',      label: 'Father' },
+                            { value: 'aunt',        label: 'Aunt' },
+                            { value: 'uncle',       label: 'Uncle' },
+                            { value: 'grandparent', label: 'Grandparent' },
+                            { value: 'sibling',     label: 'Sibling' },
+                            { value: 'guardian',    label: 'Legal Guardian' },
+                            { value: 'other',       label: 'Other' },
+                          ]}
+                        />
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                        <Input label="Phone *" type="tel" {...register(`guardians.${idx}.phone`)} error={errors.guardians?.[idx]?.phone?.message} placeholder="+256 700 000 000" />
+                        <Input label="Email"   type="email" {...register(`guardians.${idx}.email`)} error={errors.guardians?.[idx]?.email?.message} placeholder="guardian@email.com" />
+                      </div>
+
+                      {/* Comms preference — icon chips */}
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font2)', marginBottom: 8 }}>
+                          Contact via
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          {([
+                            { value: 'sms',      label: 'SMS',
+                              icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 9.79 19.79 19.79 0 0 1 1.61 1.17 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 5.61 5.61l.97-.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg> },
+                            { value: 'whatsapp', label: 'WhatsApp',
+                              icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> },
+                            { value: 'both',     label: 'Both',
+                              icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> },
+                          ] as const).map(opt => {
+                            const checked = commsPref === opt.value
+                            return (
+                              <label key={opt.value} style={{
+                                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
+                                padding: '0.5rem 0.5rem',
+                                border: `1.5px solid ${checked ? 'var(--brand)' : 'var(--border)'}`,
+                                borderRadius: 'var(--r)',
+                                background: checked ? 'var(--brand-light)' : 'var(--surface2)',
+                                color: checked ? 'var(--brand)' : 'var(--txt2)',
+                                cursor: 'pointer', transition: 'all 0.15s',
+                              }}>
+                                <input type="radio" value={opt.value} {...register(`guardians.${idx}.commsPreference`)} style={{ display: 'none' }} />
+                                {opt.icon}
+                                <span style={{ fontSize: 11.5, fontWeight: 700 }}>{opt.label}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Do Not Contact toggle */}
+                      <label style={{
+                        display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                        padding: '0.6rem 0.85rem',
+                        background: isDNC ? 'var(--danger-bg)' : 'var(--surface2)',
+                        border: `1px solid ${isDNC ? 'rgba(244,63,94,0.25)' : 'var(--border)'}`,
+                        borderRadius: 'var(--r)', transition: 'all 0.15s',
+                      }}>
+                        <input type="checkbox" {...register(`guardians.${idx}.doNotContact`)} style={{ accentColor: 'var(--danger)', width: 14, height: 14, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: isDNC ? 'var(--danger)' : 'var(--txt2)' }}>
+                            Do Not Contact
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>
+                            Exclude from fee reminders and bulk SMS
+                          </div>
+                        </div>
+                      </label>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
 
               {gFields.length < 2 && (
                 <button
                   type="button"
                   onClick={() => gAppend({ fullName: '', relationship: '', phone: '', email: '', isPrimary: false, doNotContact: false, commsPreference: 'sms' })}
-                  style={{ width: '100%', padding: '0.65rem', border: '2px dashed var(--border)', borderRadius: 'var(--r)', background: 'none', color: 'var(--txt3)', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, fontFamily: 'var(--font2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', transition: 'color 0.15s, border-color 0.15s' }}
+                  style={{ width: '100%', padding: '0.75rem', border: '2px dashed var(--border)', borderRadius: 'var(--r-lg)', background: 'none', color: 'var(--txt3)', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, fontFamily: 'var(--font2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'color 0.15s, border-color 0.15s' }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
                   Add Second Guardian
                 </button>
               )}

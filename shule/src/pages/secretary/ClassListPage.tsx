@@ -5,7 +5,6 @@ import { useStudents } from '../../hooks/useStudents'
 import { Badge } from '../../components/ui/Badge'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Button } from '../../components/ui/Button'
-import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
@@ -34,15 +33,20 @@ const LEVEL_COLORS = [
 function AddStreamModal({
   classId,
   className,
+  streams,
+  color,
   onClose,
 }: {
   classId:   string
   className: string
+  streams:   Stream[]
+  color:     { bg: string; border: string; text: string }
   onClose:   () => void
 }) {
   const [name, setName] = useState('')
   const { success: ok, error: err } = useToast()
   const createStream = useCreateStream()
+  const previewFull  = name.trim() ? `${className} ${name.trim()}` : null
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -55,25 +59,129 @@ function AddStreamModal({
   }
 
   return (
-    <Modal open onClose={onClose} title={`Add Stream to ${className}`} size="sm">
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <Input
-          label="Stream Name *"
-          placeholder="e.g. East, West, A, B"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          autoFocus
-        />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-          <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
-          <Button
-            variant="primary"
-            type="submit"
-            loading={createStream.isPending}
-            disabled={!name.trim()}
-          >
-            Add Stream
-          </Button>
+    <Modal open onClose={onClose} title="Add Stream" size="sm">
+      <form onSubmit={handleSubmit}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+          {/* Class context banner */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '0.85rem 1rem',
+            background: color.bg, borderRadius: 'var(--r)',
+            border: `1px solid ${color.border}`,
+          }}>
+            <div style={{
+              width: 42, height: 42, borderRadius: 11, flexShrink: 0,
+              background: color.border,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color.text} strokeWidth="1.8">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)', lineHeight: 1.2 }}>
+                {className}
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 3 }}>
+                {streams.length === 0
+                  ? 'No streams yet — add the first one'
+                  : `${streams.length} stream${streams.length !== 1 ? 's' : ''} already`}
+              </div>
+            </div>
+          </div>
+
+          {/* Stream name input */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={{
+              fontSize: 11, fontWeight: 800, color: 'var(--txt2)',
+              textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font2)',
+            }}>
+              Stream Name <span style={{ color: 'var(--danger)' }}>*</span>
+            </label>
+            <input
+              autoFocus
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. East, West, A, B, Rose, Nile…"
+              className="sui-input"
+              style={{
+                width: '100%', padding: '0.65rem 0.9rem',
+                background: 'var(--surface2)',
+                border: '1.5px solid var(--border)',
+                borderRadius: 'var(--r)', fontSize: 13.5,
+                fontFamily: 'var(--font1)', color: 'var(--txt)', outline: 'none',
+              }}
+            />
+            <span style={{ fontSize: 11, color: 'var(--txt3)' }}>
+              Short name — it will be combined with the class above
+            </span>
+          </div>
+
+          {/* Live preview */}
+          {previewFull && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 9,
+              padding: '0.65rem 0.9rem',
+              background: 'var(--brand-light)',
+              borderRadius: 'var(--r-sm)',
+              border: '1px solid rgba(13,148,136,0.2)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <span style={{ fontSize: 12.5, color: 'var(--txt2)', fontWeight: 600 }}>
+                Will appear as:{' '}
+                <span style={{ fontFamily: 'var(--font2)', fontWeight: 800, color: 'var(--txt)' }}>
+                  {previewFull}
+                </span>
+              </span>
+            </div>
+          )}
+
+          {/* Existing stream chips */}
+          {streams.length > 0 && (
+            <div>
+              <div style={{
+                fontSize: 10, fontWeight: 800, color: 'var(--txt3)',
+                textTransform: 'uppercase', letterSpacing: '0.8px',
+                fontFamily: 'var(--font2)', marginBottom: 8,
+              }}>
+                Existing streams
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {streams.map(s => (
+                  <span key={s.id} style={{
+                    padding: '4px 11px', borderRadius: 20,
+                    background: color.bg, border: `1px solid ${color.border}`,
+                    fontSize: 12, fontWeight: 700, color: color.text,
+                    fontFamily: 'var(--font2)',
+                  }}>
+                    {s.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', paddingTop: 4 }}>
+            <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+            <Button
+              variant="primary" type="submit"
+              loading={createStream.isPending}
+              disabled={!name.trim()}
+              icon={
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+              }
+            >
+              Add Stream
+            </Button>
+          </div>
         </div>
       </form>
     </Modal>
@@ -291,7 +399,9 @@ function ClassCard({
   const { data: streams = [] }  = useStreams(cls.id)
   const { data: students = [] } = useStudents({ classId: cls.id })
 
-  const color = LEVEL_COLORS[colorIdx % LEVEL_COLORS.length]!
+  const color     = LEVEL_COLORS[colorIdx % LEVEL_COLORS.length]!
+  const levelNum  = cls.level ? parseInt(cls.level, 10) : null
+  const iconLabel = levelNum ? `S${levelNum}` : cls.name.slice(0, 3).toUpperCase()
 
   return (
     <>
@@ -303,9 +413,9 @@ function ClassCard({
             style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', flex: 1 }}
             onClick={() => setExpanded(e => !e)}
           >
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: color.border, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 14, color: color.text }}>
-                {cls.name}
+            <div style={{ width: 46, height: 46, borderRadius: 12, background: color.border, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <span style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 14, color: color.text, letterSpacing: '-0.5px' }}>
+                {iconLabel}
               </span>
             </div>
             <div>
@@ -380,6 +490,8 @@ function ClassCard({
         <AddStreamModal
           classId={cls.id}
           className={cls.name}
+          streams={streams}
+          color={color}
           onClose={() => setAddStreamOpen(false)}
         />
       )}

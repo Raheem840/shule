@@ -142,6 +142,17 @@ const TD_STYLE: React.CSSProperties = {
   color: 'var(--txt2)', verticalAlign: 'middle', fontSize: 12.5,
 }
 
+// ── Level-based chip colours — identical values to ClassListPage LEVEL_COLORS
+//    so S.1 is always the same teal on every screen, S.2 the same blue, etc.
+const LEVEL_CHIP: Record<number, { bg: string; border: string; text: string }> = {
+  1: { bg: '#f0fdfa', border: '#99f6e4', text: '#0f766e' },
+  2: { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8' },
+  3: { bg: '#fdf4ff', border: '#e9d5ff', text: '#7e22ce' },
+  4: { bg: '#fff7ed', border: '#fed7aa', text: '#c2410c' },
+  5: { bg: '#fefce8', border: '#fef08a', text: '#a16207' },
+  6: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534' },
+}
+
 // ── Virtual row ────────────────────────────────────────────────
 // Each row is rendered by the virtualiser, not the browser DOM.
 // Height must be fixed — 52px matches the padding in TD_STYLE.
@@ -155,13 +166,16 @@ function StudentRow({
   style,
 }: {
   student: Student
-  classes: { id: string; name: string }[]
+  classes: { id: string; name: string; level: string | null }[]
   streams: { id: string; name: string }[]
   onView: (s: Student) => void
   style: React.CSSProperties
 }) {
-  const className  = classes.find(c => c.id === student.classId)?.name  ?? '—'
+  const cls        = classes.find(c => c.id === student.classId)
+  const className  = cls?.name ?? '—'
   const streamName = streams.find(s => s.id === student.streamId)?.name ?? '—'
+  const levelNum   = cls?.level ? parseInt(cls.level, 10) : null
+  const chip       = levelNum ? (LEVEL_CHIP[levelNum] ?? null) : null
 
   return (
     <tr
@@ -189,8 +203,26 @@ function StudentRow({
           {student.admissionNumber}
         </span>
       </td>
-      <td style={TD_STYLE}>{className}</td>
-      <td style={TD_STYLE}>{streamName}</td>
+      <td style={TD_STYLE}>
+        {className !== '—' ? (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center',
+            padding: '3px 10px', borderRadius: 20,
+            background: chip ? chip.bg : 'var(--surface2)',
+            border:     `1px solid ${chip ? chip.border : 'var(--border)'}`,
+            color:      chip ? chip.text : 'var(--txt2)',
+            fontSize: 11, fontWeight: 800,
+            fontFamily: 'var(--font2)', whiteSpace: 'nowrap',
+          }}>
+            {className}
+          </span>
+        ) : '—'}
+      </td>
+      <td style={TD_STYLE}>
+        {streamName !== '—' ? (
+          <span style={{ fontSize: 12.5, color: 'var(--txt2)', fontWeight: 600 }}>{streamName}</span>
+        ) : <span style={{ color: 'var(--txt3)', fontSize: 12 }}>—</span>}
+      </td>
       <td style={TD_STYLE}>
         <Badge variant={statusVariant[student.status]} dot>
           {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
