@@ -272,6 +272,16 @@ export type ExamJournal = {
   term: string                   // TEXT in DB
   year: number
   notes: string | null
+  status: 'draft' | 'published'
+  // Conditional — set based on assessmentType
+  learningArea:     string | null  // aoi
+  competency:       string | null  // aoi
+  integrationTheme: string | null  // aoi
+  tradeArea:        string | null  // dit
+  ditModuleCode:    string | null  // dit
+  caComponent: 'oral' | 'written' | 'project' | 'portfolio' | null  // ca
+  caWeighting:      number | null  // ca
+  caLabel:          string | null  // ca — auto-label: "C1", "C2", etc.
 }
 
 export type ExamResult = {
@@ -280,11 +290,27 @@ export type ExamResult = {
   examJournalId: string
   studentId: string
   subjectId: string
-  score: number
-  grade: 'A' | 'B' | 'C' | 'D' | 'E'
+  score: number | null            // null when is_absent = true
+  grade: 'A' | 'B' | 'C' | 'D' | 'E' | null  // null for end_of_term (needs CA to calculate)
+  isAbsent: boolean
   term: string
   year: number
   teacherId: string
+}
+
+// ── TEACHER REMARKS ────────────────────────────────────────────────────────────
+// Maps to: teacher_remarks
+export type TeacherRemark = {
+  id: string
+  schoolId: string
+  studentId: string
+  teacherId: string
+  classId: string
+  streamId: string | null
+  term: string
+  year: number
+  remarks: string
+  createdAt: string
 }
 
 // ── REPORT CARDS ───────────────────────────────────────────────────────────
@@ -301,7 +327,10 @@ export type ReportCard = {
   principalRemarks: string | null
   generatedAt: string | null
   approvedAt: string | null
+  approvedBy: string | null
   releasedAt: string | null
+  releasedBy: string | null
+  unlockReason: string | null
   pdfUrl: string | null
 }
 

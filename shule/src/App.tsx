@@ -7,10 +7,15 @@ import { SecretaryStudentsPage }    from './pages/secretary/SecretaryStudentsPag
 import { SecretaryStaffPage }       from './pages/secretary/SecretaryStaffPage'
 import { ClassListPage }            from './pages/secretary/ClassListPage'
 import { ParentCredentialsPage }    from './pages/secretary/ParentCredentialsPage'
+import { ReportCardsPage }          from './pages/secretary/ReportCardsPage'
 import { BursarDashboard }          from './pages/bursar/BursarDashboard'
 import { FeeStructurePage }         from './pages/bursar/FeeStructurePage'
 import { FeeLedgerPage }            from './pages/bursar/FeeLedgerPage'
 import { SmsReminderPage }          from './pages/bursar/SmsReminderPage'
+import { ExamJournalPage }          from './pages/teacher/ExamJournalPage'
+import { MarkEntryPage }            from './pages/teacher/MarkEntryPage'
+import { TeacherRemarksPage }       from './pages/teacher/TeacherRemarksPage'
+import { PrincipalReportCardsPage } from './pages/principal/PrincipalReportCardsPage'
 import type { UserRole } from './store/AuthContext'
 
 // ─── Placeholder page (used until real dashboards are built) ──────────────────
@@ -92,7 +97,7 @@ export default function App() {
         <Route path="/principal/students"     element={<Placeholder label="Students" />} />
         <Route path="/principal/staff"        element={<Placeholder label="Staff" />} />
         <Route path="/principal/classes"      element={<Placeholder label="Classes" />} />
-        <Route path="/principal/report-cards" element={<Placeholder label="Report Cards" />} />
+        <Route path="/principal/report-cards" element={<PrincipalReportCardsPage />} />
         <Route path="/principal/academic-year"element={<Placeholder label="Academic Year" />} />
         <Route path="/principal/messages"     element={<Placeholder label="Messages" />} />
         <Route path="/principal/announcements"element={<Placeholder label="Announcements" />} />
@@ -139,7 +144,7 @@ export default function App() {
         <Route path="/secretary/staff"        element={<SecretaryStaffPage />} />
         <Route path="/secretary/classes"      element={<ClassListPage />} />
         <Route path="/secretary/fee-status"   element={<Placeholder label="Fee Status" />} />
-        <Route path="/secretary/report-cards" element={<Placeholder label="Report Cards" />} />
+        <Route path="/secretary/report-cards" element={<ReportCardsPage />} />
         <Route path="/secretary/portal-links" element={<ParentCredentialsPage />} />
         <Route path="/secretary/import"       element={<Placeholder label="Import Data" />} />
         <Route path="/secretary/messages"     element={<Placeholder label="Messages" />} />
@@ -168,12 +173,13 @@ export default function App() {
         </ProtectedRoute>
       }>
         <Route path="/teacher/dashboard"      element={<Placeholder label="Teacher Dashboard" />} />
-        <Route path="/teacher/exams"          element={<Placeholder label="Exam Journal" />} />
-        <Route path="/teacher/marks"          element={<Placeholder label="Enter Marks" />} />
-        <Route path="/teacher/attendance"     element={<Placeholder label="Attendance" />} />
-        <Route path="/teacher/curriculum"     element={<Placeholder label="Curriculum" />} />
-        <Route path="/teacher/report-preview" element={<Placeholder label="Report Preview" />} />
-        <Route path="/teacher/messages"       element={<Placeholder label="Messages" />} />
+        <Route path="/teacher/exams"                    element={<ExamJournalPage />} />
+        <Route path="/teacher/exams/:journalId/marks"  element={<MarkEntryPage />} />
+        <Route path="/teacher/exams/remarks"           element={<TeacherRemarksPage />} />
+        <Route path="/teacher/attendance"              element={<Placeholder label="Attendance" />} />
+        <Route path="/teacher/curriculum"              element={<Placeholder label="Curriculum" />} />
+        <Route path="/teacher/report-preview"          element={<Placeholder label="Report Preview" />} />
+        <Route path="/teacher/messages"                element={<Placeholder label="Messages" />} />
       </Route>
 
       {/* ── Student ────────────────────────────────────────────── */}
