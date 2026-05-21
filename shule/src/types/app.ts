@@ -374,13 +374,14 @@ export type CBCResult = {
   descriptor: string               // UNEB wording: Exceptional/Outstanding/Satisfactory/Basic/Elementary
 }
 
-// UNEB CBC grade scale — A 80–100 · B 70–79 · C 60–69 · D 50–59 · E 0–49
-// Pass threshold is 50 (grade D). Score distribution charts draw their reference
-// line at 50, not at any other value.
+// UNEB CBC grade scale — A 90–100 · B 75–89 · C 65–74 · D 50–64 · E 0–49
+// Source: canonical CLAUDE.md spec (claude.ai design session).
+// Pass threshold is 50 (start of grade D). Score distribution charts draw
+// their reference line at the journal's passMark, not the grade cutoff.
 export function calculateCBCGrade(total: number): 'A' | 'B' | 'C' | 'D' | 'E' {
-  if (total >= 80) return 'A'
-  if (total >= 70) return 'B'
-  if (total >= 60) return 'C'
+  if (total >= 90) return 'A'
+  if (total >= 75) return 'B'
+  if (total >= 65) return 'C'
   if (total >= 50) return 'D'
   return 'E'
 }

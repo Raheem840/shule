@@ -34,17 +34,20 @@ function toReportCard(r: AnyRow): ReportCard {
 }
 
 // ── useReportCards ─────────────────────────────────────────────
-export function useReportCards(filters: {
-  term:      number
-  year:      number
-  classId?:  string
-  streamId?: string
-}) {
+export function useReportCards(
+  filters: {
+    term:      number
+    year:      number
+    classId?:  string
+    streamId?: string
+  },
+  enabled = true,
+) {
   const { user } = useAuth()
 
   return useQuery({
     queryKey: ['report-cards', user?.schoolId, filters],
-    enabled:  !!user,
+    enabled:  !!user && enabled,
     queryFn:  async () => {
       // Scope to students in the selected class/stream when classId is provided
       let studentIds: string[] | null = null
@@ -131,25 +134,23 @@ export function useStudentReadiness(params: {
       const { data: journals, error: je } = await jq
       if (je) throw je
 
-      const journalIds       = (journals ?? []).map(j => j.id as string)
-      const caJournalIds     = (journals ?? []).filter(j => j.assessment_type === 'ca').map(j => j.id as string)
-      const etJournalIds     = (journals ?? []).filter(j => j.assessment_type === 'end_of_term').map(j => j.id as string)
+      const journalIds   = (journals ?? []).map(j => j.id as string)
+      const caJournalIds = (journals ?? []).filter(j => j.assessment_type === 'ca').map(j => j.id as string)
+      const etJournalIds = (journals ?? []).filter(j => j.assessment_type === 'end_of_term').map(j => j.id as string)
 
-      // 3. Fetch all exam_results for these students+journals
-      let rq = supabase
-        .from('exam_results')
-        .select('student_id, exam_journal_id')
-        .eq('school_id', user!.schoolId)
-        .in('student_id', studentIds)
-
-      if (journalIds.length > 0) rq = rq.in('exam_journal_id', journalIds)
-      const { data: results, error: re } = await rq
-      if (re) throw re
-
-      // Build a set of (studentId+journalId) for fast lookup
+      // 3. Fetch exam_results — only meaningful when at least one journal exists
       const resultSet = new Set<string>()
-      for (const r of (results ?? [])) {
-        resultSet.add(`${r.student_id as string}::${r.exam_journal_id as string}`)
+      if (journalIds.length > 0) {
+        const { data: results, error: re } = await supabase
+          .from('exam_results')
+          .select('student_id, exam_journal_id')
+          .eq('school_id', user!.schoolId)
+          .in('student_id', studentIds)
+          .in('exam_journal_id', journalIds)
+        if (re) throw re
+        for (const r of (results ?? [])) {
+          resultSet.add(`${r.student_id as string}::${r.exam_journal_id as string}`)
+        }
       }
 
       // 4. Fetch teacher_remarks for these students+term+year
@@ -187,7 +188,7 @@ export function useStudentReadiness(params: {
         let status: ReadinessStatus = 'ready'
         if (issues.length === 1 && issues[0].includes('remarks')) {
           status = 'missing_remarks'
-        } else if (issues.some(i => i.includes('mark'))) {
+        } else if (issues.some(i => i.includes('mark') || i.includes('exam'))) {
           status = issues.length > 1 ? 'not_ready' : 'missing_marks'
         }
 
@@ -257,6 +258,8 @@ export function useGenerateReportCards() {
       }
 
       // ── Fetch all exam_results for these students ──────────
+      // exam_results.term is TEXT (stored from journal.term which is a string like "1")
+      // report_cards.term is INTEGER — both filter correctly with their respective types
       const { data: rawResults, error: re } = await supabase
         .from('exam_results')
         .select(`

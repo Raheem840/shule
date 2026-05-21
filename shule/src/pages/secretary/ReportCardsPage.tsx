@@ -92,7 +92,7 @@ export function ReportCardsPage() {
     year:     Number(year),
     classId:  classId  || undefined,
     streamId: streamId || undefined,
-  })
+  }, cohortReady)
 
   const rcMap = new Map(reportCards.map(c => [c.studentId, c]))
 

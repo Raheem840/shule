@@ -150,7 +150,7 @@ export function PrincipalReportCardsPage() {
     year:     Number(year),
     classId:  classId  || undefined,
     streamId: streamId || undefined,
-  })
+  }, cohortReady)
 
   const { data: readiness = [] } = useStudentReadiness({
     term:     cohortReady ? term     : null,
@@ -159,11 +159,11 @@ export function PrincipalReportCardsPage() {
     streamId: cohortReady ? (streamId || null) : null,
   })
 
-  // All students to resolve names
-  const { data: students = [] } = useStudents({
-    classId:  classId  || undefined,
-    streamId: streamId || undefined,
-  })
+  // All students to resolve names — only loaded once a class is selected
+  const { data: students = [] } = useStudents(
+    { classId: classId || undefined, streamId: streamId || undefined },
+    cohortReady,
+  )
 
   const studentNameMap = new Map(
     students.map(s => [s.id, `${s.firstName} ${s.lastName}`])

@@ -187,18 +187,12 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
     ]
   })
 
-  // Column widths: Subject gets ~40mm, CA columns ~7mm each, rest ~10mm
+  // Column widths: Subject gets ~38mm, CA columns ~7mm each, rest fixed
   const subjectW = 38
   const caW      = 7
   const numW     = 10
   const totalW   = 12
   const gradeW   = 11
-
-  const colWidths = [
-    subjectW,
-    ...Array(maxCA).fill(caW),
-    numW, numW, numW, numW, totalW, gradeW,
-  ]
 
   autoTable(doc, {
     startY:          y,
