@@ -191,17 +191,17 @@ export function TeacherRemarksPage() {
       {/* ── Filter controls ───────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
         <Select
-          value={term} onChange={setTerm}
+          value={term} onChange={e => setTerm(e.target.value)}
           options={[{ value: '', label: 'Select term' }, ...TERM_OPTIONS]}
           style={{ minWidth: 130 }}
         />
         <Select
-          value={classId} onChange={setClassId}
+          value={classId} onChange={e => setClassId(e.target.value)}
           options={[{ value: '', label: 'Select class' }, ...classes.map(c => ({ value: c.id, label: c.name }))]}
           style={{ minWidth: 140 }}
         />
         <Select
-          value={streamId} onChange={setStreamId}
+          value={streamId} onChange={e => setStreamId(e.target.value)}
           options={[{ value: '', label: 'All streams' }, ...streams.map(s => ({ value: s.id, label: s.name }))]}
           disabled={!classId}
           style={{ minWidth: 130 }}

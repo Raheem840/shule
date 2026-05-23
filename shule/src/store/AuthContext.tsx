@@ -3,7 +3,7 @@ import {
   useContext,
   useEffect,
   useState,
-  ReactNode
+  type ReactNode
 } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Session } from '@supabase/supabase-js'
@@ -105,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signOut = () => supabase.auth.signOut()
+  const signOut = async () => { await supabase.auth.signOut() }
 
   return (
     <AuthContext.Provider value={{ user, loading, signOut }}>
