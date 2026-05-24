@@ -1,12 +1,14 @@
-import { ReactNode, CSSProperties } from 'react'
+import type { ReactNode, CSSProperties } from 'react'
 
 type Variant = 'green' | 'amber' | 'red' | 'blue' | 'teal' | 'violet' | 'muted'
 
 interface BadgeProps {
   variant?: Variant
   dot?: boolean
+  size?: 'sm' | 'md'
   children: ReactNode
   style?: CSSProperties
+  title?: string
 }
 
 const variantStyles: Record<Variant, CSSProperties> = {
@@ -57,9 +59,10 @@ const dotColors: Record<Variant, string> = {
   muted:  'var(--txt3)',
 }
 
-export function Badge({ variant = 'muted', dot = false, children, style }: BadgeProps) {
+export function Badge({ variant = 'muted', dot = false, children, style, title }: BadgeProps) {
   return (
     <span
+      title={title}
       style={{
         display: 'inline-flex',
         alignItems: 'center',

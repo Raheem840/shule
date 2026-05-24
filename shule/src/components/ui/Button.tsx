@@ -1,4 +1,4 @@
-import { ButtonHTMLAttributes, ReactNode, CSSProperties } from 'react'
+import type { ButtonHTMLAttributes, ReactNode, CSSProperties } from 'react'
 import { LoadingSpinner } from './LoadingSpinner'
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost'
@@ -9,6 +9,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: Size
   loading?: boolean
   icon?: ReactNode
+  leftIcon?: ReactNode
 }
 
 // Static visual properties — hover/focus states are in index.css .sui-btn-*
@@ -47,6 +48,7 @@ export function Button({
   size = 'md',
   loading = false,
   icon,
+  leftIcon,
   children,
   disabled,
   className = '',
@@ -78,7 +80,7 @@ export function Button({
     >
       {loading
         ? <LoadingSpinner size={13} color={variant === 'primary' ? '#030711' : 'currentColor'} />
-        : icon
+        : (leftIcon ?? icon)
       }
       {children}
     </button>

@@ -65,32 +65,32 @@ export function useStreams(classId?: string | null) {
 
 // ── useSubjects ────────────────────────────────────────────────
 // Used by exam journal dropdowns (teacher entering marks).
-export function useSubjects(departmentId?: string | null) {
+export function useSubjects(level?: string) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['subjects', user?.schoolId, departmentId ?? 'all'],
+    queryKey: ['subjects', level],
     enabled:  !!user?.schoolId,
     queryFn: async () => {
       let q = supabase
         .from('subjects')
-        .select('id, school_id, name, curriculum_code, department_id, is_compulsory, paper_count')
+        .select('id, name, curriculum_code, level')
         .eq('school_id', user!.schoolId)
+        .eq('is_active', true)
         .order('name', { ascending: true })
 
-      if (departmentId) q = q.eq('department_id', departmentId)
+      if (level) q = q.eq('level', level)
 
       const { data, error } = await q
       if (error) throw error
 
       return (data ?? []).map(r => ({
-        id:           r.id as string,
-        schoolId:     r.school_id as string,
-        name:         r.name as string,
+        id:             r.id as string,
+        schoolId:       user!.schoolId,
+        name:           r.name as string,
         curriculumCode: (r.curriculum_code as string) ?? null,
-        departmentId: (r.department_id as string) ?? null,
-        isCompulsory: r.is_compulsory as boolean,
-        paperCount:   r.paper_count as number,
+        level:          (r.level as string) ?? null,
+        isActive:       true,
       } satisfies Subject))
     },
   })

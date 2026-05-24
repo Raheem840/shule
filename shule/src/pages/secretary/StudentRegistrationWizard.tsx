@@ -66,7 +66,7 @@ function useSchoolPrefix() {
 }
 
 // ── Zod schemas ───────────────────────────────────────────────
-const guardianSchema = z.object({
+export const guardianSchema = z.object({
   fullName:        z.string().min(1, 'Full name is required'),
   relationship:    z.string().min(1, 'Relationship is required'),
   phone:           z.string().min(7, 'Valid phone number required'),
@@ -76,7 +76,7 @@ const guardianSchema = z.object({
   commsPreference: z.enum(['sms', 'whatsapp', 'both']),
 })
 
-const wizardSchema = z.object({
+export const wizardSchema = z.object({
   firstName:       z.string().min(1, 'First name is required'),
   lastName:        z.string().min(1, 'Last name is required'),
   dateOfBirth:     z.string().optional(),

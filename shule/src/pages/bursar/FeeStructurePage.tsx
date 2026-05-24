@@ -17,7 +17,7 @@ import { ugx } from '../../hooks/useFeePayments'
 import type { FeeStructure } from '../../types/app'
 
 // ── Zod schema for Add Fee Type form ──────────────────────────
-const AddFeeSchema = z.object({
+export const AddFeeSchema = z.object({
   name:           z.string().min(2, 'Name is required'),
   amount:         z.coerce.number().positive('Must be a positive amount'),
   appliesTo:      z.enum(['all', 'boarders', 'day_scholars']),

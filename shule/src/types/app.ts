@@ -173,10 +173,9 @@ export type Subject = {
   id: string
   schoolId: string
   name: string                  // e.g. "Mathematics", "Biology"
-  curriculumCode: string | null  // was code
-  departmentId: string | null
-  isCompulsory: boolean
-  paperCount: number            // 1 or 2 — Uganda UNEB subjects can have 2 papers
+  curriculumCode: string | null
+  level: string | null          // 'O-Level' | 'A-Level'
+  isActive: boolean
 }
 
 // ── FEES ───────────────────────────────────────────────────────────────────

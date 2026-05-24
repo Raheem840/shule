@@ -1,11 +1,13 @@
-import { ReactNode, useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
+import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Button } from './Button'
 
 type Size = 'sm' | 'md' | 'lg' | 'xl'
 
 interface ModalProps {
-  open:     boolean
+  open?:    boolean
+  isOpen?:  boolean
   onClose:  () => void
   title?:   string
   size?:    Size
@@ -25,32 +27,33 @@ function getPortalTarget(): HTMLElement {
   return (document.querySelector('.ar') as HTMLElement | null) ?? document.body
 }
 
-export function Modal({ open, onClose, title, size = 'md', children, footer }: ModalProps) {
+export function Modal({ open, isOpen, onClose, title, size = 'md', children, footer }: ModalProps) {
+  const visible = isOpen ?? open ?? false
   const dialogRef = useRef<HTMLDivElement>(null)
 
   // Escape key
   useEffect(() => {
-    if (!open) return
+    if (!visible) return
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [open, onClose])
+  }, [visible, onClose])
 
   // Auto-focus
   useEffect(() => {
-    if (open) {
+    if (visible) {
       const id = setTimeout(() => dialogRef.current?.focus(), 10)
       return () => clearTimeout(id)
     }
-  }, [open])
+  }, [visible])
 
   // Prevent body scroll
   useEffect(() => {
-    document.body.style.overflow = open ? 'hidden' : ''
+    document.body.style.overflow = visible ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
-  }, [open])
+  }, [visible])
 
-  if (!open) return null
+  if (!visible) return null
 
   return createPortal(
     <div

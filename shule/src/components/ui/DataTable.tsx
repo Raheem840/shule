@@ -1,5 +1,5 @@
-import { ReactNode, useState, useMemo, useCallback, CSSProperties } from 'react'
-import { LoadingSpinner } from './LoadingSpinner'
+import type { ReactNode, CSSProperties } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 
 export interface Column<T> {
   key: string

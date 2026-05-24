@@ -1,12 +1,14 @@
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 interface PageHeaderProps {
   title: string
   subtitle?: string
   action?: ReactNode
+  actions?: ReactNode
 }
 
-export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, action, actions }: PageHeaderProps) {
+  const rightSlot = actions ?? action
   return (
     <div
       style={{
@@ -42,9 +44,9 @@ export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
           </p>
         )}
       </div>
-      {action && (
+      {rightSlot && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {action}
+          {rightSlot}
         </div>
       )}
     </div>

@@ -38,14 +38,14 @@ const TERM_OPTIONS = [
 const CURRENT_YEAR = new Date().getFullYear()
 
 // ── Zod schema ─────────────────────────────────────────────────
-const journalSchema = z.object({
+export const journalSchema = z.object({
   assessmentType:  z.enum(['aoi','dit','ca','beginning_of_term','mid_term','end_of_term','practical','class_test','assignment']),
   subjectId:       z.string().min(1, 'Subject is required'),
   classId:         z.string().min(1, 'Class is required'),
   streamId:        z.string().nullable(),
   term:            z.string().min(1, 'Term is required'),
   date:            z.string().min(1, 'Date is required'),
-  totalMarks:      z.coerce.number().min(1).optional(),
+  totalMarks:      z.coerce.number().min(1, 'Total marks is required').max(100, 'Total marks cannot exceed 100').optional(),
   passMark:        z.coerce.number().min(0).optional(),
   notes:           z.string().nullable().optional(),
   // AOI
