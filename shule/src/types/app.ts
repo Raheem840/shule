@@ -66,6 +66,7 @@ export type AcademicYear = {
   term2End: string | null
   term3Start: string | null
   term3End: string | null
+  surveyActive: boolean         // DoS toggles this to open end-of-term survey for students
 }
 
 // ── STUDENTS ───────────────────────────────────────────────────────────────
@@ -345,6 +346,18 @@ export type Attendance = {
   date: string
   status: AttendanceStatus
   recordedBy: string            // Staff ID
+}
+
+// Computed stats for a student over a date range — used by portals and the attendance page.
+export type AttendanceSummary = {
+  studentId:        string
+  totalDays:        number
+  presentDays:      number
+  absentDays:       number
+  lateDays:         number
+  excusedDays:      number
+  rate:             number    // % present (0–100)
+  isBelowThreshold: boolean   // rate < 80% and totalDays > 0
 }
 
 // ── MESSAGES ───────────────────────────────────────────────────────────────

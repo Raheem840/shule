@@ -15,7 +15,10 @@ import { SmsReminderPage }          from './pages/bursar/SmsReminderPage'
 import { ExamJournalPage }          from './pages/teacher/ExamJournalPage'
 import { MarkEntryPage }            from './pages/teacher/MarkEntryPage'
 import { TeacherRemarksPage }       from './pages/teacher/TeacherRemarksPage'
+import { AttendancePage }           from './pages/teacher/AttendancePage'
 import { PrincipalReportCardsPage } from './pages/principal/PrincipalReportCardsPage'
+import { ParentPortalPage }         from './pages/parent/ParentPortalPage'
+import { StudentPortalPage }        from './pages/student/StudentPortalPage'
 import type { UserRole } from './store/AuthContext'
 
 // ─── Placeholder page (used until real dashboards are built) ──────────────────
@@ -176,7 +179,7 @@ export default function App() {
         <Route path="/teacher/exams"                    element={<ExamJournalPage />} />
         <Route path="/teacher/exams/:journalId/marks"  element={<MarkEntryPage />} />
         <Route path="/teacher/exams/remarks"           element={<TeacherRemarksPage />} />
-        <Route path="/teacher/attendance"              element={<Placeholder label="Attendance" />} />
+        <Route path="/teacher/attendance"              element={<AttendancePage />} />
         <Route path="/teacher/curriculum"              element={<Placeholder label="Curriculum" />} />
         <Route path="/teacher/report-preview"          element={<Placeholder label="Report Preview" />} />
         <Route path="/teacher/messages"                element={<Placeholder label="Messages" />} />
@@ -188,7 +191,7 @@ export default function App() {
           <AppShell />
         </ProtectedRoute>
       }>
-        <Route path="/student/portal"       element={<Placeholder label="Student Portal" />} />
+        <Route path="/student/portal"       element={<StudentPortalPage />} />
         <Route path="/student/results"      element={<Placeholder label="My Results" />} />
         <Route path="/student/fees"         element={<Placeholder label="My Fees" />} />
         <Route path="/student/attendance"   element={<Placeholder label="Attendance" />} />
@@ -203,7 +206,7 @@ export default function App() {
           <AppShell />
         </ProtectedRoute>
       }>
-        <Route path="/parent/portal"        element={<Placeholder label="Parent Portal" />} />
+        <Route path="/parent/portal"        element={<ParentPortalPage />} />
         <Route path="/parent/results"       element={<Placeholder label="Results" />} />
         <Route path="/parent/fees"          element={<Placeholder label="Fee Balance" />} />
         <Route path="/parent/attendance"    element={<Placeholder label="Attendance" />} />

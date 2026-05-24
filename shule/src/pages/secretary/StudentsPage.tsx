@@ -2,11 +2,140 @@ import { useState, useRef, useCallback, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useStudents, type StudentFilters } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
+import { useGenerateParentAccess, type GeneratedAccess } from '../../hooks/useParentPortal'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { PageHeader } from '../../components/ui/PageHeader'
 import type { Student } from '../../types/app'
+
+// ── Generate Portal Access Modal ───────────────────────────────
+function GenerateAccessModal({
+  student,
+  onClose,
+}: {
+  student: Student
+  onClose: () => void
+}) {
+  const { mutateAsync, isPending } = useGenerateParentAccess()
+  const [result, setResult] = useState<GeneratedAccess | null>(null)
+  const [error,  setError]  = useState<string | null>(null)
+  const [copied, setCopied] = useState<Record<string, boolean>>({})
+
+  const copyText = (key: string, text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopied(p => ({ ...p, [key]: true }))
+    setTimeout(() => setCopied(p => ({ ...p, [key]: false })), 2000)
+  }
+
+  const handleGenerate = async () => {
+    setError(null)
+    try {
+      const r = await mutateAsync({ id: student.id, admissionNumber: student.admissionNumber })
+      setResult(r)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to generate access')
+    }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <div style={{
+        background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+        padding: '1.5rem', width: 420, maxWidth: '90vw',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.22)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.2rem' }}>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 15, fontFamily: 'var(--font2)', color: 'var(--txt)' }}>
+              Parent Portal Access
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>
+              {student.firstName} {student.lastName} · {student.admissionNumber}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', padding: 4, display: 'flex' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        {!result ? (
+          <>
+            <p style={{ fontSize: 12.5, color: 'var(--txt2)', lineHeight: 1.6, marginBottom: '1.2rem' }}>
+              This will auto-generate a parent login using the student's admission number.
+              If credentials already exist for this student, they will be returned unchanged.
+            </p>
+            {error && (
+              <div style={{
+                background: 'var(--danger-bg)', border: '1px solid var(--danger)',
+                borderRadius: 'var(--r)', padding: '0.6rem 0.85rem', marginBottom: '1rem',
+                fontSize: 12.5, color: 'var(--danger)', fontFamily: 'var(--font2)',
+              }}>
+                {error}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end' }}>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button variant="primary" onClick={handleGenerate} disabled={isPending}>
+                {isPending ? 'Generating…' : 'Generate Access'}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{
+              background: result.isNew ? 'var(--success-bg)' : 'var(--info-bg)',
+              border: `1px solid ${result.isNew ? 'var(--success)' : 'var(--info)'}`,
+              borderRadius: 'var(--r)', padding: '0.6rem 0.85rem', marginBottom: '1rem',
+              fontSize: 12.5, fontWeight: 700, fontFamily: 'var(--font2)',
+              color: result.isNew ? 'var(--success)' : 'var(--info)',
+            }}>
+              {result.isNew ? 'New parent account created.' : 'Existing credentials retrieved.'}
+            </div>
+            {[
+              { key: 'email', label: 'Email',    value: result.email },
+              { key: 'pw',    label: 'Password', value: result.tempPassword },
+            ].map(({ key, label, value }) => (
+              <div key={key} style={{ marginBottom: '0.75rem' }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--txt3)', fontFamily: 'var(--font2)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                  {label}
+                </div>
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: 'var(--surface2)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--r)', padding: '0.5rem 0.75rem',
+                }}>
+                  <span style={{ fontFamily: 'var(--font3)', fontSize: 13, color: 'var(--txt)' }}>{value}</span>
+                  <button
+                    onClick={() => copyText(key, value)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      fontSize: 11, fontWeight: 800, fontFamily: 'var(--font2)',
+                      color: copied[key] ? 'var(--success)' : 'var(--brand)',
+                    }}
+                  >
+                    {copied[key] ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.75rem' }}>
+              <Button variant="primary" onClick={onClose}>Done</Button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
 
 // ── Avatar initials ────────────────────────────────────────────
 function StudentAvatar({ student }: { student: Student }) {
@@ -163,12 +292,14 @@ function StudentRow({
   classes,
   streams,
   onView,
+  onPortal,
   style,
 }: {
   student: Student
   classes: { id: string; name: string; level: string | null }[]
   streams: { id: string; name: string }[]
-  onView: (s: Student) => void
+  onView:   (s: Student) => void
+  onPortal: (s: Student) => void
   style: React.CSSProperties
 }) {
   const cls        = classes.find(c => c.id === student.classId)
@@ -228,8 +359,8 @@ function StudentRow({
           {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
         </Badge>
       </td>
-      <td style={{ ...TD_STYLE, width: 100 }}>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+      <td style={{ ...TD_STYLE, width: 140 }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <span
             style={{ fontSize: 12, fontWeight: 800, color: 'var(--info)', cursor: 'pointer', fontFamily: 'var(--font2)' }}
             onClick={e => { e.stopPropagation(); onView(student) }}
@@ -241,6 +372,13 @@ function StudentRow({
             onClick={e => { e.stopPropagation(); /* edit handler wired in parent */ }}
           >
             Edit
+          </span>
+          <span
+            title="Generate parent portal access"
+            style={{ fontSize: 12, fontWeight: 800, color: 'var(--violet)', cursor: 'pointer', fontFamily: 'var(--font2)' }}
+            onClick={e => { e.stopPropagation(); onPortal(student) }}
+          >
+            Portal
           </span>
         </div>
       </td>
@@ -281,10 +419,11 @@ interface Props {
 }
 
 export function StudentsPage({ onRegister, onImport, onView }: Props) {
-  const [search,   setSearch]   = useState('')
-  const [classId,  setClassId]  = useState('')
-  const [streamId, setStreamId] = useState('')
-  const [status,   setStatus]   = useState('')
+  const [search,        setSearch]        = useState('')
+  const [classId,       setClassId]       = useState('')
+  const [streamId,      setStreamId]      = useState('')
+  const [status,        setStatus]        = useState('')
+  const [portalStudent, setPortalStudent] = useState<Student | null>(null)
 
   const filters: StudentFilters = useMemo(() => ({
     ...(classId  ? { classId }  : {}),
@@ -444,6 +583,7 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
                         classes={classes}
                         streams={streams}
                         onView={onView}
+                        onPortal={setPortalStudent}
                         style={{
                           position: 'absolute',
                           top: 0,
@@ -492,6 +632,7 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
                         classes={classes}
                         streams={streams}
                         onView={onView}
+                        onPortal={setPortalStudent}
                         style={{}}
                       />
                     ))
@@ -501,6 +642,13 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
           </div>
         )}
       </Card>
+
+      {portalStudent && (
+        <GenerateAccessModal
+          student={portalStudent}
+          onClose={() => setPortalStudent(null)}
+        />
+      )}
     </div>
   )
 }

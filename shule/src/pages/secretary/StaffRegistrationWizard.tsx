@@ -57,7 +57,7 @@ export const QUAL_LEVELS = [
 // ── MoES minimum warning (not a blocker) ─────────────────────
 // lower_secondary (levels 1–4) requires qual ≥ 2
 // upper_secondary (levels 5–6) requires qual ≥ 3
-function getQualWarning(
+export function getQualWarning(
   qualLevel: number | null,
   selectedClassIds: string[],
   allClasses: { id: string; level: string | null }[]
