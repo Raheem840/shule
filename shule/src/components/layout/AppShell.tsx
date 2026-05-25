@@ -13,10 +13,33 @@
  * Sidebar tokens (--sb-bg etc.) shift slightly in dark mode per design spec.
  */
 
-import { useState, useEffect } from 'react'
-import { Outlet, NavLink, useLocation } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../store/AuthContext'
 import { ROLE_NAV, ROLE_AVATAR, ROLE_LABEL } from '../../config/roleNav'
+import { OfflineBanner } from '../shared/OfflineBanner'
+import { ErrorBoundary } from '../shared/ErrorBoundary'
+import { useNotifications, useMarkNotificationsRead } from '../../hooks/useNotifications'
+import { useUnreadCount } from '../../hooks/useMessaging'
+import type { UserRole } from '../../store/AuthContext'
+import type { NotificationType } from '../../types/week9'
+
+// Roles that have a /profile page
+const PROFILE_ROLES = new Set<UserRole>([
+  'principal','deputy','dos','secretary','bursar','class_teacher','teacher','it_admin',
+])
+
+// Staff roles that have a messaging inbox
+const STAFF_MSG_PATHS: Partial<Record<UserRole, string>> = {
+  principal:     '/principal/messages',
+  deputy:        '/deputy/messages',
+  dos:           '/dos/messages',
+  secretary:     '/secretary/messages',
+  bursar:        '/bursar/messages',
+  class_teacher: '/teacher/messages',
+  teacher:       '/teacher/messages',
+  it_admin:      '/admin/messages',
+}
 
 // ─── Theme persistence ─────────────────────────────────────────────────────────
 function getStoredTheme(): 'light' | 'dark' {
@@ -86,6 +109,9 @@ export function AppShell() {
 
       {/* ── RIGHT PANEL ─────────────────────────────────────────────── */}
       <div className="shell-r">
+        {/* Offline/online banner sits above TopBar */}
+        <OfflineBanner />
+
         <TopBar
           theme={theme}
           onToggle={toggleTheme}
@@ -96,7 +122,9 @@ export function AppShell() {
         />
         <main className="shell-main">
           <div className="page">
-            <Outlet />
+            <ErrorBoundary>
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </main>
       </div>
@@ -117,6 +145,9 @@ type SidebarProps = {
 }
 
 function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut }: SidebarProps) {
+  const navigate = useNavigate()
+  const { data: msgUnread = 0 } = useUnreadCount()
+
   return (
     <nav className="sb">
       {/* Logo + school name */}
@@ -149,10 +180,9 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut }: Sideb
             )}
 
             {group.items.map((item) => {
-              // NavLink from react-router-dom handles active state
-              // We add class "on" when this route is active
               const isActive = currentPath === item.path ||
                 currentPath.startsWith(item.path + '/')
+              const isMsgItem = item.path.endsWith('/messages')
 
               return (
                 <NavLink
@@ -169,8 +199,13 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut }: Sideb
                   {/* Label */}
                   {item.label}
 
-                  {/* Badge (alert dot — real count comes later from hooks) */}
-                  {item.badge === 'alert' && (
+                  {/* Messaging items: show real unread count; other alert items: show dot */}
+                  {item.badge === 'alert' && isMsgItem && msgUnread > 0 && (
+                    <span className="nb" style={{ fontSize: 9, minWidth: 16, height: 16, padding: '0 3px' }}>
+                      {msgUnread > 9 ? '9+' : msgUnread}
+                    </span>
+                  )}
+                  {item.badge === 'alert' && !isMsgItem && (
                     <span className="nb">!</span>
                   )}
                 </NavLink>
@@ -182,19 +217,34 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut }: Sideb
 
       {/* User pill at bottom */}
       <div className="sbbot">
-        <div className="upill" onClick={onSignOut} title="Click to sign out">
+        {PROFILE_ROLES.has(user.role) ? (
           <div
-            className="uava"
-            style={{ background: avatar.bg, color: avatar.color }}
+            className="upill"
+            onClick={() => navigate('/profile')}
+            title="View your profile"
+            style={{ cursor: 'pointer' }}
           >
-            {initials(user.name)}
+            <div className="uava" style={{ background: avatar.bg, color: avatar.color }}>
+              {initials(user.name)}
+            </div>
+            <div>
+              <div className="u-name">{user.name}</div>
+              <div className="u-role">{roleLabel}</div>
+            </div>
+            <div className="u-dot" />
           </div>
-          <div>
-            <div className="u-name">{user.name}</div>
-            <div className="u-role">{roleLabel}</div>
+        ) : (
+          <div className="upill" onClick={onSignOut} title="Click to sign out">
+            <div className="uava" style={{ background: avatar.bg, color: avatar.color }}>
+              {initials(user.name)}
+            </div>
+            <div>
+              <div className="u-name">{user.name}</div>
+              <div className="u-role">{roleLabel}</div>
+            </div>
+            <div className="u-dot" />
           </div>
-          <div className="u-dot" />
-        </div>
+        )}
       </div>
     </nav>
   )
@@ -212,7 +262,156 @@ type TopBarProps = {
   avatar:   { bg: string; color: string }
 }
 
+function MessagingIcon({ role }: { role: UserRole }) {
+  const navigate = useNavigate()
+  const msgPath = STAFF_MSG_PATHS[role]
+  const { data: unreadCount = 0 } = useUnreadCount()
+
+  if (!msgPath) return null
+
+  return (
+    <div
+      className="tb-icon"
+      title="Messages"
+      style={{ position: 'relative' }}
+      onClick={() => navigate(msgPath)}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+      </svg>
+      {unreadCount > 0 && (
+        <div className="ndot" style={{ fontSize: 9, fontWeight: 800, display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          minWidth: 16, height: 16, borderRadius: 99, padding: '0 3px' }}>
+          {unreadCount > 9 ? '9+' : unreadCount}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Maps notification type → a sensible default route when link is null.
+function notifRoute(type: NotificationType, role: UserRole): string {
+  switch (type) {
+    case 'message':      return STAFF_MSG_PATHS[role] ?? '/'
+    case 'report_card':  return role === 'principal' ? '/principal/report-cards' : '/secretary/report-cards'
+    case 'attendance':   return role === 'deputy' ? '/deputy/dashboard' : '/teacher/attendance'
+    case 'fee':          return '/bursar/fees'
+    case 'announcement': return STAFF_MSG_PATHS[role] ?? '/'
+    default:             return '/'
+  }
+}
+
+function NotificationBell({ role }: { role: UserRole }) {
+  const { data: notifications = [] } = useNotifications()
+  const { mutate: markAllRead } = useMarkNotificationsRead()
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const bellRef = useRef<HTMLDivElement>(null)
+  const unreadCount = notifications.length
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  function handleNotifClick(link: string | null, type: NotificationType) {
+    setOpen(false)
+    navigate(link ?? notifRoute(type, role))
+  }
+
+  return (
+    <div ref={bellRef} style={{ position: 'relative' }}>
+      <div
+        className="tb-icon"
+        title="Notifications"
+        style={{ position: 'relative' }}
+        onClick={() => setOpen(o => !o)}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+        {unreadCount > 0 && <div className="ndot" />}
+      </div>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+          width: 320, maxHeight: 400, overflowY: 'auto',
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+          zIndex: 100,
+        }}>
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '12px 14px', borderBottom: '1px solid var(--border)',
+          }}>
+            <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>
+              Notifications
+              {unreadCount > 0 && (
+                <span style={{
+                  marginLeft: 6, background: 'var(--brand)', color: '#fff',
+                  borderRadius: 99, fontSize: 10, fontWeight: 800,
+                  padding: '1px 5px',
+                }}>
+                  {unreadCount}
+                </span>
+              )}
+            </span>
+            {unreadCount > 0 && (
+              <button
+                onClick={() => markAllRead()}
+                style={{
+                  border: 'none', background: 'none', cursor: 'pointer',
+                  fontSize: 11, color: 'var(--brand)', fontWeight: 700,
+                }}
+              >
+                Mark all read
+              </button>
+            )}
+          </div>
+
+          {notifications.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>
+              No new notifications
+            </div>
+          ) : (
+            notifications.map(n => (
+              <div
+                key={n.id}
+                onClick={() => handleNotifClick(n.link, n.type)}
+                style={{
+                  padding: '10px 14px', cursor: 'pointer',
+                  borderBottom: '1px solid var(--border)',
+                  background: n.readAt ? 'transparent' : 'var(--brand-light)',
+                }}
+              >
+                <div style={{ fontSize: 13, color: 'var(--txt)', lineHeight: 1.4 }}>
+                  {n.body}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 4 }}>
+                  {new Date(n.createdAt).toLocaleString('en-GB', {
+                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TopBar({ theme, onToggle, greeting, today, user, avatar }: TopBarProps) {
+  const navigate = useNavigate()
   return (
     <div className="topbar">
       {/* Page title area */}
@@ -242,17 +441,15 @@ function TopBar({ theme, onToggle, greeting, today, user, avatar }: TopBarProps)
         </svg>
       </div>
 
-      {/* Notifications icon */}
-      <div className="tb-icon" title="Notifications" style={{ position: 'relative' }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-          <path d="M13.73 21a2 2 0 01-3.46 0"/>
-        </svg>
-        {/* Notification dot — always shown for now; will be conditional later */}
-        <div className="ndot" />
-      </div>
+      {/* Messaging icon — staff roles only */}
+      <MessagingIcon role={user.role} />
 
-      {/* Avatar */}
+      {/* Notification bell — all roles, shows real unread count */}
+      <ErrorBoundary fallback={null}>
+        <NotificationBell role={user.role} />
+      </ErrorBoundary>
+
+      {/* Avatar — navigates to /profile for staff roles */}
       <div
         style={{
           width: 32, height: 32,
@@ -264,9 +461,10 @@ function TopBar({ theme, onToggle, greeting, today, user, avatar }: TopBarProps)
           color: avatar.color,
           fontFamily: 'var(--font2)',
           flexShrink: 0,
-          cursor: 'pointer',
+          cursor: PROFILE_ROLES.has(user.role) ? 'pointer' : 'default',
         }}
-        title={user.name}
+        title={PROFILE_ROLES.has(user.role) ? 'My Profile' : user.name}
+        onClick={() => { if (PROFILE_ROLES.has(user.role)) navigate('/profile') }}
       >
         {initials(user.name)}
       </div>
