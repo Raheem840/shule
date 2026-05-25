@@ -413,6 +413,234 @@ A = 90–100  B = 75–89  C = 65–74  D = 50–64  E = 1–49
 
 ## Session Log
 
+### Session 012 — Completion Pass Part 2 (Complete)
+**Date:** 2026-05-25
+**Tests:** 340 passing (unchanged)
+
+**Virtualisation:**
+- `SecretaryStaffPage.tsx`: wired `useVirtualizer` (padding-row pattern — top/bottom empty `<tr>` rows compensate for offscreen items; scroll container `div ref={parentRef}` wraps the `<tbody>` table, thead stays sticky above it)
+- `AuditLogPage.tsx`: both DbEventsTab and MessageLogTab get `maxHeight: 600, overflowY: 'auto'` scroll containers with `position: sticky` thead headers — full virtualisation skipped because rows are expandable (variable height) and limit is already capped at 200 via query
+
+**New page: `SecretaryStudentEditPage.tsx`:**
+- Route: `/secretary/students/:studentId`
+- Loads student via `useStudentById`; populates form on load
+- Three sections: Personal Information, Academic Placement, Medical Notes
+- Class → stream cascade (changing class resets stream and refreshes stream dropdown)
+- Save via `useUpdateStudent`; dirty flag → Save Changes button enabled/disabled
+- Success flash banner, error banner
+- Status badge (active/suspended/expelled) shown in page header
+- Cancel navigates back to `/secretary/students`
+
+**App.tsx:**
+- Added lazy import + route for `SecretaryStudentEditPage` at `/secretary/students/:studentId`
+
+**AppShell.tsx:**
+- Wrapped `<NotificationBell />` in `<ErrorBoundary fallback={null}>` (pre-existing ErrorBoundary import)
+
+**Bug fixes in files from previous sessions:**
+- `useMessaging.ts`: removed unused type import `ROLE_SENIORITY` from `week9` types (was imported as type but already imported as value)
+- `useMessaging.ts`: fixed `'INSERT'` → `'insert'` in `queueSync` call (type is lowercase union)
+
+**Key decisions:**
+- Virtualisation with expandable rows: skipped full virtualizer for AuditLogPage because inserting detail `<tr>` rows between virtual rows requires tracking expanded row heights and re-computing positions — overcomplicated for a 200-row admin tool. Scroll container gives the same UX benefit.
+- Padding-row technique: two empty `<tr>` rows (top + bottom) absorb the height of out-of-viewport rows, keeping the native `<table>` layout intact without `position: absolute` on rows (which breaks table layout)
+- Student edit form is intentionally a flat page (not a multi-step wizard) — editing is a different mental model from registering; secretaries need all fields visible at once to correct errors
+
+### Session 011 — Final Pre-Week-10 Completion Pass (Complete)
+**Date:** 2026-05-24
+**Tests:** 340 passing (unchanged)
+
+**Parts completed:**
+
+**Part 7 — Messaging Realtime + Offline Queue:**
+- `src/hooks/useMessaging.ts`: Added `useEffect` + `supabase.channel()` subscription to `useMessages` hook. Subscribes to `postgres_changes` INSERT on `messages` table filtered by `school_id`. Skips messages not in the current thread. Calls `qc.setQueryData` for instant delivery (deduplicates by id). Also invalidates `unread-count` and `contacts` queries. Cleans up channel on unmount.
+- `useSendMessage` now queues to IndexedDB (`queueSync`) when `!navigator.onLine` instead of throwing.
+- `src/test/hooks/useMessaging.test.tsx`: Added `channel`/`removeChannel` to Supabase mock, `queueSync` mock from `lib/db`.
+
+**Part 8 — Notices tab wired (already complete from prior session)**
+
+**Part 9 — Low-bandwidth mode:**
+- `src/pages/shared/ProfilePage.tsx`: Added `useBandwidth` import + toggle toggle card at bottom (animated toggle switch, shows "Active/Off" state).
+- `src/pages/shared/MessagingPage.tsx`: `ContactItem` respects `isLowBandwidth` — shows initials instead of photo when true. Removed unused `useVirtualizer` import.
+- `src/pages/principal/PrincipalDashboard.tsx`: `TopClassesChart` renders a plain HTML table (class/passRate/avgScore) when `isLowBandwidth`, otherwise renders Recharts BarChart.
+
+**Part 10 — Secretary credentials re-auth gate:**
+- `src/pages/secretary/ParentCredentialsPage.tsx`: Rewrote `ViewCredentialsModal` — after re-auth success:
+  - Each sensitive field (email, temp password) starts blurred (`filter: blur(5px)`, `userSelect: none`)
+  - Click-to-reveal eye toggle per field (show/hide)
+  - Copy button only appears after field is revealed
+  - 5-minute auto-lock countdown displayed (turns red under 60s)
+  - `useEffect` clears both `setTimeout` and `setInterval` on unmount
+  - Auto-relocks: resets to auth step, clears revealed set
+
+**Part 11 — DoS message templates:**
+- `src/pages/shared/MessagingPage.tsx`: Added `DOS_TEMPLATES` constant (4 templates: exam schedule reminder, grade submission deadline, class teacher assignment, end of term notice). Each template has `[placeholder]` tokens.
+- `HighlightedTemplate` component renders placeholders in amber highlight.
+- Template dropdown button (document-icon) appears only when `user.role === 'dos'` in `ChatThread`.
+- Clicking a template inserts it into the textarea and closes the dropdown.
+- Dropdown renders above the input via `position: absolute; bottom: 100%`.
+
+**Part 12 — AuditLogPage Message Log tab (already complete from prior session)**
+
+**Part 13 — Promote All Students (already complete from prior session)**
+
+**Part 14 — DoS Surveys page (already complete from prior session)**
+
+**Part 15 — Final checks:**
+- TypeScript: 0 errors (`tsc --noEmit`)
+- Tests: 340 passing (28 test files)
+- Vite build: clean (PWA service worker generated, 87 precache entries)
+
+### Session 010 — Week 10 Missing Pages + New Features Pass (Complete)
+**Date:** 2026-05-24
+**Tests:** 340 passing (unchanged)
+
+**New Hooks:**
+- `src/hooks/useTermProgress.ts` — `useTermProgress()`: queries active academic year, detects current term from term1/2/3 dates, fetches exam_journal events + school_events (catches 42P01 if school_events missing), returns `TermProgress` with events array. Exports `TERM_EVENT_COLOR`.
+- `src/hooks/useTimetableSlots.ts` — All new timetable hooks against `timetable_slots` table (distinct from old `timetable` table in useDeputy): `useTimetableSlots(term, year)`, `useTeacherTimetable()`, `useCreateTimetableSlot()`, `useCheckCollision()`, `usePublishTimetable()`. Resolves subject+teacher names in bulk after fetch.
+- `src/hooks/useTeacherEvents.ts` — `useTeacherEvents()` (school_events filtered by created_by=staffRow.id), `useCreateEvent()`, `useJournalEvent()`.
+- `src/hooks/usePrincipal.ts` — `usePrincipalKpis()` (8 parallel queries), `useAuditLog()` (catches 42P01 table-not-exist), `useStudentFullProfile()`, `useStaffFullProfile()`, `useSuspendStudent()`, `useExpelStudent()`, `useSuspendStaff()`.
+- `src/hooks/useProfile.ts` — `useMyProfile()`, `useUpdateProfile()`, `useUpdateProfilePhoto()` (Canvas compress → upload to staff-photos/{schoolId}/{staffId}.jpg).
+- Added to `src/hooks/useAdmin.ts`: `useDeleteUser()` (deletes staff row + calls delete-staff-user Edge Function), `useStorageBuckets()` (lists Supabase storage buckets + file counts + sizes via .list()).
+
+**New Types (`src/types/week9.ts` additions):**
+- `TermEventType`, `TermEvent`, `TermProgress`, `SchoolEvent`, `TimetableSlot`
+- `PrincipalKpis`, `TopClass`, `FeeSummary`, `AuditEntry`, `StaffFullProfile`
+
+**New Components:**
+- `src/components/shared/TermProgressTimeline.tsx` — Wave fill animation, event dots (red=exam, amber=CA, blue=AoI, green=general), TODAY line with pulse, clickable popovers (title, subject, class, date, type badge). Injected `@keyframes shule-wave-scroll` via `<style>` JSX tag (no pseudo-elements, inline-style-only codebase).
+
+**New Pages:**
+- `src/pages/principal/PrincipalDashboard.tsx` — TermProgressTimeline + 6 KPI cards (pending approvals badge + click-to-navigate) + Quick Actions + Top 5 Classes BarChart + Fee Collection Summary + Recent Activity (audit log + discipline records).
+- `src/pages/principal/StudentFullProfilePage.tsx` — Full student profile: photo/initials, personal info, exam results (last 20, virtualised), attendance rate bar, fee totals only (no line items — finance isolation enforced), discipline records. Suspend/Expel with confirm dialog (type full name).
+- `src/pages/principal/AuditLogPage.tsx` — Filters (action, role, date range), CSV export, expandable rows with before/after JSON diff.
+- `src/pages/secretary/SecretaryDashboard.tsx` — TermProgressTimeline + 3 KPI cards (students, staff, classes) + Quick links.
+- `src/pages/teacher/TeacherDashboard.tsx` — TermProgressTimeline + upcoming events preview (first 3) + Quick links (Events, Exam Journal, Attendance, Timetable, Messages).
+- `src/pages/teacher/TeacherEventsPage.tsx` — CreateEventModal, EventCard with "Journal It →" for past unjournaled events (navigates to /teacher/exams with state prefill), collapsible past events.
+- `src/pages/teacher/TeacherTimetablePage.tsx` — Read-only, shows teacher's own slots only via useTeacherTimetable.
+- `src/pages/deputy/DeputyTimetablePage.tsx` — Read-only, shows only is_published=true slots.
+- `src/pages/dos/DosTimetablePage.tsx` — Full @dnd-kit grid: SlotChip (useDraggable), TimetableCell (useDroppable), handleDragEnd (delete old + create new), AssignModal with collision check.
+- `src/pages/shared/ProfilePage.tsx` — Clickable photo (camera overlay), read-only identity block, editable phone/email (save button appears on dirty), password change form.
+
+**Updated Pages:**
+- `src/pages/dos/DosDashboard.tsx` — Added TermProgressTimeline
+- `src/pages/deputy/DeputyDashboard.tsx` — Added TermProgressTimeline
+- `src/pages/bursar/BursarDashboard.tsx` — Added TermProgressTimeline
+- `src/pages/admin/AdminDashboard.tsx` — Added: storage-per-bucket table in SystemKpisSection, delete-user modal (type "DELETE" to confirm) in UserManagementSection, live brand colour preview in SchoolSettingsSection.
+
+**Routing (`src/App.tsx`):**
+- `/principal/dashboard` → PrincipalDashboard
+- `/principal/audit` → AuditLogPage
+- `/principal/students/:studentId` → StudentFullProfilePage
+- `/secretary/dashboard` → SecretaryDashboard
+- `/teacher/dashboard` → TeacherDashboard
+- `/teacher/events` → TeacherEventsPage (new)
+- `/teacher/timetable` → TeacherTimetablePage (new)
+- `/deputy/timetable` → DeputyTimetablePage
+- `/dos/timetable` → DosTimetablePage
+- `/profile` → ProfilePage (all staff roles)
+
+**Nav (`src/config/roleNav.ts`):**
+- Teacher/class_teacher: added "My Events" (/teacher/events) + "My Timetable" (/teacher/timetable)
+- Bursar: added "Messages" with badge: 'alert'
+- IT Admin: added "Messages" with badge: 'alert'
+- All messaging nav items: badge: 'alert' added uniformly
+
+**AppShell (`src/components/layout/AppShell.tsx`):**
+- Sidebar: unread count from useUnreadCount shown on messaging nav items (replaces "!" for msg items when count > 0)
+- Sidebar avatar click → navigate('/profile') for staff roles
+- TopBar avatar click → navigate('/profile') for staff roles
+- `PROFILE_ROLES` set constant gates who gets /profile navigation
+
+**Key decisions:**
+- Old `timetable` table (useDeputy.useTimetable) is untouched — new `timetable_slots` hooks are in a separate file to avoid any risk of breaking existing tests
+- `/principal/audit` kept as the route (not /audit-log) to match existing roleNav.ts nav item path
+- Profile nav: clicking the avatar/user pill navigates to /profile instead of sign-out. Sign-out is removed from sidebar for staff roles (student/parent still gets default sign-out behavior)
+- Delete user modal: requires typing "DELETE" exactly (case-sensitive) to enable the confirm button; calls delete-staff-user Edge Function for full auth account deletion
+
+### Session 009 — Week 9 Bug Fix Pass (Complete)
+**Date:** 2026-05-24
+**Tests:** 340 passing (unchanged)
+
+**Bug 1 — notifications.link column (400 Bad Request)**
+- SQL run by user added `link TEXT` column to `notifications` table — select in `useNotifications` is correct
+- `AppShell.tsx`: Added `notifRoute(type, role)` helper mapping `NotificationType` → default route; updated `NotificationBell` to accept `role` prop and use `navigate(link ?? notifRoute(type, role))` — notifications now always navigate somewhere even if `link` is null
+
+**Bug 2 — staff.last_login_at missing (400 Bad Request)**
+- Removed `last_login_at` from both `useSystemKpis` and `useUserManagement` selects in `useAdmin.ts`; the column is not in the allowed staff schema
+- `activeToday` set to `0` (requires future `last_login_at` column addition); `lastLogin` in `UserRow` set to `null`
+- SQL run by user added `join_date` and `is_active` columns; no further code changes needed for those
+
+**Bug 3 — photo upload path missing staffId**
+- `StaffRegistrationWizard.tsx`: Moved photo upload out of `onSubmit` (where staffId is unknown) into the `onSuccess` callback (where staffId is available); path is now `staff-photos/{schoolId}/{staffId}.jpg` per spec
+- Bucket name `staff-photos` was already correct; user confirmed bucket created in Supabase Storage
+
+**Bug 4 — exam journal CA columns (400 Bad Request)**
+- SQL run by user added all missing CA columns (`ca_label`, `ca_component`, `ca_weighting`, `learning_area`, `competency`, `integration_theme`, `trade_area`, `dit_module_code`, `status`) to `exam_journal`
+- `ca_weighting` uses `z.coerce.number()` in zod schema — no code fix needed
+
+**Bug 5 — StaffRegistrationWizard placeholder credentials message**
+- Added `CredRow` helper component with copy-to-clipboard button
+- Added `creds` state `{ email, password }` that is set in `onSuccess` callback
+- After successful registration: calls `create-staff-auth-user` Edge Function (non-blocking), shows green credential panel with email + `Shule@2025` and copy buttons
+- Footer switches to "Done — Close" button when credentials are showing
+- `creds` resets when modal closes
+
+**Bug 6 — Proactive sweep**
+- 6C: `startSyncListener()` confirmed in `main.tsx` ✓
+- 6D: `<OfflineBanner />` confirmed in `AppShell.tsx` above TopBar ✓
+- 6H: `report-cards` bucket (with hyphen) confirmed in `useReportCards.ts` ✓
+- 6A/B/E/F/G: All DB-level (RLS, FK, JWT hook) — confirmed user ran the SQL manually
+
+### Session 008 — Week 9 PWA + DoS/Deputy Dashboards + Messaging + Admin + Notifications (Complete)
+**Date:** 2026-05-24
+**Completed this session:**
+
+**Infrastructure (PWA + Offline):**
+- `vite.config.ts` — installed `vite-plugin-pwa`, configured `VitePWA` with `autoUpdate`, `NetworkFirst` for `*.supabase.co/*`, `CacheFirst` for static assets; guarded with `mode !== 'test'` to prevent vitest interference
+- `src/lib/db.ts` — Dexie `ShuleDatabase` with 5 tables (`students`, `staff`, `exam_marks`, `attendance`, `sync_queue`); exported `queueSync()` helper that writes to `sync_queue` with `status: 'pending'`
+- `src/lib/syncQueue.ts` — `flushSyncQueue()` reads pending items, upserts to Supabase, marks `synced`/`failed`; `startSyncListener()` wires `window.online` → flush
+- `src/components/shared/OfflineBanner.tsx` — amber offline banner (`data-testid="offline-banner"`), green flash 3s on reconnect (`data-testid="online-banner"`), null when online
+- `src/main.tsx` — added `startSyncListener()` call before render
+
+**Types:**
+- `src/types/week9.ts` — all Week 9 types: `Notification`, `DisciplineRecord`, `TimetablePeriod`, `CurriculumTopic`, `Announcement`, `Contact`, `ROLE_SENIORITY`, `DosOverview`, `DosClassPerformance`, `TeacherPerfRow`, `SystemKpis`, `UserRow`, `SchoolSettings`, `ApiConfig`
+
+**Hooks:**
+- `src/hooks/useDos.ts` — `useDosOverview()` (4 parallel queries → pass rate, subject rankings, trend, teacher count); `useDosClassPerformance(classId)` (per-subject pass rates, top5/bottom5 students); `useDosTeacherPerformance()`; `useDosCurriculumPlan()`; `useAssignClassTeacher()` (checks for existing class teacher, throws if conflict)
+- `src/hooks/useDeputy.ts` — `useDeputyOverview()` (class attendance summaries, `isBelowThreshold` at <80%); `useDisciplineRecords()`; `useAddDisciplineRecord()`; `useTimetable()`
+- `src/hooks/useMessaging.ts` — `useContacts()` (ROLE_SENIORITY ordered); `useMessages(contactId)` (bidirectional, refetch 15s); `useSendMessage()`; `useMarkRead()`; `useAnnouncements()` (refetch 30s); `usePostAnnouncement()` (throws if role not in `ANNOUNCEMENT_POSTER_ROLES`); `useUnreadCount()`; `useUploadAttachment()` (5MB limit)
+- `src/hooks/useAdmin.ts` — `useSystemKpis()` (Dexie sync_queue + navigator.storage.estimate); `useUserManagement()`; `useResetPassword()` (Edge Function `reset-staff-password`, hardcoded `Shule@2025`); `useDeactivateUser()`; `useSchoolSettings()`; `useSaveApiConfig()` (Vault RPC — never plain text); `useApiConfigStatus()` (returns enabled flags only, key values always null); `useAcademicYears()`; `useToggleSurvey()`
+- `src/hooks/useNotifications.ts` — `useNotifications()` (school_id + user_id + read_at IS NULL, limit 10); `useMarkNotificationsRead()`
+
+**Pages:**
+- `src/pages/dos/DosDashboard.tsx` — 4 Radix tabs: Overview (KPIs + LineChart pass rate trend + subject rankings table), Class Performance (class selector + subject breakdown + top/bottom 5 modal), Teacher Performance (virtualised), Curriculum Plan; StudentDetailModal is read-only, NO finance data
+- `src/pages/deputy/DeputyDashboard.tsx` — 3 Radix tabs: Academic Overview (class attendance + below-80% flags), Discipline (virtualised, AddDisciplineRecord modal, ImportWizard reuse, CSV export), Timetable (period×day grid)
+- `src/pages/shared/MessagingPage.tsx` — 260px contact panel (Announcements pinned top, staff by seniority, unread badges); ChatThread (read receipts ✓/✓✓, file attach, auto-scroll, mark-read on open); AnnouncementsChannel (role-restricted post input)
+- `src/pages/admin/AdminDashboard.tsx` — 3 Radix tabs: System KPIs, User Management (virtualised, password reset modal), School Settings (profile, API keys masked after save, survey toggle)
+
+**AppShell (`src/components/layout/AppShell.tsx`):**
+- `<OfflineBanner />` above TopBar
+- `<NotificationBell />` — last 10 unread dropdown, navigate on click, mark all read, close on outside click
+- `<MessagingIcon />` — staff roles only, shows unread badge, navigates to role's messages path
+
+**App.tsx:** wired `/dos/dashboard` → `DosDashboard`, `/deputy/dashboard` → `DeputyDashboard`, `/admin/dashboard` → `AdminDashboard`, all `*/messages` routes → `MessagingPage`
+
+**Tests (340 total, all passing — up from 290):**
+- `src/test/pwa/offlineBanner.test.tsx` — 9 tests: OfflineBanner renders, offline/online transitions, queueSync fields (tableName, actionType, status, payload, createdAt)
+- `src/test/hooks/useNotifications.test.tsx` — 6 tests: typed objects, empty array, RLS boundary, null user guard, error state, mark-read mutation
+- `src/test/hooks/useDos.test.tsx` — 9 tests: pass rate calculation, zero-results case, subjects below 50%, absent exclusion, useAssignClassTeacher conflict detection, useDosClassPerformance subject breakdown + pass rate + top/bottom students
+- `src/test/hooks/useDeputy.test.tsx` — 9 tests: attendance summaries, 80% threshold boundary, discipline records mapping, useAddDisciplineRecord, useTimetable
+- `src/test/hooks/useMessaging.test.tsx` — 11 tests: useMessages idle/data, useSendMessage, useMarkRead, usePostAnnouncement role restriction (teacher/class_teacher blocked, principal/dos succeed), useAnnouncements shape, useUnreadCount
+- `src/test/hooks/useAdmin.test.tsx` — 7 tests: useUserManagement mapping, useResetPassword Edge Function call + error, useSchoolSettings, useSaveApiConfig Vault RPC (verifies no plain text), useApiConfigStatus (key values always null)
+
+**Key decisions:**
+- `vi.hoisted()` pattern used for all mocks — resolves Vitest's hoisting order requirement for vi.mock factories
+- `makeBuilder` exported from `vi.hoisted()` block in useDos.test + restored in `beforeEach` — prevents `useAssignClassTeacher` test's `mockImplementation` override from bleeding into subsequent describe blocks
+- Finance isolation maintained: DoS/Deputy dashboards have NO fee/payment queries; StudentDetailModal explicitly excludes finance data
+- API keys go through `save_school_api_key` RPC (Vault, SECURITY DEFINER) — never stored in `school_profile` columns directly
+- `useApiConfigStatus` returns `{ atEnabled, waEnabled, atApiKey: null, waAccessToken: null }` — key values are permanently null at the frontend layer
+
 ### Session 007 — Week 8 Attendance + Parent Portal + Student Portal + Portal Access (Complete)
 **Date:** 2026-05-24
 **Completed this session:**

@@ -6,6 +6,8 @@ import {
   type ReactNode
 } from 'react'
 import { supabase } from '../lib/supabase'
+import { db } from '../lib/db'
+import { primeOfflineCache } from '../lib/syncQueue'
 import type { Session } from '@supabase/supabase-js'
 
 export type UserRole =
@@ -23,18 +25,17 @@ export type AuthUser = {
 }
 
 type AuthCtx = {
-  user:    AuthUser | null
-  loading: boolean
-  signOut: () => Promise<void>
+  user:          AuthUser | null
+  loading:       boolean
+  isOfflineMode: boolean
+  signOut:       () => Promise<void>
 }
 
 const AuthContext = createContext<AuthCtx>({
-  user: null, loading: true, signOut: async () => {}
+  user: null, loading: true, isOfflineMode: false, signOut: async () => {}
 })
 
 // ── Decode the JWT access token to get custom claims ──────────
-// The Supabase JS client does NOT automatically parse custom hook
-// claims into session.user — we must decode the JWT ourselves.
 function decodeJWT(token: string): Record<string, any> {
   try {
     const base64 = token.split('.')[1]
@@ -51,25 +52,18 @@ function decodeJWT(token: string): Record<string, any> {
 function sessionToUser(session: Session | null): AuthUser | null {
   if (!session) return null
 
-  // Decode the actual JWT to get our custom hook claims.
-  // The hook may place claims either inside app_metadata or at the top level
-  // of the JWT payload depending on which jsonb_set path was used in the SQL.
-  // We read from both locations so the app works with either hook variant.
   const jwt = decodeJWT(session.access_token)
-
   const meta = jwt.app_metadata ?? {}
 
-  // Prefer app_metadata path; fall back to top-level claim
-  const role       = (meta.user_role   ?? jwt.user_role)   as UserRole      | undefined
-  const schoolId   = (meta.school_id   ?? jwt.school_id)   as string        | undefined
-  const name       = (meta.full_name   ?? jwt.full_name)   as string        | undefined
-  const studentIds = (meta.student_ids ?? jwt.student_ids) as string[]      | undefined
+  const role       = (meta.user_role   ?? jwt.user_role)   as UserRole | undefined
+  const schoolId   = (meta.school_id   ?? jwt.school_id)   as string   | undefined
+  const name       = (meta.full_name   ?? jwt.full_name)   as string   | undefined
+  const studentIds = (meta.student_ids ?? jwt.student_ids) as string[] | undefined
 
   if (!role || !schoolId) {
     console.warn('Shule: JWT custom claims missing.', {
       jwt_keys:     Object.keys(jwt),
       app_metadata: meta,
-      top_level:    { user_role: jwt.user_role, school_id: jwt.school_id },
     })
     return null
   }
@@ -84,20 +78,61 @@ function sessionToUser(session: Session | null): AuthUser | null {
   }
 }
 
+// ── Cache session to IndexedDB for offline use ────────────────
+async function cacheSessionToDb(session: Session, user: AuthUser): Promise<void> {
+  try {
+    await db.auth_session.put({
+      id:      'current',
+      session: session as unknown,
+      user,
+      savedAt: new Date().toISOString(),
+    })
+  } catch { /* ignore */ }
+}
+
 // ── Provider ──────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user,    setUser]    = useState<AuthUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user,          setUser]          = useState<AuthUser | null>(null)
+  const [loading,       setLoading]       = useState(true)
+  const [isOfflineMode, setIsOfflineMode] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(sessionToUser(session))
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        const u = sessionToUser(session)
+        setUser(u)
+        if (u) {
+          await cacheSessionToDb(session, u)
+          void primeOfflineCache(u.schoolId)
+        }
+      } else if (!navigator.onLine) {
+        // Offline — attempt to restore cached session
+        try {
+          const cached = await db.auth_session.get('current')
+          if (cached?.user) {
+            setUser(cached.user as AuthUser)
+            setIsOfflineMode(true)
+          }
+        } catch { /* ignore */ }
+      }
       setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(sessionToUser(session))
+      async (_event, session) => {
+        if (session) {
+          const u = sessionToUser(session)
+          setUser(u)
+          setIsOfflineMode(false)
+          if (u) {
+            await cacheSessionToDb(session, u)
+            void primeOfflineCache(u.schoolId)
+          }
+        } else {
+          setUser(null)
+          setIsOfflineMode(false)
+          try { await db.auth_session.delete('current') } catch { /* ignore */ }
+        }
         setLoading(false)
       }
     )
@@ -105,10 +140,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signOut = async () => { await supabase.auth.signOut() }
+  const signOut = async () => {
+    try { await db.auth_session.delete('current') } catch { /* ignore */ }
+    await supabase.auth.signOut()
+  }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signOut }}>
+    <AuthContext.Provider value={{ user, loading, isOfflineMode, signOut }}>
       {children}
     </AuthContext.Provider>
   )
