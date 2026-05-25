@@ -4,6 +4,7 @@ import {
   useStudentReleasedReportCards,
   useStudentExamSummary,
   useStudentFeeBalance,
+  useSchoolNotices,
 } from '../../hooks/useParentPortal'
 import { useAttendanceSummary, useStudentAttendanceHistory } from '../../hooks/useAttendance'
 import { Badge } from '../../components/ui/Badge'
@@ -408,8 +409,37 @@ function ChildInfoCard({ student, classes, streams }: {
   )
 }
 
+// ── Notices tab ────────────────────────────────────────────────
+function NoticesTab() {
+  const { data: notices = [], isLoading } = useSchoolNotices()
+  if (isLoading) return <div style={{ color: 'var(--txt3)', padding: 16 }}>Loading notices…</div>
+  if (notices.length === 0) {
+    return (
+      <div style={{ color: 'var(--txt3)', padding: 32, textAlign: 'center',
+        background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)' }}>
+        No school notices at this time.
+      </div>
+    )
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {notices.map(n => (
+        <div key={n.id} style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 12, padding: '14px 18px',
+        }}>
+          <div style={{ fontSize: 14, color: 'var(--txt)', lineHeight: 1.5 }}>{n.body}</div>
+          <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 6 }}>
+            {new Date(n.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Tab button ─────────────────────────────────────────────────
-const TABS = ['Results', 'Fee Balance', 'Attendance', 'Report Cards'] as const
+const TABS = ['Results', 'Fee Balance', 'Attendance', 'Report Cards', 'Notices'] as const
 type TabName = typeof TABS[number]
 
 function TabBar({ active, onChange }: { active: TabName; onChange: (t: TabName) => void }) {
@@ -519,6 +549,7 @@ export function ParentPortalPage() {
           {activeTab === 'Fee Balance'  && <FeeBalanceTab  studentId={selectedChild.id} />}
           {activeTab === 'Attendance'   && <AttendanceTab  studentId={selectedChild.id} />}
           {activeTab === 'Report Cards' && <ReportCardsTab studentId={selectedChild.id} />}
+          {activeTab === 'Notices'      && <NoticesTab />}
         </>
       )}
     </div>

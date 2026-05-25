@@ -6,6 +6,7 @@ import {
   useMyFeeBalance,
   useIsEndOfTermSurveyActive,
 } from '../../hooks/useStudentPortal'
+import { useSchoolNotices } from '../../hooks/useParentPortal'
 import { useAttendanceSummary, useStudentAttendanceHistory } from '../../hooks/useAttendance'
 import { Badge } from '../../components/ui/Badge'
 import { Card } from '../../components/ui/Card'
@@ -358,10 +359,39 @@ function SurveyTab() {
   )
 }
 
+// ── Notices tab ────────────────────────────────────────────────
+function NoticesTab() {
+  const { data: notices = [], isLoading } = useSchoolNotices()
+  if (isLoading) return <div style={{ color: 'var(--txt3)', padding: 16 }}>Loading notices…</div>
+  if (notices.length === 0) {
+    return (
+      <div style={{ color: 'var(--txt3)', padding: 32, textAlign: 'center',
+        background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)' }}>
+        No school notices at this time.
+      </div>
+    )
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {notices.map(n => (
+        <div key={n.id} style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 12, padding: '14px 18px',
+        }}>
+          <div style={{ fontSize: 14, color: 'var(--txt)', lineHeight: 1.5 }}>{n.body}</div>
+          <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 6 }}>
+            {new Date(n.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Tab definitions ────────────────────────────────────────────
 const BASE_TABS = ['My Results', 'My Fees', 'My Attendance', 'Report Cards'] as const
 type BaseTab = typeof BASE_TABS[number]
-type TabName = BaseTab | 'Survey'
+type TabName = BaseTab | 'Survey' | 'Notices'
 
 function TabBar({ tabs, active, onChange }: { tabs: TabName[]; active: TabName; onChange: (t: TabName) => void }) {
   return (
@@ -399,6 +429,7 @@ export function StudentPortalPage() {
 
   const tabs: TabName[] = useMemo(() => {
     const base: TabName[] = [...BASE_TABS]
+    base.push('Notices')
     if (surveyActive) base.push('Survey')
     return base
   }, [surveyActive])
@@ -474,6 +505,7 @@ export function StudentPortalPage() {
       {activeTab === 'My Fees'      && <MyFeesTab        studentId={student.id} />}
       {activeTab === 'My Attendance'&& <MyAttendanceTab  studentId={student.id} />}
       {activeTab === 'Report Cards' && <MyReportCardsTab studentId={student.id} />}
+      {activeTab === 'Notices'      && <NoticesTab />}
       {activeTab === 'Survey'       && <SurveyTab />}
     </div>
   )
