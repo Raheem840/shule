@@ -220,6 +220,34 @@ export function useStudentFeeBalance(studentId: string | null) {
   })
 }
 
+// ── useSchoolNotices ──────────────────────────────────────────
+// School-wide announcements for parent + student portals.
+export function useSchoolNotices() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['school-notices', user?.schoolId],
+    enabled: !!user?.schoolId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('id, type, body, created_at, link')
+        .eq('school_id', user!.schoolId)
+        .eq('type', 'announcement')
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (error?.code === '42P01') return []
+      if (error) throw error
+      return (data ?? []).map((r: any) => ({
+        id:        r.id as string,
+        body:      r.body as string,
+        createdAt: r.created_at as string,
+        link:      (r.link as string) ?? null,
+      }))
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
 // ── useGenerateParentAccess ──────────────────────────────────
 // Secretary one-click: auto-generate email + set temp password for a student's parent.
 // Email format: parent.[admission_number_sanitised]@[school_shortname].ug
