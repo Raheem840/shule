@@ -1,0 +1,44 @@
+
+[functions.create-staff-auth-user]
+enabled = true
+verify_jwt = true
+import_map = "./functions/create-staff-auth-user/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/create-staff-auth-user/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/create-staff-auth-user/*.html" ]
+
+[functions.send-sms]
+enabled = true
+verify_jwt = true
+import_map = "./functions/send-sms/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/send-sms/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/send-sms/*.html" ]
+
+[functions.send-whatsapp]
+enabled = true
+verify_jwt = true
+import_map = "./functions/send-whatsapp/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/send-whatsapp/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/send-whatsapp/*.html" ]
+
+[functions.broadcast-announcement]
+enabled = true
+verify_jwt = true
+import_map = "./functions/broadcast-announcement/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/broadcast-announcement/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/broadcast-announcement/*.html" ]
