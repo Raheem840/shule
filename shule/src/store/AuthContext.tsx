@@ -55,10 +55,10 @@ function sessionToUser(session: Session | null): AuthUser | null {
   const jwt = decodeJWT(session.access_token)
   const meta = jwt.app_metadata ?? {}
 
-  const role       = (meta.user_role   ?? jwt.user_role)   as UserRole | undefined
-  const schoolId   = (meta.school_id   ?? jwt.school_id)   as string   | undefined
-  const name       = (meta.full_name   ?? jwt.full_name)   as string   | undefined
-  const studentIds = (meta.student_ids ?? jwt.student_ids) as string[] | undefined
+  const role       = (jwt.user_role   ?? meta.user_role)   as UserRole | undefined
+  const schoolId   = (jwt.school_id   ?? meta.school_id)   as string   | undefined
+  const name       = (jwt.full_name   ?? meta.full_name)   as string   | undefined
+  const studentIds = (jwt.student_ids ?? meta.student_ids) as string[] | undefined
 
   if (!role || !schoolId) {
     console.warn('Shule: JWT custom claims missing.', {
