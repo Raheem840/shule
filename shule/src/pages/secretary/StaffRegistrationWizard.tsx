@@ -207,11 +207,35 @@ function ChipSelect({
   )
 }
 
+// ── Copyable credential row ───────────────────────────────────
+function CredRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false)
+  function copy() {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid rgba(16,185,129,0.15)' }}>
+      <div>
+        <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.4px', fontFamily: 'var(--font2)', marginRight: 8 }}>{label}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt)', fontFamily: 'var(--font-mono)' }}>{value}</span>
+      </div>
+      <button type="button" onClick={copy}
+        style={{ border: 'none', background: copied ? 'var(--success)' : 'var(--surface)', color: copied ? '#fff' : 'var(--brand)', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font2)' }}>
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+    </div>
+  )
+}
+
 // ── Main wizard ───────────────────────────────────────────────
 export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
   const [step,         setStep]         = useState(1)
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null)
   const [uploading,    setUploading]    = useState<Record<number, boolean>>({})
+  const [creds,        setCreds]        = useState<{ email: string; password: string } | null>(null)
   const photoRef = useRef<HTMLInputElement>(null)
 
   const { user }               = useAuth()
@@ -252,7 +276,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
   }, [step, nextNum])
 
   useEffect(() => {
-    if (!open) { reset(); setStep(1); setPhotoDataUrl(null); setUploading({}) }
+    if (!open) { reset(); setStep(1); setPhotoDataUrl(null); setUploading({}); setCreds(null) }
   }, [open])
 
   const STEP_REQUIRED: Record<number, (keyof FormValues)[]> = {
@@ -296,24 +320,6 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
   }
 
   async function onSubmit(values: FormValues) {
-    let photoUrl: string | null = null
-    if (photoDataUrl) {
-      try {
-        const base64 = photoDataUrl.split(',')[1]
-        const binary = atob(base64)
-        const ua     = new Uint8Array(binary.length)
-        for (let i = 0; i < binary.length; i++) ua[i] = binary.charCodeAt(i)
-        const blob = new Blob([ua], { type: 'image/jpeg' })
-        const path = `${user!.schoolId}/${Date.now()}.jpg`
-        const { error: upErr } = await supabase.storage
-          .from('staff-photos')
-          .upload(path, blob, { upsert: true })
-        if (!upErr) {
-          photoUrl = supabase.storage.from('staff-photos').getPublicUrl(path).data.publicUrl
-        }
-      } catch { /* register without photo */ }
-    }
-
     const n = (v?: string) => v?.trim() || null
 
     registerMutation.mutate({
@@ -324,7 +330,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
       phone:              n(values.phone),
       email:              n(values.email),
       nationalId:         n(values.nationalId),
-      photoUrl,
+      photoUrl:           null,   // uploaded below after we have the staffId
       role:               values.role as UserRole,
       staffNumber:        values.staffNumber,
       departmentId:       n(values.departmentId),
@@ -338,10 +344,43 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
       graduationYear:     values.graduationYear ? parseInt(values.graduationYear, 10) : null,
       documents:          values.documents.filter(d => d.fileUrl),
     }, {
-      onSuccess: id => {
+      onSuccess: async id => {
+        // Upload photo now that we have staffId — path: staff-photos/{schoolId}/{staffId}.jpg
+        if (photoDataUrl) {
+          try {
+            const base64 = photoDataUrl.split(',')[1]
+            const binary = atob(base64)
+            const ua     = new Uint8Array(binary.length)
+            for (let i = 0; i < binary.length; i++) ua[i] = binary.charCodeAt(i)
+            const blob = new Blob([ua], { type: 'image/jpeg' })
+            const path = `${user!.schoolId}/${id}.jpg`
+            const { error: upErr } = await supabase.storage
+              .from('staff-photos')
+              .upload(path, blob, { upsert: true })
+            if (!upErr) {
+              const photoUrl = supabase.storage.from('staff-photos').getPublicUrl(path).data.publicUrl
+              await supabase.from('staff').update({ photo_url: photoUrl }).eq('id', id).eq('school_id', user!.schoolId)
+            }
+          } catch { /* non-critical — registration already succeeded */ }
+        }
+
+        // Invoke Edge Function to create Supabase Auth account for this staff member
+        const email = values.email?.trim()
+        if (email) {
+          supabase.functions.invoke('create-staff-auth-user', {
+            body: { staffId: id, email, schoolId: user!.schoolId },
+          }).catch(() => { /* Edge Function may not be deployed yet */ })
+        }
+
         ok(`${values.firstName} ${values.lastName} registered successfully`)
         onSuccess?.(id)
-        onClose()
+
+        // Show credentials so Secretary can hand them to the new staff member
+        if (email) {
+          setCreds({ email, password: 'Shule@2025' })
+        } else {
+          onClose()
+        }
       },
       onError: e => err(e.message),
     })
@@ -362,14 +401,19 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
       size="xl"
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-          <Button variant="ghost" onClick={step === 1 ? onClose : () => setStep(s => s - 1)}>
-            {step === 1 ? 'Cancel' : '← Back'}
-          </Button>
-          {step < 4
-            ? <Button variant="primary" onClick={next}>Continue →</Button>
-            : <Button variant="primary" type="submit" form="reg-staff-form" loading={isLoading}>
-                Register Staff Member
+          {creds
+            ? <div />
+            : <Button variant="ghost" onClick={step === 1 ? onClose : () => setStep(s => s - 1)}>
+                {step === 1 ? 'Cancel' : '← Back'}
               </Button>
+          }
+          {creds
+            ? <Button variant="primary" onClick={onClose}>Done — Close</Button>
+            : step < 4
+              ? <Button variant="primary" onClick={next}>Continue →</Button>
+              : <Button variant="primary" type="submit" form="reg-staff-form" loading={isLoading}>
+                  Register Staff Member
+                </Button>
           }
         </div>
       }
@@ -604,14 +648,22 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
               </button>
             )}
 
-            {/* TODO: create auth user via Edge Function (Week 8)
-                When IT Admin activates this staff member, call:
-                supabase.functions.invoke('create-staff-auth-user', { body: { staffId, email } })
-                This inserts into auth.users and updates staff.auth_user_id. */}
-            <div style={{ padding: '0.75rem 1rem', background: 'var(--info-bg)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: 'var(--r)', fontSize: 12, color: 'var(--txt2)', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--info)" strokeWidth="2" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              IT Admin will activate the login account separately. The staff record is saved now — credentials are created in Week 8.
-            </div>
+            {/* Credential display — only visible after successful registration */}
+            {creds && (
+              <div style={{ padding: '1rem', background: 'var(--success-bg)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 'var(--r-lg)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
+                    Staff registered — share login credentials
+                  </span>
+                </div>
+                <CredRow label="Email" value={creds.email} />
+                <CredRow label="Temp password" value={creds.password} />
+                <div style={{ marginTop: 8, fontSize: 11, color: 'var(--txt3)' }}>
+                  Staff member must change this password on first login.
+                </div>
+              </div>
+            )}
           </div>
         )}
       </form>

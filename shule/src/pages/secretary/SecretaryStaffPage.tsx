@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useStaff, type StaffFilters } from '../../hooks/useStaff'
 import { useDepartments } from '../../hooks/useClasses'
 import { StaffRegistrationWizard } from './StaffRegistrationWizard'
@@ -140,6 +141,14 @@ export function SecretaryStaffPage() {
 
   const totalActive = staffList.length
 
+  const parentRef = useRef<HTMLDivElement>(null)
+  const virtualizer = useVirtualizer({
+    count: staffList.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 56,
+    overscan: 10,
+  })
+
   return (
     <>
       <PageHeader
@@ -240,16 +249,29 @@ export function SecretaryStaffPage() {
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {staffList.map(staff => (
-                <StaffRow
-                  key={staff.id}
-                  staff={staff}
-                  deptName={staff.departmentId ? (deptMap.get(staff.departmentId) ?? null) : null}
-                />
-              ))}
-            </tbody>
           </table>
+          <div ref={parentRef} style={{ maxHeight: 560, overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <tbody>
+                {virtualizer.getVirtualItems()[0] != null && (
+                  <tr><td colSpan={6} style={{ padding: 0, height: virtualizer.getVirtualItems()[0].start }} /></tr>
+                )}
+                {virtualizer.getVirtualItems().map(vRow => {
+                  const staff = staffList[vRow.index]
+                  return (
+                    <StaffRow
+                      key={staff.id}
+                      staff={staff}
+                      deptName={staff.departmentId ? (deptMap.get(staff.departmentId) ?? null) : null}
+                    />
+                  )
+                })}
+                {virtualizer.getVirtualItems().length > 0 && (
+                  <tr><td colSpan={6} style={{ padding: 0, height: virtualizer.getTotalSize() - (virtualizer.getVirtualItems().at(-1)?.end ?? 0) }} /></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { supabase } from '../../lib/supabase'
@@ -282,9 +282,12 @@ function GenerateAccessModal({
   )
 }
 
+const UNLOCK_DURATION_MS = 5 * 60 * 1000  // 5 minutes
+
 // ── View Credentials Modal ────────────────────────────────────
 // Step 1: Secretary re-enters password.
-// Step 2: Credentials shown after successful re-auth.
+// Step 2: Credentials shown blurred — click each value to reveal.
+// Step 3: Auto-relocks after 5 minutes.
 function ViewCredentialsModal({
   account,
   onClose,
@@ -292,13 +295,38 @@ function ViewCredentialsModal({
   account: ParentAccount
   onClose: () => void
 }) {
-  const [step,     setStep]     = useState<'auth' | 'show'>('auth')
-  const [password, setPassword] = useState('')
-  const [authErr,  setAuthErr]  = useState('')
-  const [loading,  setLoading]  = useState(false)
+  const [step,      setStep]      = useState<'auth' | 'show'>('auth')
+  const [password,  setPassword]  = useState('')
+  const [authErr,   setAuthErr]   = useState('')
+  const [loading,   setLoading]   = useState(false)
+  const [revealed,  setRevealed]  = useState<Set<string>>(new Set())
+  const [timeLeft,  setTimeLeft]  = useState(UNLOCK_DURATION_MS)
+  const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const { user } = useAuth()
   const portalUrl = `${window.location.origin}/parent/portal`
+
+  // Auto-lock after 5 minutes once unlocked
+  useEffect(() => {
+    if (step !== 'show') return
+    setTimeLeft(UNLOCK_DURATION_MS)
+
+    lockTimerRef.current = setTimeout(() => {
+      setStep('auth')
+      setRevealed(new Set())
+      setPassword('')
+    }, UNLOCK_DURATION_MS)
+
+    countdownRef.current = setInterval(() => {
+      setTimeLeft(prev => Math.max(0, prev - 1000))
+    }, 1000)
+
+    return () => {
+      if (lockTimerRef.current) clearTimeout(lockTimerRef.current)
+      if (countdownRef.current) clearInterval(countdownRef.current)
+    }
+  }, [step])
 
   async function handleReAuth(e: React.FormEvent) {
     e.preventDefault()
@@ -319,6 +347,24 @@ function ViewCredentialsModal({
     }
   }
 
+  function toggleReveal(label: string) {
+    setRevealed(prev => {
+      const next = new Set(prev)
+      if (next.has(label)) next.delete(label)
+      else next.add(label)
+      return next
+    })
+  }
+
+  const minutesLeft = Math.floor(timeLeft / 60000)
+  const secondsLeft = Math.floor((timeLeft % 60000) / 1000)
+
+  const credentials = [
+    { label: 'Login Email',        value: account.email },
+    { label: 'Temporary Password', value: account.tempPassword ?? '(not set — contact IT Admin)' },
+    { label: 'Portal URL',         value: portalUrl },
+  ]
+
   return (
     <Modal open onClose={onClose} title="View Parent Credentials" size="sm">
       {step === 'auth' ? (
@@ -330,7 +376,8 @@ function ViewCredentialsModal({
               <path d="M7 11V7a5 5 0 0110 0v4"/>
             </svg>
             <p style={{ margin: 0, fontSize: 12.5, color: '#92400e', lineHeight: 1.6 }}>
-              Re-enter your password to reveal this parent's credentials.
+              Re-enter your password to unlock this parent's credentials.
+              They will auto-hide after 5 minutes.
             </p>
           </div>
 
@@ -346,39 +393,89 @@ function ViewCredentialsModal({
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
             <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
-            <Button variant="primary" type="submit" loading={loading}>
-              Confirm
-            </Button>
+            <Button variant="primary" type="submit" loading={loading}>Confirm</Button>
           </div>
         </form>
       ) : (
-        // ── Credentials display ───────────────────────────────
+        // ── Credentials display (blurred until clicked) ───────
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 2 }}>
-            {account.fullName}
-          </div>
-
-          {[
-            { label: 'Login Email',        value: account.email },
-            { label: 'Temporary Password', value: account.tempPassword ?? '(not set — contact IT Admin)' },
-            { label: 'Portal URL',          value: portalUrl },
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.6px', fontFamily: 'var(--font2)', marginBottom: 6 }}>
-                {label}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.6rem 0.85rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r)' }}>
-                <span style={{ flex: 1, fontFamily: 'var(--font3)', fontSize: 13, color: 'var(--txt)', wordBreak: 'break-all' }}>{value}</span>
-                {account.tempPassword || label !== 'Temporary Password' ? (
-                  <CopyButton text={value} />
-                ) : null}
-              </div>
+          {/* Header row with auto-lock countdown */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
+              {account.fullName}
             </div>
-          ))}
-
-          <div style={{ padding: '0.6rem 0.85rem', background: 'var(--info-bg)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: 'var(--r)', fontSize: 12, color: 'var(--txt2)' }}>
-            The parent can only log in after IT Admin activates the account.
+            <div style={{
+              fontSize: 11, fontFamily: 'var(--font3)',
+              color: timeLeft < 60000 ? 'var(--danger)' : 'var(--txt3)',
+              display: 'flex', alignItems: 'center', gap: 4,
+            }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Locks in {minutesLeft}:{String(secondsLeft).padStart(2, '0')}
+            </div>
           </div>
+
+          {credentials.map(({ label, value }) => {
+            const isRevealed = revealed.has(label)
+            const isSensitive = label !== 'Portal URL'
+            return (
+              <div key={label}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.6px', fontFamily: 'var(--font2)', marginBottom: 6 }}>
+                  {label}
+                </div>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '0.6rem 0.85rem',
+                  background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r)',
+                }}>
+                  <span
+                    style={{
+                      flex: 1, fontFamily: 'var(--font3)', fontSize: 13, color: 'var(--txt)',
+                      wordBreak: 'break-all',
+                      filter: isSensitive && !isRevealed ? 'blur(5px)' : 'none',
+                      userSelect: isSensitive && !isRevealed ? 'none' : 'auto',
+                      transition: 'filter 0.2s',
+                      cursor: isSensitive ? 'pointer' : 'default',
+                    }}
+                    title={isSensitive && !isRevealed ? 'Click to reveal' : undefined}
+                    onClick={() => isSensitive && toggleReveal(label)}
+                  >
+                    {value}
+                  </span>
+                  {isSensitive && (
+                    <button
+                      type="button"
+                      onClick={() => toggleReveal(label)}
+                      style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 700, color: 'var(--txt3)', cursor: 'pointer' }}
+                      title={isRevealed ? 'Hide' : 'Reveal'}
+                    >
+                      {isRevealed ? (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+                          <line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                      ) : (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      )}
+                    </button>
+                  )}
+                  {(isRevealed || !isSensitive) && (
+                    <CopyButton text={value} />
+                  )}
+                </div>
+                {isSensitive && !isRevealed && (
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 3 }}>
+                    Click to reveal
+                  </div>
+                )}
+              </div>
+            )
+          })}
 
           <Button variant="primary" onClick={onClose} style={{ width: '100%' }}>Close</Button>
         </div>

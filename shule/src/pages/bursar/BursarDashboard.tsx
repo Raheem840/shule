@@ -9,6 +9,7 @@ import {
   useBursarKpis, useFeeCollectionByClass, useRecentPayments, useSmsCount,
   ugx,
 } from '../../hooks/useFeePayments'
+import { SafeTermProgressTimeline } from '../../components/shared/TermProgressTimeline'
 
 // ── UGX compact formatter for chart axis ──────────────────────
 function ugxCompact(v: number) {
@@ -94,6 +95,7 @@ export function BursarDashboard() {
         title="Bursar Dashboard"
         subtitle="Fee collection overview and recent activity"
       />
+      <SafeTermProgressTimeline />
 
       {/* ── Term selector ─────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: '1.5rem' }}>
