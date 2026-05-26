@@ -42,6 +42,9 @@ export type DisciplineRecord = {
   notes: string | null
   recordedBy: string          // Staff ID
   createdAt: string
+  // Resolved display names (populated by useDisciplineRecords join)
+  studentName?: string
+  className?: string
 }
 
 // ── TIMETABLE ──────────────────────────────────────────────────────────────
@@ -133,6 +136,8 @@ export type DosOverview = {
   overallPassRate: number
   subjectsBelowFifty: number
   activeTeachers: number
+  examJournalsThisTerm: number
+  curriculumTopicsCovered: number
   passRateTrend: PassRatePoint[]
   subjectRankings: SubjectRanking[]
 }

@@ -52,8 +52,108 @@ export function useDeputyOverview() {
   })
 }
 
+// ── useDeputyKpis ──────────────────────────────────────────────────────────
+// KPI counts for the Deputy dashboard.
+export function useDeputyKpis() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['deputy-kpis', user?.schoolId],
+    enabled: !!user,
+    queryFn: async () => {
+      const sid = user!.schoolId
+
+      const [disciplineRes, streamsRes, attendanceRes] = await Promise.all([
+        supabase
+          .from('discipline_records')
+          .select('id', { count: 'exact', head: true })
+          .eq('school_id', sid),
+        supabase
+          .from('streams')
+          .select('class_teacher_id')
+          .eq('school_id', sid)
+          .not('class_teacher_id', 'is', null),
+        supabase
+          .from('attendance')
+          .select('student_id, status')
+          .eq('school_id', sid),
+      ])
+
+      const studentMap = new Map<string, { present: number; total: number }>()
+      for (const row of attendanceRes.data ?? []) {
+        const sId = row.student_id as string
+        if (!studentMap.has(sId)) studentMap.set(sId, { present: 0, total: 0 })
+        const c = studentMap.get(sId)!
+        c.total++
+        if (row.status === 'present' || row.status === 'late') c.present++
+      }
+
+      let below80 = 0
+      for (const [, c] of studentMap) {
+        if (c.total > 0 && c.present / c.total < 0.8) below80++
+      }
+
+      const classTeachers = new Set<string>()
+      for (const s of streamsRes.data ?? []) {
+        if (s.class_teacher_id) classTeachers.add(s.class_teacher_id as string)
+      }
+
+      return {
+        disciplineIncidents: disciplineRes.count ?? 0,
+        studentsBelowThreshold: below80,
+        activeClassTeachers: classTeachers.size,
+      }
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
+// ── useRecentDiscipline ────────────────────────────────────────────────────
+// Last 5 discipline records with student name, for the dashboard panel.
+export function useRecentDiscipline() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['recent-discipline', user?.schoolId],
+    enabled: !!user,
+    queryFn: async () => {
+      const sid = user!.schoolId
+
+      const { data, error } = await supabase
+        .from('discipline_records')
+        .select('id, student_id, incident_date, nature, resolution')
+        .eq('school_id', sid)
+        .order('incident_date', { ascending: false })
+        .limit(5)
+
+      if (error) throw new Error(error.message)
+      const rows = data ?? []
+
+      const studentIds = [...new Set(rows.map((r: any) => r.student_id as string))]
+      let nameMap = new Map<string, string>()
+      if (studentIds.length > 0) {
+        const { data: stus } = await supabase
+          .from('students')
+          .select('id, first_name, last_name')
+          .in('id', studentIds)
+        for (const s of stus ?? []) nameMap.set(s.id, `${s.first_name} ${s.last_name}`)
+      }
+
+      return rows.map((r: any) => ({
+        id:           r.id as string,
+        studentId:    r.student_id as string,
+        studentName:  nameMap.get(r.student_id as string) ?? '—',
+        incidentDate: r.incident_date as string,
+        nature:       r.nature as DisciplineNature,
+        resolution:   r.resolution as string,
+      }))
+    },
+    staleTime: 60_000,
+  })
+}
+
 // ── useDisciplineRecords ───────────────────────────────────────────────────
-// Fetches all discipline records for the school, with student name join.
+// Fetches all discipline records for the school, with student/class name join.
 export function useDisciplineRecords(filters?: {
   classId?: string
   studentId?: string
@@ -65,24 +165,42 @@ export function useDisciplineRecords(filters?: {
     queryKey: ['discipline-records', user?.schoolId, filters],
     enabled: !!user,
     queryFn: async () => {
+      const sid = user!.schoolId
+
       let q = supabase
         .from('discipline_records')
         .select(
           'id, school_id, student_id, class_id, incident_date,' +
           ' nature, resolution, notes, recorded_by, created_at'
         )
-        .eq('school_id', user!.schoolId)
+        .eq('school_id', sid)
         .order('incident_date', { ascending: false })
 
       if (filters?.classId)   q = q.eq('class_id', filters.classId)
       if (filters?.studentId) q = q.eq('student_id', filters.studentId)
       if (filters?.nature)    q = q.eq('nature', filters.nature)
 
-      const { data, error } = await q
+      const [{ data, error }, classRes] = await Promise.all([
+        q,
+        supabase.from('classes').select('id, name').eq('school_id', sid),
+      ])
 
       if (error) throw new Error(error.message)
+      const rows = data ?? []
 
-      return (data ?? []).map((r: any) => ({
+      const classMap = new Map<string, string>((classRes.data ?? []).map((c: any) => [c.id, c.name]))
+
+      const studentIds = [...new Set(rows.map((r: any) => r.student_id as string))]
+      let nameMap = new Map<string, string>()
+      if (studentIds.length > 0) {
+        const { data: stus } = await supabase
+          .from('students')
+          .select('id, first_name, last_name')
+          .in('id', studentIds)
+        for (const s of stus ?? []) nameMap.set(s.id, `${s.first_name} ${s.last_name}`)
+      }
+
+      return rows.map((r: any) => ({
         id:           r.id,
         schoolId:     r.school_id,
         studentId:    r.student_id,
@@ -93,6 +211,8 @@ export function useDisciplineRecords(filters?: {
         notes:        r.notes,
         recordedBy:   r.recorded_by,
         createdAt:    r.created_at,
+        studentName:  nameMap.get(r.student_id as string) ?? undefined,
+        className:    r.class_id ? classMap.get(r.class_id as string) ?? undefined : undefined,
       } satisfies DisciplineRecord))
     },
     staleTime: 60_000,
@@ -132,6 +252,67 @@ export function useAddDisciplineRecord() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['discipline-records', user?.schoolId] })
+    },
+  })
+}
+
+// ── useUpdateDisciplineRecord ──────────────────────────────────────────────
+export function useUpdateDisciplineRecord() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: {
+      id: string
+      incidentDate: string
+      nature: DisciplineNature
+      resolution: string
+      notes: string | null
+    }) => {
+      if (!user) throw new Error('Not authenticated')
+
+      const { error } = await supabase
+        .from('discipline_records')
+        .update({
+          incident_date: input.incidentDate,
+          nature:        input.nature,
+          resolution:    input.resolution,
+          notes:         input.notes,
+        })
+        .eq('id', input.id)
+        .eq('school_id', user.schoolId)
+
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['discipline-records', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['recent-discipline', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['deputy-kpis', user?.schoolId] })
+    },
+  })
+}
+
+// ── useDeleteDisciplineRecord ──────────────────────────────────────────────
+export function useDeleteDisciplineRecord() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error('Not authenticated')
+
+      const { error } = await supabase
+        .from('discipline_records')
+        .delete()
+        .eq('id', id)
+        .eq('school_id', user.schoolId)
+
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['discipline-records', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['recent-discipline', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['deputy-kpis', user?.schoolId] })
     },
   })
 }
