@@ -18,7 +18,9 @@ export function useDosOverview() {
       const sid = user!.schoolId
 
       // Parallel fetches — no .select('*')
-      const [studentsRes, staffRes, journalsRes, resultsRes] = await Promise.all([
+      const currentYear = new Date().getFullYear()
+
+      const [studentsRes, staffRes, journalsRes, resultsRes, curriculumRes] = await Promise.all([
         supabase
           .from('students')
           .select('id')
@@ -38,6 +40,11 @@ export function useDosOverview() {
           .from('exam_results')
           .select('exam_journal_id, subject_id, score, is_absent, term, year')
           .eq('school_id', sid),
+        supabase
+          .from('curriculum_plan')
+          .select('id, covered_at')
+          .eq('school_id', sid)
+          .eq('year', currentYear),
       ])
 
       if (studentsRes.error) throw new Error(studentsRes.error.message)
@@ -45,10 +52,18 @@ export function useDosOverview() {
       if (journalsRes.error) throw new Error(journalsRes.error.message)
       if (resultsRes.error)  throw new Error(resultsRes.error.message)
 
-      const students = studentsRes.data ?? []
-      const teachers = staffRes.data ?? []
-      const journals = journalsRes.data ?? []
-      const results  = resultsRes.data ?? []
+      const students   = studentsRes.data ?? []
+      const teachers   = staffRes.data ?? []
+      const journals   = journalsRes.data ?? []
+      const results    = resultsRes.data ?? []
+      const curriculum = curriculumRes.data ?? []
+
+      const examJournalsThisTerm = journals.filter(
+        (j: any) => Number(j.year) === currentYear
+      ).length
+      const curriculumTopicsCovered = curriculum.filter(
+        (t: any) => t.covered_at != null
+      ).length
 
       // Build pass mark lookup: journalId → passMark
       const passMarkMap = new Map<string, number>(
@@ -128,6 +143,8 @@ export function useDosOverview() {
         overallPassRate,
         subjectsBelowFifty,
         activeTeachers:    teachers.length,
+        examJournalsThisTerm,
+        curriculumTopicsCovered,
         passRateTrend,
         subjectRankings,
       }
@@ -354,6 +371,34 @@ export function useDosCurriculumPlan(
       }))
     },
     staleTime: 2 * 60_000,
+  })
+}
+
+// ── useMarkTopicCovered ────────────────────────────────────────────────────
+export function useMarkTopicCovered() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (topicId: string) => {
+      if (!user) throw new Error('Not authenticated')
+
+      const { error } = await supabase
+        .from('curriculum_plan')
+        .update({
+          covered:    true,
+          covered_at: new Date().toISOString(),
+          covered_by: user.id,
+        })
+        .eq('id', topicId)
+        .eq('school_id', user.schoolId)
+
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['dos-curriculum', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['dos-overview', user?.schoolId] })
+    },
   })
 }
 

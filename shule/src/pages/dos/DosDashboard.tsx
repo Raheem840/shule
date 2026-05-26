@@ -3,6 +3,7 @@ import * as Tabs from '@radix-ui/react-tabs'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
+  BarChart, Bar, Cell,
 } from 'recharts'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRef } from 'react'
@@ -130,18 +131,35 @@ function OverviewTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* KPI Cards */}
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        <KpiCard label="Total Students"      value={overview.totalStudents} />
-        <KpiCard label="Overall Pass Rate"   value={`${overview.overallPassRate}%`} />
-        <KpiCard
-          label="Subjects Below 50%"
-          value={overview.subjectsBelowFifty}
-          danger={overview.subjectsBelowFifty > 0}
-          sub={overview.subjectsBelowFifty > 0 ? 'Needs attention' : 'All passing'}
-        />
-        <KpiCard label="Active Teachers"     value={overview.activeTeachers} />
-      </div>
+
+      {/* Subject Performance — HorizontalBarChart */}
+      {overview.subjectRankings.length > 0 && (
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 14, padding: 20,
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: 'var(--txt)' }}>
+            Subject Performance (Average Score)
+          </div>
+          <ResponsiveContainer width="100%" height={Math.max(160, overview.subjectRankings.length * 36)}>
+            <BarChart
+              data={[...overview.subjectRankings].sort((a, b) => b.classAverage - a.classAverage)}
+              layout="vertical"
+              margin={{ top: 0, right: 20, bottom: 0, left: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+              <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} />
+              <YAxis type="category" dataKey="subjectName" tick={{ fontSize: 11 }} width={110} />
+              <Tooltip formatter={(v) => [`${Number(v)}`, 'Avg Score']} />
+              <Bar dataKey="classAverage" radius={[0, 4, 4, 0]}>
+                {overview.subjectRankings.map((_, i) => (
+                  <Cell key={i} fill="var(--brand)" fillOpacity={0.75 - i * 0.05 > 0.3 ? 0.75 - i * 0.05 : 0.3} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* Pass Rate Trend */}
       {overview.passRateTrend.length > 0 && (
@@ -631,9 +649,34 @@ function CurriculumPlanTab() {
 // DOS DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════
 export function DosDashboard() {
+  const { data: overview, isLoading: kpiLoading } = useDosOverview()
+
+  const kpis = [
+    {
+      label: 'School Pass Rate',
+      value: kpiLoading ? '—' : `${overview?.overallPassRate ?? 0}%`,
+      accent: 'brand',
+    },
+    {
+      label: 'Exam Journals (This Year)',
+      value: kpiLoading ? '—' : (overview?.examJournalsThisTerm ?? 0),
+      accent: 'info',
+    },
+    {
+      label: 'Curriculum Topics Covered',
+      value: kpiLoading ? '—' : (overview?.curriculumTopicsCovered ?? 0),
+      accent: 'success',
+    },
+    {
+      label: 'Teachers Active',
+      value: kpiLoading ? '—' : (overview?.activeTeachers ?? 0),
+      accent: 'violet',
+    },
+  ]
+
   return (
-    <div>
-      <div style={{ marginBottom: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div>
         <h1 style={{
           fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22,
           color: 'var(--txt)', margin: 0,
@@ -646,6 +689,13 @@ export function DosDashboard() {
       </div>
 
       <SafeTermProgressTimeline />
+
+      {/* KPI Cards — spec: School Pass Rate, Journals, Curriculum, Teachers */}
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        {kpis.map(k => (
+          <KpiCard key={k.label} label={k.label} value={k.value} />
+        ))}
+      </div>
 
       <Tabs.Root defaultValue="overview">
         <Tabs.List
