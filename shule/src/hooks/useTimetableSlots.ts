@@ -193,7 +193,7 @@ export function useCheckCollision() {
       excludeSlotId?: string  // for editing an existing slot
     }): Promise<{ classConflict: TimetableSlot | null; teacherConflict: TimetableSlot | null }> => {
       const sid = user!.schoolId
-      const { classId, streamId, teacherId, dayOfWeek, periodNumber, term, year, excludeSlotId } = params
+      const { classId, teacherId, dayOfWeek, periodNumber, term, year, excludeSlotId } = params
 
       const [classRes, teacherRes] = await Promise.all([
         supabase

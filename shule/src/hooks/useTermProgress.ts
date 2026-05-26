@@ -26,10 +26,6 @@ function weeksBetween(a: Date, b: Date): number {
   return Math.max(1, Math.ceil(diffDays(a, b) / 7))
 }
 
-function currentWeekNumber(start: Date, today: Date): number {
-  const days = Math.max(0, diffDays(start, today))
-  return Math.min(Math.floor(days / 7) + 1, weeksBetween(start, start))
-}
 
 // Detect which term is active based on term_N_start / term_N_end columns
 function detectActiveTerm(row: Record<string, string | null>): {
@@ -92,7 +88,7 @@ export function useTermProgress() {
         }
       }
 
-      const termInfo = detectActiveTerm(yearData as Record<string, string | null>)
+      const termInfo = detectActiveTerm(yearData as unknown as Record<string, string | null>)
       if (!termInfo) {
         const today = new Date()
         return {
@@ -127,11 +123,11 @@ export function useTermProgress() {
           .eq('school_id', sid)
           .not('exam_date', 'is', null),
         // school_events may not exist yet — swallow the error
-        supabase
+        Promise.resolve(supabase
           .from('school_events')
           .select('id, title, event_date, event_type, subject_id, class_id')
           .eq('school_id', sid)
-          .catch(() => ({ data: null, error: null })),
+        ).catch(() => ({ data: null as null, error: null })),
       ])
 
       const events: TermEvent[] = []

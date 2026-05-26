@@ -1,4 +1,3 @@
-import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -6,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
 // ── Supabase mock ──────────────────────────────────────────────
-const { mockFrom, mockUpdate, setResponse, clearResponses } = vi.hoisted(() => {
+const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
   const tableData: Record<string, any> = {}
   const setResponse    = (t: string, r: any) => { tableData[t] = r }
   const clearResponses = () => { for (const k of Object.keys(tableData)) delete tableData[k] }

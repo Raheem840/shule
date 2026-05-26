@@ -1,13 +1,16 @@
+const SIZE_MAP: Record<string, number> = { sm: 16, md: 24, lg: 36 }
+
 type Props = {
-  size?: number
+  size?: number | 'sm' | 'md' | 'lg'
   color?: string
 }
 
-export function LoadingSpinner({ size = 20, color = 'var(--brand)' }: Props) {
+export function LoadingSpinner({ size = 'md', color = 'var(--brand)' }: Props) {
+  const px = typeof size === 'number' ? size : (SIZE_MAP[size] ?? 24)
   return (
     <svg
-      width={size}
-      height={size}
+      width={px}
+      height={px}
       viewBox="0 0 24 24"
       fill="none"
       stroke={color}

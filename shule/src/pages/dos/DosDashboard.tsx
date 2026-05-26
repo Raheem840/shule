@@ -15,7 +15,7 @@ import {
 } from '../../hooks/useDos'
 import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
 import { SafeTermProgressTimeline } from '../../components/shared/TermProgressTimeline'
-import type { TeacherPerfRow, SubjectRanking } from '../../types/week9'
+import type { SubjectRanking } from '../../types/week9'
 
 // ─── Shared UI primitives ──────────────────────────────────────────────────
 function KpiCard({ label, value, sub, danger }: {
@@ -157,7 +157,7 @@ function OverviewTab() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} unit="%" />
-              <Tooltip formatter={(v: number) => [`${v}%`, 'Pass Rate']} />
+              <Tooltip formatter={(v) => [`${Number(v)}%`, 'Pass Rate']} />
               <ReferenceLine y={50} stroke="var(--danger)" strokeDasharray="4 4" label="50%" />
               <Line
                 type="monotone" dataKey="rate"
@@ -341,7 +341,6 @@ function TeacherPerformanceTab() {
   } | null>(null)
   const [targetStreamId, setTargetStreamId] = useState('')
   const [assignError, setAssignError] = useState('')
-  const [classFilter, setClassFilter] = useState('')
 
   async function handleAssign() {
     if (!assignModal || !targetStreamId) return

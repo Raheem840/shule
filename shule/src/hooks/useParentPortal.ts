@@ -53,7 +53,7 @@ export function useParentStudents() {
         .order('first_name', { ascending: true })
 
       if (error) throw error
-      return ((data ?? []) as AnyRow[]).map(toStudent)
+      return ((data ?? []) as unknown as AnyRow[]).map(toStudent)
     },
   })
 }
@@ -87,7 +87,7 @@ export function useStudentReleasedReportCards(studentId: string | null) {
 
       if (error) throw error
 
-      return ((data ?? []) as AnyRow[]).map(r => ({
+      return ((data ?? []) as unknown as AnyRow[]).map(r => ({
         id:         r.id as string,
         term:       r.term as number,
         year:       r.year as number,
@@ -130,7 +130,7 @@ export function useStudentExamSummary(studentId: string | null) {
       if (error) throw error
       if (!data || data.length === 0) return []
 
-      const journalIds = [...new Set((data as AnyRow[]).map(r => r.exam_journal_id as string))]
+      const journalIds = [...new Set((data as unknown as AnyRow[]).map(r => r.exam_journal_id as string))]
 
       const { data: journals, error: jErr } = await supabase
         .from('exam_journal')
@@ -140,19 +140,19 @@ export function useStudentExamSummary(studentId: string | null) {
 
       if (jErr) throw jErr
 
-      const subjectIds = [...new Set(((journals ?? []) as AnyRow[]).map(j => j.subject_id as string))]
+      const subjectIds = [...new Set(((journals ?? []) as unknown as AnyRow[]).map(j => j.subject_id as string))]
       const { data: subjects } = await supabase
         .from('subjects')
         .select('id, name')
         .in('id', subjectIds)
 
       const journalMap = new Map<string, AnyRow>()
-      for (const j of (journals ?? []) as AnyRow[]) journalMap.set(j.id as string, j)
+      for (const j of (journals ?? []) as unknown as AnyRow[]) journalMap.set(j.id as string, j)
 
       const subjectMap = new Map<string, string>()
-      for (const s of (subjects ?? []) as AnyRow[]) subjectMap.set(s.id as string, s.name as string)
+      for (const s of (subjects ?? []) as unknown as AnyRow[]) subjectMap.set(s.id as string, s.name as string)
 
-      return (data as AnyRow[]).map(r => {
+      return (data as unknown as AnyRow[]).map(r => {
         const j = journalMap.get(r.exam_journal_id as string)
         return {
           subjectName:    j ? (subjectMap.get(j.subject_id as string) ?? '—') : '—',
@@ -201,7 +201,7 @@ export function useStudentFeeBalance(studentId: string | null) {
 
       if (error) throw error
 
-      return ((data ?? []) as AnyRow[]).map(r => {
+      return ((data ?? []) as unknown as AnyRow[]).map(r => {
         const amtDue  = Number(r.amount_due)  || 0
         const amtPaid = Number(r.amount_paid) || 0
         const balance = Number(r.balance)     ?? (amtDue - amtPaid)
@@ -285,8 +285,8 @@ export function useGenerateParentAccess() {
 
       if (existing) {
         return {
-          email:        (existing as AnyRow).email as string,
-          tempPassword: ((existing as AnyRow).temp_password as string) ?? tempPw,
+          email:        (existing as unknown as AnyRow).email as string,
+          tempPassword: ((existing as unknown as AnyRow).temp_password as string) ?? tempPw,
           isNew:        false,
         }
       }

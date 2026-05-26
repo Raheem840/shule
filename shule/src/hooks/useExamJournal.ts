@@ -72,7 +72,7 @@ export function useExamJournals(filters: JournalFilters = {}) {
 
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []).map(r => toJournal(r as AnyRow))
+      return (data ?? []).map(r => toJournal(r as unknown as AnyRow))
     },
   })
 }
@@ -93,7 +93,7 @@ export function useExamJournalById(journalId: string | null | undefined) {
         .single()
 
       if (error) throw error
-      return toJournal(data as AnyRow)
+      return toJournal(data as unknown as AnyRow)
     },
   })
 }

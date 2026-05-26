@@ -194,7 +194,7 @@ export function BursarDashboard() {
                 <XAxis dataKey="className" tick={{ fontSize: 11, fill: 'var(--txt3)', fontFamily: 'var(--font2)' }} />
                 <YAxis tickFormatter={ugxCompact} tick={{ fontSize: 11, fill: 'var(--txt3)' }} />
                 <Tooltip
-                  formatter={(v: number) => ugx(v)}
+                  formatter={(v) => ugx(Number(v))}
                   contentStyle={{
                     background: 'var(--surface)', border: '1px solid var(--border)',
                     borderRadius: 8, fontSize: 12,

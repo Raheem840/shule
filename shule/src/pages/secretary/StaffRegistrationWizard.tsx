@@ -6,7 +6,6 @@ import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
-import { Badge } from '../../components/ui/Badge'
 import { useToast } from '../../components/ui/Toast'
 import { useRegisterStaff, useNextStaffNumber } from '../../hooks/useStaff'
 import { useClasses, useSubjects, useDepartments } from '../../hooks/useClasses'
@@ -248,7 +247,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
 
   const { register, control, handleSubmit, formState: { errors },
           trigger, setValue, watch, reset, getValues } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as any,
     defaultValues: {
       isExistingStaff: false,
       firstName: '', lastName: '', dateOfBirth: '', gender: '',
@@ -388,11 +387,6 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
 
   const isLoading = registerMutation.isPending
 
-  // ── National ID required check for step 4 navigation ─────
-  const hasNatIdDoc = (watchedValues.documents ?? []).some(
-    d => d.documentType === 'national_id' && d.fileUrl
-  )
-
   return (
     <Modal
       open={open}
@@ -437,7 +431,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
 
       <WizardSteps current={step} />
 
-      <form id="reg-staff-form" onSubmit={handleSubmit(onSubmit)}>
+      <form id="reg-staff-form" onSubmit={(handleSubmit as any)(onSubmit)}>
 
         {/* ── STEP 1 — PERSONAL ──────────────────────────── */}
         {step === 1 && (

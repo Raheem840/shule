@@ -1,4 +1,3 @@
-import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -249,7 +248,7 @@ describe('useAnnouncements', () => {
 describe('useUnreadCount', () => {
   it('returns the count from Supabase head query', async () => {
     // Mock count query
-    const mockCount = vi.fn().mockImplementation((table: string) => ({
+    const mockCount = vi.fn().mockImplementation((_table: string) => ({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       is: vi.fn().mockReturnThis(),

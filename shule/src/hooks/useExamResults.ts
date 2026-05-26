@@ -43,7 +43,7 @@ export function useExamResults(journalId: string | null | undefined) {
         .eq('school_id', user!.schoolId)
 
       if (error) throw error
-      return (data ?? []).map(r => toResult(r as AnyRow))
+      return (data ?? []).map(r => toResult(r as unknown as AnyRow))
     },
   })
 }

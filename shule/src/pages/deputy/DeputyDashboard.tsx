@@ -392,7 +392,7 @@ function DisciplineTab() {
                 { key: 'notes',    label: 'Notes' },
                 { key: 'class_id', label: 'Class ID' },
               ]}
-              onComplete={async () => ({ imported: 0, updated: 0, skipped: 0, failed: 0 })}
+              onComplete={async () => ({ imported: 0, updated: 0, skipped: 0, failed: [] })}
             />
           </div>
         </div>

@@ -46,6 +46,7 @@ export function useAcademicYears() {
         term1Start: null, term1End: null,
         term2Start: null, term2End: null,
         term3Start: null, term3End: null,
+        surveyActive: false,
       } satisfies AcademicYear))
     },
   })

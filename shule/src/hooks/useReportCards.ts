@@ -74,7 +74,7 @@ export function useReportCards(
 
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []).map(r => toReportCard(r as AnyRow))
+      return (data ?? []).map(r => toReportCard(r as unknown as AnyRow))
     },
   })
 }

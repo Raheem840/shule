@@ -127,7 +127,7 @@ function AddFeeModal({
   const addFee = useAddFeeType()
 
   const { register, handleSubmit, formState: { errors } } = useForm<AddFeeFormValues>({
-    resolver: zodResolver(AddFeeSchema),
+    resolver: zodResolver(AddFeeSchema) as any,
     defaultValues: {
       name: '', amount: 0, appliesTo: 'all', term: 1, academicYearId: defaultYearId,
     },
@@ -155,7 +155,7 @@ function AddFeeModal({
 
   return (
     <Modal isOpen onClose={onClose} title="Add Fee Type" size="sm">
-      <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <form onSubmit={(handleSubmit as any)(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
         <div>
           <label style={labelStyle}>Fee Name</label>

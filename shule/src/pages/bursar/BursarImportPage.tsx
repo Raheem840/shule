@@ -1,5 +1,4 @@
 import { ImportWizard } from '../../components/shared/ImportWizard'
-import { useFeePayments } from '../../hooks/useFeePayments'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -24,8 +23,7 @@ export function BursarImportPage() {
   async function handleImport(rows: ParsedRow[]): Promise<ImportResult> {
     let imported = 0
     let skipped  = 0
-    let failed   = 0
-    const failedRows: ParsedRow[] = []
+    const failedItems: Array<{ row: number; reason: string }> = []
 
     for (let i = 0; i < rows.length; i += 50) {
       const batch = rows.slice(i, i + 50)
@@ -41,22 +39,15 @@ export function BursarImportPage() {
 
       const { error } = await supabase.from('fee_payments').insert(inserts)
       if (error) {
-        failed  += batch.length
-        failedRows.push(...batch)
+        batch.forEach((_, j) => failedItems.push({ row: i + j + 2, reason: error.message }))
       } else {
         imported += batch.length
       }
     }
 
-    qc.invalidateQueries({ queryKey: ['fee-payments'] })
+    void qc.invalidateQueries({ queryKey: ['fee-payments'] })
 
-    return {
-      imported,
-      updated: 0,
-      skipped,
-      failed,
-      failedRows,
-    }
+    return { imported, updated: 0, skipped, failed: failedItems }
   }
 
   return (

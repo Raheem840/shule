@@ -90,7 +90,6 @@ export function useTopClasses() {
       const journals  = journalsRes.data ?? []
 
       const passMarkMap = new Map<string, number>(journals.map((j: any) => [j.id, j.pass_mark]))
-      const journalClassMap = new Map<string, string>(journals.map((j: any) => [j.id, j.class_id]))
 
       return classes.map((cls: any) => {
         const classStudentIds = new Set(
@@ -129,11 +128,11 @@ export function useSchoolFeeSummary() {
       const [paymentsRes, structureRes, overdueRes] = await Promise.all([
         supabase.from('fee_payments').select('amount').eq('school_id', sid),
         supabase.from('fee_structure').select('amount').eq('school_id', sid),
-        supabase.from('fee_payments')
+        Promise.resolve(supabase.from('fee_payments')
           .select('id')
           .eq('school_id', sid)
           .eq('status', 'overdue')
-          .catch(() => ({ data: [], error: null })),
+        ).catch(() => ({ data: [] as { id: string }[], error: null })),
       ])
 
       const totalCollected = (paymentsRes.data ?? []).reduce((s: number, r: any) => s + (r.amount ?? 0), 0)
@@ -233,12 +232,12 @@ export function useStudentFullProfile(studentId: string | null) {
           .eq('student_id', studentId!)
           .order('incident_date', { ascending: false })
           .limit(10),
-        supabase
+        Promise.resolve(supabase
           .from('fee_payments')
           .select('amount, status')
           .eq('school_id', sid)
           .eq('student_id', studentId!)
-          .catch(() => ({ data: [], error: null })),
+        ).catch(() => ({ data: [] as { amount: number; status: string }[], error: null })),
       ])
 
       if (studentRes.error) throw new Error(studentRes.error.message)
@@ -250,7 +249,7 @@ export function useStudentFullProfile(studentId: string | null) {
       const attendanceRate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0
 
       // Fetch class/stream names
-      let className = '', streamName = ''
+      let className = ''
       if (stu.class_id) {
         const { data: cls } = await supabase
           .from('classes').select('name').eq('id', stu.class_id).maybeSingle()
@@ -308,22 +307,23 @@ export function useStaffFullProfile(staffId: string | null) {
 
       if (error) throw new Error(error.message)
 
+      const d = data as any
       return {
-        id:                 data.id,
-        authUserId:         data.auth_user_id,
-        firstName:          data.first_name,
-        lastName:           data.last_name,
-        role:               data.role,
-        email:              data.email,
-        phone:              data.phone,
-        departmentId:       data.department_id,
-        qualificationLevel: data.qualification_level,
-        employmentType:     data.employment_type,
-        staffNumber:        data.staff_number,
-        photoUrl:           data.photo_url,
-        isActive:           data.is_active,
-        salaryBand:         data.salary_band,
-        joinDate:           data.join_date,
+        id:                 d.id,
+        authUserId:         d.auth_user_id,
+        firstName:          d.first_name,
+        lastName:           d.last_name,
+        role:               d.role,
+        email:              d.email,
+        phone:              d.phone,
+        departmentId:       d.department_id,
+        qualificationLevel: d.qualification_level,
+        employmentType:     d.employment_type,
+        staffNumber:        d.staff_number,
+        photoUrl:           d.photo_url,
+        isActive:           d.is_active,
+        salaryBand:         d.salary_band,
+        joinDate:           d.join_date,
       }
     },
     staleTime: 5 * 60_000,

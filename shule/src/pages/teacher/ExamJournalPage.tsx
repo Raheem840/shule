@@ -106,14 +106,14 @@ function TypeBadge({ type }: { type: AssessmentType }) {
 
 // ── Create Journal Modal ───────────────────────────────────────
 function CreateJournalModal({ onClose }: { onClose: () => void }) {
-  const { user }   = useAuth()
+  const { user: _user }   = useAuth()
   const create     = useCreateJournal()
   const { data: classes  = [] } = useClasses()
   const { data: subjects = [] } = useSubjects()
 
   const { control, register, watch, handleSubmit, formState: { errors } } =
     useForm<JournalFormValues>({
-      resolver: zodResolver(journalSchema),
+      resolver: zodResolver(journalSchema) as any,
       defaultValues: {
         assessmentType: 'ca',
         streamId: null,
@@ -300,25 +300,25 @@ function FiltersBar({ filters, onChange }: {
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
       <Select
         value={filters.subjectId ?? ''}
-        onChange={v => onChange({ ...filters, subjectId: v || undefined })}
+        onChange={e => onChange({ ...filters, subjectId: e.target.value || undefined })}
         options={[{ value: '', label: 'All Subjects' }, ...subjects.map(s => ({ value: s.id, label: s.name }))]}
         style={{ minWidth: 150 }}
       />
       <Select
         value={filters.classId ?? ''}
-        onChange={v => onChange({ ...filters, classId: v || undefined })}
+        onChange={e => onChange({ ...filters, classId: e.target.value || undefined })}
         options={[{ value: '', label: 'All Classes' }, ...classes.map(c => ({ value: c.id, label: c.name }))]}
         style={{ minWidth: 120 }}
       />
       <Select
         value={filters.term ?? ''}
-        onChange={v => onChange({ ...filters, term: v || undefined })}
+        onChange={e => onChange({ ...filters, term: e.target.value || undefined })}
         options={[{ value: '', label: 'All Terms' }, ...TERM_OPTIONS]}
         style={{ minWidth: 110 }}
       />
       <Select
         value={filters.assessmentType ?? ''}
-        onChange={v => onChange({ ...filters, assessmentType: (v as AssessmentType) || undefined })}
+        onChange={e => onChange({ ...filters, assessmentType: (e.target.value as AssessmentType) || undefined })}
         options={[{ value: '', label: 'All Types' }, ...ASSESSMENT_OPTIONS]}
         style={{ minWidth: 160 }}
       />

@@ -232,7 +232,7 @@ export function DosTimetablePage() {
   const [year, setYear]   = useState(new Date().getFullYear())
   const { data: streams = [] } = useStreams(selectedClass)
   const [selectedStream, setSelectedStream] = useState<string | null>(null)
-  const [conflicts, setConflicts] = useState<Set<string>>(new Set())
+  const [conflicts, _setConflicts] = useState<Set<string>>(new Set())
 
   const { data: slots = [], isLoading } = useTimetableSlots({
     classId:  selectedClass,

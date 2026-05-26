@@ -58,7 +58,7 @@ export function useTeacherRemarks(params: {
       // Return as a Map<studentId, TeacherRemark> for O(1) access
       const map = new Map<string, TeacherRemark>()
       for (const r of (data ?? [])) {
-        const remark = toRemark(r as AnyRow)
+        const remark = toRemark(r as unknown as AnyRow)
         map.set(remark.studentId, remark)
       }
       return map

@@ -252,33 +252,22 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
     },
   ],
 
-  // ── PARENT ── Read-only portal for their child(ren)
+  // ── PARENT ── Read-only portal — all tabs live on /parent/portal
   parent: [
     {
-      label: '',   // no group label — parent portal has flat nav
+      label: '',
       items: [
-        { label: 'Overview',     path: '/parent/portal',         svg: SVG.dashboard    },
-        { label: 'Results',      path: '/parent/results',        svg: SVG.results      },
-        { label: 'Fee Balance',  path: '/parent/fees',           svg: SVG.feeBalance   },
-        { label: 'Attendance',   path: '/parent/attendance',     svg: SVG.attendance   },
-        { label: 'Report Cards', path: '/parent/report-cards',   svg: SVG.reportCards  },
-        { label: 'Notices',      path: '/parent/notices',        svg: SVG.notices      },
+        { label: 'My Portal',    path: '/parent/portal',         svg: SVG.dashboard    },
       ],
     },
   ],
 
-  // ── STUDENT ── Own data only
+  // ── STUDENT ── Own data only — all tabs live on /student/portal
   student: [
     {
       label: 'My Portal',
       items: [
-        { label: 'Overview',     path: '/student/portal',        svg: SVG.dashboard    },
-        { label: 'My Results',   path: '/student/results',       svg: SVG.results      },
-        { label: 'My Fees',      path: '/student/fees',          svg: SVG.feeBalance   },
-        { label: 'Attendance',   path: '/student/attendance',    svg: SVG.attendance   },
-        { label: 'Report Cards', path: '/student/report-cards',  svg: SVG.reportCards  },
-        { label: 'Notices',      path: '/student/notices',       svg: SVG.notices      },
-        { label: 'Term Survey',  path: '/student/survey',        svg: SVG.survey,      badge: 'alert' },
+        { label: 'My Portal',    path: '/student/portal',        svg: SVG.dashboard    },
       ],
     },
   ],

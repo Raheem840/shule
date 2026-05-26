@@ -48,6 +48,7 @@ function toStudent(r: AnyRow): Student {
     medicalNotes:    (r.medical_notes as string) ?? null,
     status:          r.status as Student['status'],
     enrolledAt:      r.enrolled_at as string,
+    createdBy:       (r.created_by as string) ?? null,
   }
 }
 
@@ -97,7 +98,7 @@ export function useStudents(filters: StudentFilters = {}, enabled = true) {
       const { data, error } = await q
       if (error) throw error
 
-      const students = (data ?? []).map(r => toStudent(r as AnyRow))
+      const students = (data ?? []).map(r => toStudent(r as unknown as AnyRow))
 
       // Client-side search across name + admission number
       if (filters.search) {
@@ -144,8 +145,8 @@ export function useStudentById(id: string | null | undefined) {
       if (guardianRes.error) throw guardianRes.error
 
       return {
-        ...toStudent(studentRes.data as AnyRow),
-        guardians: (guardianRes.data ?? []).map(r => toGuardian(r as AnyRow)),
+        ...toStudent(studentRes.data as unknown as AnyRow),
+        guardians: (guardianRes.data ?? []).map(r => toGuardian(r as unknown as AnyRow)),
       } satisfies StudentWithGuardians
     },
   })

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useBandwidth } from '../../store/BandwidthContext'
+import { supabase } from '../../lib/supabase'
 import {
   useContacts,
   useMessages,
@@ -386,8 +387,11 @@ function AnnouncementsChannel() {
     e.preventDefault()
     if (!text.trim()) return
     try {
-      await post({ body: text.trim() })
+      const body = text.trim()
+      await post({ body })
       setText('')
+      // Fire-and-forget: broadcast via Edge Function for push notifications
+      void supabase.functions.invoke('broadcast-announcement', { body: { body, role: user?.role } })
     } catch (err: any) {
       alert(err.message)
     }

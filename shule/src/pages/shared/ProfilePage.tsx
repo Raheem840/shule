@@ -25,7 +25,7 @@ export function ProfilePage() {
   const [isDirty, setIsDirty]     = useState(false)
   const [saveMsg, setSaveMsg]     = useState('')
 
-  const [curPwd,  setCurPwd]      = useState('')
+  const [_curPwd,  setCurPwd]      = useState('')
   const [newPwd,  setNewPwd]      = useState('')
   const [confPwd, setConfPwd]     = useState('')
   const [pwdMsg,  setPwdMsg]      = useState('')

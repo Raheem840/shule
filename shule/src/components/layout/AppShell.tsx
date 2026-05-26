@@ -136,7 +136,7 @@ export function AppShell() {
 // SIDEBAR
 // ═══════════════════════════════════════════════════════════════════════════════
 type SidebarProps = {
-  nav:         ReturnType<typeof ROLE_NAV[keyof typeof ROLE_NAV]>
+  nav:         import('../../config/roleNav').RoleNav
   user:        NonNullable<ReturnType<typeof useAuth>['user']>
   avatar:      { bg: string; color: string }
   roleLabel:   string
@@ -172,14 +172,14 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut }: Sideb
 
       {/* Navigation groups */}
       <div className="sb-nav">
-        {nav.map((group, gi) => (
+        {nav.map((group: import('../../config/roleNav').NavGroup, gi: number) => (
           <div key={gi}>
             {/* Only render the group label if it has text */}
             {group.label && (
               <div className="ngl">{group.label}</div>
             )}
 
-            {group.items.map((item) => {
+            {group.items.map((item: import('../../config/roleNav').NavItem) => {
               const isActive = currentPath === item.path ||
                 currentPath.startsWith(item.path + '/')
               const isMsgItem = item.path.endsWith('/messages')

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { PageHeader }     from '../../components/ui/PageHeader'
 import { Button }         from '../../components/ui/Button'
@@ -11,6 +11,7 @@ import {
 } from '../../hooks/useSmsReminders'
 import { ugx } from '../../hooks/useFeePayments'
 import type { SmsChannel } from '../../types/app'
+import { supabase } from '../../lib/supabase'
 
 // ── Status badge variant map ───────────────────────────────────
 const STATUS_VARIANT = {
@@ -155,6 +156,17 @@ export function SmsReminderPage() {
 
     await sendReminders.mutateAsync(reminders)
     setSelectedIds(new Set())
+
+    // Fire-and-forget: call the appropriate Edge Function for immediate delivery.
+    // The queue insert above is the durable record; this is the real-time dispatch.
+    const smsItems = reminders.filter(r => r.channel === 'sms')
+    const waItems  = reminders.filter(r => r.channel === 'whatsapp')
+    if (smsItems.length > 0) {
+      void supabase.functions.invoke('send-sms', { body: { reminders: smsItems } })
+    }
+    if (waItems.length > 0) {
+      void supabase.functions.invoke('send-whatsapp', { body: { reminders: waItems } })
+    }
   }
 
   // ── Character count ───────────────────────────────────────────

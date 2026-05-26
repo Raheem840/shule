@@ -37,7 +37,7 @@ export function PrincipalStaffProfilePage() {
   async function handleSuspend() {
     if (confirmText !== fullName) return
     try {
-      await suspendStaff({ staffId: staff!.id, suspend: true })
+      await suspendStaff({ staffId: staff!.id, isActive: false })
       setShowSuspendModal(false)
       navigate(-1)
     } catch (e: any) {

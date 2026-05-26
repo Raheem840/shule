@@ -4,7 +4,6 @@ import { useAuth } from '../store/AuthContext'
 import type { SmsReminder, SmsChannel, FeeStatus } from '../types/app'
 import { calcFeeStatus } from './useFeePayments'
 
-type AnyRow = Record<string, unknown>
 
 // ── Student row for SMS preview table ─────────────────────────
 export type SmsStudentRow = {

@@ -322,8 +322,8 @@ function StudentRow({
               {student.firstName} {student.lastName}
             </div>
             <div style={{ fontSize: 10.5, color: 'var(--txt3)' }}>
-              {student.gender ?? '—'} · {student.dateOfBirth
-                ? new Date(student.dateOfBirth).getFullYear()
+              {student.gender ?? '—'} · {student.dob
+                ? new Date(student.dob).getFullYear()
                 : '—'}
             </div>
           </div>

@@ -54,7 +54,7 @@ function SkeletonRow({ columns, selectable }: { columns: Column<unknown>[]; sele
           <span className="shule-skeleton" style={{ display: 'block', width: 14, height: 14, borderRadius: 3 }} />
         </td>
       )}
-      {columns.map((col, i) => (
+      {columns.map((_col, i) => (
         <td key={i} style={tdBase}>
           <span
             className="shule-skeleton"

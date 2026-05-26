@@ -75,7 +75,7 @@ export function useStaff(filters: StaffFilters = {}) {
       const { data, error } = await q
       if (error) throw error
 
-      const list = (data ?? []).map(r => toStaff(r as AnyRow))
+      const list = (data ?? []).map(r => toStaff(r as unknown as AnyRow))
 
       if (filters.search) {
         const term = filters.search.toLowerCase()
@@ -128,7 +128,7 @@ export function useStaffById(id: string | null | undefined) {
         uploadedAt:   r.uploaded_at as string,
       }))
 
-      return { ...toStaff(staffRes.data as AnyRow), documents }
+      return { ...toStaff(staffRes.data as unknown as AnyRow), documents }
     },
   })
 }

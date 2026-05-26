@@ -1,5 +1,4 @@
 // Phase 4 — Hook tests for useFeePayments.ts
-import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -193,11 +192,6 @@ describe('useAddPayment', () => {
     setResponse('fee_payments', { data: { id: 'pay-x' }, error: null })
 
     const { result } = renderHook(() => useAddPayment(), { wrapper: createWrapper() })
-    const insertSpy = vi.fn()
-
-    // Intercept the insert call to check what was inserted
-    const builder = mockFrom.mock.results[0]?.value ?? { insert: vi.fn() }
-    // We can check this via the builder that's returned for 'fee_payments'
 
     await act(async () => {
       await result.current.mutateAsync({

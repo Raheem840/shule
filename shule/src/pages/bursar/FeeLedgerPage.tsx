@@ -63,7 +63,8 @@ function AddPaymentModal({
   }).slice(0, 20)
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<AddPaymentForm>({
-    resolver: zodResolver(AddPaymentSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(AddPaymentSchema) as any,
     defaultValues: { paymentDate: new Date().toISOString().split('T')[0], amountPaid: 0, amountDue: 0 },
   })
 
@@ -96,7 +97,7 @@ function AddPaymentModal({
 
   return (
     <Modal isOpen onClose={onClose} title="Add Payment" size="md">
-      <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <form onSubmit={(handleSubmit as any)(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
         {/* Student search */}
         <div>
@@ -212,7 +213,6 @@ function EditableAmountCell({
   if (editing) {
     // While editing, show live balance
     const liveBalance = row.amountDue - (parseFloat(draft) || 0)
-    const livePaid    = parseFloat(draft) || 0
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <input

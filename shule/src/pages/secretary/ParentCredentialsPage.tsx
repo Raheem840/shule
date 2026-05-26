@@ -14,7 +14,6 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
 import type { ParentAccount, Student } from '../../types/app'
 
-type AnyRow = Record<string, unknown>
 
 // ── Temp password generator ───────────────────────────────────
 // Uses unambiguous characters only (no I, l, O, 0, 1)

@@ -15,10 +15,11 @@ export type ImportResult = {
 export type ConflictStrategy = 'upsert' | 'skip'
 
 export type ColumnSpec = {
-  key:      string
-  label:    string
-  required: boolean
-  hint?:    string
+  key:       string
+  label:     string
+  required?: boolean
+  example?:  string
+  hint?:     string
   validate?: (value: string) => string | null
 }
 
@@ -27,7 +28,7 @@ interface ImportWizardProps {
   requiredFields: ColumnSpec[]
   optionalFields: ColumnSpec[]
   onComplete:     (rows: ParsedRow[], strategy: ConflictStrategy) => Promise<ImportResult>
-  onClose:        () => void
+  onClose?:       () => void
 }
 
 // ── Internal types ────────────────────────────────────────────
@@ -78,7 +79,7 @@ async function parseExcel(file: File): Promise<ParsedFile> {
     const vals = (row.values as ExcelJS.CellValue[]).slice(1)
     rows.push(vals.map(v => {
       if (v === null || v === undefined) return ''
-      if (typeof v === 'object' && 'text' in v) return String((v as ExcelJS.CellRichTextValue).text ?? '')
+      if (typeof v === 'object' && 'text' in v) return String((v as { text: unknown }).text ?? '')
       if (typeof v === 'object' && v instanceof Date) return v.toISOString().slice(0, 10)
       return String(v)
     }))

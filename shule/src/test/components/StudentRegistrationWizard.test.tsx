@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '../utils'
 import userEvent from '@testing-library/user-event'
 
 // vi.hoisted runs before vi.mock factories so we can reference these in the factory
-const { mockSingle, mockBuilder } = vi.hoisted(() => {
+const { mockBuilder } = vi.hoisted(() => {
   const mockSingle  = vi.fn().mockResolvedValue({ data: { short_name: 'KJA' }, error: null })
   const mockBuilder = {
     select: vi.fn().mockReturnThis(),

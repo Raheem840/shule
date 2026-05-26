@@ -1,4 +1,3 @@
-import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -240,7 +239,7 @@ describe('useSaveAttendance', () => {
   it('throws when the delete step returns an error', async () => {
     // First call (delete) returns error
     let callCount = 0
-    mockFrom.mockImplementation((table: string) => {
+    mockFrom.mockImplementation((_table: string) => {
       callCount++
       const isFirstCall = callCount === 1
       const b: any = {

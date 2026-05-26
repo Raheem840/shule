@@ -37,7 +37,7 @@ function AddModal({ onClose }: { onClose: () => void }) {
     e.preventDefault()
     if (!studentId.trim() || !resolution.trim()) { setErr('Student ID and resolution are required'); return }
     try {
-      await mutateAsync({ studentId: studentId.trim(), incidentDate, nature, resolution, notes: notes || null })
+      await mutateAsync({ studentId: studentId.trim(), classId: null, incidentDate, nature, resolution, notes: notes || null })
       onClose()
     } catch (ex: any) {
       setErr(ex.message ?? 'Failed to save')

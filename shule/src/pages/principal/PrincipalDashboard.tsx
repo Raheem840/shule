@@ -123,7 +123,7 @@ function TopClassesChart() {
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
         <XAxis dataKey="className" tick={{ fontSize: 11 }} />
         <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} unit="%" />
-        <Tooltip formatter={(v: number) => [`${v}%`, 'Pass Rate']} />
+        <Tooltip formatter={(v) => [`${Number(v)}%`, 'Pass Rate']} />
         <Bar dataKey="passRate" fill="var(--brand)" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>

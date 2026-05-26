@@ -188,16 +188,16 @@ export function ReportCardsPage() {
           Step 1 — Select Cohort
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Select value={year} onChange={setYear} options={yearOptions} style={{ minWidth: 110 }} />
-          <Select value={term} onChange={setTerm}
+          <Select value={year} onChange={e => setYear(e.target.value)} options={yearOptions} style={{ minWidth: 110 }} />
+          <Select value={term} onChange={e => setTerm(e.target.value)}
             options={[{ value: '', label: 'Select term' }, { value: '1', label: 'Term 1' }, { value: '2', label: 'Term 2' }, { value: '3', label: 'Term 3' }]}
             style={{ minWidth: 120 }}
           />
-          <Select value={classId} onChange={setClassId}
+          <Select value={classId} onChange={e => setClassId(e.target.value)}
             options={[{ value: '', label: 'Select class' }, ...classes.map(c => ({ value: c.id, label: c.name }))]}
             style={{ minWidth: 140 }}
           />
-          <Select value={streamId} onChange={setStreamId}
+          <Select value={streamId} onChange={e => setStreamId(e.target.value)}
             options={[{ value: '', label: 'All streams' }, ...streams.map(s => ({ value: s.id, label: s.name }))]}
             disabled={!classId}
             style={{ minWidth: 130 }}
