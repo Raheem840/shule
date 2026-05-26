@@ -108,16 +108,26 @@ export function AttendancePage() {
   const { data: termRates = [] }               = useClassTermAttendance(classId || null)
   const saveMutation                           = useSaveAttendance()
 
-  // Initialise marks whenever the student list or saved attendance changes
+  // Stable string key derived from Map content — React Query returns a new Map
+  // reference on every refetch even when data is unchanged. Using the key as the
+  // dependency means the effect only re-runs when data actually changes.
+  const attendanceKey = useMemo(() => {
+    if (!attendanceMap) return ''
+    return Array.from(attendanceMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}:${v}`)
+      .join('|')
+  }, [attendanceMap])
+
   useEffect(() => {
     if (students.length === 0) { setMarks(new Map()); return }
     const init = new Map<string, AttendanceStatus>()
     for (const s of students) init.set(s.id, attendanceMap?.get(s.id) ?? 'present')
     setMarks(init)
     setSaved(false)
-  // attendanceMap reference changes when the query returns new data
+  // attendanceMap is read inside but attendanceKey is the stable proxy for its content
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [students, attendanceMap])
+  }, [students, attendanceKey])
 
   function handleClassChange(cid: string) {
     setClassId(cid)
