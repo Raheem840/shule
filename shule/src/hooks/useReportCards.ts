@@ -457,7 +457,7 @@ function useUpdateStatus(action: 'approve' | 'release' | 'unlock') {
     mutationFn: async ({
       reportCardId,
       principalRemarks,
-      unlockReason,
+      unlockReason: _unlockReason,
     }: {
       reportCardId:     string
       principalRemarks?: string | null

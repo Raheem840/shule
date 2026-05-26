@@ -106,7 +106,7 @@ function usePromoteAllStudents() {
   const { user } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (newYearId: string) => {
+    mutationFn: async (_newYearId: string) => {
       if (!user) throw new Error('Not authenticated')
       const sid = user.schoolId
 
