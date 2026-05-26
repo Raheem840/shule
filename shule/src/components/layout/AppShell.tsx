@@ -342,13 +342,14 @@ function NotificationBell({ role }: { role: UserRole }) {
       </div>
 
       {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-          width: 320, maxHeight: 400, overflowY: 'auto',
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-          zIndex: 100,
-        }}>
+        <div
+          className="sui-dropdown-glass"
+          style={{
+            position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+            width: 320, maxHeight: 400, overflowY: 'auto',
+            zIndex: 100,
+          }}
+        >
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: '12px 14px', borderBottom: '1px solid var(--border)',
@@ -386,6 +387,7 @@ function NotificationBell({ role }: { role: UserRole }) {
             notifications.map(n => (
               <div
                 key={n.id}
+                className="sui-feed-row"
                 onClick={() => handleNotifClick(n.link, n.type)}
                 style={{
                   padding: '10px 14px', cursor: 'pointer',

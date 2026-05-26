@@ -13,43 +13,51 @@ import {
 import { useDisciplineRecords } from '../../hooks/useDeputy'
 import type { AuditEntry } from '../../types/week9'
 
-// ── KPI Card ──────────────────────────────────────────────────────────────
+// ── KPI Card — premium v2 with icon + accent stripe ──────────────────────
+const KPI_ICONS: Record<string, string> = {
+  students:  'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75',
+  staff:     'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z',
+  pass:      'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3',
+  fees:      'M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6',
+  attendance:'M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11',
+  approval:  'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+}
+
 function KpiCard({
-  label, value, sub, danger, badge, onClick,
+  label, value, sub, danger, badge, onClick, accent = 'brand', iconKey,
 }: {
   label: string; value: string | number; sub?: string
   danger?: boolean; badge?: number; onClick?: () => void
+  accent?: 'brand' | 'danger' | 'warning' | 'violet' | 'success' | 'info'
+  iconKey?: keyof typeof KPI_ICONS
 }) {
+  const effectiveAccent = danger ? 'danger' : accent
   return (
     <div
       onClick={onClick}
-      style={{
-        background: 'var(--surface)',
-        border: `1px solid ${danger ? 'var(--danger)' : 'var(--border)'}`,
-        borderRadius: 14, padding: '16px 20px', minWidth: 150, flex: 1,
-        cursor: onClick ? 'pointer' : 'default',
-        position: 'relative',
-        transition: onClick ? 'box-shadow 0.15s' : undefined,
-      }}
-      onMouseEnter={e => onClick && ((e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)')}
-      onMouseLeave={e => onClick && ((e.currentTarget as HTMLDivElement).style.boxShadow = 'none')}
+      className={`sui-kpi-v2 sui-kpi-accent-${effectiveAccent}`}
+      style={{ flex: 1, minWidth: 150, cursor: onClick ? 'pointer' : 'default' }}
     >
-      <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 600, marginBottom: 4 }}>{label}</div>
-      <div style={{
-        fontSize: 28, fontWeight: 900, fontFamily: 'var(--font2)',
-        color: danger ? 'var(--danger)' : 'var(--txt)',
-      }}>
+      {iconKey && (
+        <div className={`sui-kpi-icon sui-kpi-icon-${effectiveAccent}`}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d={KPI_ICONS[iconKey]} />
+          </svg>
+        </div>
+      )}
+      <div className="sui-kpi-label">{label}</div>
+      <div className="sui-kpi-num" style={{ color: danger ? 'var(--danger)' : 'var(--txt)' }}>
         {value}
         {badge != null && badge > 0 && (
           <span style={{
             marginLeft: 8, fontSize: 12, background: 'var(--danger)', color: '#fff',
-            borderRadius: 99, padding: '2px 7px', fontWeight: 800,
+            borderRadius: 99, padding: '2px 7px', fontWeight: 800, verticalAlign: 'middle',
           }}>
             {badge}
           </span>
         )}
       </div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 2 }}>{sub}</div>}
+      {sub && <div className="sui-kpi-sub">{sub}</div>}
     </div>
   )
 }
@@ -59,10 +67,10 @@ function QuickActions() {
   const navigate = useNavigate()
 
   const actions = [
-    { label: 'Approve Report Cards', path: '/principal/report-cards', color: 'var(--brand)' },
-    { label: 'View Audit Log',       path: '/principal/audit',        color: 'var(--txt2)'  },
-    { label: 'Send Announcement',    path: '/principal/messages',     color: 'var(--violet)' },
-    { label: 'Fee Summary',          path: '/bursar/dashboard',       color: 'var(--warning)' },
+    { label: 'Approve Report Cards', path: '/principal/report-cards', color: 'var(--brand)',   bg: 'rgba(13,148,136,0.1)',   border: 'rgba(13,148,136,0.2)'   },
+    { label: 'View Audit Log',       path: '/principal/audit',        color: 'var(--txt2)',    bg: 'var(--surface2)',        border: 'var(--border)'          },
+    { label: 'Send Announcement',    path: '/principal/messages',     color: 'var(--violet)',  bg: 'rgba(139,92,246,0.08)', border: 'rgba(139,92,246,0.2)'  },
+    { label: 'Fee Summary',          path: '/bursar/dashboard',       color: 'var(--warning)', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)'  },
   ]
 
   return (
@@ -70,14 +78,9 @@ function QuickActions() {
       {actions.map(a => (
         <button
           key={a.path}
+          className="sui-quick-btn"
           onClick={() => navigate(a.path)}
-          style={{
-            padding: '10px 18px', borderRadius: 10, border: `1px solid ${a.color}30`,
-            background: `${a.color}10`, color: a.color, fontWeight: 700, fontSize: 13,
-            cursor: 'pointer', transition: 'background 0.15s',
-          }}
-          onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.background = `${a.color}20`)}
-          onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.background = `${a.color}10`)}
+          style={{ background: a.bg, color: a.color, border: `1px solid ${a.border}` }}
         >
           {a.label}
         </button>
@@ -242,57 +245,70 @@ export function PrincipalDashboard() {
   const { data: kpis, isLoading: kpisLoading } = usePrincipalKpis()
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-      <div>
-        <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)', margin: 0 }}>
-          School Overview
-        </h1>
-        <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 4 }}>
-          Full visibility across academics, finance, attendance, and staff.
+    <div className="stagger-sections" style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+
+      {/* Hero band */}
+      <div className="sui-hero-band">
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 23, color: 'var(--txt)', margin: 0, letterSpacing: '-0.4px' }}>
+            School Overview
+          </h1>
+          <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 5 }}>
+            Full visibility across academics, finance, attendance, and staff.
+          </div>
         </div>
       </div>
 
       {/* Term Progress Timeline */}
       <SafeTermProgressTimeline />
 
-      {/* Section 1 — KPI Cards */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      {/* KPI Cards */}
+      <div className="stagger-cards" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         {kpisLoading ? (
-          <div style={{ color: 'var(--txt3)', fontSize: 13 }}>Loading KPIs…</div>
+          Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="sui-kpi-v2" style={{ flex: 1, minWidth: 150 }}>
+              <div className="shule-skeleton" style={{ height: 14, width: 80, borderRadius: 4, marginBottom: 8 }} />
+              <div className="shule-skeleton" style={{ height: 28, width: 60, borderRadius: 4 }} />
+            </div>
+          ))
         ) : kpis ? (
           <>
-            <KpiCard label="Total Students"      value={kpis.totalStudents} />
-            <KpiCard label="Total Staff"         value={kpis.totalStaff} />
-            <KpiCard label="Pass Rate"           value={`${kpis.overallPassRate}%`}
-              sub="This term" />
-            <KpiCard label="Fee Collection"      value={`${kpis.feeCollectionRate}%`}
-              danger={kpis.feeCollectionRate < 80} sub="of expected fees" />
-            <KpiCard label="Attendance"          value={`${kpis.attendanceRateThisWeek}%`}
-              sub="This week" danger={kpis.attendanceRateThisWeek < 80} />
-            <KpiCard
-              label="Pending Approvals" value={kpis.pendingReportCards}
-              badge={kpis.pendingReportCards}
-              danger={kpis.pendingReportCards > 0}
-              onClick={() => navigate('/principal/report-cards')}
-            />
+            <KpiCard label="Total Students" value={kpis.totalStudents}
+              accent="brand" iconKey="students" />
+            <KpiCard label="Total Staff" value={kpis.totalStaff}
+              accent="violet" iconKey="staff" />
+            <KpiCard label="Pass Rate" value={`${kpis.overallPassRate}%`} sub="This term"
+              accent="success" iconKey="pass" />
+            <KpiCard label="Fee Collection" value={`${kpis.feeCollectionRate}%`}
+              sub="of expected fees" danger={kpis.feeCollectionRate < 80}
+              accent="brand" iconKey="fees" />
+            <KpiCard label="Attendance" value={`${kpis.attendanceRateThisWeek}%`}
+              sub="This week" danger={kpis.attendanceRateThisWeek < 80}
+              accent="info" iconKey="attendance" />
+            <KpiCard label="Pending Approvals" value={kpis.pendingReportCards}
+              badge={kpis.pendingReportCards} danger={kpis.pendingReportCards > 0}
+              accent="warning" iconKey="approval"
+              onClick={() => navigate('/principal/report-cards')} />
           </>
         ) : null}
       </div>
 
-      {/* Section 2 — Quick Actions */}
+      {/* Quick Actions */}
       <div>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>Quick Actions</div>
+        <div className="sui-section-head">
+          <span className="sui-section-title">Quick Actions</span>
+        </div>
         <QuickActions />
       </div>
 
-      {/* Section 3 — Academic + Fee Overview */}
+      {/* Academic + Fee Overview */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div style={{
           background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: 14, padding: 20,
         }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 16 }}>
-            Top 5 Classes — Pass Rate
+          <div className="sui-section-head" style={{ marginBottom: 16 }}>
+            <span className="sui-section-title">Top 5 Classes — Pass Rate</span>
           </div>
           <TopClassesChart />
         </div>
@@ -301,17 +317,17 @@ export function PrincipalDashboard() {
           background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: 14, padding: 20,
         }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 16 }}>
-            Fee Collection Summary
+          <div className="sui-section-head" style={{ marginBottom: 16 }}>
+            <span className="sui-section-title">Fee Collection Summary</span>
           </div>
           <FeeOverviewPanel />
         </div>
       </div>
 
-      {/* Section 4 — Recent Activity */}
+      {/* Recent Activity */}
       <div>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>
-          Recent Activity
+        <div className="sui-section-head">
+          <span className="sui-section-title">Recent Activity</span>
         </div>
         <RecentActivity />
       </div>

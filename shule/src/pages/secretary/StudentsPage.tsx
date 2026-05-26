@@ -39,15 +39,27 @@ function GenerateAccessModal({
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <div style={{
-        background: 'var(--surface)', borderRadius: 'var(--r-xl)',
-        padding: '1.5rem', width: 420, maxWidth: '90vw',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.22)',
-      }}>
+    <div
+      className="sui-overlay"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'var(--modal-overlay)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div
+        className="sui-modal-dialog"
+        style={{
+          background: 'var(--modal-bg)',
+          border: '1px solid var(--modal-border)',
+          borderTop: '1px solid var(--modal-border-t)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          boxShadow: 'var(--modal-shadow)',
+          borderRadius: 'var(--r-xl)',
+          padding: '1.5rem', width: 420, maxWidth: '90vw',
+        }}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.2rem' }}>
           <div>
             <div style={{ fontWeight: 900, fontSize: 15, fontFamily: 'var(--font2)', color: 'var(--txt)' }}>

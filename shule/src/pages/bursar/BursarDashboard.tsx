@@ -19,35 +19,34 @@ function ugxCompact(v: number) {
 }
 
 // ── KPI card ──────────────────────────────────────────────────
+const BURSAR_KPI_ICONS: Record<string, string> = {
+  brand:   'M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6',
+  success: 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3',
+  danger:  'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01',
+  violet:  'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z',
+  info:    'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75',
+  warning: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+}
+
 function KpiCard({
   label, value, sub, accent,
 }: {
   label:   string
   value:   string
   sub?:    string
-  accent?: 'brand' | 'danger' | 'warning' | 'violet' | 'info'
+  accent?: 'brand' | 'danger' | 'warning' | 'violet' | 'info' | 'success'
 }) {
-  const colors: Record<string, string> = {
-    brand:   'var(--brand)',
-    danger:  'var(--danger)',
-    warning: 'var(--warning)',
-    violet:  'var(--violet)',
-    info:    'var(--info)',
-  }
-  const color = accent ? colors[accent] : 'var(--txt)'
+  const effectiveAccent = accent ?? 'brand'
   return (
-    <div style={{
-      background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 'var(--r-lg)', padding: '1.25rem 1.5rem',
-      display: 'flex', flexDirection: 'column', gap: 4,
-    }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 1 }}>
-        {label}
+    <div className={`sui-kpi-v2 sui-kpi-accent-${effectiveAccent}`} style={{ flex: 1, minWidth: 140 }}>
+      <div className={`sui-kpi-icon sui-kpi-icon-${effectiveAccent}`}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d={BURSAR_KPI_ICONS[effectiveAccent] ?? BURSAR_KPI_ICONS.brand} />
+        </svg>
       </div>
-      <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color, lineHeight: 1.1 }}>
-        {value}
-      </div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--txt3)' }}>{sub}</div>}
+      <div className="sui-kpi-label">{label}</div>
+      <div className="sui-kpi-num">{value}</div>
+      {sub && <div className="sui-kpi-sub">{sub}</div>}
     </div>
   )
 }
@@ -136,7 +135,7 @@ export function BursarDashboard() {
           <LoadingSpinner size="md" />
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
+        <div className="stagger-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
           <KpiCard
             label="Total Expected"
             value={K ? ugx(K.expected) : '—'}
