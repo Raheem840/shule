@@ -847,3 +847,71 @@ html, body, #root {
   animation: none !important;
   transition: none !important;
 }
+
+/* ═══════════════════════════════════════════════════
+   STUB CARD — placeholder for future features
+═══════════════════════════════════════════════════ */
+.stub-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 32px;
+  background: var(--surface);
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-lg);
+  text-align: center;
+}
+.stub-card-icon { color: var(--txt3); }
+.stub-card-title {
+  font-size: 1.05rem; font-weight: 700;
+  font-family: var(--font2);
+  color: var(--txt); margin: 0;
+}
+.stub-card-desc {
+  font-size: 0.875rem; color: var(--txt3);
+  margin: 0; max-width: 320px; line-height: 1.5;
+}
+.stub-badge {
+  font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface2);
+  color: var(--txt3);
+  font-family: var(--font2);
+}
+
+/* ═══════════════════════════════════════════════════
+   PROFILE PAGE LAYOUT
+═══════════════════════════════════════════════════ */
+.profile-page-wrap {
+  margin: -1.4rem -1.5rem 0;
+}
+.profile-band {
+  height: 180px;
+  position: relative;
+  overflow: hidden;
+}
+.profile-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 1.5rem 24px;
+}
+.profile-body {
+  padding: 0 1.5rem 2rem;
+}
+.profile-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.ar[data-theme="dark"] .profile-band {
+  opacity: 0.65;
+}
+@media (max-width: 640px) {
+  .profile-band { height: 140px; }
+}

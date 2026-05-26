@@ -1,9 +1,9 @@
-// Phase 2 — Unit tests for CBC grade logic in src/types/app.ts
+// Unit tests for CBC grade logic in src/types/app.ts
 // No mocking needed: app.ts has zero external dependencies.
 import { describe, it, expect } from 'vitest'
 import { calculateCBCGrade, calculateCBCTotal, calcCBC } from '../../types/app'
 
-// Grade scale: A=90–100, B=75–89, C=65–74, D=50–64, E=0–49
+// UNEB CBC grade scale: A=80–100, B=70–79, C=60–69, D=50–59, E=0–49
 describe('calculateCBCGrade', () => {
   describe('grade E (< 50)', () => {
     it('0 returns E', () => expect(calculateCBCGrade(0)).toBe('E'))
@@ -11,23 +11,23 @@ describe('calculateCBCGrade', () => {
     it('-1 returns E — negative input, no throw', () => expect(calculateCBCGrade(-1)).toBe('E'))
   })
 
-  describe('grade D (50–64)', () => {
+  describe('grade D (50–59)', () => {
     it('50 returns D — start of D', () => expect(calculateCBCGrade(50)).toBe('D'))
-    it('64 returns D — end of D', () => expect(calculateCBCGrade(64)).toBe('D'))
+    it('59 returns D — end of D', () => expect(calculateCBCGrade(59)).toBe('D'))
   })
 
-  describe('grade C (65–74)', () => {
-    it('65 returns C — start of C', () => expect(calculateCBCGrade(65)).toBe('C'))
-    it('74 returns C — end of C', () => expect(calculateCBCGrade(74)).toBe('C'))
+  describe('grade C (60–69)', () => {
+    it('60 returns C — start of C', () => expect(calculateCBCGrade(60)).toBe('C'))
+    it('69 returns C — end of C', () => expect(calculateCBCGrade(69)).toBe('C'))
   })
 
-  describe('grade B (75–89)', () => {
-    it('75 returns B — start of B', () => expect(calculateCBCGrade(75)).toBe('B'))
-    it('89 returns B — end of B', () => expect(calculateCBCGrade(89)).toBe('B'))
+  describe('grade B (70–79)', () => {
+    it('70 returns B — start of B', () => expect(calculateCBCGrade(70)).toBe('B'))
+    it('79 returns B — end of B', () => expect(calculateCBCGrade(79)).toBe('B'))
   })
 
-  describe('grade A (90–100)', () => {
-    it('90 returns A — start of A', () => expect(calculateCBCGrade(90)).toBe('A'))
+  describe('grade A (80–100)', () => {
+    it('80 returns A — start of A', () => expect(calculateCBCGrade(80)).toBe('A'))
     it('100 returns A', () => expect(calculateCBCGrade(100)).toBe('A'))
     it('101 returns A — above 100, no throw', () => expect(calculateCBCGrade(101)).toBe('A'))
   })
@@ -55,8 +55,7 @@ describe('calculateCBCTotal', () => {
 })
 
 describe('calcCBC — full CBCResult', () => {
-  it('A grade: descriptor=Exceptional, gradePoints=5', () => {
-    // 9/9×20=20, +75=95 → A
+  it('A grade: 9/9×20=20 +75=95 → A, descriptor=Exceptional, gradePoints=5', () => {
     const r = calcCBC(9, 3, 75)
     expect(r.grade).toBe('A')
     expect(r.descriptor).toBe('Exceptional')
@@ -64,8 +63,7 @@ describe('calcCBC — full CBCResult', () => {
     expect(r.total).toBe(95)
   })
 
-  it('B grade: descriptor=Outstanding, gradePoints=4', () => {
-    // 6/9×20=13.3, +65=78.3 → B
+  it('B grade: 6/9×20=13.3 +65=78.3 → B (70–79), descriptor=Outstanding', () => {
     const r = calcCBC(6, 3, 65)
     expect(r.grade).toBe('B')
     expect(r.descriptor).toBe('Outstanding')
@@ -73,28 +71,45 @@ describe('calcCBC — full CBCResult', () => {
     expect(r.total).toBe(78.3)
   })
 
-  it('C grade: descriptor=Satisfactory, gradePoints=3', () => {
-    // 3/9×20=6.7, +60=66.7 → C
+  it('C grade: 3/9×20=6.7 +60=66.7 → C (60–69), descriptor=Satisfactory', () => {
     const r = calcCBC(3, 3, 60)
     expect(r.grade).toBe('C')
     expect(r.descriptor).toBe('Satisfactory')
     expect(r.gradePoints).toBe(3)
   })
 
-  it('D grade: descriptor=Basic, gradePoints=2', () => {
-    // 0/9×20=0, +55=55 → D
+  it('D grade: 0/9×20=0 +55=55 → D (50–59), descriptor=Basic', () => {
     const r = calcCBC(0, 3, 55)
     expect(r.grade).toBe('D')
     expect(r.descriptor).toBe('Basic')
     expect(r.gradePoints).toBe(2)
   })
 
-  it('E grade: descriptor=Elementary, gradePoints=1', () => {
-    // 0/9×20=0, +40=40 → E
+  it('E grade: 0/9×20=0 +40=40 → E (0–49), descriptor=Elementary', () => {
     const r = calcCBC(0, 3, 40)
     expect(r.grade).toBe('E')
     expect(r.descriptor).toBe('Elementary')
     expect(r.gradePoints).toBe(1)
+  })
+
+  it('boundary A/B: score 79 → B, score 80 → A', () => {
+    expect(calcCBC(0, 0, 79).grade).toBe('B')
+    expect(calcCBC(0, 0, 80).grade).toBe('A')
+  })
+
+  it('boundary B/C: score 69 → C, score 70 → B', () => {
+    expect(calcCBC(0, 0, 69).grade).toBe('C')
+    expect(calcCBC(0, 0, 70).grade).toBe('B')
+  })
+
+  it('boundary C/D: score 59 → D, score 60 → C', () => {
+    expect(calcCBC(0, 0, 59).grade).toBe('D')
+    expect(calcCBC(0, 0, 60).grade).toBe('C')
+  })
+
+  it('boundary D/E: score 49 → E, score 50 → D', () => {
+    expect(calcCBC(0, 0, 49).grade).toBe('E')
+    expect(calcCBC(0, 0, 50).grade).toBe('D')
   })
 
   it('returns all required fields', () => {

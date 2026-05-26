@@ -76,7 +76,6 @@ export function useSubjects(level?: string) {
         .from('subjects')
         .select('id, name, curriculum_code, level')
         .eq('school_id', user!.schoolId)
-        .eq('is_active', true)
         .order('name', { ascending: true })
 
       if (level) q = q.eq('level', level)

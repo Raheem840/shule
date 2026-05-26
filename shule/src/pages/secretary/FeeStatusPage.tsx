@@ -1,0 +1,230 @@
+import { useState, useMemo, useRef } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../store/AuthContext'
+import { useClasses, useStreams } from '../../hooks/useClasses'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import type { FeeStatus } from '../../types/app'
+
+// Secretary fee status — shows PAID/PARTIAL/UNPAID badges only, no amounts.
+// Finance isolation: this query intentionally omits amount_due, amount_paid, balance.
+
+type StudentFeeStatus = {
+  studentId:       string
+  admissionNumber: string
+  firstName:       string
+  lastName:        string
+  classId:         string | null
+  streamId:        string | null
+  className:       string
+  streamName:      string
+  status:          FeeStatus
+}
+
+function useStudentFeeStatus(classId: string, streamId: string) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['student-fee-status', user?.schoolId, classId, streamId],
+    enabled:  !!user,
+    queryFn: async (): Promise<StudentFeeStatus[]> => {
+      const sid = user!.schoolId
+
+      let studQ = supabase
+        .from('students')
+        .select('id, admission_number, first_name, last_name, class_id, stream_id')
+        .eq('school_id', sid)
+        .eq('status', 'active')
+        .order('last_name', { ascending: true })
+      if (classId)  studQ = studQ.eq('class_id', classId)
+      if (streamId) studQ = studQ.eq('stream_id', streamId)
+
+      const [studRes, classRes, streamRes, payRes] = await Promise.all([
+        studQ,
+        supabase.from('classes').select('id, name').eq('school_id', sid),
+        supabase.from('streams').select('id, name').eq('school_id', sid),
+        // Only fetch existence (has paid / not paid) — no amounts
+        supabase
+          .from('fee_payments')
+          .select('student_id, amount_paid, amount_due')
+          .eq('school_id', sid)
+          .eq('year', new Date().getFullYear()),
+      ])
+
+      if (studRes.error)  throw studRes.error
+      if (payRes.error)   throw payRes.error
+
+      const classMap  = new Map<string, string>((classRes.data ?? []).map((c: any) => [c.id, c.name]))
+      const streamMap = new Map<string, string>((streamRes.data ?? []).map((s: any) => [s.id, s.name]))
+
+      // Aggregate per student: status only — no individual amounts exposed
+      type Agg = { paid: number; due: number }
+      const agg = new Map<string, Agg>()
+      for (const p of payRes.data ?? []) {
+        const sid2 = p.student_id as string
+        const prev = agg.get(sid2) ?? { paid: 0, due: 0 }
+        prev.paid += Number(p.amount_paid ?? 0)
+        prev.due  += Number(p.amount_due  ?? 0)
+        agg.set(sid2, prev)
+      }
+
+      return (studRes.data ?? []).map((r: any) => {
+        const a = agg.get(r.id as string)
+        let status: FeeStatus = 'unpaid'
+        if (a) {
+          if (a.due > 0 && a.paid >= a.due) status = 'paid'
+          else if (a.paid > 0)              status = 'partial'
+          else                              status = 'unpaid'
+        }
+        return {
+          studentId:       r.id as string,
+          admissionNumber: r.admission_number as string,
+          firstName:       r.first_name as string,
+          lastName:        r.last_name as string,
+          classId:         (r.class_id as string) ?? null,
+          streamId:        (r.stream_id as string) ?? null,
+          className:       classMap.get(r.class_id as string) ?? '—',
+          streamName:      streamMap.get(r.stream_id as string) ?? '—',
+          status,
+        }
+      })
+    },
+    staleTime: 2 * 60_000,
+  })
+}
+
+const STATUS_CFG: Record<FeeStatus, { label: string; bg: string; color: string }> = {
+  paid:    { label: 'Paid',    bg: 'var(--success-bg)', color: 'var(--success)'  },
+  partial: { label: 'Partial', bg: 'var(--warning-bg)', color: 'var(--warning)'  },
+  unpaid:  { label: 'Unpaid',  bg: 'var(--danger-bg)',  color: 'var(--danger)'   },
+}
+
+export function FeeStatusPage() {
+  const [classId,    setClassId]    = useState('')
+  const [streamId,   setStreamId]   = useState('')
+  const [statusFilter, setStatus]   = useState<FeeStatus | ''>('')
+  const [search,     setSearch]     = useState('')
+
+  const { data: classes = [] } = useClasses()
+  const { data: streams = [] } = useStreams(classId || null)
+  const { data = [], isLoading, isError } = useStudentFeeStatus(classId, streamId)
+
+  const rows = useMemo(() => {
+    let r = data
+    if (statusFilter) r = r.filter(x => x.status === statusFilter)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      r = r.filter(x =>
+        x.firstName.toLowerCase().includes(q) ||
+        x.lastName.toLowerCase().includes(q)  ||
+        x.admissionNumber.toLowerCase().includes(q)
+      )
+    }
+    return r
+  }, [data, statusFilter, search])
+
+  const counts = useMemo(() => ({
+    paid:    data.filter(x => x.status === 'paid').length,
+    partial: data.filter(x => x.status === 'partial').length,
+    unpaid:  data.filter(x => x.status === 'unpaid').length,
+  }), [data])
+
+  const parentRef = useRef<HTMLDivElement>(null)
+  const virtualiser = useVirtualizer({
+    count:           rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize:    () => 52,
+    overscan:        10,
+  })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <PageHeader
+        title="Fee Status"
+        subtitle="Student payment status — paid, partial, or unpaid. No amounts shown."
+      />
+
+      {/* Summary pills */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {(['paid', 'partial', 'unpaid'] as FeeStatus[]).map(s => {
+          const cfg = STATUS_CFG[s]
+          return (
+            <button key={s} onClick={() => setStatus(prev => prev === s ? '' : s)}
+              style={{
+                padding: '6px 14px', borderRadius: 8, border: `1.5px solid ${statusFilter === s ? cfg.color : 'var(--border)'}`,
+                background: statusFilter === s ? cfg.bg : 'var(--surface)',
+                color: statusFilter === s ? cfg.color : 'var(--txt2)',
+                fontWeight: 700, fontSize: 12, cursor: 'pointer',
+              }}>
+              {cfg.label} — {counts[s]}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <input className="sui-input" placeholder="Search student…" value={search}
+          onChange={e => setSearch(e.target.value)} style={{ minWidth: 200 }} />
+        <select className="sui-input" value={classId}
+          onChange={e => { setClassId(e.target.value); setStreamId('') }}>
+          <option value="">All Classes</option>
+          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        {streams.length > 0 && (
+          <select className="sui-input" value={streamId} onChange={e => setStreamId(e.target.value)}>
+            <option value="">All Streams</option>
+            {streams.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        )}
+      </div>
+
+      {isLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><LoadingSpinner size="md" /></div>}
+      {isError   && <div style={{ color: 'var(--danger)', padding: 16 }}>Failed to load fee status data.</div>}
+
+      {!isLoading && !isError && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+                {['Adm No', 'Student', 'Class', 'Stream', 'Status'].map(h => (
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+          </table>
+          <div ref={parentRef} style={{ maxHeight: 520, overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No students match the current filters.</td></tr>
+                ) : virtualiser.getVirtualItems().map(vi => {
+                  const row = rows[vi.index]
+                  const cfg = STATUS_CFG[row.status]
+                  return (
+                    <tr key={row.studentId} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt3)', width: 130 }}>{row.admissionNumber}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{row.firstName} {row.lastName}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--txt2)' }}>{row.className}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--txt2)' }}>{row.streamName}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {rows.length > 0 && (
+            <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--txt3)' }}>
+              Showing {rows.length} of {data.length} students
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

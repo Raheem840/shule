@@ -107,11 +107,11 @@ describe('buildSubjectRows', () => {
     ]
     const [row] = buildSubjectRows(results, new Map([['s1', 'Science']]))
 
-    // calcCBC(3, 1, 65): max=3, outOf20=20, total=85 → grade B
-    expect(row.grade).toBe('B')
+    // calcCBC(3, 1, 65): max=3, outOf20=20, total=85 → grade A (A=80–100)
+    expect(row.grade).toBe('A')
     expect(row.total).not.toBeNull()
     expect(row.examScore).toBe(65)
-    expect(row.descriptor).toBe('Outstanding')
+    expect(row.descriptor).toBe('Exceptional')
   })
 
   it('absent end_of_term — examScore is null, grade remains null', () => {

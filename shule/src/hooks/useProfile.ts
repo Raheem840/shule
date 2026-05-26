@@ -8,11 +8,18 @@ export type MyProfile = {
   lastName: string
   email: string | null
   phone: string | null
+  address: string | null
   role: string
   staffNumber: string | null
   photoUrl: string | null
   departmentName: string | null
   schoolName: string | null
+  employmentType: string | null
+  qualificationLevel: number | null
+  salaryBand: string | null
+  joinDate: string | null
+  isActive: boolean
+  lastSignInAt: string | null
 }
 
 // ── useMyProfile ───────────────────────────────────────────────────────────
@@ -25,10 +32,15 @@ export function useMyProfile() {
     queryFn: async (): Promise<MyProfile> => {
       const sid = user!.schoolId
 
-      const [staffRes, schoolRes] = await Promise.all([
+      const [staffRes, schoolRes, sessionRes] = await Promise.all([
         supabase
           .from('staff')
-          .select('id, first_name, last_name, email, phone, role, staff_number, photo_url, department_id')
+          .select([
+            'id', 'first_name', 'last_name', 'email', 'phone', 'address',
+            'role', 'staff_number', 'photo_url', 'department_id',
+            'employment_type', 'qualification_level', 'salary_band',
+            'join_date', 'is_active',
+          ].join(', '))
           .eq('school_id', sid)
           .eq('auth_user_id', user!.id)
           .single(),
@@ -37,32 +49,40 @@ export function useMyProfile() {
           .select('school_name')
           .eq('id', sid)
           .maybeSingle(),
+        supabase.auth.getSession(),
       ])
 
       if (staffRes.error) throw new Error(staffRes.error.message)
-      const row = staffRes.data
+      const row = staffRes.data as unknown as Record<string, unknown>
 
       let departmentName: string | null = null
-      if (row.department_id) {
+      if (row['department_id']) {
         const { data: dept } = await supabase
           .from('departments')
           .select('name')
-          .eq('id', row.department_id)
+          .eq('id', row['department_id'] as string)
           .maybeSingle()
         departmentName = dept?.name ?? null
       }
 
       return {
-        id:             row.id,
-        firstName:      row.first_name,
-        lastName:       row.last_name,
-        email:          row.email,
-        phone:          row.phone,
-        role:           row.role,
-        staffNumber:    row.staff_number,
-        photoUrl:       row.photo_url,
+        id:                 row['id'] as string,
+        firstName:          row['first_name'] as string,
+        lastName:           row['last_name'] as string,
+        email:              (row['email'] as string | null) ?? null,
+        phone:              (row['phone'] as string | null) ?? null,
+        address:            (row['address'] as string | null) ?? null,
+        role:               row['role'] as string,
+        staffNumber:        (row['staff_number'] as string | null) ?? null,
+        photoUrl:           (row['photo_url'] as string | null) ?? null,
         departmentName,
-        schoolName:     schoolRes.data?.school_name ?? null,
+        schoolName:         schoolRes.data?.school_name ?? null,
+        employmentType:     (row['employment_type'] as string | null) ?? null,
+        qualificationLevel: (row['qualification_level'] as number | null) ?? null,
+        salaryBand:         (row['salary_band'] as string | null) ?? null,
+        joinDate:           (row['join_date'] as string | null) ?? null,
+        isActive:           (row['is_active'] as boolean | null) ?? true,
+        lastSignInAt:       sessionRes.data.session?.user.last_sign_in_at ?? null,
       }
     },
     staleTime: 5 * 60_000,
@@ -75,10 +95,9 @@ export function useUpdateProfile() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async (updates: { phone?: string; email?: string }) => {
+    mutationFn: async (updates: { phone?: string | null; email?: string | null; address?: string | null }) => {
       if (!user) throw new Error('Not authenticated')
 
-      // Find staff row
       const { data: staffRow, error: staffErr } = await supabase
         .from('staff')
         .select('id')
@@ -88,9 +107,10 @@ export function useUpdateProfile() {
 
       if (staffErr || !staffRow) throw new Error('Staff record not found')
 
-      const dbUpdates: Record<string, string> = {}
-      if (updates.phone != null) dbUpdates['phone'] = updates.phone
-      if (updates.email != null) dbUpdates['email'] = updates.email
+      const dbUpdates: Record<string, unknown> = {}
+      if (updates.phone   !== undefined) dbUpdates['phone']   = updates.phone   ?? null
+      if (updates.address !== undefined) dbUpdates['address'] = updates.address ?? null
+      if (updates.email   !== undefined) dbUpdates['email']   = updates.email   ?? null
 
       if (Object.keys(dbUpdates).length > 0) {
         const { error } = await supabase
@@ -101,7 +121,6 @@ export function useUpdateProfile() {
         if (error) throw new Error(error.message)
       }
 
-      // Update Supabase Auth email if changed
       if (updates.email != null) {
         const { error: authErr } = await supabase.auth.updateUser({ email: updates.email })
         if (authErr) throw new Error(authErr.message)
@@ -132,7 +151,6 @@ export function useUpdateProfilePhoto() {
     mutationFn: async (file: File) => {
       if (!user) throw new Error('Not authenticated')
 
-      // Get staff row to get the ID for the path
       const { data: staffRow, error: staffErr } = await supabase
         .from('staff')
         .select('id')
@@ -142,7 +160,6 @@ export function useUpdateProfilePhoto() {
 
       if (staffErr || !staffRow) throw new Error('Staff record not found')
 
-      // Compress via Canvas if > 200KB
       let uploadFile = file
       if (file.size > 200_000) {
         const canvas = document.createElement('canvas')
