@@ -47,9 +47,10 @@ export function useSmsStudents(filters: SmsFilters) {
           .select('id, first_name, last_name, admission_number, class_id, stream_id')
           .eq('school_id', user!.schoolId)
           .eq('status', 'active'),
+        // guardian_name is the real DB column; is_primary DB NEEDS: ADD COLUMN
         supabase
           .from('student_guardians')
-          .select('student_id, full_name, phone, is_primary, do_not_contact')
+          .select('student_id, guardian_name, phone, do_not_contact')
           .eq('school_id', user!.schoolId)
           .eq('do_not_contact', false),
         supabase
@@ -80,11 +81,9 @@ export function useSmsStudents(filters: SmsFilters) {
       for (const g of guardiansRes.data ?? []) {
         const sid = g.student_id as string
         if (!anyGuardian.has(sid)) {
-          anyGuardian.set(sid, { name: g.full_name as string, phone: g.phone as string })
+          anyGuardian.set(sid, { name: g.guardian_name as string, phone: g.phone as string })
         }
-        if (g.is_primary) {
-          primaryGuardian.set(sid, { name: g.full_name as string, phone: g.phone as string })
-        }
+        // DB NEEDS: is_primary column — fall back to anyGuardian until then
       }
 
       const classMap  = new Map<string, string>()

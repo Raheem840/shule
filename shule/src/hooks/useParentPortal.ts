@@ -8,7 +8,7 @@ type AnyRow = Record<string, unknown>
 
 const STUDENT_COLS = [
   'id', 'school_id', 'admission_number', 'first_name', 'last_name',
-  'dob', 'gender', 'class_id', 'stream_id', 'student_type',
+  'dob', 'gender', 'class_id', 'stream_id',
   'photo_url', 'status', 'enrolled_at',
 ].join(', ')
 
@@ -21,17 +21,17 @@ function toStudent(r: AnyRow): Student {
     lastName:       r.last_name as string,
     dob:            (r.dob as string) ?? null,
     gender:         (r.gender as Student['gender']) ?? null,
-    nationality:    null,
-    religion:       null,
     classId:        (r.class_id as string) ?? null,
     streamId:       (r.stream_id as string) ?? null,
-    studentType:    (r.student_type as Student['studentType']) ?? null,
-    previousSchool: null,
     photoUrl:       (r.photo_url as string) ?? null,
     medicalNotes:   null,
     status:         r.status as Student['status'],
     enrolledAt:     r.enrolled_at as string,
     createdBy:      null,
+    nationality:    null,   // DB NEEDS: ADD COLUMN
+    religion:       null,   // DB NEEDS: ADD COLUMN
+    studentType:    null,   // DB NEEDS: ADD COLUMN
+    previousSchool: null,   // DB NEEDS: ADD COLUMN
   }
 }
 
@@ -119,9 +119,10 @@ export function useStudentExamSummary(studentId: string | null) {
     queryKey: ['portal-exam-summary', user?.schoolId, studentId],
     enabled:  !!studentId && !!user?.schoolId,
     queryFn: async () => {
+      // is_absent is NOT in exam_results schema — DB NEEDS: ADD COLUMN is_absent BOOLEAN
       const { data, error } = await supabase
         .from('exam_results')
-        .select('score, grade, is_absent, term, year, exam_journal_id')
+        .select('score, grade, term, year, exam_journal_id')
         .eq('school_id',  user!.schoolId)
         .eq('student_id', studentId!)
         .order('year', { ascending: false })
@@ -132,11 +133,11 @@ export function useStudentExamSummary(studentId: string | null) {
 
       const journalIds = [...new Set((data as unknown as AnyRow[]).map(r => r.exam_journal_id as string))]
 
+      // exam_journal has no status column — DB NEEDS: ADD COLUMN status TEXT
       const { data: journals, error: jErr } = await supabase
         .from('exam_journal')
         .select('id, name, assessment_type, total_marks, subject_id')
         .in('id', journalIds)
-        .eq('status', 'published')
 
       if (jErr) throw jErr
 
@@ -163,7 +164,7 @@ export function useStudentExamSummary(studentId: string | null) {
           totalMarks:     (j?.total_marks as number) ?? 0,
           term:           r.term as string,
           year:           r.year as number,
-          isAbsent:       (r.is_absent as boolean) ?? false,
+          isAbsent:       false,  // DB NEEDS: ADD COLUMN is_absent BOOLEAN
         } satisfies ExamResultRow
       })
     },
@@ -276,9 +277,10 @@ export function useGenerateParentAccess() {
       const tempPw    = 'Parent@2025'
 
       // Check for existing account linked to this student
+      // parent_accounts only has: id, school_id, email, student_ids, created_by, created_at
       const { data: existing } = await supabase
         .from('parent_accounts')
-        .select('id, email, temp_password')
+        .select('id, email')
         .eq('school_id', user!.schoolId)
         .contains('student_ids', [student.id])
         .maybeSingle()
@@ -286,7 +288,7 @@ export function useGenerateParentAccess() {
       if (existing) {
         return {
           email:        (existing as unknown as AnyRow).email as string,
-          tempPassword: ((existing as unknown as AnyRow).temp_password as string) ?? tempPw,
+          tempPassword: tempPw,   // DB NEEDS: ADD COLUMN temp_password TEXT — hardcoded for now
           isNew:        false,
         }
       }
@@ -294,13 +296,11 @@ export function useGenerateParentAccess() {
       const { error } = await supabase
         .from('parent_accounts')
         .insert({
-          school_id:     user!.schoolId,
-          full_name:     'Parent / Guardian',
+          school_id:   user!.schoolId,
           email,
-          phone:         null,
-          student_ids:   [student.id],
-          temp_password: tempPw,
-          created_by:    user!.id,
+          student_ids: [student.id],
+          created_by:  user!.id,
+          // DB NEEDS: full_name, phone, temp_password, auth_user_id
         })
 
       if (error) throw error

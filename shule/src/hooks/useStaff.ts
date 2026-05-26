@@ -11,11 +11,12 @@ const LIST_COLS = [
   'employment_type', 'photo_url', 'is_active',
 ].join(', ')
 
+// qualification_title, institution, graduation_year, date_of_birth, gender
+// are NOT in the staff schema yet — DB NEEDS: ADD COLUMN for each
 const DETAIL_COLS = [
   'id', 'school_id', 'auth_user_id', 'staff_number', 'first_name', 'last_name',
   'role', 'department_id', 'subjects', 'classes', 'phone', 'email',
-  'date_of_birth', 'gender', 'national_id', 'join_date',
-  'qualification_level', 'qualification_title', 'institution', 'graduation_year',
+  'national_id', 'join_date', 'qualification_level',
   'employment_type', 'photo_url', 'is_active', 'salary_band',
 ].join(', ')
 
@@ -33,18 +34,20 @@ function toStaff(r: AnyRow): Staff {
     classes:            (r.classes as string[]) ?? [],
     phone:              (r.phone as string) ?? null,
     email:              (r.email as string) ?? null,
-    dateOfBirth:        (r.date_of_birth as string) ?? null,
-    gender:             (r.gender as Staff['gender']) ?? null,
     nationalId:         (r.national_id as string) ?? null,
     joinDate:           (r.join_date as string) ?? null,
     qualificationLevel: (r.qualification_level as number) ?? null,
-    qualificationTitle: (r.qualification_title as string) ?? null,
-    institution:        (r.institution as string) ?? null,
-    graduationYear:     (r.graduation_year as number) ?? null,
     employmentType:     (r.employment_type as Staff['employmentType']) ?? null,
     photoUrl:           (r.photo_url as string) ?? null,
     isActive:           (r.is_active as boolean) ?? true,
     salaryBand:         (r.salary_band as string) ?? null,
+    address:            null,
+    // DB NEEDS: qualification_title, institution, graduation_year, date_of_birth, gender
+    qualificationTitle: null,
+    institution:        null,
+    graduationYear:     null,
+    dateOfBirth:        null,
+    gender:             null,
   }
 }
 
@@ -217,8 +220,6 @@ export function useRegisterStaff() {
           staff_number:        input.staffNumber,
           first_name:          input.firstName,
           last_name:           input.lastName,
-          date_of_birth:       input.dateOfBirth,
-          gender:              input.gender,
           phone:               input.phone,
           email:               input.email,
           national_id:         input.nationalId,
@@ -230,10 +231,8 @@ export function useRegisterStaff() {
           subjects:            input.subjects,
           classes:             input.classes,
           qualification_level: input.qualificationLevel,
-          qualification_title: input.qualificationTitle,
-          institution:         input.institution,
-          graduation_year:     input.graduationYear,
           is_active:           true,
+          // DB NEEDS: date_of_birth, gender, qualification_title, institution, graduation_year
         })
         .select('id')
         .single()

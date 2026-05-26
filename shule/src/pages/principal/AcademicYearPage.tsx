@@ -84,7 +84,7 @@ function useCreateAcademicYear() {
       if (!user) throw new Error('Not authenticated')
       const { error } = await supabase.from('academic_years').insert({
         school_id:   user.schoolId,
-        name:        vals.name,
+        label:       vals.name,   // label is the real column; name is a generated alias
         start_date:  vals.startDate,
         end_date:    vals.endDate,
         is_active:   false,
@@ -156,7 +156,8 @@ function usePromoteAllStudents() {
       }
       for (const [nextClassId, ids] of byNextClass) {
         const { error } = await supabase
-          .from('students').update({ class_id: nextClassId, stream_id: null, academic_year_id: newYearId })
+          .from('students').update({ class_id: nextClassId, stream_id: null })
+          // DB NEEDS: academic_year_id — NOT in students schema
           .in('id', ids).eq('school_id', sid)
         if (error) throw new Error(error.message)
       }

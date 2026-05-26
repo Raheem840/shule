@@ -36,9 +36,11 @@ function useParentAccounts() {
     queryKey: ['parent-accounts', user?.schoolId],
     enabled:  !!user?.schoolId,
     queryFn: async () => {
+      // parent_accounts only has: id, school_id, email, student_ids, created_by, created_at
+      // DB NEEDS: full_name, phone, auth_user_id, temp_password
       const { data, error } = await supabase
         .from('parent_accounts')
-        .select('id, school_id, email, phone, full_name, student_ids, auth_user_id, temp_password, created_by, created_at')
+        .select('id, school_id, email, student_ids, created_by, created_at')
         .eq('school_id', user!.schoolId)
         .order('created_at', { ascending: false })
 
@@ -48,13 +50,13 @@ function useParentAccounts() {
         id:          r.id as string,
         schoolId:    r.school_id as string,
         email:       r.email as string,
-        phone:       (r.phone as string) ?? null,
-        fullName:    r.full_name as string,
         studentIds:  (r.student_ids as string[]) ?? [],
-        authUserId:  (r.auth_user_id as string) ?? null,
-        tempPassword:(r.temp_password as string) ?? null,
         createdBy:   r.created_by as string,
         createdAt:   r.created_at as string,
+        fullName:    null,   // DB NEEDS: ADD COLUMN full_name TEXT
+        phone:       null,   // DB NEEDS: ADD COLUMN phone TEXT
+        authUserId:  null,   // DB NEEDS: ADD COLUMN auth_user_id UUID
+        tempPassword: null,  // DB NEEDS: ADD COLUMN temp_password TEXT
       } satisfies ParentAccount))
     },
   })
@@ -76,23 +78,12 @@ function useCreateParentAccount() {
       const { data, error } = await supabase
         .from('parent_accounts')
         .insert({
-          school_id:    user!.schoolId,
-          full_name:    input.fullName,
-          email:        input.email,
-          phone:        input.phone,
-          student_ids:  input.studentIds,
-          // Stored as plain text — acceptable for a local LAN system where
-          // the Secretary workflow is the only way this value is created.
-          // TODO Week 8: after Edge Function creates the real Supabase Auth user,
-          // clear temp_password from this row — it should not persist after first login.
-          // UPDATE parent_accounts SET temp_password = NULL WHERE id = parentAccountId
-          temp_password: input.tempPassword,
-          created_by:   user!.id,
-          // TODO Week 8: create Supabase Auth user via Edge Function (do NOT use Admin API from frontend)
-          // supabase.functions.invoke('create-parent-auth-user', {
-          //   body: { parentAccountId, email, tempPassword }
-          // })
-          // Edge Function sets auth_user_id on this row, then clears temp_password.
+          school_id:   user!.schoolId,
+          email:       input.email,
+          student_ids: input.studentIds,
+          created_by:  user!.id,
+          // DB NEEDS: full_name, phone, temp_password, auth_user_id
+          // Once columns exist, add: full_name, phone, temp_password here
         })
         .select('id')
         .single()
@@ -360,7 +351,7 @@ function ViewCredentialsModal({
 
   const credentials = [
     { label: 'Login Email',        value: account.email },
-    { label: 'Temporary Password', value: account.tempPassword ?? '(not set — contact IT Admin)' },
+    { label: 'Temporary Password', value: account.tempPassword ?? '(saved separately — DB column pending)' },
     { label: 'Portal URL',         value: portalUrl },
   ]
 
@@ -401,7 +392,7 @@ function ViewCredentialsModal({
           {/* Header row with auto-lock countdown */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
-              {account.fullName}
+              {account.fullName ?? account.email}
             </div>
             <div style={{
               fontSize: 11, fontFamily: 'var(--font3)',

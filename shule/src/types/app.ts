@@ -77,34 +77,39 @@ export type Student = {
   admissionNumber: string       // e.g. KJA/2025/0848 — unique per school
   firstName: string
   lastName: string
-  dob: string | null             // ISO date; was dateOfBirth
+  dob: string | null             // ISO date
   gender: 'male' | 'female' | null
-  nationality: string | null    // e.g. "Ugandan"
-  religion: string | null       // e.g. "Christian", "Muslim"
   classId: string | null
   streamId: string | null
-  studentType: 'day' | 'boarder' | null
-  previousSchool: string | null
   photoUrl: string | null
   medicalNotes: string | null
   status: 'active' | 'suspended' | 'expelled'
   enrolledAt: string
   createdBy: string | null
+  // DB NEEDS: ALTER TABLE students ADD COLUMN nationality TEXT
+  nationality: string | null
+  // DB NEEDS: ALTER TABLE students ADD COLUMN religion TEXT
+  religion: string | null
+  // DB NEEDS: ALTER TABLE students ADD COLUMN student_type TEXT
+  studentType: 'day' | 'boarder' | null
+  // DB NEEDS: ALTER TABLE students ADD COLUMN previous_school TEXT
+  previousSchool: string | null
 }
 
 // ── STUDENT GUARDIAN ───────────────────────────────────────────────────────
 // Maps to: student_guardians
-// One student can have up to 2 guardians. Only one should be isPrimary.
 export type StudentGuardian = {
   id: string
   schoolId: string
   studentId: string
-  fullName: string
+  guardianName: string          // DB column: guardian_name
   relationship: string          // 'mother' | 'father' | 'uncle' | 'aunt' | etc.
   phone: string
   email: string | null
-  isPrimary: boolean
   doNotContact: boolean         // bursar won't SMS this guardian
+  // DB NEEDS: ALTER TABLE student_guardians ADD COLUMN is_primary BOOLEAN DEFAULT false
+  isPrimary: boolean
+  // DB NEEDS: ALTER TABLE student_guardians ADD COLUMN comms_preference TEXT DEFAULT 'sms'
   commsPreference: 'sms' | 'whatsapp' | 'both'
 }
 
@@ -122,19 +127,25 @@ export type Staff = {
   subjects: string[]            // array of subject IDs they teach
   classes: string[]             // array of class IDs they're assigned to
   qualificationLevel: number | null
-  qualificationTitle: string | null
-  institution: string | null
-  graduationYear: number | null
   phone: string | null
   email: string | null
-  dateOfBirth: string | null
-  gender: 'male' | 'female' | null
   nationalId: string | null
   joinDate: string | null
   employmentType: 'permanent' | 'contract' | 'volunteer' | null
   photoUrl: string | null
   isActive: boolean
   salaryBand: string | null
+  address: string | null
+  // DB NEEDS: ALTER TABLE staff ADD COLUMN qualification_title TEXT
+  qualificationTitle: string | null
+  // DB NEEDS: ALTER TABLE staff ADD COLUMN institution TEXT
+  institution: string | null
+  // DB NEEDS: ALTER TABLE staff ADD COLUMN graduation_year INTEGER
+  graduationYear: number | null
+  // DB NEEDS: ALTER TABLE staff ADD COLUMN date_of_birth DATE
+  dateOfBirth: string | null
+  // DB NEEDS: ALTER TABLE staff ADD COLUMN gender TEXT
+  gender: 'male' | 'female' | null
 }
 
 // ── STAFF DOCUMENT ─────────────────────────────────────────────────────────
@@ -217,13 +228,17 @@ export type ParentAccount = {
   id: string
   schoolId: string
   email: string
-  phone: string | null
-  fullName: string
   studentIds: string[]      // children this parent can access
-  authUserId: string | null // linked Supabase auth user
-  tempPassword: string | null // plain text temp password; requires re-auth to view
   createdBy: string
   createdAt: string
+  // DB NEEDS: ALTER TABLE parent_accounts ADD COLUMN full_name TEXT
+  fullName: string | null
+  // DB NEEDS: ALTER TABLE parent_accounts ADD COLUMN phone TEXT
+  phone: string | null
+  // DB NEEDS: ALTER TABLE parent_accounts ADD COLUMN auth_user_id UUID REFERENCES auth.users(id)
+  authUserId: string | null
+  // DB NEEDS: ALTER TABLE parent_accounts ADD COLUMN temp_password TEXT
+  tempPassword: string | null
 }
 
 export type FeeStatus = 'paid' | 'partial' | 'unpaid'

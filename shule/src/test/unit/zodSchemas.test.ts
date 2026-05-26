@@ -21,7 +21,7 @@ import { journalSchema } from '../../pages/teacher/ExamJournalPage'
 // ── Student Registration Wizard schema ─────────────────────────
 describe('wizardSchema (student registration)', () => {
   const validGuardian = {
-    fullName:        'Jane Doe',
+    guardianName:    'Jane Doe',
     relationship:    'mother',
     phone:           '0700123456',
     email:           undefined,
@@ -96,7 +96,7 @@ describe('wizardSchema (student registration)', () => {
 // ── Guardian sub-schema ────────────────────────────────────────
 describe('guardianSchema', () => {
   const valid = {
-    fullName: 'Mary Apio', relationship: 'mother',
+    guardianName: 'Mary Apio', relationship: 'mother',
     phone: '0700111222', isPrimary: true,
     doNotContact: false, commsPreference: 'sms' as const,
   }
@@ -112,8 +112,8 @@ describe('guardianSchema', () => {
     expect(r.error!.issues.find(i => i.path.includes('phone'))?.message).toMatch(/phone/i)
   })
 
-  it('rejects missing fullName', () => {
-    const r = guardianSchema.safeParse({ ...valid, fullName: '' })
+  it('rejects missing guardianName', () => {
+    const r = guardianSchema.safeParse({ ...valid, guardianName: '' })
     expect(r.success).toBe(false)
   })
 

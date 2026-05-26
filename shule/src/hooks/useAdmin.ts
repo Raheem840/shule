@@ -137,7 +137,7 @@ export function useSchoolSettings() {
     queryFn: async (): Promise<SchoolSettings> => {
       const { data, error } = await supabase
         .from('school_profile')
-        .select('id, school_name, short_name, motto, logo_url, primary_color, currency')
+        .select('id, school_name, short_name, motto, logo_url, primary_color')
         .eq('id', user!.schoolId)
         .single()
 
@@ -150,7 +150,7 @@ export function useSchoolSettings() {
         motto:        data.motto,
         logoUrl:      data.logo_url,
         primaryColor: data.primary_color ?? '#0d9488',
-        currency:     data.currency ?? 'UGX',
+        currency:     'UGX',  // DB NEEDS: ALTER TABLE school_profile ADD COLUMN currency TEXT DEFAULT 'UGX'
       }
     },
     staleTime: 10 * 60_000,

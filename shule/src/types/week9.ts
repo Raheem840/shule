@@ -203,7 +203,7 @@ export type SchoolSettings = {
   motto: string | null
   logoUrl: string | null
   primaryColor: string
-  currency: string
+  currency: string  // DB NEEDS: ADD COLUMN currency TEXT — hardcoded 'UGX' until then
 }
 
 export type ApiConfig = {

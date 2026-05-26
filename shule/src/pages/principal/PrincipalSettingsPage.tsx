@@ -147,7 +147,6 @@ export function PrincipalSettingsPage() {
           Read-Only Information
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <ReadRow label="Currency"    value={settings.currency} />
           <ReadRow label="School ID"   value={settings.id?.slice(0, 8) + '…'} mono />
           {settings.logoUrl && (
             <div>

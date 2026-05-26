@@ -209,7 +209,7 @@ describe('useRegisterStudent', () => {
         streamId: null, studentType: 'day', previousSchool: null,
         enrolledAt: '2025-01-15',
         guardians: [{
-          fullName: 'Mary Apio', relationship: 'mother', phone: '0700111222',
+          guardianName: 'Mary Apio', relationship: 'mother', phone: '0700111222',
           email: null, isPrimary: true, doNotContact: false, commsPreference: 'sms',
         }],
       })
@@ -251,8 +251,8 @@ describe('useStudentById (with data)', () => {
     setResponse('student_guardians', {
       data: [{
         id: 'grd-1', school_id: 'school-1', student_id: 'stu-1',
-        full_name: 'Mary Nakato', relationship: 'mother', phone: '0700111222',
-        email: null, is_primary: true, do_not_contact: false, comms_preference: 'sms',
+        guardian_name: 'Mary Nakato', relationship: 'mother', phone: '0700111222',
+        email: null, do_not_contact: false,
       }],
       error: null,
     })
@@ -262,7 +262,7 @@ describe('useStudentById (with data)', () => {
 
     expect(result.current.data!.id).toBe('stu-1')
     expect(result.current.data!.guardians).toHaveLength(1)
-    expect(result.current.data!.guardians[0].fullName).toBe('Mary Nakato')
+    expect(result.current.data!.guardians[0].guardianName).toBe('Mary Nakato')
   })
 
   it('throws when student fetch returns an error', async () => {

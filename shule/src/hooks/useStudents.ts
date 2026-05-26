@@ -8,20 +8,21 @@ import type { Student, StudentGuardian } from '../types/app'
 // Detail view adds the heavy optional fields.
 const LIST_COLS = [
   'id', 'school_id', 'admission_number', 'first_name', 'last_name',
-  'dob', 'gender', 'class_id', 'stream_id', 'student_type',
+  'dob', 'gender', 'class_id', 'stream_id',
   'photo_url', 'status', 'enrolled_at',
 ].join(', ')
 
 const DETAIL_COLS = [
   'id', 'school_id', 'admission_number', 'first_name', 'last_name',
-  'dob', 'gender', 'nationality', 'religion', 'class_id',
-  'stream_id', 'student_type', 'previous_school', 'photo_url',
-  'medical_notes', 'status', 'enrolled_at',
+  'dob', 'gender', 'class_id', 'stream_id',
+  'photo_url', 'medical_notes', 'status', 'enrolled_at',
 ].join(', ')
 
+// guardian_name is the real DB column (not full_name)
+// is_primary and comms_preference are NOT in schema yet — DB NEEDS: ADD COLUMN
 const GUARDIAN_COLS = [
-  'id', 'school_id', 'student_id', 'full_name', 'relationship',
-  'phone', 'email', 'is_primary', 'do_not_contact', 'comms_preference',
+  'id', 'school_id', 'student_id', 'guardian_name', 'relationship',
+  'phone', 'email', 'do_not_contact',
 ].join(', ')
 
 // ── Row → TypeScript mappers ───────────────────────────────────
@@ -38,17 +39,17 @@ function toStudent(r: AnyRow): Student {
     lastName:        r.last_name as string,
     dob:             (r.dob as string) ?? null,
     gender:          (r.gender as Student['gender']) ?? null,
-    nationality:     (r.nationality as string) ?? null,
-    religion:        (r.religion as string) ?? null,
     classId:         (r.class_id as string) ?? null,
     streamId:        (r.stream_id as string) ?? null,
-    studentType:     (r.student_type as Student['studentType']) ?? null,
-    previousSchool:  (r.previous_school as string) ?? null,
     photoUrl:        (r.photo_url as string) ?? null,
     medicalNotes:    (r.medical_notes as string) ?? null,
     status:          r.status as Student['status'],
     enrolledAt:      r.enrolled_at as string,
     createdBy:       (r.created_by as string) ?? null,
+    nationality:     null,  // DB NEEDS: ADD COLUMN nationality TEXT
+    religion:        null,  // DB NEEDS: ADD COLUMN religion TEXT
+    studentType:     null,  // DB NEEDS: ADD COLUMN student_type TEXT
+    previousSchool:  null,  // DB NEEDS: ADD COLUMN previous_school TEXT
   }
 }
 
@@ -57,13 +58,13 @@ function toGuardian(r: AnyRow): StudentGuardian {
     id:              r.id as string,
     schoolId:        r.school_id as string,
     studentId:       r.student_id as string,
-    fullName:        r.full_name as string,
+    guardianName:    (r.guardian_name as string) ?? '',
     relationship:    r.relationship as string,
     phone:           r.phone as string,
     email:           (r.email as string) ?? null,
-    isPrimary:       r.is_primary as boolean,
-    doNotContact:    r.do_not_contact as boolean,
-    commsPreference: r.comms_preference as StudentGuardian['commsPreference'],
+    doNotContact:    (r.do_not_contact as boolean) ?? false,
+    isPrimary:       false,          // DB NEEDS: ADD COLUMN is_primary BOOLEAN
+    commsPreference: 'sms',          // DB NEEDS: ADD COLUMN comms_preference TEXT
   }
 }
 
@@ -138,7 +139,7 @@ export function useStudentById(id: string | null | undefined) {
           .from('student_guardians')
           .select(GUARDIAN_COLS)
           .eq('student_id', id!)
-          .order('is_primary', { ascending: false }),
+          .order('id', { ascending: true }),
       ])
 
       if (studentRes.error)  throw studentRes.error
@@ -185,13 +186,13 @@ export function useNextAdmissionNumber(year: number) {
 
 // ── Mutation input types ───────────────────────────────────────
 export type GuardianInput = {
-  fullName:        string
+  guardianName:    string
   relationship:    string
   phone:           string
   email:           string | null
-  isPrimary:       boolean
+  isPrimary:       boolean       // UI-only until DB NEEDS: ADD COLUMN is_primary
   doNotContact:    boolean
-  commsPreference: StudentGuardian['commsPreference']
+  commsPreference: StudentGuardian['commsPreference']  // UI-only until DB NEEDS: ADD COLUMN comms_preference
 }
 
 export type RegisterStudentInput = {
@@ -239,16 +240,13 @@ export function useRegisterStudent() {
           last_name:        input.lastName,
           dob:              input.dob,
           gender:           input.gender,
-          nationality:      input.nationality,
-          religion:         input.religion,
           class_id:         input.classId,
           stream_id:        input.streamId,
-          student_type:     input.studentType,
-          previous_school:  input.previousSchool,
           photo_url:        input.photoUrl,
           medical_notes:    input.medicalNotes,
           enrolled_at:      input.enrolledAt,
           status:           'active',
+          // DB NEEDS: nationality, religion, student_type, previous_school
         })
         .select('id')
         .single()
@@ -260,15 +258,14 @@ export function useRegisterStudent() {
           .from('student_guardians')
           .insert(
             input.guardians.map(g => ({
-              school_id:        user!.schoolId,
-              student_id:       newStudent.id,
-              full_name:        g.fullName,
-              relationship:     g.relationship,
-              phone:            g.phone,
-              email:            g.email,
-              is_primary:       g.isPrimary,
-              do_not_contact:   g.doNotContact,
-              comms_preference: g.commsPreference,
+              school_id:      user!.schoolId,
+              student_id:     newStudent.id,
+              guardian_name:  g.guardianName,
+              relationship:   g.relationship,
+              phone:          g.phone,
+              email:          g.email,
+              do_not_contact: g.doNotContact,
+              // DB NEEDS: is_primary, comms_preference
             }))
           )
 
@@ -294,19 +291,16 @@ export function useUpdateStudent() {
     mutationFn: async ({ id, ...fields }: UpdateStudentInput) => {
       // Build update object with only provided fields
       const patch: AnyRow = {}
-      if (fields.firstName      !== undefined) patch.first_name       = fields.firstName
-      if (fields.lastName       !== undefined) patch.last_name        = fields.lastName
-      if (fields.dob            !== undefined) patch.dob              = fields.dob
-      if (fields.gender         !== undefined) patch.gender           = fields.gender
-      if (fields.nationality    !== undefined) patch.nationality      = fields.nationality
-      if (fields.religion       !== undefined) patch.religion         = fields.religion
-      if (fields.classId        !== undefined) patch.class_id         = fields.classId
-      if (fields.streamId       !== undefined) patch.stream_id        = fields.streamId
-      if (fields.studentType    !== undefined) patch.student_type     = fields.studentType
-      if (fields.previousSchool !== undefined) patch.previous_school  = fields.previousSchool
-      if (fields.photoUrl       !== undefined) patch.photo_url        = fields.photoUrl
-      if (fields.medicalNotes   !== undefined) patch.medical_notes    = fields.medicalNotes
-      if (fields.enrolledAt     !== undefined) patch.enrolled_at      = fields.enrolledAt
+      if (fields.firstName    !== undefined) patch.first_name    = fields.firstName
+      if (fields.lastName     !== undefined) patch.last_name     = fields.lastName
+      if (fields.dob          !== undefined) patch.dob           = fields.dob
+      if (fields.gender       !== undefined) patch.gender        = fields.gender
+      if (fields.classId      !== undefined) patch.class_id      = fields.classId
+      if (fields.streamId     !== undefined) patch.stream_id     = fields.streamId
+      if (fields.photoUrl     !== undefined) patch.photo_url     = fields.photoUrl
+      if (fields.medicalNotes !== undefined) patch.medical_notes = fields.medicalNotes
+      if (fields.enrolledAt   !== undefined) patch.enrolled_at   = fields.enrolledAt
+      // DB NEEDS: nationality, religion, student_type, previous_school — skip until columns added
 
       const { error } = await supabase
         .from('students')

@@ -67,7 +67,7 @@ function useSchoolPrefix() {
 
 // ── Zod schemas ───────────────────────────────────────────────
 export const guardianSchema = z.object({
-  fullName:        z.string().min(1, 'Full name is required'),
+  guardianName:    z.string().min(1, 'Full name is required'),
   relationship:    z.string().min(1, 'Relationship is required'),
   phone:           z.string().min(7, 'Valid phone number required'),
   email:           z.string().optional(),
@@ -205,14 +205,14 @@ function PreviewCard({ control, classes, streams, photoPreview }: {
               {new Date(v.enrolledAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
             </Row>
           )}
-          {v.guardians?.some(g => g.fullName) && (
+          {v.guardians?.some(g => g.guardianName) && (
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
               <div style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--txt3)', letterSpacing: '0.8px', marginBottom: 6, fontFamily: 'var(--font2)' }}>
                 GUARDIANS
               </div>
-              {v.guardians.filter(g => g.fullName).map((g, i) => (
+              {v.guardians.filter(g => g.guardianName).map((g, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt2)' }}>{g.fullName}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt2)' }}>{g.guardianName}</span>
                   {g.isPrimary && <Badge variant="teal" style={{ fontSize: 9 }}>Primary</Badge>}
                 </div>
               ))}
@@ -254,7 +254,7 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
       firstName: '', lastName: '', dateOfBirth: '', gender: '', nationality: '',
       religion: '', medicalNotes: '', admissionNumber: '', classId: '', streamId: '',
       studentType: '', previousSchool: '', enrolledAt: new Date().toISOString().slice(0, 10),
-      guardians: [{ fullName: '', relationship: '', phone: '', email: '', isPrimary: true, doNotContact: false, commsPreference: 'sms' }],
+      guardians: [{ guardianName: '', relationship: '', phone: '', email: '', isPrimary: true, doNotContact: false, commsPreference: 'sms' }],
     },
   })
 
@@ -327,7 +327,7 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
       previousSchool:  n(values.previousSchool),
       enrolledAt:      values.enrolledAt,
       guardians: values.guardians.map(g => ({
-        fullName:        g.fullName,
+        guardianName:    g.guardianName,
         relationship:    g.relationship,
         phone:           g.phone,
         email:           g.email?.trim() || null,
@@ -599,7 +599,7 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
                     {/* Fields */}
                     <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                        <Input label="Full Name *" {...register(`guardians.${idx}.fullName`)} error={errors.guardians?.[idx]?.fullName?.message} placeholder="Guardian's full name" />
+                        <Input label="Full Name *" {...register(`guardians.${idx}.guardianName`)} error={errors.guardians?.[idx]?.guardianName?.message} placeholder="Guardian's full name" />
                         <Select
                           label="Relationship *"
                           {...register(`guardians.${idx}.relationship`)}
@@ -683,7 +683,7 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
               {gFields.length < 2 && (
                 <button
                   type="button"
-                  onClick={() => gAppend({ fullName: '', relationship: '', phone: '', email: '', isPrimary: false, doNotContact: false, commsPreference: 'sms' })}
+                  onClick={() => gAppend({ guardianName: '', relationship: '', phone: '', email: '', isPrimary: false, doNotContact: false, commsPreference: 'sms' })}
                   style={{ width: '100%', padding: '0.75rem', border: '2px dashed var(--border)', borderRadius: 'var(--r-lg)', background: 'none', color: 'var(--txt3)', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, fontFamily: 'var(--font2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'color 0.15s, border-color 0.15s' }}
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
