@@ -23,9 +23,9 @@ export function usePrincipalKpis() {
              feeStructureRes, attendanceRes, reportCardsRes] = await Promise.all([
         supabase.from('students').select('id').eq('school_id', sid).eq('status', 'active'),
         supabase.from('staff').select('id').eq('school_id', sid).eq('is_active', true),
-        supabase.from('exam_results').select('score, is_absent, exam_journal_id').eq('school_id', sid),
+        supabase.from('exam_results').select('score, exam_journal_id').eq('school_id', sid),
         supabase.from('exam_journal').select('id, pass_mark').eq('school_id', sid),
-        supabase.from('fee_payments').select('amount').eq('school_id', sid),
+        supabase.from('fee_payments').select('amount_paid').eq('school_id', sid),
         supabase.from('fee_structure').select('amount').eq('school_id', sid),
         supabase.from('attendance').select('status, date').eq('school_id', sid)
           .gte('date', weekStartStr).lte('date', today),
@@ -36,14 +36,14 @@ export function usePrincipalKpis() {
       const passMarkMap = new Map<string, number>(
         (journalsRes.data ?? []).map((j: any) => [j.id, j.pass_mark])
       )
-      const graded = (resultsRes.data ?? []).filter((r: any) => !r.is_absent && r.score != null)
+      const graded = (resultsRes.data ?? []).filter((r: any) => r.score != null)
       const passed = graded.filter((r: any) => r.score >= (passMarkMap.get(r.exam_journal_id) ?? 50))
       const overallPassRate = graded.length > 0
         ? Math.round((passed.length / graded.length) * 100) : 0
 
       // Fee collection rate
       const totalExpected  = (feeStructureRes.data ?? []).reduce((s: number, r: any) => s + (r.amount ?? 0), 0)
-      const totalCollected = (paymentsRes.data ?? []).reduce((s: number, r: any) => s + (r.amount ?? 0), 0)
+      const totalCollected = (paymentsRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_paid ?? 0), 0)
       const feeCollectionRate = totalExpected > 0
         ? Math.round((totalCollected / totalExpected) * 100) : 0
 
@@ -80,7 +80,7 @@ export function useTopClasses() {
       const [classesRes, studentsRes, resultsRes, journalsRes] = await Promise.all([
         supabase.from('classes').select('id, name').eq('school_id', sid),
         supabase.from('students').select('id, class_id').eq('school_id', sid).eq('status', 'active'),
-        supabase.from('exam_results').select('student_id, score, is_absent, exam_journal_id').eq('school_id', sid),
+        supabase.from('exam_results').select('student_id, score, exam_journal_id').eq('school_id', sid),
         supabase.from('exam_journal').select('id, pass_mark, class_id').eq('school_id', sid),
       ])
 
@@ -96,7 +96,7 @@ export function useTopClasses() {
           students.filter((s: any) => s.class_id === cls.id).map((s: any) => s.id)
         )
         const classResults = results.filter((r: any) =>
-          classStudentIds.has(r.student_id) && !r.is_absent && r.score != null
+          classStudentIds.has(r.student_id) && r.score != null
         )
         const classPassed = classResults.filter((r: any) =>
           r.score >= (passMarkMap.get(r.exam_journal_id) ?? 50)
@@ -125,24 +125,20 @@ export function useSchoolFeeSummary() {
     queryFn: async (): Promise<FeeSummary> => {
       const sid = user!.schoolId
 
-      const [paymentsRes, structureRes, overdueRes] = await Promise.all([
-        supabase.from('fee_payments').select('amount').eq('school_id', sid),
+      const [paymentsRes, structureRes] = await Promise.all([
+        supabase.from('fee_payments').select('amount_paid, balance').eq('school_id', sid),
         supabase.from('fee_structure').select('amount').eq('school_id', sid),
-        Promise.resolve(supabase.from('fee_payments')
-          .select('id')
-          .eq('school_id', sid)
-          .eq('status', 'overdue')
-        ).catch(() => ({ data: [] as { id: string }[], error: null })),
       ])
 
-      const totalCollected = (paymentsRes.data ?? []).reduce((s: number, r: any) => s + (r.amount ?? 0), 0)
+      const totalCollected = (paymentsRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_paid ?? 0), 0)
       const totalExpected  = (structureRes.data ?? []).reduce((s: number, r: any) => s + (r.amount ?? 0), 0)
+      const overdueCount   = (paymentsRes.data ?? []).filter((r: any) => (r.balance ?? 0) > 0).length
 
       return {
         totalExpected,
         totalCollected,
         outstanding: Math.max(0, totalExpected - totalCollected),
-        overdueCount: ((overdueRes as any).data ?? []).length,
+        overdueCount,
       }
     },
     staleTime: 5 * 60_000,
@@ -165,12 +161,12 @@ export function useAuditLog(params?: {
     queryFn: async (): Promise<AuditEntry[]> => {
       let q = supabase
         .from('audit_log')
-        .select('id, action, table_name, user_id, user_role, old_data, new_data, created_at')
+        .select('id, action, table_name, user_id, role, old_value, new_value, created_at')
         .eq('school_id', user!.schoolId)
         .order('created_at', { ascending: false })
         .limit(params?.limit ?? 50)
 
-      if (params?.role)     q = q.eq('user_role', params.role)
+      if (params?.role)     q = q.eq('role', params.role)
       if (params?.action)   q = q.eq('action', params.action)
       if (params?.dateFrom) q = q.gte('created_at', params.dateFrom)
       if (params?.dateTo)   q = q.lte('created_at', params.dateTo)
@@ -178,7 +174,6 @@ export function useAuditLog(params?: {
       const { data, error } = await q
 
       if (error) {
-        // audit_log table may not exist yet — return empty
         if (error.message.includes('does not exist') || error.code === '42P01') return []
         throw new Error(error.message)
       }
@@ -188,9 +183,9 @@ export function useAuditLog(params?: {
         action:    r.action,
         tableName: r.table_name,
         userId:    r.user_id,
-        userRole:  r.user_role,
-        oldData:   r.old_data,
-        newData:   r.new_data,
+        userRole:  r.role,
+        oldData:   r.old_value,
+        newData:   r.new_value,
         createdAt: r.created_at,
       } satisfies AuditEntry))
     },
@@ -208,7 +203,7 @@ export function useStudentFullProfile(studentId: string | null) {
     queryFn: async () => {
       const sid = user!.schoolId
 
-      const [studentRes, resultsRes, attendanceRes, disciplineRes, classRes] = await Promise.all([
+      const [studentRes, resultsRes, attendanceRes, disciplineRes, feeRes] = await Promise.all([
         supabase
           .from('students')
           .select('id, first_name, last_name, admission_number, dob, gender, status, class_id, stream_id, photo_url')
@@ -217,7 +212,7 @@ export function useStudentFullProfile(studentId: string | null) {
           .single(),
         supabase
           .from('exam_results')
-          .select('subject_id, score, grade, is_absent, term, year, exam_journal_id')
+          .select('subject_id, score, grade, term, year, exam_journal_id')
           .eq('school_id', sid)
           .eq('student_id', studentId!),
         supabase
@@ -232,12 +227,11 @@ export function useStudentFullProfile(studentId: string | null) {
           .eq('student_id', studentId!)
           .order('incident_date', { ascending: false })
           .limit(10),
-        Promise.resolve(supabase
+        supabase
           .from('fee_payments')
-          .select('amount, status')
+          .select('amount_paid')
           .eq('school_id', sid)
-          .eq('student_id', studentId!)
-        ).catch(() => ({ data: [] as { amount: number; status: string }[], error: null })),
+          .eq('student_id', studentId!),
       ])
 
       if (studentRes.error) throw new Error(studentRes.error.message)
@@ -248,7 +242,6 @@ export function useStudentFullProfile(studentId: string | null) {
       const presentDays  = att.filter((a: any) => a.status === 'present' || a.status === 'late').length
       const attendanceRate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0
 
-      // Fetch class/stream names
       let className = ''
       if (stu.class_id) {
         const { data: cls } = await supabase
@@ -256,9 +249,8 @@ export function useStudentFullProfile(studentId: string | null) {
         className = cls?.name ?? ''
       }
 
-      // Fee summary (NO line items — just totals)
-      const payments = (classRes.data ?? []) as any[]
-      const totalPaid = payments.reduce((s: number, p: any) => s + (p.amount ?? 0), 0)
+      const payments = (feeRes.data ?? []) as any[]
+      const totalPaid = payments.reduce((s: number, p: any) => s + (p.amount_paid ?? 0), 0)
 
       return {
         id:             stu.id,
@@ -278,7 +270,6 @@ export function useStudentFullProfile(studentId: string | null) {
         examResults:    resultsRes.data ?? [],
         feeSummary: {
           totalPaid,
-          // No line-item amounts exposed
         },
       }
     },

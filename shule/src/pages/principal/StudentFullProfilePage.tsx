@@ -93,7 +93,7 @@ export function StudentFullProfilePage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                {['Term', 'Year', 'Score', 'Grade', 'Absent'].map(h => (
+                {['Term', 'Year', 'Score', 'Grade', ''].map(h => (
                   <th key={h} style={{ padding: '6px 10px', background: 'var(--surface2)',
                     fontWeight: 700, fontSize: 11, color: 'var(--txt2)', textAlign: 'left' }}>{h}</th>
                 ))}
@@ -105,15 +105,10 @@ export function StudentFullProfilePage() {
                   <td style={{ padding: '6px 10px', fontSize: 12, color: 'var(--txt2)' }}>{r.term}</td>
                   <td style={{ padding: '6px 10px', fontSize: 12, color: 'var(--txt2)' }}>{r.year}</td>
                   <td style={{ padding: '6px 10px', fontFamily: 'var(--font3)', fontSize: 13 }}>
-                    {r.is_absent ? '—' : (r.score ?? '—')}
+                    {r.score ?? '—'}
                   </td>
                   <td style={{ padding: '6px 10px', fontFamily: 'var(--font3)', fontSize: 13 }}>{r.grade ?? '—'}</td>
-                  <td style={{ padding: '6px 10px' }}>
-                    {r.is_absent && (
-                      <span style={{ background: 'var(--danger-bg)', color: 'var(--danger)',
-                        padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>Absent</span>
-                    )}
-                  </td>
+                  <td style={{ padding: '6px 10px' }} />
                 </tr>
               ))}
             </tbody>

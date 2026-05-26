@@ -16,7 +16,7 @@ const DETAIL_COLS = [
   'role', 'department_id', 'subjects', 'classes', 'phone', 'email',
   'date_of_birth', 'gender', 'national_id', 'join_date',
   'qualification_level', 'qualification_title', 'institution', 'graduation_year',
-  'employment_type', 'photo_url', 'is_active',
+  'employment_type', 'photo_url', 'is_active', 'salary_band',
 ].join(', ')
 
 function toStaff(r: AnyRow): Staff {
@@ -44,6 +44,7 @@ function toStaff(r: AnyRow): Staff {
     employmentType:     (r.employment_type as Staff['employmentType']) ?? null,
     photoUrl:           (r.photo_url as string) ?? null,
     isActive:           (r.is_active as boolean) ?? true,
+    salaryBand:         (r.salary_band as string) ?? null,
   }
 }
 

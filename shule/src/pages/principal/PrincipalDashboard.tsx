@@ -60,7 +60,7 @@ function QuickActions() {
 
   const actions = [
     { label: 'Approve Report Cards', path: '/principal/report-cards', color: 'var(--brand)' },
-    { label: 'View Audit Log',       path: '/principal/audit-log',    color: 'var(--txt2)'  },
+    { label: 'View Audit Log',       path: '/principal/audit',        color: 'var(--txt2)'  },
     { label: 'Send Announcement',    path: '/principal/messages',     color: 'var(--violet)' },
     { label: 'Fee Summary',          path: '/bursar/dashboard',       color: 'var(--warning)' },
   ]

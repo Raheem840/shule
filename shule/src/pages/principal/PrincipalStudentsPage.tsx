@@ -2,20 +2,31 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useStudents } from '../../hooks/useStudents'
+import { useClasses } from '../../hooks/useClasses'
 import { InitialsAvatar } from '../../components/shared/InitialsAvatar'
+
+const STATUS_OPTS = ['', 'active', 'suspended', 'expelled']
 
 export function PrincipalStudentsPage() {
   const navigate = useNavigate()
   const { data: students = [], isLoading } = useStudents()
-  const [search, setSearch] = useState('')
+  const { data: classes = [] } = useClasses()
+  const [search,       setSearch]       = useState('')
+  const [classFilter,  setClassFilter]  = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+
+  const classNameMap = new Map(classes.map(c => [c.id, c.name]))
 
   const filtered = students.filter(s => {
     const q = search.toLowerCase()
-    return (
+    const matchSearch = (
       s.firstName.toLowerCase().includes(q) ||
       s.lastName.toLowerCase().includes(q) ||
       s.admissionNumber.toLowerCase().includes(q)
     )
+    const matchClass  = !classFilter  || s.classId === classFilter
+    const matchStatus = !statusFilter || s.status === statusFilter
+    return matchSearch && matchClass && matchStatus
   })
 
   const parentRef = useRef<HTMLDivElement>(null)
@@ -34,18 +45,40 @@ export function PrincipalStudentsPage() {
             Students
           </h1>
           <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 4 }}>
-            {filtered.length} student{filtered.length !== 1 ? 's' : ''}
+            {filtered.length} of {students.length} student{students.length !== 1 ? 's' : ''}
           </div>
         </div>
       </div>
 
-      <input
-        placeholder="Search by name or admission number…"
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        className="sui-input"
-        style={{ maxWidth: 360 }}
-      />
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <input
+          placeholder="Search by name or admission number…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="sui-input"
+          style={{ maxWidth: 300 }}
+        />
+        <select
+          value={classFilter}
+          onChange={e => setClassFilter(e.target.value)}
+          className="sui-input"
+          style={{ minWidth: 140 }}
+        >
+          <option value="">All Classes</option>
+          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="sui-input"
+          style={{ minWidth: 130 }}
+        >
+          {STATUS_OPTS.map(o => (
+            <option key={o} value={o}>{o ? o.charAt(0).toUpperCase() + o.slice(1) : 'All Statuses'}</option>
+          ))}
+        </select>
+      </div>
 
       {isLoading && <div style={{ color: 'var(--txt3)' }}>Loading students…</div>}
 
@@ -77,6 +110,12 @@ export function PrincipalStudentsPage() {
             <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
               {virtualizer.getVirtualItems().map(vRow => {
                 const s = filtered[vRow.index]
+                const statusColor = s.status === 'active'
+                  ? { bg: 'var(--success-bg)', color: 'var(--success)' }
+                  : s.status === 'suspended'
+                  ? { bg: 'var(--warning-bg)', color: 'var(--warning)' }
+                  : { bg: 'var(--danger-bg)', color: 'var(--danger)' }
+
                 return (
                   <div
                     key={s.id}
@@ -101,13 +140,12 @@ export function PrincipalStudentsPage() {
                       {s.admissionNumber}
                     </div>
                     <div style={{ flex: 1, fontSize: 13, color: 'var(--txt2)' }}>
-                      {s.classId ?? '—'}
+                      {s.classId ? (classNameMap.get(s.classId) ?? s.classId) : '—'}
                     </div>
                     <div style={{ flex: 1 }}>
                       <span style={{
                         padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
-                        background: s.status === 'active' ? 'var(--success-bg)' : 'var(--danger-bg)',
-                        color: s.status === 'active' ? 'var(--success)' : 'var(--danger)',
+                        background: statusColor.bg, color: statusColor.color,
                         textTransform: 'capitalize',
                       }}>
                         {s.status}

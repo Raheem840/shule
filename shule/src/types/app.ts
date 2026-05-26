@@ -134,6 +134,7 @@ export type Staff = {
   employmentType: 'permanent' | 'contract' | 'volunteer' | null
   photoUrl: string | null
   isActive: boolean
+  salaryBand: string | null
 }
 
 // ── STAFF DOCUMENT ─────────────────────────────────────────────────────────
