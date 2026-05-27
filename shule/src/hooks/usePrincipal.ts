@@ -29,7 +29,7 @@ export function usePrincipalKpis() {
         supabase.from('fee_structure').select('amount').eq('school_id', sid),
         supabase.from('attendance').select('status, date').eq('school_id', sid)
           .gte('date', weekStartStr).lte('date', today),
-        supabase.from('report_cards').select('id').eq('school_id', sid).eq('status', 'pending_approval'),
+        supabase.from('report_cards').select('id').eq('school_id', sid).eq('status', 'ready'),
       ])
 
       // Pass rate

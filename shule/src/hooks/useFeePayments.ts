@@ -46,6 +46,7 @@ export function useBursarKpis(term: number, year: number) {
         .eq('year', year)
         .maybeSingle()
 
+      if (error?.code === '42P01') return { expected: 0, collected: 0, outstanding: 0, unpaidCount: 0 }
       if (error) throw error
       if (!data) return { expected: 0, collected: 0, outstanding: 0, unpaidCount: 0 }
 

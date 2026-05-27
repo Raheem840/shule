@@ -339,6 +339,7 @@ export function useTimetable(classId?: string | null) {
       if (classId) q = q.eq('class_id', classId)
 
       const { data, error } = await q
+      if (error?.code === '42P01') return []
       if (error) throw new Error(error.message)
 
       return (data ?? []).map((r: any) => ({

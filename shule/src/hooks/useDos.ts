@@ -38,7 +38,7 @@ export function useDosOverview() {
           .eq('school_id', sid),
         supabase
           .from('exam_results')
-          .select('exam_journal_id, subject_id, score, is_absent, term, year')
+          .select('exam_journal_id, subject_id, score, term, year')
           .eq('school_id', sid),
         supabase
           .from('curriculum_plan')
@@ -71,7 +71,7 @@ export function useDosOverview() {
       )
 
       // Overall pass rate
-      const graded = results.filter((r: any) => !r.is_absent && r.score != null)
+      const graded = results.filter((r: any) => r.score != null)
       const passed = graded.filter((r: any) => r.score >= (passMarkMap.get(r.exam_journal_id) ?? 50))
       const overallPassRate = graded.length > 0
         ? Math.round((passed.length / graded.length) * 100)
@@ -171,7 +171,7 @@ export function useDosClassPerformance(classId: string | null) {
           .eq('class_id', classId!),
         supabase
           .from('exam_results')
-          .select('exam_journal_id, student_id, subject_id, score, is_absent')
+          .select('exam_journal_id, student_id, subject_id, score')
           .eq('school_id', sid),
         supabase
           .from('students')
@@ -206,7 +206,7 @@ export function useDosClassPerformance(classId: string | null) {
       // Per-subject breakdown
       const subjectStats = new Map<string, { scores: number[]; passed: number; studentSet: Set<string> }>()
       for (const r of results) {
-        if (r.is_absent || r.score == null) continue
+        if (r.score == null) continue
         const subId = r.subject_id as string
         if (!subjectStats.has(subId)) subjectStats.set(subId, { scores: [], passed: 0, studentSet: new Set() })
         const s = subjectStats.get(subId)!
@@ -227,7 +227,7 @@ export function useDosClassPerformance(classId: string | null) {
       // Per-student average across all subjects
       const studentScores = new Map<string, number[]>()
       for (const r of results) {
-        if (r.is_absent || r.score == null) continue
+        if (r.score == null) continue
         if (!studentScores.has(r.student_id)) studentScores.set(r.student_id, [])
         studentScores.get(r.student_id)!.push(r.score)
       }
@@ -277,7 +277,7 @@ export function useDosTeacherPerformance() {
           .eq('school_id', sid),
         supabase
           .from('exam_results')
-          .select('exam_journal_id, score, is_absent, teacher_id')
+          .select('exam_journal_id, score, teacher_id')
           .eq('school_id', sid),
         supabase
           .from('curriculum_plan')
@@ -300,7 +300,7 @@ export function useDosTeacherPerformance() {
       return staff.map((teacher: any): TeacherPerfRow => {
         const tJournals = journals.filter((j: any) => j.teacher_id === teacher.id)
         const tJournalIds = new Set(tJournals.map((j: any) => j.id))
-        const tResults = results.filter((r: any) => tJournalIds.has(r.exam_journal_id) && !r.is_absent && r.score != null)
+        const tResults = results.filter((r: any) => tJournalIds.has(r.exam_journal_id) && r.score != null)
 
         const passed = tResults.filter((r: any) => r.score >= (passMarkMap.get(r.exam_journal_id) ?? 50))
         const passRate = tResults.length > 0

@@ -3,9 +3,10 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import type { TeacherRemark } from '../types/app'
 
+// class_id, stream_id, created_at are NOT in DB schema for teacher_remarks
 const REMARK_COLS = [
   'id', 'school_id', 'student_id', 'teacher_id',
-  'class_id', 'stream_id', 'term', 'year', 'remarks', 'created_at',
+  'term', 'year', 'remarks',
 ].join(', ')
 
 type AnyRow = Record<string, unknown>
@@ -16,12 +17,12 @@ function toRemark(r: AnyRow): TeacherRemark {
     schoolId:  r.school_id as string,
     studentId: r.student_id as string,
     teacherId: r.teacher_id as string,
-    classId:   r.class_id as string,
-    streamId:  (r.stream_id as string) ?? null,
+    classId:   null,
+    streamId:  null,
     term:      r.term as string,
     year:      r.year as number,
     remarks:   r.remarks as string,
-    createdAt: r.created_at as string,
+    createdAt: null,
   }
 }
 
@@ -41,18 +42,14 @@ export function useTeacherRemarks(params: {
     queryKey: ['teacher-remarks', user?.schoolId, user?.id, term, classId, streamId, year],
     enabled:  !!user && !!term && !!classId && !!year,
     queryFn:  async () => {
-      let q = supabase
+      // class_id / stream_id not in DB — load all remarks for this teacher + term + year
+      const { data, error } = await supabase
         .from('teacher_remarks')
         .select(REMARK_COLS)
         .eq('school_id', user!.schoolId)
         .eq('teacher_id', user!.id)
         .eq('term',       term!)
         .eq('year',       year!)
-        .eq('class_id',   classId!)
-
-      if (streamId) q = q.eq('stream_id', streamId)
-
-      const { data, error } = await q
       if (error) throw error
 
       // Return as a Map<studentId, TeacherRemark> for O(1) access
@@ -96,8 +93,6 @@ export function useSaveRemarks() {
         school_id:  user!.schoolId,
         student_id: r.studentId,
         teacher_id: user!.id,
-        class_id:   classId,
-        stream_id:  streamId,
         term,
         year,
         remarks:    r.remarks,

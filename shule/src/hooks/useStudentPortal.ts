@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { calcFeeStatus } from './useFeePayments'
@@ -18,13 +18,15 @@ export function useMyStudentRecord() {
     queryKey: ['my-student-record', user?.id],
     enabled:  !!user?.id && user?.role === 'student',
     queryFn: async () => {
+      // DB NEEDS: ALTER TABLE students ADD COLUMN auth_user_id UUID REFERENCES auth.users(id)
       const { data, error } = await supabase
         .from('students')
-        .select('id, school_id, admission_number, first_name, last_name, dob, gender, class_id, stream_id, student_type, photo_url, status, enrolled_at')
+        .select('id, school_id, admission_number, first_name, last_name, dob, gender, class_id, stream_id, photo_url, status, enrolled_at')
         .eq('auth_user_id', user!.id)
         .eq('school_id', user!.schoolId)
         .maybeSingle()
 
+      if (error?.code === '42703') return null  // auth_user_id column not yet added
       if (error) throw error
       if (!data) return null
 
@@ -41,7 +43,7 @@ export function useMyStudentRecord() {
         religion:       null,
         classId:        (r.class_id as string) ?? null,
         streamId:       (r.stream_id as string) ?? null,
-        studentType:    (r.student_type as Student['studentType']) ?? null,
+        studentType:    null,
         previousSchool: null,
         photoUrl:       (r.photo_url as string) ?? null,
         medicalNotes:   null,
@@ -95,7 +97,7 @@ export function useMyExamResults(studentId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('exam_results')
-        .select('score, grade, is_absent, term, year, exam_journal_id')
+        .select('score, grade, term, year, exam_journal_id')
         .eq('school_id',  user!.schoolId)
         .eq('student_id', studentId!)
         .order('year', { ascending: false })
@@ -137,7 +139,7 @@ export function useMyExamResults(studentId: string | null) {
           totalMarks:     (j?.total_marks as number) ?? 0,
           term:           r.term as string,
           year:           r.year as number,
-          isAbsent:       (r.is_absent as boolean) ?? false,
+          isAbsent:       false,
         } satisfies ExamResultRow
       })
     },
@@ -178,6 +180,48 @@ export function useMyFeeBalance(studentId: string | null) {
           status:        calcFeeStatus(amtPaid, balance),
         } satisfies StudentFeeRecord
       })
+    },
+  })
+}
+
+// ── useSubmitSurvey ───────────────────────────────────────────
+// Submits student end-of-term survey response.
+// DB NEEDS: survey_responses table
+// CREATE TABLE survey_responses (
+//   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+//   school_id         UUID REFERENCES school_profile(id),
+//   student_id        UUID REFERENCES students(id),
+//   rating            INT  NOT NULL CHECK (rating BETWEEN 1 AND 5),
+//   enjoyed_most      TEXT,
+//   improve_next_term TEXT,
+//   created_at        TIMESTAMPTZ DEFAULT now()
+// );
+export function useSubmitSurvey() {
+  const { user } = useAuth()
+
+  return useMutation({
+    mutationFn: async (payload: {
+      studentId:       string
+      rating:          number
+      enjoyedMost:     string
+      improveNextTerm: string
+    }) => {
+      if (!user) throw new Error('Not authenticated')
+
+      const { error } = await supabase
+        .from('survey_responses')
+        .insert({
+          school_id:         user.schoolId,
+          student_id:        payload.studentId,
+          rating:            payload.rating,
+          enjoyed_most:      payload.enjoyedMost || null,
+          improve_next_term: payload.improveNextTerm || null,
+        })
+
+      if (error) {
+        if (error.code === '42P01') throw new Error('Survey temporarily unavailable')
+        throw new Error(error.message)
+      }
     },
   })
 }

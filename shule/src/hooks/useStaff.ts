@@ -253,7 +253,8 @@ export function useRegisterStaff() {
               uploaded_at:   new Date().toISOString(),
             }))
           )
-        if (docErr) throw docErr
+        if (docErr?.code === '42P01') { /* staff_documents table not yet created — skip silently */ }
+        else if (docErr) throw docErr
       }
 
       return newStaff.id as string

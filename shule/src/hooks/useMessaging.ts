@@ -243,6 +243,7 @@ export function useAnnouncements() {
         .order('posted_at', { ascending: false })
         .limit(50)
 
+      if (error?.code === '42P01') return []
       if (error) throw new Error(error.message)
 
       return (data ?? []).map((r: any) => ({
@@ -288,6 +289,7 @@ export function usePostAnnouncement() {
           posted_at:      new Date().toISOString(),
         })
 
+      if (error?.code === '42P01') throw new Error('Announcements not yet enabled on this server')
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {

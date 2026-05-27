@@ -119,32 +119,30 @@ export function useTermProgress() {
       const [journalsRes, schoolEventsRes] = await Promise.all([
         supabase
           .from('exam_journal')
-          .select('id, title, assessment_type, exam_date, subject_id, class_id, term, year')
-          .eq('school_id', sid)
-          .not('exam_date', 'is', null),
-        // school_events may not exist yet — swallow the error
-        Promise.resolve(supabase
+          .select('id, name, assessment_type, date, subject_id, class_id, term, year')
+          .eq('school_id', sid),
+        supabase
           .from('school_events')
           .select('id, title, event_date, event_type, subject_id, class_id')
-          .eq('school_id', sid)
-        ).catch(() => ({ data: null as null, error: null })),
+          .eq('school_id', sid),
       ])
 
       const events: TermEvent[] = []
 
-      // Journal events
+      // Journal events (date is always set for exam_journal rows)
       for (const j of (journalsRes.data ?? [])) {
-        if (!j.exam_date) continue
+        if (!j.date) continue
         events.push({
-          id:   j.id,
-          title: j.title ?? 'Exam',
-          date:  j.exam_date as string,
+          id:    j.id,
+          title: j.name ?? 'Exam',
+          date:  j.date as string,
           type:  journalTypeToEventType(j.assessment_type as string),
         })
       }
 
-      // School events (if table exists)
-      for (const e of ((schoolEventsRes as any).data ?? [])) {
+      // School events (if table exists — 42P01 → data will be null → empty array)
+      if (!schoolEventsRes.error || schoolEventsRes.error.code === '42P01') {
+      for (const e of (schoolEventsRes.data ?? [])) {
         events.push({
           id:    e.id,
           title: e.title as string,
@@ -154,6 +152,7 @@ export function useTermProgress() {
                : e.event_type === 'aoi'  ? 'aoi'
                : 'general') as TermEventType,
         })
+      }
       }
 
       // Sort events by date
