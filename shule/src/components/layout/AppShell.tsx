@@ -121,7 +121,7 @@ export function AppShell() {
           avatar={avatar}
         />
         <main className="shell-main">
-          <div className="page">
+          <div className="page sui-page-enter" key={location.pathname}>
             <ErrorBoundary>
               <Outlet />
             </ErrorBoundary>

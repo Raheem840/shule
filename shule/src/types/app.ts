@@ -321,12 +321,12 @@ export type TeacherRemark = {
   schoolId: string
   studentId: string
   teacherId: string
-  classId: string
+  classId: string | null
   streamId: string | null
   term: string
   year: number
   remarks: string
-  createdAt: string
+  createdAt: string | null
 }
 
 // ── REPORT CARDS ───────────────────────────────────────────────────────────

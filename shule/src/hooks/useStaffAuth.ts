@@ -97,6 +97,38 @@ export function useActivateStaffLogin() {
   })
 }
 
+// ── useLinkAuthUser ────────────────────────────────────────────────────────
+// Manually links an existing Supabase auth user to a staff record.
+// Used when IT Admin has created the account in the Supabase Dashboard
+// and now needs to connect it to the staff row.
+export function useLinkAuthUser() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ staffId, authUserId }: { staffId: string; authUserId: string }) => {
+      if (!user) throw new Error('Not authenticated')
+
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (!uuidRe.test(authUserId.trim())) {
+        throw new Error('Invalid UUID — copy it directly from Supabase Dashboard → Authentication → Users')
+      }
+
+      const { error } = await supabase
+        .from('staff')
+        .update({ auth_user_id: authUserId.trim() })
+        .eq('id', staffId)
+        .eq('school_id', user.schoolId)
+
+      if (error) throw new Error(error.message)
+      clearPendingActivation(staffId)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })
+    },
+  })
+}
+
 // ── useResetStaffPassword ──────────────────────────────────────────────────
 // Calls reset-staff-password Edge Function with a new random temp password.
 // Falls back to localStorage storage if Edge Function not deployed.

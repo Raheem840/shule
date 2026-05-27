@@ -11,7 +11,10 @@
       "Bash(powershell -Command '\\(Get-Content '\\\\''__TRACKED_VAR__'\\\\''\\) -replace '\\\\''\\\\{ TermProgressTimeline \\\\}'\\\\'', '\\\\''{ TermProgressTimeline, SafeTermProgressTimeline }'\\\\'' -replace '\\\\''<TermProgressTimeline />'\\\\'', '\\\\''<SafeTermProgressTimeline />'\\\\'' | Set-Content '\\\\''__TRACKED_VAR__'\\\\''')",
       "Bash(node --max-old-space-size=4096 node_modules/.bin/vitest run)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(npm run *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Raheem\\\\Projects\\\\SHULE\\\\shule\\\\src\" -Directory)",
+      "Bash(Select-Object Name)"
     ]
   }
 }

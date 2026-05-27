@@ -1269,3 +1269,242 @@ html, body, #root {
   animation: none !important;
   transition: none !important;
 }
+
+/* ═══════════════════════════════════════════════════
+   PHASE 2 — Glassmorphism Tier Upgrade
+   Dribbble/Spline-level: glass cards, gradient text,
+   pill tabs, page transitions, sticky headers,
+   accessibility motion guard.
+═══════════════════════════════════════════════════ */
+
+/* ── New keyframes ──────────────────────────────────── */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+@keyframes borderGlow {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(13,148,136,0); }
+  50%       { box-shadow: 0 0 0 4px rgba(13,148,136,0.22); }
+}
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+@keyframes shimmerCard {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* ── Glass card — light + dark ──────────────────────── */
+.sui-glass-card {
+  background: rgba(255,255,255,0.72);
+  border: 1px solid rgba(255,255,255,0.55);
+  border-top: 1px solid rgba(255,255,255,0.9);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  box-shadow:
+    0 4px 24px rgba(15,23,42,0.07),
+    0 1px 4px  rgba(15,23,42,0.05),
+    inset 0 1px 0 rgba(255,255,255,1);
+  border-radius: var(--r-lg);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.24s ease;
+}
+.sui-glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 16px 48px rgba(15,23,42,0.1),
+    0 4px 16px  rgba(15,23,42,0.07),
+    inset 0 1px 0 rgba(255,255,255,1);
+}
+.ar[data-theme="dark"] .sui-glass-card {
+  background: rgba(13,24,45,0.68);
+  border-color: rgba(255,255,255,0.07);
+  border-top-color: rgba(255,255,255,0.13);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow:
+    0 4px 24px rgba(0,0,0,0.25),
+    inset 0 1px 0 rgba(255,255,255,0.07);
+}
+.ar[data-theme="dark"] .sui-glass-card:hover {
+  border-color: rgba(13,217,196,0.2);
+  box-shadow:
+    0 0 0 1px rgba(13,217,196,0.1),
+    0 20px 56px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* Light-mode glassmorphism for sui-kpi-v2 */
+.ar:not([data-theme="dark"]) .sui-kpi-v2 {
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border-top-color: rgba(255,255,255,0.9);
+  box-shadow:
+    0 2px 12px rgba(15,23,42,0.06),
+    inset 0 1px 0 rgba(255,255,255,1);
+}
+.ar:not([data-theme="dark"]) .sui-kpi-v2:hover {
+  box-shadow:
+    0 16px 48px rgba(13,148,136,0.12),
+    0 4px 16px rgba(0,0,0,0.06),
+    inset 0 1px 0 rgba(255,255,255,1);
+}
+
+/* ── Gradient text ──────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, var(--brand) 0%, #22d3ee 60%, var(--violet) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.gradient-text-warm {
+  background: linear-gradient(135deg, #f59e0b 0%, #f43f5e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Premium pill tab list ──────────────────────────── */
+.sui-tab-list-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 3px;
+}
+.ar[data-theme="dark"] .sui-tab-list-pill {
+  background: rgba(10,20,38,0.6);
+  border-color: rgba(255,255,255,0.08);
+  backdrop-filter: blur(12px);
+}
+.sui-tab-pill {
+  padding: 6px 18px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font2);
+  color: var(--txt3);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  white-space: nowrap;
+  user-select: none;
+}
+.sui-tab-pill:hover { color: var(--txt2); }
+.sui-tab-pill[data-state="active"],
+.sui-tab-pill.on {
+  background: var(--surface);
+  color: var(--brand);
+  box-shadow: 0 2px 8px rgba(15,23,42,0.1), 0 1px 2px rgba(15,23,42,0.06);
+}
+.ar[data-theme="dark"] .sui-tab-pill[data-state="active"],
+.ar[data-theme="dark"] .sui-tab-pill.on {
+  background: rgba(13,217,196,0.12);
+  color: #0dd9c4;
+  box-shadow: 0 0 0 1px rgba(13,217,196,0.2);
+}
+
+/* ── Page enter transition ──────────────────────────── */
+.sui-page-enter {
+  animation: pageEnter 0.35s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+/* ── Standard table header ──────────────────────────── */
+.sui-th {
+  padding: 9px 12px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--txt3);
+  font-family: var(--font2);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Sticky glass table header ──────────────────────── */
+.sui-table-head-sticky thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.sui-table-head-sticky thead th {
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.ar[data-theme="dark"] .sui-table-head-sticky thead th {
+  background: rgba(7,13,26,0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* ── Glass panel (section containers) ──────────────── */
+.sui-glass-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  transition: background 0.25s, border-color 0.25s;
+}
+.sui-glass-panel-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ar[data-theme="dark"] .sui-glass-panel {
+  background: rgba(13,24,45,0.6);
+  backdrop-filter: blur(20px);
+  border-color: rgba(255,255,255,0.06);
+}
+
+/* ── Count-up number reveal ─────────────────────────── */
+.sui-count-reveal {
+  animation: countUp 0.5s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+/* ── Feed row — slide in from right (activity log) ──── */
+.sui-feed-slide {
+  animation: slideInRight 0.32s cubic-bezier(0.16,1,0.3,1) both;
+}
+.sui-feed-slide:nth-child(1) { animation-delay: 0.04s; }
+.sui-feed-slide:nth-child(2) { animation-delay: 0.09s; }
+.sui-feed-slide:nth-child(3) { animation-delay: 0.14s; }
+.sui-feed-slide:nth-child(4) { animation-delay: 0.19s; }
+.sui-feed-slide:nth-child(5) { animation-delay: 0.24s; }
+
+/* ── Accessibility: respect reduced-motion ──────────── */
+@media (prefers-reduced-motion: reduce) {
+  .stagger-cards > *,
+  .stagger-sections > *,
+  .sui-kpi-v2,
+  .sui-kpi-num,
+  .sui-count-reveal,
+  .sui-modal-dialog,
+  .sui-page-enter,
+  .sui-feed-slide,
+  .sui-glass-card,
+  .sui-quick-btn,
+  .sui-hero-band::before,
+  .sui-hero-band::after,
+  .slogo,
+  .sui-btn-primary::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

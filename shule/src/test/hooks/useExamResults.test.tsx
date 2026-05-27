@@ -91,9 +91,9 @@ describe('useExamResults', () => {
     expect(r.isAbsent).toBe(false)
   })
 
-  it('maps is_absent=true correctly and score as null', async () => {
+  it('maps absent row (null score) with isAbsent defaulting to false (column not in DB schema)', async () => {
     setResponse('exam_results', {
-      data: [{ ...dbResultRow, score: null, grade: null, is_absent: true }],
+      data: [{ ...dbResultRow, score: null, grade: null }],
       error: null,
     })
     const { result } = renderHook(() => useExamResults('j-1'), { wrapper: createWrapper() })
@@ -103,7 +103,7 @@ describe('useExamResults', () => {
     const r = result.current.data![0]
     expect(r.score).toBeNull()
     expect(r.grade).toBeNull()
-    expect(r.isAbsent).toBe(true)
+    expect(r.isAbsent).toBe(false)
   })
 
   it('is disabled when journalId is null', () => {

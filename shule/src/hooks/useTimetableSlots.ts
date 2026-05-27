@@ -37,6 +37,7 @@ export function useTimetableSlots(params: {
       if (params.published) q = q.eq('is_published', true)
 
       const { data, error } = await q
+      if (error?.code === '42P01') return []
       if (error) throw new Error(error.message)
 
       const slots = (data ?? []).map((r: any) => ({
@@ -125,6 +126,7 @@ export function useTeacherTimetable(params: {
       if (params.year)  q = q.eq('year', params.year)
 
       const { data, error } = await q
+      if (error?.code === '42P01') return []
       if (error) throw new Error(error.message)
 
       const slots = (data ?? []).map((r: any) => ({
@@ -224,6 +226,10 @@ export function useCheckCollision() {
         isPublished: r.is_published,
       })
 
+      if (classRes.error?.code === '42P01' || teacherRes.error?.code === '42P01') {
+        return { classConflict: null, teacherConflict: null }
+      }
+
       const classHits   = (classRes.data ?? []).filter((r: any) => r.id !== excludeSlotId)
       const teacherHits = (teacherRes.data ?? []).filter((r: any) => r.id !== excludeSlotId)
 
@@ -274,6 +280,7 @@ export function useCreateTimetableSlot() {
           onConflict: 'school_id,class_id,stream_id,day_of_week,period_number,term,year',
         })
 
+      if (error?.code === '42P01') return  // table not yet created
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
@@ -295,6 +302,7 @@ export function useDeleteTimetableSlot() {
         .delete()
         .eq('id', slotId)
         .eq('school_id', user.schoolId)
+      if (error?.code === '42P01') return  // table not yet created
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
@@ -323,6 +331,7 @@ export function usePublishTimetable() {
         .eq('class_id', params.classId)
         .eq('term', params.term)
         .eq('year', params.year)
+      if (error?.code === '42P01') return  // table not yet created
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {

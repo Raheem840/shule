@@ -70,7 +70,7 @@ id, school_id, name, curriculum_code, level
 ## exam_journal
 id, school_id, teacher_id, subject_id, class_id, stream_id,
 assessment_type, name, date, total_marks, pass_mark, term, year,
-notes, learning_area, competency, integration_theme, trade_area,
+notes, status, learning_area, competency, integration_theme, trade_area,
 dit_module_code, ca_component, ca_weighting, ca_label
 
 ---

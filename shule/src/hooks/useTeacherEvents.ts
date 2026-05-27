@@ -58,6 +58,7 @@ export function useTeacherEvents() {
         .eq('created_by', staffRow.id)
         .order('event_date', { ascending: true })
 
+      if (error?.code === '42P01') return []
       if (error) throw new Error(error.message)
       return (data ?? []).map(mapRow)
     },
@@ -84,6 +85,7 @@ export function useAllSchoolEvents() {
         .eq('school_id', user!.schoolId)
         .order('event_date', { ascending: true })
 
+      if (error?.code === '42P01') return []
       if (error) throw new Error(error.message)
       return (data ?? []).map(mapRow)
     },
@@ -141,6 +143,7 @@ export function useCreateEvent() {
           journaled:   false,
         })
 
+      if (error?.code === '42P01') throw new Error('Events table not yet created on this server')
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
@@ -165,6 +168,7 @@ export function useJournalEvent() {
         .update({ journaled: true, journal_id: journalId })
         .eq('id', eventId)
         .eq('school_id', user.schoolId)
+      if (error?.code === '42P01') return  // table not yet created
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
