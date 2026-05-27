@@ -89,7 +89,7 @@ export function BursarDashboard() {
   const K = kpis.data
 
   return (
-    <div style={{ padding: '1.5rem 2rem', maxWidth: 1200 }}>
+    <div className="sui-page-enter" style={{ padding: '1.5rem 2rem', maxWidth: 1200 }}>
       <PageHeader
         title="Bursar Dashboard"
         subtitle="Fee collection overview and recent activity"

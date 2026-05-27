@@ -1,135 +1,346 @@
-import { useQuery } from '@tanstack/react-query'
-import { useRef } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
+import { useState, useRef, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import ExcelJS from 'exceljs'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { Badge } from '../../components/ui/Badge'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { useToast } from '../../components/ui/Toast'
 import { ROLE_LABEL } from '../../config/roleNav'
 import type { UserRole } from '../../store/AuthContext'
 
-type SalaryRecord = {
-  id: string
-  staffId: string
-  name: string
-  role: UserRole
-  salaryBand: string | null
-  amount: number | null
-  month: string
-  paid: boolean
+type SalaryRow = {
+  id:             string
+  firstName:      string
+  lastName:       string
+  role:           UserRole
+  employmentType: string | null
+  joinDate:       string | null
+  photoUrl:       string | null
+  salaryBand:     string | null
 }
 
-function useSalaryRecords() {
+// ── Hooks ──────────────────────────────────────────────────────
+function useStaffSalaries() {
   const { user } = useAuth()
   return useQuery({
-    queryKey: ['salary-records', user?.schoolId],
-    enabled: !!user,
-    queryFn: async (): Promise<SalaryRecord[]> => {
+    queryKey: ['staff-salaries', user?.schoolId],
+    enabled:  !!user?.schoolId,
+    queryFn: async (): Promise<SalaryRow[]> => {
       const { data, error } = await supabase
         .from('staff')
-        .select('id, first_name, last_name, role, salary_band')
+        .select('id, first_name, last_name, role, employment_type, join_date, photo_url, salary_band')
         .eq('school_id', user!.schoolId)
         .eq('is_active', true)
         .order('last_name', { ascending: true })
       if (error) throw error
       return (data ?? []).map((r: any) => ({
-        id:         r.id,
-        staffId:    r.id,
-        name:       `${r.first_name} ${r.last_name}`,
-        role:       r.role as UserRole,
-        salaryBand: r.salary_band ?? null,
-        amount:     null,
-        month:      new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
-        paid:       false,
+        id:             r.id,
+        firstName:      r.first_name,
+        lastName:       r.last_name,
+        role:           r.role as UserRole,
+        employmentType: r.employment_type ?? null,
+        joinDate:       r.join_date ?? null,
+        photoUrl:       r.photo_url ?? null,
+        salaryBand:     r.salary_band ?? null,
       }))
     },
     staleTime: 5 * 60_000,
   })
 }
 
-export function SalaryPage() {
-  const { data: records = [], isLoading } = useSalaryRecords()
-  const parentRef = useRef<HTMLDivElement>(null)
-  const virtualizer = useVirtualizer({
-    count: records.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 56,
-    overscan: 5,
+function useUpdateSalaryBand() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, salaryBand }: { id: string; salaryBand: string }) => {
+      const { error } = await supabase
+        .from('staff')
+        .update({ salary_band: salaryBand })
+        .eq('id', id)
+        .eq('school_id', user!.schoolId)
+      if (error) throw error
+      // Audit trail — non-fatal
+      await supabase.from('audit_log').insert({
+        school_id:  user!.schoolId,
+        table_name: 'staff',
+        record_id:  id,
+        action:     'UPDATE',
+        old_value:  null,
+        new_value:  { salary_band: salaryBand },
+        user_id:    user!.id,
+        role:       user!.role,
+      })
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['staff-salaries', user?.schoolId] }),
   })
+}
+
+// ── Inline editable salary band cell ─────────────────────────
+function SalaryBandCell({ row }: { row: SalaryRow }) {
+  const [editing, setEditing] = useState(false)
+  const [draft,   setDraft]   = useState(row.salaryBand ?? '')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const update   = useUpdateSalaryBand()
+
+  function start() {
+    setDraft(row.salaryBand ?? '')
+    setEditing(true)
+    requestAnimationFrame(() => inputRef.current?.select())
+  }
+
+  async function commit() {
+    setEditing(false)
+    const trimmed = draft.trim()
+    if (trimmed === (row.salaryBand ?? '')) return
+    await update.mutateAsync({ id: row.id, salaryBand: trimmed })
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
+        aria-label="Edit salary band"
+        style={{
+          width: 120, padding: '0.25rem 0.5rem',
+          border: '1.5px solid var(--brand)', borderRadius: 'var(--r)',
+          background: 'var(--surface)', color: 'var(--txt)',
+          fontSize: 12, fontFamily: 'var(--font3)', outline: 'none',
+        }}
+      />
+    )
+  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div>
-        <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)', margin: 0 }}>
-          Salary Records
-        </h1>
-        <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 4 }}>
-          {records.length} active staff
+    <button
+      onClick={start}
+      title="Click to edit"
+      style={{
+        background: 'none', border: 'none', cursor: 'text',
+        padding: '0.2rem 0.4rem', borderRadius: 4,
+        borderBottom: '1px dashed var(--border)',
+        fontSize: 12, fontFamily: 'var(--font3)',
+        color: row.salaryBand ? 'var(--txt)' : 'var(--txt3)',
+      }}
+    >
+      {update.isPending ? '…' : (row.salaryBand ?? '—')}
+    </button>
+  )
+}
+
+// ── Avatar ────────────────────────────────────────────────────
+function StaffAvatar({ row }: { row: SalaryRow }) {
+  if (row.photoUrl) {
+    return (
+      <img
+        src={row.photoUrl}
+        alt=""
+        style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+      />
+    )
+  }
+  const initials = `${row.firstName[0] ?? ''}${row.lastName[0] ?? ''}`.toUpperCase()
+  return (
+    <div style={{
+      width: 32, height: 32, borderRadius: '50%',
+      background: 'var(--brand-light)', color: 'var(--brand)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 11, flexShrink: 0,
+    }}>
+      {initials}
+    </div>
+  )
+}
+
+// ── Employment type badge ─────────────────────────────────────
+const EMP_COLORS: Record<string, string> = {
+  permanent: 'green',
+  contract:  'amber',
+  volunteer: 'muted',
+}
+
+// ── Main page ─────────────────────────────────────────────────
+export function SalaryPage() {
+  const { success: toastOk, error: toastErr } = useToast()
+  const { data: rows = [], isLoading, error } = useStaffSalaries()
+
+  const [roleFilter, setRoleFilter] = useState('')
+  const [empFilter,  setEmpFilter]  = useState('')
+
+  const filtered = rows.filter(r => {
+    if (roleFilter && r.role !== roleFilter) return false
+    if (empFilter  && r.employmentType !== empFilter) return false
+    return true
+  })
+
+  // Distinct roles + employment types for filter dropdowns
+  const roles    = [...new Set(rows.map(r => r.role))].sort()
+  const empTypes = [...new Set(rows.map(r => r.employmentType).filter(Boolean))].sort()
+
+  // ── Excel export ───────────────────────────────────────────
+  const handleExport = useCallback(async () => {
+    if (!filtered.length) return
+    try {
+      const wb = new ExcelJS.Workbook()
+      const ws = wb.addWorksheet('Salary Records')
+      ws.columns = [
+        { header: 'Staff Name',      key: 'name',           width: 28 },
+        { header: 'Role',            key: 'role',           width: 18 },
+        { header: 'Employment Type', key: 'employmentType', width: 16 },
+        { header: 'Salary Band',     key: 'salaryBand',     width: 14 },
+        { header: 'Join Date',       key: 'joinDate',       width: 14 },
+      ]
+      for (const r of filtered) {
+        ws.addRow({
+          name:           `${r.firstName} ${r.lastName}`,
+          role:           ROLE_LABEL[r.role] ?? r.role,
+          employmentType: r.employmentType ?? '',
+          salaryBand:     r.salaryBand ?? '',
+          joinDate:       r.joinDate ?? '',
+        })
+      }
+      const buffer = await wb.xlsx.writeBuffer()
+      const blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url    = URL.createObjectURL(blob)
+      const a      = document.createElement('a')
+      a.href = url; a.download = 'salary-records.xlsx'; a.click()
+      URL.revokeObjectURL(url)
+      toastOk('Salary records exported')
+    } catch (e: any) {
+      toastErr(e.message)
+    }
+  }, [filtered, toastOk, toastErr])
+
+  const thStyle = {
+    textAlign: 'left' as const, fontSize: 10, fontWeight: 700 as const,
+    color: 'var(--txt3)', padding: '0.6rem 1rem',
+    textTransform: 'uppercase' as const, letterSpacing: 0.8,
+    fontFamily: 'var(--font2)', borderBottom: '1px solid var(--border)',
+    background: 'var(--surface2)',
+  }
+  const tdStyle = { padding: '0.65rem 1rem', verticalAlign: 'middle' as const }
+
+  const selectStyle = {
+    padding: '0.38rem 0.85rem', border: '1.5px solid var(--border)',
+    borderRadius: 'var(--r)', background: 'var(--surface)',
+    color: 'var(--txt)', fontSize: 13, outline: 'none',
+  }
+
+  return (
+    <div className="sui-page-enter" style={{ padding: '1.5rem 2rem', maxWidth: 1100 }}>
+      <PageHeader
+        title="Salary Records"
+        subtitle="Staff salary bands — click a band to edit inline"
+        actions={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={!filtered.length}
+              style={{
+                padding: '0.45rem 1rem', border: '1.5px solid var(--border)',
+                borderRadius: 'var(--r)', background: 'var(--surface)',
+                color: 'var(--txt2)', fontSize: 12, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'var(--font2)',
+                opacity: filtered.length ? 1 : 0.5,
+              }}
+            >
+              Export Excel
+            </button>
+          </div>
+        }
+      />
+
+      {/* Filter bar */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <select style={selectStyle} value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
+          <option value="">All Roles</option>
+          {roles.map(r => (
+            <option key={r} value={r}>{ROLE_LABEL[r] ?? r}</option>
+          ))}
+        </select>
+        <select style={selectStyle} value={empFilter} onChange={e => setEmpFilter(e.target.value)}>
+          <option value="">All Employment Types</option>
+          {empTypes.map(e => (
+            <option key={e!} value={e!}>{e!.charAt(0).toUpperCase() + e!.slice(1)}</option>
+          ))}
+        </select>
+        <span style={{ fontSize: 12, color: 'var(--txt3)', marginLeft: 4 }}>
+          {filtered.length} staff member{filtered.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {isLoading && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+          <LoadingSpinner size="lg" />
         </div>
-      </div>
+      )}
 
-      <div style={{
-        padding: '10px 16px', background: 'var(--warning-bg)', borderRadius: 10,
-        border: '1px solid var(--warning)', fontSize: 13, color: '#92400e',
-      }}>
-        Payroll module coming soon. Currently showing staff salary bands. Full payroll processing requires bank integration.
-      </div>
+      {error && (
+        <div style={{ padding: '1rem', background: 'var(--danger-bg)', borderRadius: 'var(--r)', color: 'var(--danger)', fontSize: 13 }}>
+          {(error as Error).message}
+        </div>
+      )}
 
-      {isLoading && <div style={{ color: 'var(--txt3)' }}>Loading staff…</div>}
-
-      {!isLoading && records.length > 0 && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+      {!isLoading && !error && (
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 'var(--r-lg)', overflow: 'hidden',
+        }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                {['Name', 'Role', 'Salary Band', 'Amount (UGX)', 'Status'].map(h => (
-                  <th key={h} style={{
-                    padding: '10px 14px', background: 'var(--surface2)',
-                    fontWeight: 700, fontSize: 12, color: 'var(--txt2)', textAlign: 'left',
-                  }}>{h}</th>
+                {['Name', 'Role', 'Employment Type', 'Join Date', 'Salary Band'].map(h => (
+                  <th key={h} style={thStyle}>{h}</th>
                 ))}
               </tr>
             </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>
+                    No staff found for the selected filters.
+                  </td>
+                </tr>
+              ) : filtered.map(row => (
+                <tr key={row.id} className="sui-tr">
+                  <td style={tdStyle}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <StaffAvatar row={row} />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--txt)' }}>
+                          {row.firstName} {row.lastName}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={tdStyle}>
+                    <Badge variant="teal" size="sm">{ROLE_LABEL[row.role] ?? row.role}</Badge>
+                  </td>
+                  <td style={tdStyle}>
+                    {row.employmentType ? (
+                      <Badge variant={(EMP_COLORS[row.employmentType] ?? 'muted') as any} size="sm">
+                        {row.employmentType.charAt(0).toUpperCase() + row.employmentType.slice(1)}
+                      </Badge>
+                    ) : (
+                      <span style={{ fontSize: 12, color: 'var(--txt3)' }}>—</span>
+                    )}
+                  </td>
+                  <td style={{ ...tdStyle, fontSize: 12, color: 'var(--txt2)', fontFamily: 'var(--font3)' }}>
+                    {row.joinDate ? new Date(row.joinDate).toLocaleDateString('en-UG') : '—'}
+                  </td>
+                  <td style={tdStyle}>
+                    <SalaryBandCell row={row} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
-          <div ref={parentRef} style={{ overflowY: 'auto', maxHeight: 600 }}>
-            <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-              {virtualizer.getVirtualItems().map(vRow => {
-                const r = records[vRow.index]
-                return (
-                  <div
-                    key={r.id}
-                    style={{
-                      position: 'absolute', top: 0, left: 0, width: '100%',
-                      transform: `translateY(${vRow.start}px)`,
-                      height: 56, display: 'flex', alignItems: 'center',
-                      borderBottom: '1px solid var(--border)', padding: '0 14px',
-                    }}
-                  >
-                    <div style={{ flex: 2, fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>{r.name}</div>
-                    <div style={{ flex: 1.5 }}>
-                      <span style={{
-                        padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
-                        background: 'var(--brand-light)', color: 'var(--brand)',
-                      }}>
-                        {ROLE_LABEL[r.role] ?? r.role}
-                      </span>
-                    </div>
-                    <div style={{ flex: 1, fontSize: 12, color: 'var(--txt2)' }}>{r.salaryBand ?? '—'}</div>
-                    <div style={{ flex: 1, fontSize: 13, fontFamily: 'var(--font3)', color: 'var(--txt)' }}>
-                      {r.amount != null ? r.amount.toLocaleString() : '—'}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <span style={{
-                        padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
-                        background: r.paid ? 'var(--success-bg)' : 'var(--surface2)',
-                        color: r.paid ? 'var(--success)' : 'var(--txt3)',
-                      }}>
-                        {r.paid ? 'Paid' : 'Pending'}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
         </div>
       )}
     </div>

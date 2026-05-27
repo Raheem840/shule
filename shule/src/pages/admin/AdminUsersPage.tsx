@@ -5,6 +5,7 @@ import { useUserManagement } from '../../hooks/useAdmin'
 import {
   useActivateStaffLogin,
   useResetStaffPassword,
+  useLinkAuthUser,
 } from '../../hooks/useStaffAuth'
 import type { UserRow } from '../../types/week9'
 import { useToast } from '../../components/ui/Toast'
@@ -46,9 +47,13 @@ export function AdminUsersPage() {
   const resetPassword  = useResetStaffPassword()
   const { success: ok, error: err } = useToast()
 
-  const [search, setSearch] = useState('')
-  const [creds, setCreds] = useState<{ email: string; tempPassword: string; manual: boolean } | null>(null)
-  const [actionId, setActionId] = useState<string | null>(null)
+  const linkAuth   = useLinkAuthUser()
+  const [search,        setSearch]        = useState('')
+  const [creds,         setCreds]         = useState<{ email: string; tempPassword: string; manual: boolean } | null>(null)
+  const [actionId,      setActionId]      = useState<string | null>(null)
+  const [confirmTarget, setConfirmTarget] = useState<UserRow | null>(null)
+  const [authUidInput,  setAuthUidInput]  = useState('')
+  const [linkError,     setLinkError]     = useState('')
 
   const rows = search.trim()
     ? data.filter(r => r.name.toLowerCase().includes(search.toLowerCase()) || r.role.includes(search.toLowerCase()))
@@ -123,13 +128,22 @@ export function AdminUsersPage() {
                       {row.isActive ? 'Yes' : 'No'}
                     </span>
                   </td>
-                  <td style={{ padding: '10px 14px', display: 'flex', gap: 8 }}>
+                  <td style={{ padding: '10px 14px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {!row.authUserId ? (
-                      <button className="sui-btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}
-                        disabled={actionId === row.staffId}
-                        onClick={() => handleActivate(row)}>
-                        {actionId === row.staffId ? 'Activating…' : 'Activate Login'}
-                      </button>
+                      <>
+                        <button className="sui-btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}
+                          disabled={actionId === row.staffId}
+                          onClick={() => handleActivate(row)}>
+                          {actionId === row.staffId ? 'Activating…' : 'Activate Login'}
+                        </button>
+                        <button
+                          className="sui-btn-ghost"
+                          style={{ fontSize: 11, padding: '4px 12px', color: 'var(--info)', borderColor: 'var(--info)' }}
+                          onClick={() => { setConfirmTarget(row); setAuthUidInput(''); setLinkError('') }}
+                        >
+                          Confirm Activated
+                        </button>
+                      </>
                     ) : (
                       <button className="sui-btn-ghost" style={{ fontSize: 11, padding: '4px 12px' }}
                         disabled={actionId === row.staffId}
@@ -147,6 +161,60 @@ export function AdminUsersPage() {
               {rows.length} staff member{rows.length !== 1 ? 's' : ''}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Confirm Activated modal */}
+      {confirmTarget && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+        }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 28, width: 440 }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
+              Confirm Activation
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--txt)', fontWeight: 700, margin: '0 0 4px' }}>{confirmTarget.name}</p>
+            <p style={{ fontSize: 13, color: 'var(--txt2)', lineHeight: 1.6, margin: '0 0 4px' }}>
+              After creating the account in Supabase Dashboard, paste the auth user UUID below to link it.
+            </p>
+            <p style={{ fontSize: 11, color: 'var(--txt3)', margin: '0 0 14px' }}>
+              Supabase Dashboard → Authentication → Users → copy the UUID column.
+            </p>
+            <input
+              className="sui-input"
+              value={authUidInput}
+              onChange={e => setAuthUidInput(e.target.value)}
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              style={{ width: '100%', marginBottom: 12, fontFamily: 'var(--font3)', fontSize: 12 }}
+              autoFocus
+            />
+            {linkError && (
+              <div style={{ background: 'var(--danger-bg)', color: 'var(--danger)',
+                padding: '8px 12px', borderRadius: 8, fontSize: 13, marginBottom: 12 }}>
+                {linkError}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="sui-btn-ghost" onClick={() => setConfirmTarget(null)}>Cancel</button>
+              <button
+                className="sui-btn-primary"
+                disabled={!authUidInput.trim() || linkAuth.isPending}
+                onClick={async () => {
+                  setLinkError('')
+                  try {
+                    await linkAuth.mutateAsync({ staffId: confirmTarget.staffId, authUserId: authUidInput.trim() })
+                    ok(`${confirmTarget.name}'s account linked successfully.`)
+                    setConfirmTarget(null)
+                  } catch (e: any) {
+                    setLinkError(e.message ?? 'Failed to link account')
+                  }
+                }}
+              >
+                {linkAuth.isPending ? 'Linking…' : 'Link Account'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

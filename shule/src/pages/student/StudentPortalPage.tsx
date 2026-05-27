@@ -5,8 +5,10 @@ import {
   useMyExamResults,
   useMyFeeBalance,
   useIsEndOfTermSurveyActive,
+  useSubmitSurvey,
 } from '../../hooks/useStudentPortal'
 import { useSchoolNotices } from '../../hooks/useParentPortal'
+import { usePortalNotifications, useMarkSingleNotificationRead } from '../../hooks/useNotifications'
 import { useAttendanceSummary, useStudentAttendanceHistory } from '../../hooks/useAttendance'
 import { Badge } from '../../components/ui/Badge'
 import { Card } from '../../components/ui/Card'
@@ -331,29 +333,151 @@ function MyReportCardsTab({ studentId }: { studentId: string }) {
   )
 }
 
-// ── Survey tab ─────────────────────────────────────────────────
-function SurveyTab() {
+// ── Star rating widget ─────────────────────────────────────────
+const STAR_LABELS = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent']
+
+function StarRating({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const [hovered, setHovered] = useState(0)
+  const active = hovered || value
   return (
-    <div style={{ padding: '2rem 1rem' }}>
-      <Card style={{ padding: '2rem', textAlign: 'center' }}>
-        <div style={{
-          width: 48, height: 48, borderRadius: '50%',
-          background: 'var(--violet-bg)', margin: '0 auto 1rem',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" strokeWidth="2">
-            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
-            <rect x="9" y="3" width="6" height="4" rx="1" ry="1" />
-            <path d="M9 12h6M9 16h4" />
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.5rem' }}>
+      {[1, 2, 3, 4, 5].map(n => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n)}
+          onMouseEnter={() => setHovered(n)}
+          onMouseLeave={() => setHovered(0)}
+          style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 2, lineHeight: 1 }}
+        >
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+              fill={n <= active ? '#f59e0b' : 'var(--surface2)'}
+              stroke={n <= active ? '#f59e0b' : 'var(--border)'}
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
           </svg>
-        </div>
-        <div style={{ fontWeight: 800, fontSize: 15, fontFamily: 'var(--font2)', color: 'var(--txt)', marginBottom: '0.5rem' }}>
+        </button>
+      ))}
+      {value > 0 && (
+        <span style={{ fontSize: 13, color: 'var(--txt3)', marginLeft: '0.4rem', fontFamily: 'var(--font2)', fontWeight: 600 }}>
+          {STAR_LABELS[value]}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// ── Survey tab ─────────────────────────────────────────────────
+function SurveyTab({ studentId }: { studentId: string }) {
+  const submitSurvey = useSubmitSurvey()
+  const [rating,   setRating]   = useState(0)
+  const [enjoyed,  setEnjoyed]  = useState('')
+  const [improve,  setImprove]  = useState('')
+  const [submitted, setSubmitted] = useState(false)
+  const [error,    setError]    = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!rating) { setError('Please select a rating before submitting.'); return }
+    setError('')
+    try {
+      await submitSurvey.mutateAsync({
+        studentId,
+        rating,
+        enjoyedMost:     enjoyed.trim(),
+        improveNextTerm: improve.trim(),
+      })
+      setSubmitted(true)
+    } catch (err: any) {
+      setError(err.message ?? 'Survey temporarily unavailable')
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div style={{ padding: '2rem 1rem' }}>
+        <Card style={{ padding: '2.5rem', textAlign: 'center' }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: '50%',
+            background: 'var(--success-bg)', margin: '0 auto 1rem',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <div style={{ fontWeight: 800, fontSize: 15, fontFamily: 'var(--font2)', color: 'var(--success)', marginBottom: '0.5rem' }}>
+            Thank you for your feedback!
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--txt3)', lineHeight: 1.6 }}>
+            Your survey has been submitted. Your responses help improve learning at your school.
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ padding: '1rem' }}>
+      <Card style={{ padding: '1.5rem' }}>
+        <div style={{ fontWeight: 800, fontSize: 15, fontFamily: 'var(--font2)', color: 'var(--txt)', marginBottom: '1.5rem' }}>
           End-of-Term Survey
         </div>
-        <div style={{ fontSize: 13, color: 'var(--txt3)', maxWidth: 340, margin: '0 auto', lineHeight: 1.6 }}>
-          Your teacher has opened the end-of-term survey. Your feedback helps improve learning at your school.
-          The survey form will be available here soon.
-        </div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem' }}>
+          {/* Q1 — Rating */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt2)', fontFamily: 'var(--font2)' }}>
+              How would you rate this term overall?
+            </div>
+            <StarRating value={rating} onChange={setRating} />
+          </div>
+
+          {/* Q2 — Enjoyed most */}
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt2)', fontFamily: 'var(--font2)', display: 'block', marginBottom: '0.45rem' }}>
+              What did you enjoy most this term?
+            </label>
+            <textarea
+              value={enjoyed}
+              onChange={e => setEnjoyed(e.target.value)}
+              placeholder="Share what you enjoyed this term…"
+              className="sui-input"
+              rows={3}
+              style={{ width: '100%', resize: 'vertical', fontFamily: 'var(--font1)' }}
+            />
+          </div>
+
+          {/* Q3 — Improve */}
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt2)', fontFamily: 'var(--font2)', display: 'block', marginBottom: '0.45rem' }}>
+              What would you like to improve next term?
+            </label>
+            <textarea
+              value={improve}
+              onChange={e => setImprove(e.target.value)}
+              placeholder="Share what could be better next term…"
+              className="sui-input"
+              rows={3}
+              style={{ width: '100%', resize: 'vertical', fontFamily: 'var(--font1)' }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 600 }}>{error}</div>
+          )}
+
+          <button
+            type="submit"
+            className="sui-btn-primary"
+            disabled={submitSurvey.isPending}
+            style={{ alignSelf: 'flex-start' }}
+          >
+            {submitSurvey.isPending ? 'Submitting…' : 'Submit Survey'}
+          </button>
+        </form>
       </Card>
     </div>
   )
@@ -361,9 +485,28 @@ function SurveyTab() {
 
 // ── Notices tab ────────────────────────────────────────────────
 function NoticesTab() {
-  const { data: notices = [], isLoading } = useSchoolNotices()
-  if (isLoading) return <div style={{ color: 'var(--txt3)', padding: 16 }}>Loading notices…</div>
-  if (notices.length === 0) {
+  const { data: personal = [], isLoading: pLoad } = usePortalNotifications()
+  const { data: school   = [], isLoading: sLoad } = useSchoolNotices()
+  const markRead = useMarkSingleNotificationRead()
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  type Item = { id: string; body: string; createdAt: string; link: string | null; isPersonal: boolean; isRead: boolean }
+
+  const items = useMemo<Item[]>(() => {
+    if (personal.length > 0) {
+      return personal.map(n => ({
+        id: n.id, body: n.body, createdAt: n.createdAt,
+        link: n.link, isPersonal: true, isRead: !!n.readAt,
+      }))
+    }
+    return school.map(n => ({
+      id: n.id, body: n.body, createdAt: n.createdAt,
+      link: n.link, isPersonal: false, isRead: true,
+    }))
+  }, [personal, school])
+
+  if (pLoad || sLoad) return <div style={{ color: 'var(--txt3)', padding: 16 }}>Loading notices…</div>
+  if (items.length === 0) {
     return (
       <div style={{ color: 'var(--txt3)', padding: 32, textAlign: 'center',
         background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)' }}>
@@ -371,19 +514,63 @@ function NoticesTab() {
       </div>
     )
   }
+
+  function toggle(item: Item) {
+    const isOpening = expanded !== item.id
+    setExpanded(isOpening ? item.id : null)
+    if (isOpening && item.isPersonal && !item.isRead) {
+      void markRead.mutateAsync(item.id)
+    }
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {notices.map(n => (
-        <div key={n.id} style={{
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 12, padding: '14px 18px',
-        }}>
-          <div style={{ fontSize: 14, color: 'var(--txt)', lineHeight: 1.5 }}>{n.body}</div>
-          <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 6 }}>
-            {new Date(n.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {items.map(item => {
+        const isOpen  = expanded === item.id
+        const preview = item.body.length > 80 ? item.body.slice(0, 80) + '…' : item.body
+        return (
+          <div
+            key={item.id}
+            onClick={() => toggle(item)}
+            style={{
+              background: 'var(--surface)',
+              border: `1px solid ${item.isPersonal && !item.isRead ? 'var(--brand)' : 'var(--border)'}`,
+              borderRadius: 12, padding: '12px 16px', cursor: 'pointer',
+              transition: 'border-color 0.15s',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{
+                  fontSize: 13.5, color: 'var(--txt)', lineHeight: 1.5,
+                  fontWeight: item.isRead ? 400 : 700,
+                }}>
+                  {isOpen ? item.body : preview}
+                </div>
+                {isOpen && item.link && (
+                  <a
+                    href={item.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    style={{ fontSize: 12, color: 'var(--brand)', marginTop: 6, display: 'inline-block' }}
+                  >
+                    View details →
+                  </a>
+                )}
+              </div>
+              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                {item.isPersonal && !item.isRead && (
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--brand)', flexShrink: 0 }} />
+                )}
+                <div style={{ fontSize: 11, color: 'var(--txt3)', whiteSpace: 'nowrap' }}>
+                  {new Date(item.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -463,7 +650,7 @@ export function StudentPortalPage() {
   const initials = `${student.firstName[0] ?? ''}${student.lastName[0] ?? ''}`.toUpperCase()
 
   return (
-    <div style={{ padding: '1.4rem 1.5rem' }}>
+    <div className="sui-page-enter" style={{ padding: '1.4rem 1.5rem' }}>
       <PageHeader title="My Portal" subtitle={`${student.firstName} ${student.lastName}`} />
 
       {/* Student info card */}
@@ -506,7 +693,7 @@ export function StudentPortalPage() {
       {activeTab === 'My Attendance'&& <MyAttendanceTab  studentId={student.id} />}
       {activeTab === 'Report Cards' && <MyReportCardsTab studentId={student.id} />}
       {activeTab === 'Notices'      && <NoticesTab />}
-      {activeTab === 'Survey'       && <SurveyTab />}
+      {activeTab === 'Survey'       && <SurveyTab studentId={student.id} />}
     </div>
   )
 }

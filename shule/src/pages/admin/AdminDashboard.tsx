@@ -19,25 +19,19 @@ import {
 import type { UserRow } from '../../types/week9'
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, danger }: {
+function KpiCard({ label, value, sub, accent = 'brand', icon }: {
   label: string
   value: string | number
   sub?: string
-  danger?: boolean
+  accent?: 'brand' | 'danger' | 'warning' | 'info' | 'success' | 'violet'
+  icon?: React.ReactNode
 }) {
   return (
-    <div style={{
-      background: 'var(--surface)', border: `1px solid ${danger ? 'var(--danger)' : 'var(--border)'}`,
-      borderRadius: 14, padding: '16px 20px', minWidth: 140,
-    }}>
-      <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 600, marginBottom: 4 }}>{label}</div>
-      <div style={{
-        fontSize: 28, fontWeight: 900, fontFamily: 'var(--font2)',
-        color: danger ? 'var(--danger)' : 'var(--txt)',
-      }}>
-        {value}
-      </div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 2 }}>{sub}</div>}
+    <div className={`sui-kpi-v2 sui-kpi-accent-${accent}`} style={{ flex: 1, minWidth: 140 }}>
+      {icon && <div className={`sui-kpi-icon sui-kpi-icon-${accent}`}>{icon}</div>}
+      <div className="sui-kpi-label">{label}</div>
+      <div className="sui-kpi-num sui-count-reveal">{value}</div>
+      {sub && <div className="sui-kpi-sub">{sub}</div>}
     </div>
   )
 }
@@ -52,59 +46,61 @@ function SystemKpisSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        <KpiCard label="Total Users"       value={kpis.totalUsers} />
-        <KpiCard label="Active Today"      value={kpis.activeToday} />
-        <KpiCard label="Browser Storage"   value={`${kpis.storageUsedMb} MB`} sub="IndexedDB estimate" />
+      <div className="stagger-cards" style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <KpiCard
-          label="Sync Queue Pending"
-          value={kpis.syncQueuePending}
-          danger={kpis.syncQueuePending > 0}
-          sub={kpis.syncQueuePending > 0 ? 'Waiting to sync' : 'All clear'}
+          label="Total Users" value={kpis.totalUsers} accent="brand"
+          icon={<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="7" cy="7" r="3"/><path d="M1 18a6 6 0 0112 0"/><circle cx="15" cy="5" r="2.5"/><path d="M18 16a4 4 0 00-7.2-2.4"/></svg>}
         />
         <KpiCard
-          label="Sync Queue Failed"
+          label="Active Today" value={kpis.activeToday} accent="success"
+          icon={<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="10" cy="10" r="8"/><path d="M7 10l2 2 4-4"/></svg>}
+        />
+        <KpiCard
+          label="Browser Storage" value={`${kpis.storageUsedMb} MB`} sub="IndexedDB estimate" accent="info"
+          icon={<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2}><ellipse cx="10" cy="6" rx="7" ry="3"/><path d="M3 6v4c0 1.66 3.13 3 7 3s7-1.34 7-3V6"/><path d="M3 10v4c0 1.66 3.13 3 7 3s7-1.34 7-3v-4"/></svg>}
+        />
+        <KpiCard
+          label="Sync Pending"
+          value={kpis.syncQueuePending}
+          accent={kpis.syncQueuePending > 0 ? 'warning' : 'success'}
+          sub={kpis.syncQueuePending > 0 ? 'Waiting to sync' : 'All clear'}
+          icon={<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h5M16 16v-5h-5"/><path d="M4 9a8 8 0 018-5 8 8 0 016.93 4M16 11a8 8 0 01-8 5 8 8 0 01-6.93-4"/></svg>}
+        />
+        <KpiCard
+          label="Sync Failed"
           value={kpis.syncQueueFailed}
-          danger={kpis.syncQueueFailed > 0}
+          accent={kpis.syncQueueFailed > 0 ? 'danger' : 'success'}
           sub={kpis.syncQueueFailed > 0 ? 'Manual review needed' : 'All clear'}
+          icon={<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="10" cy="10" r="8"/><path d="M10 6v4M10 14h.01"/></svg>}
         />
       </div>
 
       {/* Storage per bucket */}
-      <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 14, padding: 20,
-      }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: 'var(--txt)' }}>
-          Storage Buckets
+      <div className="sui-glass-panel sui-table-head-sticky">
+        <div className="sui-glass-panel-header">
+          <span style={{ fontFamily: 'var(--font2)', fontSize: 14, fontWeight: 800, color: 'var(--txt)' }}>Storage Buckets</span>
         </div>
         {bucketsLoading ? (
           <div style={{ color: 'var(--txt3)', fontSize: 13 }}>Listing buckets…</div>
         ) : buckets.length === 0 ? (
           <div style={{ color: 'var(--txt3)', fontSize: 13 }}>No storage buckets found.</div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="dtable" style={{ width: '100%' }}>
             <thead>
               <tr>
                 {['Bucket', 'Files', 'Size (MB)'].map(h => (
-                  <th key={h} style={{ padding: '6px 12px', background: 'var(--surface2)',
-                    fontWeight: 700, fontSize: 11, color: 'var(--txt2)', textAlign: 'left',
-                    textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    {h}
-                  </th>
+                  <th key={h} className="sui-th" style={{ background: 'var(--surface2)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {buckets.map(b => (
                 <tr key={b.name} className="sui-tr">
-                  <td style={{ padding: '8px 12px', fontFamily: 'var(--font3)', fontSize: 13, color: 'var(--txt)' }}>
+                  <td style={{ padding: '8px 12px', fontFamily: 'var(--font3)', fontSize: 13 }}>
                     {b.name}
                   </td>
-                  <td style={{ padding: '8px 12px', color: 'var(--txt2)', fontSize: 13 }}>
-                    {b.fileCount}
-                  </td>
-                  <td style={{ padding: '8px 12px', color: 'var(--brand)', fontWeight: 700, fontSize: 13, fontFamily: 'var(--font3)' }}>
+                  <td style={{ padding: '8px 12px', color: 'var(--txt2)', fontSize: 13 }}>{b.fileCount}</td>
+                  <td style={{ padding: '8px 12px', color: 'var(--brand)', fontWeight: 700, fontFamily: 'var(--font3)', fontSize: 13 }}>
                     {b.sizeMb} MB
                   </td>
                 </tr>
@@ -167,20 +163,14 @@ function UserManagementSection() {
 
       <div
         ref={listRef}
-        style={{
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 14, overflow: 'auto', maxHeight: 480,
-        }}
+        className="sui-glass-panel sui-table-head-sticky"
+        style={{ overflow: 'auto', maxHeight: 480 }}
       >
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+          <thead>
             <tr>
               {['Name', 'Role', 'Last Login', 'Status', 'Actions'].map(h => (
-                <th key={h} style={{ padding: '8px 12px', background: 'var(--surface2)',
-                  fontWeight: 700, fontSize: 12, color: 'var(--txt2)', textAlign: 'left',
-                  whiteSpace: 'nowrap' }}>
-                  {h}
-                </th>
+                <th key={h} className="sui-th" style={{ background: 'var(--surface2)' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -256,11 +246,23 @@ function UserManagementSection() {
 
       {/* Delete User Modal */}
       {deleteTarget && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-        }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 28, width: 420 }}>
+        <div
+          className="sui-overlay"
+          style={{
+            position: 'fixed', inset: 0, background: 'var(--modal-overlay)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setDeleteTarget(null) }}
+        >
+          <div
+            className="sui-modal-dialog"
+            style={{
+              background: 'var(--modal-bg)', borderRadius: 20, padding: 28, width: 420,
+              border: '1px solid var(--modal-border)',
+              borderTop: '1px solid var(--modal-border-t)',
+              backdropFilter: 'blur(24px)', boxShadow: 'var(--modal-shadow)',
+            }}
+          >
             <h3 style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, marginTop: 0, color: 'var(--danger)' }}>
               Delete User Account
             </h3>
@@ -307,13 +309,23 @@ function UserManagementSection() {
 
       {/* Reset Password Modal */}
       {resetTarget && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-        }}>
-          <div style={{
-            background: 'var(--surface)', borderRadius: 20, padding: 28, width: 400,
-          }}>
+        <div
+          className="sui-overlay"
+          style={{
+            position: 'fixed', inset: 0, background: 'var(--modal-overlay)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setResetTarget(null) }}
+        >
+          <div
+            className="sui-modal-dialog"
+            style={{
+              background: 'var(--modal-bg)', borderRadius: 20, padding: 28, width: 400,
+              border: '1px solid var(--modal-border)',
+              borderTop: '1px solid var(--modal-border-t)',
+              backdropFilter: 'blur(24px)', boxShadow: 'var(--modal-shadow)',
+            }}
+          >
             <h3 style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, marginTop: 0 }}>
               Reset Password
             </h3>
@@ -425,12 +437,9 @@ function SchoolSettingsSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* School Profile */}
-      <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 14, padding: 20,
-      }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16, color: 'var(--txt)' }}>
-          School Profile
+      <div className="sui-glass-panel" style={{ padding: 20 }}>
+        <div className="sui-section-head">
+          <span className="sui-section-title">School Profile</span>
         </div>
         <form onSubmit={e => { void handleSaveSettings(e) }}
           style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -528,12 +537,9 @@ function SchoolSettingsSection() {
       </div>
 
       {/* Communication APIs */}
-      <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 14, padding: 20,
-      }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4, color: 'var(--txt)' }}>
-          Communication APIs
+      <div className="sui-glass-panel" style={{ padding: 20 }}>
+        <div className="sui-section-head" style={{ marginBottom: 4 }}>
+          <span className="sui-section-title">Communication APIs</span>
         </div>
         <div style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 16, fontWeight: 600 }}>
           API keys are encrypted and stored securely. They will never be shown after saving.
@@ -615,10 +621,7 @@ function SchoolSettingsSection() {
       </div>
 
       {/* Academic Years + Survey Toggle + Promote */}
-      <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 14, padding: 20,
-      }}>
+      <div className="sui-glass-panel" style={{ padding: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--txt)' }}>Academic Years</div>
           <button
@@ -679,14 +682,24 @@ function SchoolSettingsSection() {
 
       {/* Promote Students Modal */}
       {showPromoteModal && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-        }}>
-          <div style={{
-            background: 'var(--surface)', borderRadius: 20, padding: 32,
-            maxWidth: 480, width: '100%', boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
-          }}>
+        <div
+          className="sui-overlay"
+          style={{
+            position: 'fixed', inset: 0, background: 'var(--modal-overlay)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setShowPromoteModal(false) }}
+        >
+          <div
+            className="sui-modal-dialog"
+            style={{
+              background: 'var(--modal-bg)', borderRadius: 20, padding: 32,
+              maxWidth: 480, width: '100%',
+              border: '1px solid var(--modal-border)',
+              borderTop: '1px solid var(--modal-border-t)',
+              backdropFilter: 'blur(24px)', boxShadow: 'var(--modal-shadow)',
+            }}
+          >
             <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--txt)', margin: '0 0 12px' }}>
               Promote All Students
             </h2>
@@ -776,40 +789,46 @@ function SchoolSettingsSection() {
 // ═══════════════════════════════════════════════════════════════════════════
 export function AdminDashboard() {
   return (
-    <div>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{
-          fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22,
-          color: 'var(--txt)', margin: 0,
-        }}>
-          IT Administration
-        </h1>
-        <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 4 }}>
-          System health, user management, and school configuration.
+    <div className="sui-page-enter stagger-sections" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+      {/* ── Hero band ── */}
+      <div className="sui-hero-band">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+          <div>
+            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, margin: '0 0 4px', lineHeight: 1.2 }}>
+              <span className="gradient-text">IT Administration</span>
+            </h1>
+            <p style={{ fontSize: 13, color: 'var(--txt3)', margin: 0 }}>
+              System health, user management & school configuration.
+            </p>
+          </div>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '6px 14px', borderRadius: 99,
+            background: 'var(--info-bg)', color: 'var(--info)',
+            fontSize: 11, fontWeight: 700, fontFamily: 'var(--font2)', whiteSpace: 'nowrap',
+          }}>
+            <svg width={12} height={12} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <circle cx="10" cy="10" r="8"/><path d="M10 6v4M10 14h.01"/>
+            </svg>
+            Admin Only
+          </div>
         </div>
       </div>
 
       <Tabs.Root defaultValue="kpis">
-        <Tabs.List style={{
-          display: 'flex', gap: 4, borderBottom: '2px solid var(--border)', marginBottom: 24,
-        }}>
-          {[
-            { value: 'kpis',     label: 'System KPIs' },
-            { value: 'users',    label: 'User Management' },
-            { value: 'settings', label: 'School Settings' },
-          ].map(tab => (
-            <Tabs.Trigger
-              key={tab.value}
-              value={tab.value}
-              style={{
-                padding: '8px 18px', border: 'none', background: 'none',
-                cursor: 'pointer', fontWeight: 700, fontSize: 13,
-                color: 'var(--txt2)', borderRadius: '8px 8px 0 0',
-              }}
-            >
-              {tab.label}
-            </Tabs.Trigger>
-          ))}
+        <Tabs.List asChild>
+          <div className="sui-tab-list-pill" style={{ marginBottom: 24 }}>
+            {[
+              { value: 'kpis',     label: 'System KPIs' },
+              { value: 'users',    label: 'User Management' },
+              { value: 'settings', label: 'School Settings' },
+            ].map(tab => (
+              <Tabs.Trigger key={tab.value} value={tab.value} asChild>
+                <button className="sui-tab-pill">{tab.label}</button>
+              </Tabs.Trigger>
+            ))}
+          </div>
         </Tabs.List>
 
         <Tabs.Content value="kpis">     <SystemKpisSection />      </Tabs.Content>

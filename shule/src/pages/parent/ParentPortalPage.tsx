@@ -504,7 +504,7 @@ export function ParentPortalPage() {
   }
 
   return (
-    <div style={{ padding: '1.4rem 1.5rem' }}>
+    <div className="sui-page-enter" style={{ padding: '1.4rem 1.5rem' }}>
       <PageHeader
         title="Parent Portal"
         subtitle={`${children.length} child${children.length !== 1 ? 'ren' : ''} linked`}
