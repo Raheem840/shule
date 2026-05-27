@@ -1,4 +1,8 @@
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../store/AuthContext'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { SafeTermProgressTimeline } from '../../components/shared/TermProgressTimeline'
 import { useTeacherEvents } from '../../hooks/useTeacherEvents'
 
@@ -11,15 +15,131 @@ const QUICK_LINKS = [
 ] as const
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
-  exam:     'var(--danger)',
-  ca:       'var(--warning)',
-  aoi:      'var(--info)',
-  general:  'var(--success)',
+  exam:    'var(--danger)',
+  ca:      'var(--warning)',
+  aoi:     'var(--info)',
+  general: 'var(--success)',
 }
 
+// ── Teacher KPI hooks ─────────────────────────────────────────
+
+function useTeacherKpis() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['teacher-kpis', user?.schoolId, user?.id],
+    enabled:  !!user,
+    queryFn: async () => {
+      // Step 1: Get staff row for this user
+      const { data: staffRow } = await supabase
+        .from('staff')
+        .select('id, classes')
+        .eq('auth_user_id', user!.id)
+        .eq('school_id', user!.schoolId)
+        .maybeSingle()
+
+      const staffId   = (staffRow as any)?.id   as string | undefined
+      const classIds  = ((staffRow as any)?.classes ?? []) as string[]
+      const myClasses = classIds.length
+
+      // Determine current term (simple: check current month)
+      const month = new Date().getMonth() + 1   // 1-12
+      const currentTerm = month <= 4 ? '1' : month <= 8 ? '2' : '3'
+      const currentYear = new Date().getFullYear()
+
+      // Step 2: Journals this term (use auth_user_id as teacher_id per hook pattern)
+      let journalsThisTerm = 0
+      const { count: jCount } = await supabase
+        .from('exam_journal')
+        .select('id', { count: 'exact', head: true })
+        .eq('school_id', user!.schoolId)
+        .eq('teacher_id', user!.id)
+        .eq('term', currentTerm)
+        .eq('year', currentYear)
+      journalsThisTerm = jCount ?? 0
+
+      // Step 3: Topics covered by this teacher
+      let topicsCovered = 0
+      if (staffId) {
+        const { count: tCount } = await supabase
+          .from('curriculum_plan')
+          .select('id', { count: 'exact', head: true })
+          .eq('school_id', user!.schoolId)
+          .eq('teacher_id', staffId)
+          .not('covered_at', 'is', null)
+        topicsCovered = tCount ?? 0
+      }
+
+      // Step 4: Students below 80% attendance in my classes
+      let belowThresholdCount = 0
+      if (classIds.length > 0) {
+        const yearStart = `${currentYear}-01-01`
+        const { data: attRows } = await supabase
+          .from('attendance')
+          .select('student_id, status')
+          .eq('school_id', user!.schoolId)
+          .in('class_id', classIds)
+          .gte('date', yearStart)
+
+        // Aggregate per student
+        const studentDays = new Map<string, { total: number; present: number }>()
+        for (const r of attRows ?? []) {
+          const sid  = r.student_id as string
+          const curr = studentDays.get(sid) ?? { total: 0, present: 0 }
+          curr.total++
+          if (r.status === 'present' || r.status === 'late') curr.present++
+          studentDays.set(sid, curr)
+        }
+        for (const { total, present } of studentDays.values()) {
+          if (total > 0 && (present / total) < 0.8) belowThresholdCount++
+        }
+      }
+
+      return { myClasses, journalsThisTerm, topicsCovered, belowThresholdCount, currentTerm }
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
+// ── KPI card component ────────────────────────────────────────
+const KPI_ICONS: Record<string, string> = {
+  brand:   'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z',
+  violet:  'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6',
+  warning: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+  info:    'M4 19.5A2.5 2.5 0 016.5 17H20',
+}
+
+function KpiCard({
+  label, value, sub, accent, onClick,
+}: {
+  label: string; value: string | number; sub?: string
+  accent: 'brand' | 'violet' | 'warning' | 'info'
+  onClick?: () => void
+}) {
+  return (
+    <div
+      className={`sui-kpi-v2 sui-kpi-accent-${accent}`}
+      onClick={onClick}
+      style={{ flex: 1, minWidth: 140, cursor: onClick ? 'pointer' : 'default' }}
+    >
+      <div className={`sui-kpi-icon sui-kpi-icon-${accent}`}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d={KPI_ICONS[accent]} />
+        </svg>
+      </div>
+      <div className="sui-kpi-label">{label}</div>
+      <div className="sui-kpi-num">{value}</div>
+      {sub && <div className="sui-kpi-sub">{sub}</div>}
+    </div>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────
 export function TeacherDashboard() {
   const navigate  = useNavigate()
   const { data: events = [] } = useTeacherEvents()
+  const { data: kpis, isLoading: kpisLoading } = useTeacherKpis()
+
   const today    = new Date().toISOString().slice(0, 10)
   const upcoming = events
     .filter(e => e.eventDate >= today)
@@ -27,7 +147,7 @@ export function TeacherDashboard() {
     .slice(0, 3)
 
   return (
-    <div className="stagger-sections" style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+    <div className="sui-page-enter stagger-sections" style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
 
       {/* Hero */}
       <div className="sui-hero-band">
@@ -43,6 +163,43 @@ export function TeacherDashboard() {
 
       <SafeTermProgressTimeline />
 
+      {/* ── KPI Cards ───────────────────────────────────────── */}
+      {kpisLoading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '1rem' }}>
+          <LoadingSpinner size="md" />
+        </div>
+      ) : kpis && (
+        <div className="stagger-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+          <KpiCard
+            label="My Classes"
+            value={kpis.myClasses}
+            sub="assigned classes"
+            accent="brand"
+          />
+          <KpiCard
+            label="Journals This Term"
+            value={kpis.journalsThisTerm}
+            sub={`Term ${kpis.currentTerm}`}
+            accent="violet"
+            onClick={() => navigate('/teacher/exams')}
+          />
+          <KpiCard
+            label="Below 80% Attendance"
+            value={kpis.belowThresholdCount}
+            sub="students at risk"
+            accent="warning"
+            onClick={() => navigate('/teacher/attendance')}
+          />
+          <KpiCard
+            label="Topics Covered"
+            value={kpis.topicsCovered}
+            sub="curriculum plan"
+            accent="info"
+            onClick={() => navigate('/teacher/curriculum')}
+          />
+        </div>
+      )}
+
       {/* Upcoming events */}
       {upcoming.length > 0 && (
         <div>
@@ -53,12 +210,10 @@ export function TeacherDashboard() {
             {upcoming.map(e => {
               const accent = EVENT_TYPE_COLORS[e.eventType] ?? 'var(--brand)'
               return (
-                <div key={e.id} style={{
-                  background: 'var(--surface)', border: '1px solid var(--border)',
+                <div key={e.id} className="sui-glass-card" style={{
                   borderLeft: `4px solid ${accent}`,
-                  borderRadius: 12, padding: '12px 16px',
+                  padding: '12px 16px',
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  transition: 'box-shadow 0.18s',
                 }}>
                   <div>
                     <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>{e.title}</span>

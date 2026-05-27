@@ -5,13 +5,15 @@ import { useAuth } from '../../store/AuthContext'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
+import { useClasses } from '../../hooks/useClasses'
+import { useSubjects } from '../../hooks/useClasses'
 import type { CurriculumTopic } from '../../types/week9'
 
 function useMyTopics() {
   const { user } = useAuth()
   return useQuery({
     queryKey: ['my-curriculum', user?.schoolId, user?.id],
-    enabled: !!user,
+    enabled:  !!user,
     queryFn: async (): Promise<CurriculumTopic[]> => {
       const { data: staffRow } = await supabase
         .from('staff')
@@ -62,41 +64,90 @@ function useMarkTopicCovered() {
         .eq('id', topicId)
         .eq('school_id', user.schoolId)
       if (error) throw new Error(error.message)
+
+      // Notify DoS — find DoS staff user for this school
+      const { data: dosStaff } = await supabase
+        .from('staff')
+        .select('auth_user_id')
+        .eq('school_id', user.schoolId)
+        .eq('role', 'dos')
+        .maybeSingle()
+
+      if ((dosStaff as any)?.auth_user_id) {
+        await supabase.from('notifications').insert({
+          school_id: user.schoolId,
+          user_id:   (dosStaff as any).auth_user_id,
+          type:      'general',
+          body:      'A teacher has marked a curriculum topic as covered.',
+          link:      '/dos/curriculum',
+          read_at:   null,
+        })
+      }
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['my-curriculum', user?.schoolId, user?.id] }),
   })
 }
 
 export function TeacherCurriculumPage() {
-  const { data = [], isLoading } = useMyTopics()
+  const { data = [], isLoading }    = useMyTopics()
+  const { data: classes = [] }      = useClasses()
+  const { data: subjects = [] }     = useSubjects()
   const { success: ok, error: err } = useToast()
   const markCovered = useMarkTopicCovered()
-  const [termFilter, setTermFilter] = useState('')
 
-  const filtered = termFilter ? data.filter(t => String(t.term) === termFilter) : data
+  const [termFilter,    setTermFilter]    = useState('')
+  const [classFilter,   setClassFilter]   = useState('')
+  const [subjectFilter, setSubjectFilter] = useState('')
+
+  let filtered = data
+  if (termFilter)    filtered = filtered.filter(t => String(t.term) === termFilter)
+  if (classFilter)   filtered = filtered.filter(t => t.classId === classFilter)
+  if (subjectFilter) filtered = filtered.filter(t => t.subjectId === subjectFilter)
+
   const covered  = filtered.filter(t => t.coveredAt != null).length
   const pct      = filtered.length > 0 ? Math.round((covered / filtered.length) * 100) : 0
+
+  // Only show subjects / classes that appear in this teacher's topics
+  const topicSubjectIds = new Set(data.map(t => t.subjectId))
+  const topicClassIds   = new Set(data.map(t => t.classId))
+  const mySubjects      = subjects.filter(s => topicSubjectIds.has(s.id))
+  const myClasses       = classes.filter(c => topicClassIds.has(c.id))
 
   async function handleMark(topicId: string) {
     try {
       await markCovered.mutateAsync(topicId)
-      ok('Topic marked as covered.')
+      ok('Topic marked as covered — DoS has been notified.')
     } catch (e: any) { err(e.message) }
   }
 
+  const selectStyle = {
+    padding: '0.35rem 0.85rem', border: '1.5px solid var(--border)',
+    borderRadius: 'var(--r)', background: 'var(--surface)',
+    color: 'var(--txt)', fontSize: 13, outline: 'none',
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="sui-page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
         title="Curriculum Plan"
         subtitle="Track topics you've covered in class."
       />
 
-      <div style={{ display: 'flex', gap: 10 }}>
-        <select className="sui-input" value={termFilter} onChange={e => setTermFilter(e.target.value)}>
+      {/* Filter bar */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <select style={selectStyle} value={termFilter} onChange={e => setTermFilter(e.target.value)}>
           <option value="">All Terms</option>
           <option value="1">Term 1</option>
           <option value="2">Term 2</option>
           <option value="3">Term 3</option>
+        </select>
+        <select style={selectStyle} value={subjectFilter} onChange={e => setSubjectFilter(e.target.value)}>
+          <option value="">All Subjects</option>
+          {mySubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <select style={selectStyle} value={classFilter} onChange={e => setClassFilter(e.target.value)}>
+          <option value="">All Classes</option>
+          {myClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
 
@@ -127,7 +178,7 @@ export function TeacherCurriculumPage() {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No curriculum topics assigned to you.</td></tr>
+                <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No curriculum topics match the filters.</td></tr>
               ) : filtered.map(t => (
                 <tr key={t.id} style={{ borderBottom: '1px solid var(--border)', background: t.coveredAt ? 'var(--bg)' : 'var(--surface)' }}>
                   <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt3)' }}>{t.sequenceOrder}</td>
@@ -150,9 +201,12 @@ export function TeacherCurriculumPage() {
                   </td>
                   <td style={{ padding: '10px 14px' }}>
                     {!t.coveredAt && (
-                      <button className="sui-btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}
+                      <button
+                        className="sui-btn-primary"
+                        style={{ fontSize: 11, padding: '4px 12px' }}
                         disabled={markCovered.isPending}
-                        onClick={() => handleMark(t.id)}>
+                        onClick={() => handleMark(t.id)}
+                      >
                         Mark Covered
                       </button>
                     )}
