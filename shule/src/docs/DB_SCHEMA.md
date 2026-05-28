@@ -1,169 +1,241 @@
 # SHULE — Database Schema (Ground Truth)
-# READ THIS FILE BEFORE WRITING ANY SUPABASE QUERY.
-# Never query a column not listed here. If a column is missing from the DB,
-# write `// DB NEEDS: ALTER TABLE x ADD COLUMN y` and use optional chaining.
+# Audited: 2026-05-28. This file is the single source of truth.
+# Never query a column not listed here.
 
 ---
 
-## school_profile
-id, school_name, short_name, logo_url, motto, primary_color, curriculum,
-deployment_mode, created_at
-
-**NOT in schema:** currency, timezone, address
-
----
-
-## staff
-id, school_id, auth_user_id, staff_number, first_name, last_name, role,
-department_id, subjects (text[]), classes (uuid[]), qualification_level,
-employment_type, salary_band, photo_url, is_active, created_at, join_date,
-email, phone, national_id, address, employment_date
-
-**NOT in schema:** qualification_title, institution, graduation_year,
-last_login_at, date_of_birth, gender
-
----
-
-## students
-id, school_id, admission_number, first_name, last_name, dob, gender,
-class_id, stream_id, photo_url, medical_notes, status, enrolled_at
-
-**NOT in schema:** academic_year_id, nationality, religion, student_type,
-previous_school
-
----
-
-## student_guardians
-id, school_id, student_id, guardian_name, relationship, phone, email, do_not_contact
-
----
-
-## classes
-id, school_id, name, level, academic_year_id
-
----
-
-## streams
-id, school_id, class_id, name, class_teacher_id
-
----
-
-## departments
-id, school_id, name, accent_color, head_teacher_id, archived
-
----
-
-## academic_years
-id, school_id, label, name (generated alias of label), start_date, end_date,
+## academic_years | RLS: ON
+id, school_id, label, name, start_date, end_date,
 term1_start, term1_end, term2_start, term2_end, term3_start, term3_end,
-is_active, survey_active, created_at
+is_active (bool), survey_active (bool), created_at
 
 ---
 
-## subjects
-id, school_id, name, curriculum_code, level
-
-**NOT in schema:** is_active
-
----
-
-## exam_journal
-id, school_id, teacher_id, subject_id, class_id, stream_id,
-assessment_type, name, date, total_marks, pass_mark, term, year,
-notes, status, learning_area, competency, integration_theme, trade_area,
-dit_module_code, ca_component, ca_weighting, ca_label
+## attendance | RLS: ON
+id, school_id, student_id, class_id, recorded_by,
+date, status, notes, created_at
 
 ---
 
-## exam_results
-id, school_id, exam_journal_id, student_id, subject_id, score, grade, term, year, teacher_id
-
-**NOT in schema:** is_absent
-
----
-
-## attendance
-id, school_id, student_id, class_id, date, status, recorded_by
-
----
-
-## fee_structure
-id, school_id, name, amount, applies_to, term, year
-
----
-
-## fee_payments
-id, school_id, student_id, fee_type_id, amount_due, amount_paid,
-balance, payment_date, receipt_number, term, year, notes, imported
-
-**NOT in schema:** amount, status
-**Status computed client-side:**
-  amount_paid >= amount_due → 'paid'
-  amount_paid === 0         → 'unpaid'
-  else                      → 'partial'
-
----
-
-## report_cards
-id, school_id, student_id, term, year, status, principal_remarks,
-generated_at, approved_at, released_at, pdf_url
-
-**NOT in schema:** unlock_reason, approved_by, released_by, unlock_count
-
----
-
-## teacher_remarks
-id, school_id, student_id, teacher_id, term, year, remarks
-
----
-
-## messages
-id, school_id, from_user_id, to_user_id, body, attachment_url, sent_at, read_at
-
----
-
-## notifications
-id, school_id, user_id, type, body, read, created_at, link, read_at,
-from_user, target_role, title
-
----
-
-## discipline_records
-id, school_id, student_id, recorded_by, incident_date, nature,
-resolution, created_at, updated_at, class_id, notes
-
----
-
-## audit_log
+## audit_log | RLS: ON
 id, school_id, user_id, role, action, table_name, record_id,
-old_value, new_value, created_at
-
-Note: old_data / new_data are generated aliases for old_value / new_value — both work.
+entity_name, old_value, new_value, old_data, new_data, created_at
 
 ---
 
-## curriculum_plan
-id, school_id, subject_id, class_id, term, year, topic,
-expected_date, covered, covered_at, covered_by
+## classes | RLS: ON
+id, school_id, academic_year_id (required), name, level, created_at
 
 ---
 
-## sms_reminders
-id, school_id, student_id, parent_phone, channel, message, status, sent_at, delivered_at
+## curriculum_plan | RLS: ON
+id, school_id, subject_id, class_id, term (text), year (int),
+topic, expected_date, covered (bool), covered_at, covered_by, created_at, updated_at
 
 ---
 
-## send_queue
-id, school_id, type, payload, status, queued_at, sent_at
+## departments | RLS: ON
+id, school_id, name, description, accent_color, head_teacher_id,
+archived (bool), created_at
 
 ---
 
-## sync_queue
-id, school_id, action_type, table_name, record_id, payload, status, created_at, synced_at
+## discipline_records | RLS: ON
+id, school_id, student_id, class_id, recorded_by,
+incident_date, nature, resolution, notes, created_at, updated_at
 
 ---
 
-## parent_accounts
-id, school_id, email, student_ids (uuid[]), created_by, created_at
+## error_log | RLS: ON (deny all school JWTs)
+id, school_id, school_name, error_type, error_message,
+severity, status, resolved_by, resolution_notes, created_at
 
-**NOT in schema:** full_name, phone, auth_user_id, temp_password, student_id
+---
+
+## exam_journal | RLS: ON
+id, school_id, teacher_id, subject_id, class_id, stream_id, academic_year_id,
+assessment_type, name, term (text), year (int), total_marks, pass_mark,
+**date_given** ← NOT 'date',
+**teacher_notes** ← NOT 'notes',
+status ('draft'|'published'),
+ca_label, ca_component, ca_weighting,
+learning_area, competency, integration_theme, trade_area, dit_module_code,
+created_at
+
+---
+
+## exam_results | RLS: ON
+id, school_id, exam_journal_id, student_id, teacher_id, subject_id,
+term (text), year (int), score, grade, is_absent (bool), remarks,
+created_at, updated_at
+
+---
+
+## fee_payments | RLS: ON
+id, school_id, student_id,
+**fee_structure_id** ← NOT 'fee_type_id',
+academic_year_id, term (int 1/2/3), amount_due, amount_paid (DEFAULT 0),
+balance, payment_date, receipt_number, notes, imported (bool),
+created_by, created_at, updated_at
+
+**NO 'amount' column. NO 'status' column — compute from amounts.**
+Status: balance <= 0 → 'paid' | amount_paid > 0 → 'partial' | else → 'unpaid'
+
+---
+
+## fee_structure | RLS: ON
+id, school_id, name, amount, applies_to, term (int), academic_year_id,
+is_active (bool), created_at
+
+---
+
+## messages | RLS: ON
+id, school_id, from_user_id, to_user_id,
+is_announcement (bool),
+body, attachment_url, attachment_name, attachment_type,
+sent_at, read_at
+
+Filter announcements: `.eq('is_announcement', true)`
+Filter DMs: `.eq('is_announcement', false)`
+
+---
+
+## notifications | RLS: ON
+id, school_id, user_id, type, title, body, read (bool),
+read_at, link, from_user, target_role, created_at
+
+---
+
+## parent_accounts | RLS: ON
+id, school_id, auth_user_id, email, full_name, phone,
+student_ids (uuid[]), temp_password, created_by, created_at, updated_at
+
+---
+
+## report_cards | RLS: ON
+id, school_id, student_id,
+**term (TEXT)** ← NOT integer,
+year (int), status ('draft'|'ready'|'approved'|'released'),
+principal_remarks, generated_at, approved_at, approved_by,
+released_at, released_by, pdf_url,
+unlock_reason, unlock_count (int DEFAULT 0),
+created_at, updated_at
+
+---
+
+## school_events | RLS: ON
+id, school_id, title, event_date, event_type, description,
+subject_id, class_id, stream_id, total_marks, pass_mark,
+journaled (bool), journal_id, term (text), year (int),
+created_by, created_at
+
+---
+
+## school_profile | RLS: OFF (readable by all authenticated)
+id, school_name, short_name, logo_url, motto, primary_color,
+curriculum, deployment_mode, currency,
+**at_api_key, at_username, at_sender_id** ← use these for Africa's Talking,
+sms_api_key, sms_username, sms_sender_id, sms_environment,
+wa_phone_number_id, wa_access_token, wa_business_account_id,
+report_template_url, timezone, language, created_at
+
+---
+
+## school_registry | RLS: ON (deny all school JWTs — service_role only)
+id, school_id, contact_name, contact_email, contact_phone,
+deployment_type, status, installation_notes,
+assigned_team_member, cloud_backup_enabled, last_seen_at, created_at
+
+---
+
+## send_queue | RLS: ON
+id, school_id, type, payload (jsonb), status,
+attempts (int DEFAULT 0), last_attempted_at, queued_at, sent_at
+
+Insert format: `{ school_id, type: channel, payload: { to, message, student_id }, status: 'pending' }`
+
+---
+
+## sms_reminders | RLS: ON
+id, school_id, student_id, parent_phone, channel, message,
+status, sent_at, delivered_at, created_at
+
+---
+
+## staff | RLS: OFF ⚠ SECURITY — MUST ENABLE RLS (see useStaff.ts for SQL)
+id, school_id, auth_user_id, staff_number, first_name, last_name, role,
+department_id, subjects (text[]), classes (uuid[]),
+qualification_level, qualification_title, institution, graduation_year,
+employment_type, employment_date, join_date, salary_band,
+photo_url, is_active (bool DEFAULT true),
+email, phone, national_id, address, date_of_birth, gender,
+last_login_at, created_at
+
+---
+
+## staff_documents | RLS: ON
+id, school_id, staff_id, doc_type, file_url, file_name, uploaded_by, uploaded_at
+
+---
+
+## streams | RLS: ON
+id, school_id, class_id, name, class_teacher_id, created_at
+
+---
+
+## student_guardians | RLS: ON
+id, school_id, student_id,
+**full_name** ← NOT 'guardian_name',
+relationship, phone, email,
+do_not_contact (bool), comms_preference ('sms'|'whatsapp'|'both'), is_primary (bool),
+created_at
+
+---
+
+## student_surveys | RLS: ON  ← PRIMARY survey table
+id, school_id, student_id, academic_year_id, term (text), year (int),
+rating (1–5), hardest_subject_id, favourite_subject_id,
+teacher_rating (1–5), suggestions, submitted_at
+
+---
+
+## students | RLS: ON
+id, school_id, class_id, stream_id, academic_year_id, admission_number,
+first_name, last_name, dob, gender, nationality (DEFAULT 'Ugandan'),
+religion, photo_url, medical_notes, student_type ('day'|'boarder'),
+previous_school, status ('active'|'suspended'|'expelled'),
+auth_user_id, enrolled_at, created_by, created_at, updated_at
+
+---
+
+## subjects | RLS: ON
+id, school_id, department_id, name, curriculum_code,
+level, is_active (bool DEFAULT true), created_at
+
+Join for department name: `.select('id, name, curriculum_code, level, is_active, departments(name, accent_color)')`
+
+---
+
+## survey_responses | RLS: ON  ← simpler secondary table, prefer student_surveys
+id, school_id, student_id, academic_year_id, term (int), rating,
+enjoyed, improve, submitted_at
+
+---
+
+## sync_queue | RLS: ON
+id, school_id, action_type, table_name, record_id, payload (jsonb),
+status, created_at, synced_at
+
+---
+
+## teacher_remarks | RLS: ON
+id, school_id, student_id, teacher_id, term (text), year (int),
+remarks, created_at, updated_at
+
+---
+
+## timetable_slots | RLS: ON
+id, school_id, class_id, stream_id, subject_id, teacher_id,
+day_of_week (int 1–5), period_number (int),
+start_time (time), end_time (time),
+term (text), year (int), is_published (bool DEFAULT false)
