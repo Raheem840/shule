@@ -58,5 +58,20 @@ export default defineConfig(({ mode }) => ({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov', 'html'],
+      exclude: [
+        'src/test/**',
+        'src/docs/**',
+        'src/lib/reportCardPdf.ts',
+      ],
+      thresholds: {
+        lines:      65,
+        functions:  60,
+        branches:   50,
+        statements: 65,
+      },
+    },
   },
 }))

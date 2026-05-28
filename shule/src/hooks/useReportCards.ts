@@ -6,12 +6,13 @@ import type { ReportCard, ReportCardStatus } from '../types/app'
 import type { RawResult } from '../lib/reportCardPdf'
 
 // ── Column lists ───────────────────────────────────────────────
-// approved_by, released_by, unlock_reason are NOT in schema
-// DB NEEDS: ALTER TABLE report_cards ADD COLUMN approved_by UUID, released_by UUID, unlock_reason TEXT
 const RC_COLS = [
   'id', 'school_id', 'student_id', 'term', 'year', 'status',
-  'principal_remarks', 'generated_at', 'approved_at',
-  'released_at', 'pdf_url',
+  'principal_remarks', 'generated_at',
+  'approved_at', 'approved_by',
+  'released_at', 'released_by',
+  'unlock_reason', 'unlock_count',
+  'pdf_url',
 ].join(', ')
 
 type AnyRow = Record<string, unknown>
@@ -39,7 +40,7 @@ function toReportCard(r: AnyRow): ReportCard {
 // ── useReportCards ─────────────────────────────────────────────
 export function useReportCards(
   filters: {
-    term:      number
+    term:      string
     year:      number
     classId?:  string
     streamId?: string
@@ -261,9 +262,6 @@ export function useGenerateReportCards() {
       }
 
       // ── Fetch all exam_results for these students ──────────
-      // exam_results.term is TEXT (stored from journal.term which is a string like "1")
-      // report_cards.term is INTEGER — both filter correctly with their respective types
-      // is_absent is NOT in exam_results schema — DB NEEDS: ADD COLUMN is_absent BOOLEAN
       const { data: rawResults, error: re } = await supabase
         .from('exam_results')
         .select(`
@@ -332,7 +330,7 @@ export function useGenerateReportCards() {
           journalName:    ej.name as string,
           caLabel:        (ej.ca_label as string) ?? null,
           score:          (row.score as number) ?? null,
-          isAbsent:       false,  // DB NEEDS: ADD COLUMN is_absent BOOLEAN
+          isAbsent:       false,
           totalMarks:     ej.total_marks as number,
         }
         const list = resultsByStudent.get(sid) ?? []
@@ -422,7 +420,7 @@ export function useGenerateReportCards() {
             .upsert({
               school_id:    schoolId,
               student_id:   studentId,
-              term,
+              term:         String(term),
               year,
               status:       'ready',
               pdf_url:      pdfUrl,
@@ -468,19 +466,21 @@ function useUpdateStatus(action: 'approve' | 'release' | 'unlock') {
       const patch: AnyRow = {}
 
       if (action === 'approve') {
-        patch.status       = 'approved'
-        patch.approved_at  = now
-        // DB NEEDS: patch.approved_by = user!.id (ADD COLUMN approved_by UUID)
+        patch.status          = 'approved'
+        patch.approved_at     = now
+        patch.approved_by     = user!.id
         if (principalRemarks !== undefined) patch.principal_remarks = principalRemarks
       } else if (action === 'release') {
         patch.status      = 'released'
         patch.released_at = now
-        // DB NEEDS: patch.released_by = user!.id (ADD COLUMN released_by UUID)
+        patch.released_by = user!.id
       } else {
-        patch.status      = 'draft'
-        patch.approved_at = null
-        patch.released_at = null
-        // DB NEEDS: patch.unlock_reason, patch.approved_by, patch.released_by
+        patch.status        = 'draft'
+        patch.approved_at   = null
+        patch.approved_by   = null
+        patch.released_at   = null
+        patch.released_by   = null
+        patch.unlock_reason = _unlockReason ?? null
       }
 
       const { error } = await supabase

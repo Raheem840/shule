@@ -4,10 +4,9 @@ import { useAuth } from '../store/AuthContext'
 import { calculateCBCGrade } from '../types/app'
 import type { ExamResult } from '../types/app'
 
-// is_absent is NOT in DB schema — DB NEEDS: ALTER TABLE exam_results ADD COLUMN is_absent BOOLEAN DEFAULT false
 const RESULT_COLS = [
   'id', 'school_id', 'exam_journal_id', 'student_id', 'subject_id',
-  'score', 'grade', 'term', 'year', 'teacher_id',
+  'score', 'grade', 'is_absent', 'term', 'year', 'teacher_id',
 ].join(', ')
 
 type AnyRow = Record<string, unknown>
@@ -21,7 +20,7 @@ function toResult(r: AnyRow): ExamResult {
     subjectId:     r.subject_id as string,
     score:         (r.score as number) ?? null,
     grade:         (r.grade as ExamResult['grade']) ?? null,
-    isAbsent:      false,
+    isAbsent:      (r.is_absent as boolean) ?? false,
     term:          r.term as string,
     year:          r.year as number,
     teacherId:     r.teacher_id as string,

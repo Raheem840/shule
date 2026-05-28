@@ -316,3 +316,25 @@ describe('usePublishJournal', () => {
     })
   })
 })
+
+describe('schema boundary: exam_journal', () => {
+  it('mapper exposes dateGiven (from date_given) — not a field called date', async () => {
+    setResponse('exam_journal', { data: [{
+      id: 'j-1', school_id: 'school-1', teacher_id: 't-1', subject_id: 'sub-1',
+      class_id: 'cls-1', stream_id: null, academic_year_id: null,
+      assessment_type: 'ca', name: 'Mid-Term', date_given: '2025-03-15',
+      teacher_notes: 'Good effort', total_marks: 60, pass_mark: 30,
+      term: '1', year: 2025, status: 'draft',
+      ca_label: null, ca_component: null, ca_weighting: null,
+      learning_area: null, competency: null, integration_theme: null,
+      trade_area: null, dit_module_code: null,
+    }], error: null })
+    const { result } = renderHook(() => useExamJournals({}), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    const j = result.current.data![0]
+    expect(j.dateGiven).toBe('2025-03-15')
+    expect(j.teacherNotes).toBe('Good effort')
+    expect((j as any).date).toBeUndefined()
+    expect((j as any).notes).toBeUndefined()
+  })
+})

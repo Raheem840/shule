@@ -43,7 +43,7 @@ export function ReportPreviewPage() {
   const { data: journals = [] }  = useExamJournals({ classId: classId || undefined, term: String(term) })
 
   const { data: reportCards = [], isLoading: rcLoading } = useReportCards(
-    { term, year, classId: classId || undefined },
+    { term: String(term), year, classId: classId || undefined },
     !!classId,
   )
   const { data: remarks } = useTeacherRemarks({

@@ -88,7 +88,7 @@ export function ReportCardsPage() {
   })
 
   const { data: reportCards = [] } = useReportCards({
-    term:     Number(term) || 1,
+    term:     term || '1',
     year:     Number(year),
     classId:  classId  || undefined,
     streamId: streamId || undefined,

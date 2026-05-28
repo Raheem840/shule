@@ -146,7 +146,7 @@ export function PrincipalReportCardsPage() {
   const cohortReady = !!term && !!classId
 
   const { data: reportCards = [], isLoading: rcLoading } = useReportCards({
-    term:     Number(term) || 1,
+    term:     term || '1',
     year:     Number(year),
     classId:  classId  || undefined,
     streamId: streamId || undefined,

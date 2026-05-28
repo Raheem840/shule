@@ -91,9 +91,9 @@ describe('useExamResults', () => {
     expect(r.isAbsent).toBe(false)
   })
 
-  it('maps absent row (null score) with isAbsent defaulting to false (column not in DB schema)', async () => {
+  it('maps is_absent=true from DB row to isAbsent=true', async () => {
     setResponse('exam_results', {
-      data: [{ ...dbResultRow, score: null, grade: null }],
+      data: [{ ...dbResultRow, score: null, grade: null, is_absent: true }],
       error: null,
     })
     const { result } = renderHook(() => useExamResults('j-1'), { wrapper: createWrapper() })
@@ -101,9 +101,19 @@ describe('useExamResults', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     const r = result.current.data![0]
+    expect(r.isAbsent).toBe(true)
     expect(r.score).toBeNull()
-    expect(r.grade).toBeNull()
-    expect(r.isAbsent).toBe(false)
+  })
+
+  it('defaults isAbsent to false when is_absent is null/undefined', async () => {
+    setResponse('exam_results', {
+      data: [{ ...dbResultRow, is_absent: null }],
+      error: null,
+    })
+    const { result } = renderHook(() => useExamResults('j-1'), { wrapper: createWrapper() })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data![0].isAbsent).toBe(false)
   })
 
   it('is disabled when journalId is null', () => {
@@ -198,5 +208,14 @@ describe('useSaveMarks', () => {
         })
       ).rejects.toEqual({ message: 'Upsert failed' })
     })
+  })
+})
+
+describe('schema boundary: exam_results', () => {
+  it('isAbsent is read from DB row (is_absent column) — not hardcoded false', async () => {
+    setResponse('exam_results', { data: [{ ...dbResultRow, is_absent: true, score: null }], error: null })
+    const { result } = renderHook(() => useExamResults('j-1'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data![0].isAbsent).toBe(true)
   })
 })

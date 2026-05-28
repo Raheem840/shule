@@ -206,3 +206,20 @@ describe('useAddPayment', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
   })
 })
+
+describe('schema boundary: fee_payments', () => {
+  it('mapper exposes feeStructureId (from fee_structure_id) — no feeTypeId field', async () => {
+    setResponse('fee_payments', { data: [{
+      id: 'pay-1', school_id: 'school-1', student_id: 'stu-1',
+      fee_structure_id: 'fs-1', academic_year_id: 'ay-1',
+      amount_due: 400000, amount_paid: 200000, balance: 200000,
+      payment_date: '2025-06-01', receipt_number: 'RCP-001',
+      term: 1, year: 2025, notes: null, imported: false, created_by: null,
+    }], error: null })
+    const { result } = renderHook(() => useFeePayments({ term: 1, year: 2025 }), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    const pay = result.current.data![0]
+    expect(pay.feeStructureId).toBe('fs-1')
+    expect((pay as any).feeTypeId).toBeUndefined()
+  })
+})

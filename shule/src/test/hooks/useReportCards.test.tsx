@@ -95,7 +95,7 @@ const dbReportCard = {
   id:                'rc-1',
   school_id:         'school-1',
   student_id:        'stu-1',
-  term:              1,
+  term:              '1',
   year:              2025,
   status:            'ready',
   principal_remarks: null,
@@ -105,6 +105,7 @@ const dbReportCard = {
   released_at:       null,
   released_by:       null,
   unlock_reason:     null,
+  unlock_count:      0,
   pdf_url:           'https://storage.url/rc-1.pdf',
 }
 
@@ -117,7 +118,7 @@ describe('useReportCards', () => {
   it('returns mapped ReportCard objects', async () => {
     setResponse('report_cards', { data: [dbReportCard], error: null })
     const { result } = renderHook(
-      () => useReportCards({ term: 1, year: 2025 }),
+      () => useReportCards({ term: '1', year: 2025 }),
       { wrapper: createWrapper() },
     )
 
@@ -127,7 +128,7 @@ describe('useReportCards', () => {
     const rc = result.current.data![0]
     expect(rc.id).toBe('rc-1')
     expect(rc.status).toBe('ready')
-    expect(rc.term).toBe(1)
+    expect(rc.term).toBe('1')
     expect(rc.year).toBe(2025)
     expect(rc.pdfUrl).toBe('https://storage.url/rc-1.pdf')
     expect(rc.approvedAt).toBeNull()
@@ -136,7 +137,7 @@ describe('useReportCards', () => {
   it('returns empty array when no report cards exist', async () => {
     setResponse('report_cards', { data: [], error: null })
     const { result } = renderHook(
-      () => useReportCards({ term: 1, year: 2025 }),
+      () => useReportCards({ term: '1', year: 2025 }),
       { wrapper: createWrapper() },
     )
 
@@ -146,7 +147,7 @@ describe('useReportCards', () => {
 
   it('is disabled when enabled=false', () => {
     const { result } = renderHook(
-      () => useReportCards({ term: 1, year: 2025 }, false),
+      () => useReportCards({ term: '1', year: 2025 }, false),
       { wrapper: createWrapper() },
     )
     expect(result.current.fetchStatus).toBe('idle')
@@ -155,7 +156,7 @@ describe('useReportCards', () => {
   it('exposes error when Supabase fails', async () => {
     setResponse('report_cards', { data: null, error: { message: 'Access denied' } })
     const { result } = renderHook(
-      () => useReportCards({ term: 1, year: 2025 }),
+      () => useReportCards({ term: '1', year: 2025 }),
       { wrapper: createWrapper() },
     )
 
@@ -217,5 +218,29 @@ describe('useUnlockReportCard', () => {
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  })
+})
+
+describe('schema boundary: report_cards', () => {
+  it('mapper exposes approvedBy, releasedBy, unlockCount, unlockReason from DB', async () => {
+    setResponse('report_cards', { data: [{
+      ...dbReportCard,
+      approved_by: 'principal-1', released_by: 'principal-1',
+      unlock_reason: 'Incorrect grade', unlock_count: 1,
+    }], error: null })
+    const { result } = renderHook(() => useReportCards({ term: '1', year: 2025 }), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    const rc = result.current.data![0]
+    expect(rc.approvedBy).toBe('principal-1')
+    expect(rc.releasedBy).toBe('principal-1')
+    expect(rc.unlockReason).toBe('Incorrect grade')
+    expect(rc.unlockCount).toBe(1)
+  })
+
+  it('mapper reads unlock_count from DB row and defaults to 0 when null', async () => {
+    setResponse('report_cards', { data: [{ ...dbReportCard, unlock_count: null }], error: null })
+    const { result } = renderHook(() => useReportCards({ term: '1', year: 2025 }), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data![0].unlockCount).toBe(0)
   })
 })
