@@ -367,6 +367,197 @@ export function useSuspendStaff() {
 }
 
 // ── useUpdateSalaryBand ────────────────────────────────────────────────────
+// ── useAllClassPerformance ─────────────────────────────────────────────────
+// All classes with pass rate, avg score, student count — sorted alphabetically.
+export function useAllClassPerformance() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['class-performance', user?.schoolId],
+    enabled:  !!user,
+    queryFn: async () => {
+      const sid = user!.schoolId
+      const [classesRes, studentsRes, resultsRes, journalsRes] = await Promise.all([
+        supabase.from('classes').select('id, name').eq('school_id', sid),
+        supabase.from('students').select('id, class_id').eq('school_id', sid).eq('status', 'active'),
+        supabase.from('exam_results').select('student_id, score, exam_journal_id').eq('school_id', sid),
+        supabase.from('exam_journal').select('id, pass_mark').eq('school_id', sid),
+      ])
+
+      const classes  = classesRes.data  ?? []
+      const students = studentsRes.data ?? []
+      const results  = resultsRes.data  ?? []
+      const journals = journalsRes.data ?? []
+
+      const passMarkMap = new Map<string, number>(journals.map((j: any) => [j.id, j.pass_mark ?? 50]))
+
+      return classes.map((cls: any) => {
+        const classStudentIds = new Set(
+          students.filter((s: any) => s.class_id === cls.id).map((s: any) => s.id)
+        )
+        const classResults = results.filter((r: any) =>
+          classStudentIds.has(r.student_id) && r.score != null
+        )
+        const passed   = classResults.filter((r: any) => r.score >= (passMarkMap.get(r.exam_journal_id) ?? 50))
+        const avgScore = classResults.length > 0
+          ? Math.round(classResults.reduce((s: number, r: any) => s + r.score, 0) / classResults.length)
+          : null
+
+        return {
+          classId:      cls.id as string,
+          className:    cls.name as string,
+          passRate:     classResults.length > 0 ? Math.round((passed.length / classResults.length) * 100) : null as number | null,
+          avgScore:     avgScore as number | null,
+          studentCount: classStudentIds.size,
+          resultCount:  classResults.length,
+        }
+      }).sort((a, b) => a.className.localeCompare(b.className, undefined, { numeric: true }))
+    },
+    staleTime: 10 * 60_000,
+  })
+}
+
+// ── useAttendanceByClass ───────────────────────────────────────────────────
+// Attendance rate per class over the last 30 days.
+export function useAttendanceByClass() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['attendance-by-class', user?.schoolId],
+    enabled:  !!user,
+    queryFn: async () => {
+      const sid  = user!.schoolId
+      const since = new Date()
+      since.setDate(since.getDate() - 30)
+      const sinceStr = since.toISOString().slice(0, 10)
+
+      const [classesRes, attRes] = await Promise.all([
+        supabase.from('classes').select('id, name').eq('school_id', sid),
+        supabase.from('attendance').select('class_id, status')
+          .eq('school_id', sid).gte('date', sinceStr),
+      ])
+
+      const classes = classesRes.data ?? []
+      const att     = attRes.data     ?? []
+
+      const countMap = new Map<string, { present: number; total: number }>()
+      for (const row of att as any[]) {
+        if (!row.class_id) continue
+        const cur = countMap.get(row.class_id) ?? { present: 0, total: 0 }
+        cur.total++
+        if (row.status === 'present' || row.status === 'late') cur.present++
+        countMap.set(row.class_id, cur)
+      }
+
+      return classes
+        .map((cls: any) => {
+          const c = countMap.get(cls.id)
+          return {
+            classId:   cls.id as string,
+            className: cls.name as string,
+            rate:      c && c.total > 0 ? Math.round((c.present / c.total) * 100) : null as number | null,
+            present:   c?.present ?? 0,
+            total:     c?.total   ?? 0,
+          }
+        })
+        .filter(c => c.total > 0)
+        .sort((a, b) => a.className.localeCompare(b.className, undefined, { numeric: true }))
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
+// ── useGenderEnrollment ────────────────────────────────────────────────────
+export function useGenderEnrollment() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['gender-enrollment', user?.schoolId],
+    enabled:  !!user,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('students')
+        .select('gender')
+        .eq('school_id', user!.schoolId)
+        .eq('status', 'active')
+
+      const counts: Record<string, number> = {}
+      for (const row of (data ?? []) as any[]) {
+        const g = (row.gender as string | null) ?? 'unknown'
+        counts[g] = (counts[g] ?? 0) + 1
+      }
+      return Object.entries(counts).map(([gender, count]) => ({
+        gender: gender.charAt(0).toUpperCase() + gender.slice(1),
+        count,
+      }))
+    },
+    staleTime: 10 * 60_000,
+  })
+}
+
+// ── useStaffRoleBreakdown ──────────────────────────────────────────────────
+export function useStaffRoleBreakdown() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['staff-role-breakdown', user?.schoolId],
+    enabled:  !!user,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('staff')
+        .select('role')
+        .eq('school_id', user!.schoolId)
+        .eq('is_active', true)
+
+      const counts: Record<string, number> = {}
+      for (const row of (data ?? []) as any[]) {
+        const r = (row.role as string) ?? 'unknown'
+        counts[r] = (counts[r] ?? 0) + 1
+      }
+      return Object.entries(counts).map(([role, count]) => ({ role, count }))
+    },
+    staleTime: 10 * 60_000,
+  })
+}
+
+// ── useMonthlyDiscipline ───────────────────────────────────────────────────
+// Discipline incident count for the last 6 calendar months.
+export function useMonthlyDiscipline() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['monthly-discipline', user?.schoolId],
+    enabled:  !!user,
+    queryFn: async () => {
+      const sixMonthsAgo = new Date()
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
+      sixMonthsAgo.setDate(1)
+
+      const { data } = await supabase
+        .from('discipline_records')
+        .select('incident_date')
+        .eq('school_id', user!.schoolId)
+        .gte('incident_date', sixMonthsAgo.toISOString().slice(0, 10))
+
+      // Build 6 month buckets
+      const months: { label: string; isoKey: string }[] = []
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date()
+        d.setMonth(d.getMonth() - i)
+        months.push({
+          label:  d.toLocaleString('en-GB', { month: 'short', year: '2-digit' }),
+          isoKey: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        })
+      }
+
+      const buckets: Record<string, number> = Object.fromEntries(months.map(m => [m.isoKey, 0]))
+      for (const row of (data ?? []) as any[]) {
+        const key = (row.incident_date as string)?.slice(0, 7)
+        if (key && key in buckets) buckets[key]++
+      }
+
+      return months.map(m => ({ month: m.label, count: buckets[m.isoKey] }))
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
+// ── useUpdateSalaryBand ────────────────────────────────────────────────────
 export function useUpdateSalaryBand() {
   const { user } = useAuth()
   const qc = useQueryClient()
