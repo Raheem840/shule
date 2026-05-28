@@ -49,6 +49,8 @@ const ReportCardsPage          = lazy(() => import('./pages/secretary/ReportCard
 const SecretaryStudentEditPage = lazy(() => import('./pages/secretary/SecretaryStudentEditPage').then(m => ({ default: m.SecretaryStudentEditPage })))
 const FeeStatusPage            = lazy(() => import('./pages/secretary/FeeStatusPage').then(m => ({ default: m.FeeStatusPage })))
 const ImportDataPage           = lazy(() => import('./pages/secretary/ImportDataPage').then(m => ({ default: m.ImportDataPage })))
+const SchoolAtAGlancePage      = lazy(() => import('./pages/secretary/SchoolAtAGlancePage').then(m => ({ default: m.SchoolAtAGlancePage })))
+const SecretaryReportsPage     = lazy(() => import('./pages/secretary/SecretaryReportsPage').then(m => ({ default: m.SecretaryReportsPage })))
 
 // Bursar
 const BursarDashboard          = lazy(() => import('./pages/bursar/BursarDashboard').then(m => ({ default: m.BursarDashboard })))
@@ -189,6 +191,8 @@ export default function App() {
             <Route path="/secretary/portal-links" element={<ParentCredentialsPage />} />
             <Route path="/secretary/import"       element={<ImportDataPage />} />
             <Route path="/secretary/messages"     element={<MessagingPage />} />
+            <Route path="/secretary/briefing"     element={<SchoolAtAGlancePage />} />
+            <Route path="/secretary/reports"      element={<SecretaryReportsPage />} />
           </Route>
 
           {/* ── Bursar ─────────────────────────────────────────────── */}

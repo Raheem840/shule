@@ -1508,3 +1508,17 @@ html, body, #root {
     transition: none !important;
   }
 }
+
+/* ─── Print styles ───────────────────────────────────────────────────────── */
+@media print {
+  .sb, .topbar, .page-actions, .print-hide { display: none !important; }
+  .shell-r { margin-left: 0 !important; padding: 0 !important; }
+  .shell-main { padding: 0 !important; }
+  @page { size: A4 portrait; margin: 12mm 16mm; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .card, .report-section, .briefing-section { page-break-inside: avoid; }
+  .print-only { display: block !important; }
+  .recharts-wrapper { overflow: visible !important; }
+  .recharts-wrapper svg { overflow: visible !important; }
+}
+.print-only { display: none; }

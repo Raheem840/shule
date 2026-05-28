@@ -132,10 +132,12 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
     {
       label: 'Reports',
       items: [
-        { label: 'Report Cards', path: '/secretary/report-cards',svg: SVG.reportCards  },
-        { label: 'Portal Links', path: '/secretary/portal-links',svg: SVG.portalLinks  },
-        { label: 'Import Data',  path: '/secretary/import',      svg: SVG.importData   },
-        { label: 'Messages',     path: '/secretary/messages',    svg: SVG.messages,    badge: 'alert' },
+        { label: 'Morning Brief', path: '/secretary/briefing',    svg: SVG.analytics   },
+        { label: 'Reports',       path: '/secretary/reports',     svg: SVG.auditLog    },
+        { label: 'Report Cards',  path: '/secretary/report-cards',svg: SVG.reportCards },
+        { label: 'Portal Links',  path: '/secretary/portal-links',svg: SVG.portalLinks },
+        { label: 'Import Data',   path: '/secretary/import',      svg: SVG.importData  },
+        { label: 'Messages',      path: '/secretary/messages',    svg: SVG.messages,   badge: 'alert' },
       ],
     },
   ],
