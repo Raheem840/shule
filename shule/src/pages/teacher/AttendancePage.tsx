@@ -7,6 +7,7 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { Button } from '../../components/ui/Button'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
+import { Avatar } from '../../components/shared/Avatar'
 import type { AttendanceStatus, Student } from '../../types/app'
 
 // ── Status colours ─────────────────────────────────────────────
@@ -56,19 +57,16 @@ function AttendanceRow({
   onStatusChange: (id: string, s: AttendanceStatus) => void
   style: React.CSSProperties
 }) {
-  const initials = `${student.firstName[0] ?? ''}${student.lastName[0] ?? ''}`.toUpperCase()
-
   return (
     <tr style={{ ...style, display: 'table' }}>
       <td style={{ padding: '0.65rem 1rem', borderBottom: '1px solid var(--border)', verticalAlign: 'middle', width: '45%' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {student.photoUrl ? (
-            <img src={student.photoUrl} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-          ) : (
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--brand-light)', border: '1.5px solid rgba(13,148,136,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--brand)', flexShrink: 0 }}>
-              {initials}
-            </div>
-          )}
+          <Avatar
+            photoPath={student.photoUrl}
+            bucket="student-photos"
+            name={`${student.firstName} ${student.lastName}`}
+            size="sm"
+          />
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', lineHeight: 1.3 }}>
               {student.firstName} {student.lastName}

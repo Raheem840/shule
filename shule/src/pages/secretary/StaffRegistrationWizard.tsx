@@ -10,6 +10,8 @@ import { useToast } from '../../components/ui/Toast'
 import { useRegisterStaff, useNextStaffNumber } from '../../hooks/useStaff'
 import { useClasses, useSubjects, useDepartments } from '../../hooks/useClasses'
 import { supabase } from '../../lib/supabase'
+import { uploadDocument, BUCKETS } from '../../lib/storage'
+import { validateFile } from '../../lib/fileValidation'
 import { useAuth } from '../../store/AuthContext'
 import type { UserRole } from '../../types/app'
 
@@ -301,15 +303,13 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
+    const validationError = validateFile(file, 'DOCUMENT')
+    if (validationError) { err(validationError); return }
     setUploading(u => ({ ...u, [idx]: true }))
     try {
-      const path = `${user!.schoolId}/${Date.now()}-${file.name}`
-      const { error: upErr } = await supabase.storage
-        .from('staff-documents')
-        .upload(path, file, { upsert: false })
-      if (upErr) throw upErr
-      const url = supabase.storage.from('staff-documents').getPublicUrl(path).data.publicUrl
-      setValue(`documents.${idx}.fileUrl`,  url)
+      const docType = watch(`documents.${idx}.docType`) || `doc_${idx}`
+      const path = await uploadDocument(user!.schoolId, 'temp', docType, file)
+      setValue(`documents.${idx}.fileUrl`,  path)
       setValue(`documents.${idx}.fileName`, file.name)
     } catch (e) {
       err((e as Error).message)

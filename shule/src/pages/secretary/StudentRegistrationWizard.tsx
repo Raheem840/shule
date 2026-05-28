@@ -13,6 +13,8 @@ import { useToast } from '../../components/ui/Toast'
 import { useRegisterStudent, useNextAdmissionNumber } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { supabase } from '../../lib/supabase'
+import { uploadFile, BUCKETS } from '../../lib/storage'
+import { validateFile } from '../../lib/fileValidation'
 import { useAuth } from '../../store/AuthContext'
 import type { Class, Stream } from '../../types/app'
 
@@ -299,12 +301,10 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
         const binary = atob(base64)
         const ua     = new Uint8Array(binary.length)
         for (let i = 0; i < binary.length; i++) ua[i] = binary.charCodeAt(i)
-        const blob   = new Blob([ua], { type: 'image/jpeg' })
-        const path   = `${user!.schoolId}/${Date.now()}.jpg`
-        const { error: upErr } = await supabase.storage.from('student-photos').upload(path, blob, { upsert: true })
-        if (!upErr) {
-          photoUrl = supabase.storage.from('student-photos').getPublicUrl(path).data.publicUrl
-        }
+        const blob = new Blob([ua], { type: 'image/jpeg' })
+        const path = `${user!.schoolId}/${Date.now()}.jpg`
+        // Store path (not public URL) — student-photos is private, display via signed URL
+        photoUrl = await uploadFile(BUCKETS.STUDENT_PHOTOS, path, blob, { upsert: true })
       } catch { /* register without photo */ }
     }
 

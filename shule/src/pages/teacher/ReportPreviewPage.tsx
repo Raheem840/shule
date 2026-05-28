@@ -9,6 +9,7 @@ import { useTeacherRemarks } from '../../hooks/useTeacherRemarks'
 import { useExamResults }  from '../../hooks/useExamResults'
 import { useExamJournals } from '../../hooks/useExamJournal'
 import { calcCBC }         from '../../types/app'
+import { Avatar } from '../../components/shared/Avatar'
 import type { ReportCardStatus } from '../../types/app'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -150,13 +151,12 @@ export function ReportPreviewPage() {
                   }}
                   onClick={() => toggleExpand(stu.id)}
                 >
-                  {stu.photoUrl ? (
-                    <img src={stu.photoUrl} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                  ) : (
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--brand-light)', color: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
-                      {`${stu.firstName[0] ?? ''}${stu.lastName[0] ?? ''}`.toUpperCase()}
-                    </div>
-                  )}
+                  <Avatar
+                    photoPath={stu.photoUrl}
+                    bucket="student-photos"
+                    name={`${stu.firstName} ${stu.lastName}`}
+                    size="md"
+                  />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>
                       {stu.firstName} {stu.lastName}

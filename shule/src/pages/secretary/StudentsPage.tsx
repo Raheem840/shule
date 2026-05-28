@@ -7,6 +7,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { Avatar } from '../../components/shared/Avatar'
 import type { Student } from '../../types/app'
 
 // ── Generate Portal Access Modal ───────────────────────────────
@@ -149,43 +150,14 @@ function GenerateAccessModal({
   )
 }
 
-// ── Avatar initials ────────────────────────────────────────────
 function StudentAvatar({ student }: { student: Student }) {
-  const initials = `${student.firstName[0] ?? ''}${student.lastName[0] ?? ''}`.toUpperCase()
-
-  if (student.photoUrl) {
-    return (
-      <img
-        src={student.photoUrl}
-        alt={`${student.firstName} ${student.lastName}`}
-        style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-      />
-    )
-  }
-
-  // Deterministic colour from name — same student always gets same colour
-  const colours = [
-    { bg: 'var(--success-bg)',  fg: 'var(--success)' },
-    { bg: 'var(--info-bg)',     fg: 'var(--info)' },
-    { bg: 'var(--violet-bg)',   fg: 'var(--violet)' },
-    { bg: 'var(--warning-bg)',  fg: 'var(--warning)' },
-    { bg: 'rgba(13,217,196,.12)', fg: 'var(--brand)' },
-  ]
-  const idx = (student.firstName.charCodeAt(0) + student.lastName.charCodeAt(0)) % colours.length
-  const { bg, fg } = colours[idx]
-
   return (
-    <div
-      style={{
-        width: 30, height: 30, borderRadius: '50%',
-        background: bg, color: fg,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 10, fontWeight: 900, fontFamily: 'var(--font2)',
-        flexShrink: 0,
-      }}
-    >
-      {initials}
-    </div>
+    <Avatar
+      photoPath={student.photoUrl}
+      bucket="student-photos"
+      name={`${student.firstName} ${student.lastName}`}
+      size="sm"
+    />
   )
 }
 
