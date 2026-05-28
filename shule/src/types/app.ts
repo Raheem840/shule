@@ -86,13 +86,9 @@ export type Student = {
   status: 'active' | 'suspended' | 'expelled'
   enrolledAt: string
   createdBy: string | null
-  // DB NEEDS: ALTER TABLE students ADD COLUMN nationality TEXT
   nationality: string | null
-  // DB NEEDS: ALTER TABLE students ADD COLUMN religion TEXT
   religion: string | null
-  // DB NEEDS: ALTER TABLE students ADD COLUMN student_type TEXT
   studentType: 'day' | 'boarder' | null
-  // DB NEEDS: ALTER TABLE students ADD COLUMN previous_school TEXT
   previousSchool: string | null
 }
 
@@ -102,14 +98,12 @@ export type StudentGuardian = {
   id: string
   schoolId: string
   studentId: string
-  guardianName: string          // DB column: guardian_name
+  fullName: string
   relationship: string          // 'mother' | 'father' | 'uncle' | 'aunt' | etc.
   phone: string
   email: string | null
   doNotContact: boolean         // bursar won't SMS this guardian
-  // DB NEEDS: ALTER TABLE student_guardians ADD COLUMN is_primary BOOLEAN DEFAULT false
   isPrimary: boolean
-  // DB NEEDS: ALTER TABLE student_guardians ADD COLUMN comms_preference TEXT DEFAULT 'sms'
   commsPreference: 'sms' | 'whatsapp' | 'both'
 }
 
@@ -136,15 +130,10 @@ export type Staff = {
   isActive: boolean
   salaryBand: string | null
   address: string | null
-  // DB NEEDS: ALTER TABLE staff ADD COLUMN qualification_title TEXT
   qualificationTitle: string | null
-  // DB NEEDS: ALTER TABLE staff ADD COLUMN institution TEXT
   institution: string | null
-  // DB NEEDS: ALTER TABLE staff ADD COLUMN graduation_year INTEGER
   graduationYear: number | null
-  // DB NEEDS: ALTER TABLE staff ADD COLUMN date_of_birth DATE
   dateOfBirth: string | null
-  // DB NEEDS: ALTER TABLE staff ADD COLUMN gender TEXT
   gender: 'male' | 'female' | null
 }
 
@@ -185,6 +174,7 @@ export type Stream = {
 export type Subject = {
   id: string
   schoolId: string
+  departmentId: string | null
   name: string                  // e.g. "Mathematics", "Biology"
   curriculumCode: string | null
   level: string | null          // 'O-Level' | 'A-Level'
@@ -206,19 +196,21 @@ export type FeeStructure = {
 
 // Maps to: fee_payments — one row per student per fee type per term
 export type FeePayment = {
-  id:            string
-  schoolId:      string
-  studentId:     string
-  feeTypeId:     string | null   // FK → fee_structure.id; null for imported records
-  amountDue:     number
-  amountPaid:    number
-  balance:       number          // computed: amountDue - amountPaid
-  paymentDate:   string | null
-  receiptNumber: string | null
-  term:          number          // 1, 2, or 3
-  year:          number
-  notes:         string | null
-  imported:      boolean         // true if this row came from Excel import
+  id:              string
+  schoolId:        string
+  studentId:       string
+  feeStructureId:  string | null   // FK → fee_structure.id; null for imported records
+  academicYearId:  string | null
+  amountDue:       number
+  amountPaid:      number
+  balance:         number          // computed: amountDue - amountPaid
+  paymentDate:     string | null
+  receiptNumber:   string | null
+  term:            number          // integer 1, 2, or 3
+  year:            number
+  notes:           string | null
+  imported:        boolean         // true if this row came from Excel import
+  createdBy:       string | null
 }
 
 // Secretary sees this only — no amounts, just the status flag
@@ -227,18 +219,14 @@ export type FeePayment = {
 export type ParentAccount = {
   id: string
   schoolId: string
+  authUserId: string | null
   email: string
+  fullName: string | null
+  phone: string | null
   studentIds: string[]      // children this parent can access
+  tempPassword: string | null
   createdBy: string
   createdAt: string
-  // DB NEEDS: ALTER TABLE parent_accounts ADD COLUMN full_name TEXT
-  fullName: string | null
-  // DB NEEDS: ALTER TABLE parent_accounts ADD COLUMN phone TEXT
-  phone: string | null
-  // DB NEEDS: ALTER TABLE parent_accounts ADD COLUMN auth_user_id UUID REFERENCES auth.users(id)
-  authUserId: string | null
-  // DB NEEDS: ALTER TABLE parent_accounts ADD COLUMN temp_password TEXT
-  tempPassword: string | null
 }
 
 export type FeeStatus = 'paid' | 'partial' | 'unpaid'
@@ -280,14 +268,15 @@ export type ExamJournal = {
   subjectId: string
   classId: string
   streamId: string | null
+  academicYearId: string | null
   assessmentType: AssessmentType
   name: string
-  date: string
+  dateGiven: string | null       // DB column: date_given (NOT 'date')
   totalMarks: number
   passMark: number
   term: string                   // TEXT in DB
   year: number
-  notes: string | null
+  teacherNotes: string | null    // DB column: teacher_notes (NOT 'notes')
   status: 'draft' | 'published'
   // Conditional — set based on assessmentType
   learningArea:     string | null  // aoi
@@ -337,7 +326,7 @@ export type ReportCard = {
   id: string
   schoolId: string
   studentId: string
-  term: number
+  term: string                   // TEXT in DB (not integer)
   year: number
   status: ReportCardStatus
   principalRemarks: string | null
@@ -347,6 +336,7 @@ export type ReportCard = {
   releasedAt: string | null
   releasedBy: string | null
   unlockReason: string | null
+  unlockCount: number
   pdfUrl: string | null
 }
 
@@ -380,12 +370,32 @@ export type AttendanceSummary = {
 export type Message = {
   id: string
   schoolId: string
-  fromUserId: string
-  toUserId: string
-  body: string
+  fromUserId: string | null
+  toUserId: string | null
+  isAnnouncement: boolean
+  body: string | null
   attachmentUrl: string | null
+  attachmentName: string | null
+  attachmentType: string | null
   sentAt: string
   readAt: string | null         // null means unread
+}
+
+// ── STUDENT SURVEY ─────────────────────────────────────────────────────────
+// Maps to: student_surveys (the richer primary survey table)
+export type StudentSurvey = {
+  id: string
+  schoolId: string
+  studentId: string
+  academicYearId: string | null
+  term: string | null
+  year: number | null
+  rating: number | null              // 1–5 overall term rating
+  hardestSubjectId: string | null
+  favouriteSubjectId: string | null
+  teacherRating: number | null       // 1–5
+  suggestions: string | null
+  submittedAt: string
 }
 
 // ── CBC GRADE CALCULATION ──────────────────────────────────────────────────

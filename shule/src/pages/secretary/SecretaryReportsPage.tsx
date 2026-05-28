@@ -712,7 +712,7 @@ function useReport7Data() {
       const sid = user!.schoolId
       const [guardRes, studRes] = await Promise.all([
         supabase.from('student_guardians')
-          .select('id, student_id, guardian_name, relationship, phone, email, do_not_contact')
+          .select('id, student_id, full_name, relationship, phone, email, do_not_contact')
           .eq('school_id', sid),
         supabase.from('students').select('id, first_name, last_name, class_id').eq('school_id', sid).eq('status', 'active'),
       ])
@@ -720,7 +720,7 @@ function useReport7Data() {
       return (guardRes.data ?? []).map((g: any) => ({
         id:           g.id,
         studentName:  studMap.get(g.student_id)?.name ?? '—',
-        guardianName: g.guardian_name,
+        guardianName: g.full_name,
         relationship: g.relationship,
         phone:        g.phone ?? '—',
         email:        g.email ?? '—',
@@ -850,7 +850,7 @@ function useReport8Data() {
           .order('enrolled_at', { ascending: false }),
         supabase.from('classes').select('id, name').eq('school_id', sid),
         supabase.from('student_guardians')
-          .select('student_id, guardian_name, phone')
+          .select('student_id, full_name, phone')
           .eq('school_id', sid),
       ])
 
@@ -858,7 +858,7 @@ function useReport8Data() {
       const guardMap  = new Map<string, { name: string; phone: string }>()
       for (const g of guardRes.data ?? []) {
         if (!guardMap.has((g as any).student_id)) {
-          guardMap.set((g as any).student_id, { name: (g as any).guardian_name, phone: (g as any).phone ?? '—' })
+          guardMap.set((g as any).student_id, { name: (g as any).full_name, phone: (g as any).phone ?? '—' })
         }
       }
 

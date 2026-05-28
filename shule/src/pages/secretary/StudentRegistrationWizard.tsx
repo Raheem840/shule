@@ -326,7 +326,7 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
       previousSchool:  n(values.previousSchool),
       enrolledAt:      values.enrolledAt,
       guardians: values.guardians.map(g => ({
-        guardianName:    g.guardianName,
+        fullName:        g.guardianName,
         relationship:    g.relationship,
         phone:           g.phone,
         email:           g.email?.trim() || null,

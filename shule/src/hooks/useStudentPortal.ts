@@ -185,37 +185,38 @@ export function useMyFeeBalance(studentId: string | null) {
 }
 
 // ── useSubmitSurvey ───────────────────────────────────────────
-// Submits student end-of-term survey response.
-// DB NEEDS: survey_responses table
-// CREATE TABLE survey_responses (
-//   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-//   school_id         UUID REFERENCES school_profile(id),
-//   student_id        UUID REFERENCES students(id),
-//   rating            INT  NOT NULL CHECK (rating BETWEEN 1 AND 5),
-//   enjoyed_most      TEXT,
-//   improve_next_term TEXT,
-//   created_at        TIMESTAMPTZ DEFAULT now()
-// );
+// Submits student end-of-term survey response to student_surveys table.
 export function useSubmitSurvey() {
   const { user } = useAuth()
 
   return useMutation({
     mutationFn: async (payload: {
-      studentId:       string
-      rating:          number
-      enjoyedMost:     string
-      improveNextTerm: string
+      studentId:          string
+      academicYearId:     string | null
+      term:               string | null
+      year:               number | null
+      rating:             number
+      hardestSubjectId?:  string | null
+      favouriteSubjectId?: string | null
+      teacherRating?:     number | null
+      suggestions?:       string | null
     }) => {
       if (!user) throw new Error('Not authenticated')
 
       const { error } = await supabase
-        .from('survey_responses')
+        .from('student_surveys')
         .insert({
-          school_id:         user.schoolId,
-          student_id:        payload.studentId,
-          rating:            payload.rating,
-          enjoyed_most:      payload.enjoyedMost || null,
-          improve_next_term: payload.improveNextTerm || null,
+          school_id:            user.schoolId,
+          student_id:           payload.studentId,
+          academic_year_id:     payload.academicYearId,
+          term:                 payload.term,
+          year:                 payload.year,
+          rating:               payload.rating,
+          hardest_subject_id:   payload.hardestSubjectId ?? null,
+          favourite_subject_id: payload.favouriteSubjectId ?? null,
+          teacher_rating:       payload.teacherRating ?? null,
+          suggestions:          payload.suggestions ?? null,
+          submitted_at:         new Date().toISOString(),
         })
 
       if (error) {

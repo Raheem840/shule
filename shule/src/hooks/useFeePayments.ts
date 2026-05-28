@@ -240,7 +240,7 @@ export function useFeePayments(filters: FeeFilters = {}) {
       const [paymentsRes, studentsRes, classesRes, streamsRes] = await Promise.all([
         supabase
           .from('fee_payments')
-          .select('id, school_id, student_id, fee_type_id, amount_due, amount_paid, balance, payment_date, receipt_number, term, year, notes, imported')
+          .select('id, school_id, student_id, fee_structure_id, academic_year_id, amount_due, amount_paid, balance, payment_date, receipt_number, term, year, notes, imported, created_by')
           .eq('school_id', user!.schoolId)
           .eq('term', term)
           .eq('year', year)
@@ -295,7 +295,9 @@ export function useFeePayments(filters: FeeFilters = {}) {
           id:             r.id as string,
           schoolId:       r.school_id as string,
           studentId:      r.student_id as string,
-          feeTypeId:      (r.fee_type_id as string) ?? null,
+          feeStructureId:  (r.fee_structure_id as string) ?? null,
+          academicYearId:  (r.academic_year_id as string) ?? null,
+          createdBy:       (r.created_by as string) ?? null,
           amountDue:      amtDue,
           amountPaid:     amtPaid,
           balance,
@@ -348,15 +350,16 @@ export function useFeePayments(filters: FeeFilters = {}) {
 
 // ── useAddPayment ─────────────────────────────────────────────
 export type AddPaymentInput = {
-  studentId:     string
-  feeTypeId:     string | null
-  amountDue:     number
-  amountPaid:    number
-  paymentDate:   string
-  receiptNumber: string | null
-  notes:         string | null
-  term:          number
-  year:          number
+  studentId:      string
+  feeStructureId: string | null
+  academicYearId: string | null
+  amountDue:      number
+  amountPaid:     number
+  paymentDate:    string
+  receiptNumber:  string | null
+  notes:          string | null
+  term:           number
+  year:           number
 }
 
 export function useAddPayment() {
@@ -369,10 +372,11 @@ export function useAddPayment() {
       const { data, error } = await supabase
         .from('fee_payments')
         .insert({
-          school_id:      user!.schoolId,
-          student_id:     input.studentId,
-          fee_type_id:    input.feeTypeId,
-          amount_due:     input.amountDue,
+          school_id:        user!.schoolId,
+          student_id:       input.studentId,
+          fee_structure_id: input.feeStructureId,
+          academic_year_id: input.academicYearId,
+          amount_due:       input.amountDue,
           amount_paid:    input.amountPaid,
           balance,
           payment_date:   input.paymentDate || null,

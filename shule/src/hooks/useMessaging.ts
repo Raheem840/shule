@@ -96,14 +96,17 @@ export function useMessages(contactId: string | null) {
       if (error) throw new Error(error.message)
 
       return (data ?? []).map((r: any) => ({
-        id:            r.id,
-        schoolId:      r.school_id,
-        fromUserId:    r.from_user_id,
-        toUserId:      r.to_user_id,
-        body:          r.body,
-        attachmentUrl: r.attachment_url,
-        sentAt:        r.sent_at,
-        readAt:        r.read_at,
+        id:             r.id,
+        schoolId:       r.school_id,
+        fromUserId:     r.from_user_id ?? null,
+        toUserId:       r.to_user_id ?? null,
+        isAnnouncement: r.is_announcement ?? false,
+        body:           r.body ?? null,
+        attachmentUrl:  r.attachment_url ?? null,
+        attachmentName: r.attachment_name ?? null,
+        attachmentType: r.attachment_type ?? null,
+        sentAt:         r.sent_at,
+        readAt:         r.read_at ?? null,
       } satisfies Message))
     },
     staleTime: 10_000,
@@ -132,14 +135,17 @@ export function useMessages(contactId: string | null) {
           if (!isForThisThread) return
 
           const newMsg: Message = {
-            id:            msg['id'] as string,
-            schoolId:      msg['school_id'] as string,
-            fromUserId:    msg['from_user_id'] as string,
-            toUserId:      msg['to_user_id'] as string,
-            body:          msg['body'] as string,
-            attachmentUrl: (msg['attachment_url'] as string) ?? null,
-            sentAt:        msg['sent_at'] as string,
-            readAt:        (msg['read_at'] as string) ?? null,
+            id:             msg['id'] as string,
+            schoolId:       msg['school_id'] as string,
+            fromUserId:     (msg['from_user_id'] as string) ?? null,
+            toUserId:       (msg['to_user_id'] as string) ?? null,
+            isAnnouncement: (msg['is_announcement'] as boolean) ?? false,
+            body:           (msg['body'] as string) ?? null,
+            attachmentUrl:  (msg['attachment_url'] as string) ?? null,
+            attachmentName: (msg['attachment_name'] as string) ?? null,
+            attachmentType: (msg['attachment_type'] as string) ?? null,
+            sentAt:         msg['sent_at'] as string,
+            readAt:         (msg['read_at'] as string) ?? null,
           }
 
           qc.setQueryData(

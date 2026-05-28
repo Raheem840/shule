@@ -47,10 +47,9 @@ export function useSmsStudents(filters: SmsFilters) {
           .select('id, first_name, last_name, admission_number, class_id, stream_id')
           .eq('school_id', user!.schoolId)
           .eq('status', 'active'),
-        // guardian_name is the real DB column; is_primary DB NEEDS: ADD COLUMN
         supabase
           .from('student_guardians')
-          .select('student_id, guardian_name, phone, do_not_contact')
+          .select('student_id, full_name, phone, do_not_contact, is_primary')
           .eq('school_id', user!.schoolId)
           .eq('do_not_contact', false),
         supabase
@@ -81,9 +80,11 @@ export function useSmsStudents(filters: SmsFilters) {
       for (const g of guardiansRes.data ?? []) {
         const sid = g.student_id as string
         if (!anyGuardian.has(sid)) {
-          anyGuardian.set(sid, { name: g.guardian_name as string, phone: g.phone as string })
+          anyGuardian.set(sid, { name: g.full_name as string, phone: g.phone as string })
         }
-        // DB NEEDS: is_primary column — fall back to anyGuardian until then
+        if (g.is_primary) {
+          primaryGuardian.set(sid, { name: g.full_name as string, phone: g.phone as string })
+        }
       }
 
       const classMap  = new Map<string, string>()
@@ -235,12 +236,10 @@ export function useSendReminders() {
       if (reminderErr) throw reminderErr
 
       const queueRows = (inserted ?? []).map(r => ({
-        school_id:  user!.schoolId,
-        channel:    r.channel,
-        to:         r.guardian_phone,
-        message:    r.message,
-        student_id: r.student_id,
-        status:     'pending',
+        school_id: user!.schoolId,
+        type:      r.channel,
+        payload:   { to: r.guardian_phone, message: r.message, student_id: r.student_id },
+        status:    'pending',
       }))
 
       if (queueRows.length > 0) {

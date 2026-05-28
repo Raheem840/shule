@@ -69,12 +69,12 @@ const dbJournalRow = {
   stream_id:        null,
   assessment_type:  'mid_term',
   name:             'Mid-Term Test',
-  date:             '2025-06-10',
+  date_given:       '2025-06-10',
   total_marks:      80,
   pass_mark:        40,
   term:             '1',
   year:             2025,
-  notes:            null,
+  teacher_notes:    null,
   status:           'draft',
   learning_area:    null,
   competency:       null,
@@ -166,10 +166,10 @@ describe('useCreateJournal', () => {
       returnedId = await result.current.mutateAsync({
         subjectId: 'sub-1', classId: 'cls-1', streamId: null,
         assessmentType: 'ca',
-        date: '2025-06-10',
+        dateGiven: '2025-06-10',
         totalMarks: 999,   // should be overridden to 3
         passMark: 500,     // should be overridden to 2
-        term: '1', year: 2025, notes: null,
+        term: '1', year: 2025, teacherNotes: null,
         caLabel: 'C1',
       })
     })
@@ -186,10 +186,10 @@ describe('useCreateJournal', () => {
       await result.current.mutateAsync({
         subjectId: 'sub-1', classId: 'cls-1', streamId: null,
         assessmentType: 'mid_term',
-        date: '2025-06-10',
+        dateGiven: '2025-06-10',
         totalMarks: 80,
         passMark: 40,
-        term: '1', year: 2025, notes: null,
+        term: '1', year: 2025, teacherNotes: null,
       })
     })
 
@@ -204,8 +204,8 @@ describe('useCreateJournal', () => {
       await expect(
         result.current.mutateAsync({
           subjectId: 'sub-1', classId: 'cls-1', streamId: null,
-          assessmentType: 'mid_term', date: '2025-06-10',
-          totalMarks: 80, passMark: 40, term: '1', year: 2025, notes: null,
+          assessmentType: 'mid_term', dateGiven: '2025-06-10',
+          totalMarks: 80, passMark: 40, term: '1', year: 2025, teacherNotes: null,
         })
       ).rejects.toEqual({ message: 'Insert failed' })
     })

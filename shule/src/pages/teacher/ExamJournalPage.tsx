@@ -147,12 +147,12 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
       classId:          values.classId,
       streamId:         values.streamId ?? null,
       assessmentType:   values.assessmentType,
-      date:             values.date,
+      dateGiven:        values.date,
       totalMarks:       isCA ? 3 : (values.totalMarks ?? 100),
       passMark:         isCA ? 2 : (values.passMark ?? 50),
       term:             values.term,
       year:             CURRENT_YEAR,
-      notes:            values.notes ?? null,
+      teacherNotes:     values.notes ?? null,
       learningArea:     isAOI ? (values.learningArea ?? null) : null,
       competency:       isAOI ? (values.competency ?? null) : null,
       integrationTheme: isAOI ? (values.integrationTheme ?? null) : null,
@@ -427,7 +427,7 @@ export function ExamJournalPage() {
                     Term {j.term}
                   </td>
                   <td style={{ padding: '12px 14px', color: 'var(--txt2)', fontSize: 13, fontFamily: 'var(--mono)' }}>
-                    {new Date(j.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    {j.dateGiven ? new Date(j.dateGiven).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                   </td>
                   <td style={{ padding: '12px 14px', color: 'var(--txt2)', fontSize: 13, fontFamily: 'var(--mono)' }}>
                     {j.totalMarks}

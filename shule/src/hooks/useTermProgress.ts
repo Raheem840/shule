@@ -119,7 +119,7 @@ export function useTermProgress() {
       const [journalsRes, schoolEventsRes] = await Promise.all([
         supabase
           .from('exam_journal')
-          .select('id, name, assessment_type, date, subject_id, class_id, term, year')
+          .select('id, name, assessment_type, date_given, subject_id, class_id, term, year')
           .eq('school_id', sid),
         supabase
           .from('school_events')
@@ -131,11 +131,11 @@ export function useTermProgress() {
 
       // Journal events (date is always set for exam_journal rows)
       for (const j of (journalsRes.data ?? [])) {
-        if (!j.date) continue
+        if (!j.date_given) continue
         events.push({
           id:    j.id,
           title: j.name ?? 'Exam',
-          date:  j.date as string,
+          date:  j.date_given as string,
           type:  journalTypeToEventType(j.assessment_type as string),
         })
       }

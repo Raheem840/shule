@@ -77,7 +77,8 @@ function AddPaymentModal({
   const onSubmit: SubmitHandler<AddPaymentForm> = async values => {
     await addPayment.mutateAsync({
       studentId:     values.studentId,
-      feeTypeId:     null,
+      feeStructureId: null,
+      academicYearId: null,
       amountDue:     values.amountDue,
       amountPaid:    values.amountPaid,
       paymentDate:   values.paymentDate,

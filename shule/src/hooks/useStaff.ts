@@ -1,3 +1,17 @@
+// ⚠ SECURITY: The staff table currently has RLS DISABLED in the database.
+// All staff data is readable by any authenticated user from any school until fixed.
+// Run this SQL in Supabase immediately:
+//
+//   ALTER TABLE staff ENABLE ROW LEVEL SECURITY;
+//   CREATE POLICY "staff_select_own_school" ON staff FOR SELECT TO authenticated
+//     USING (school_id = public.user_school_id());
+//   CREATE POLICY "staff_insert_secretary" ON staff FOR INSERT TO authenticated
+//     WITH CHECK (school_id = public.user_school_id()
+//       AND public.user_role() IN ('principal','secretary','it_admin'));
+//   CREATE POLICY "staff_update_admin" ON staff FOR UPDATE TO authenticated
+//     USING (school_id = public.user_school_id()
+//       AND public.user_role() IN ('principal','secretary','it_admin'));
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'

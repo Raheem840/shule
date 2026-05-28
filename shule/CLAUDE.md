@@ -78,7 +78,7 @@ Finance boundary: enforced at BOTH route guard AND Supabase RLS.
 max_points = assessed × 3
 out_of_20  = (total_points / max_points) × 20
 total      = out_of_20 + exam_out_of_80
-A=90-100  B=75-89  C=65-74  D=50-64  E=1-49
+A=80-100  B=70-79  C=60-69  D=50-59  E=0-49   ← UNEB official boundaries
 ```
 
 ---
@@ -96,6 +96,162 @@ src/
 ├── types/                  # app.ts (custom), week9.ts
 ├── store/                  # AuthContext.tsx, BandwidthContext.tsx
 └── docs/                   # THINKING.md, SESSION_ARCHIVE.md, DB_SCHEMA.md
+```
+
+---
+
+## Definitive DB Schema (audited 2026-05-28)
+
+```
+TABLE: academic_years | RLS: ON
+id, school_id, label, name, start_date, end_date,
+term1_start, term1_end, term2_start, term2_end, term3_start, term3_end,
+is_active(bool), survey_active(bool), created_at
+
+TABLE: attendance | RLS: ON
+id, school_id, student_id, class_id, recorded_by,
+date, status, notes, created_at
+
+TABLE: audit_log | RLS: ON
+id, school_id, user_id, role, action, table_name, record_id,
+entity_name, old_value, new_value, old_data, new_data, created_at
+
+TABLE: classes | RLS: ON
+id, school_id, academic_year_id(required), name, level, created_at
+
+TABLE: curriculum_plan | RLS: ON
+id, school_id, subject_id, class_id, term(text), year(int),
+topic, expected_date, covered(bool), covered_at, covered_by, created_at, updated_at
+
+TABLE: departments | RLS: ON
+id, school_id, name, description, accent_color, head_teacher_id,
+archived(bool), created_at
+
+TABLE: discipline_records | RLS: ON
+id, school_id, student_id, class_id, recorded_by,
+incident_date, nature, resolution, notes, created_at, updated_at
+
+TABLE: exam_journal | RLS: ON
+id, school_id, teacher_id, subject_id, class_id, stream_id, academic_year_id,
+assessment_type, name, term(text), year(int), total_marks, pass_mark,
+date_given *** NOT 'date' ***,
+teacher_notes *** NOT 'notes' ***,
+status('draft'|'published'),
+ca_label, ca_component, ca_weighting, learning_area, competency,
+integration_theme, trade_area, dit_module_code, created_at
+
+TABLE: exam_results | RLS: ON
+id, school_id, exam_journal_id, student_id, teacher_id, subject_id,
+term(text), year(int), score, grade, is_absent(bool), remarks, created_at, updated_at
+
+TABLE: fee_payments | RLS: ON
+id, school_id, student_id,
+fee_structure_id *** NOT 'fee_type_id' ***,
+academic_year_id, term(int 1/2/3), amount_due, amount_paid(DEFAULT 0),
+balance, payment_date, receipt_number, notes, imported(bool),
+created_by, created_at, updated_at
+
+TABLE: fee_structure | RLS: ON
+id, school_id, name, amount, applies_to, term(int), academic_year_id,
+is_active(bool), created_at
+
+TABLE: messages | RLS: ON
+id, school_id, from_user_id, to_user_id, is_announcement(bool),
+body, attachment_url, attachment_name, attachment_type, sent_at, read_at
+
+TABLE: notifications | RLS: ON
+id, school_id, user_id, type, title, body, read(bool),
+read_at, link, from_user, target_role, created_at
+
+TABLE: parent_accounts | RLS: ON
+id, school_id, auth_user_id, email, full_name, phone,
+student_ids(uuid[]), temp_password, created_by, created_at, updated_at
+
+TABLE: report_cards | RLS: ON
+id, school_id, student_id,
+term(TEXT) *** NOT integer ***,
+year(int), status, principal_remarks,
+generated_at, approved_at, approved_by, released_at, released_by,
+pdf_url, unlock_reason, unlock_count(int DEFAULT 0), created_at, updated_at
+
+TABLE: school_events | RLS: ON
+id, school_id, title, event_date, event_type, description,
+subject_id, class_id, stream_id, total_marks, pass_mark,
+journaled(bool), journal_id, term(text), year(int), created_by, created_at
+
+TABLE: school_profile | RLS: OFF (readable by all)
+id, school_name, short_name, logo_url, motto, primary_color,
+curriculum, deployment_mode, currency,
+at_api_key, at_username, at_sender_id *** use these for Africa's Talking ***,
+sms_api_key, sms_username, sms_sender_id, sms_environment,
+wa_phone_number_id, wa_access_token, wa_business_account_id,
+report_template_url, timezone, language, created_at
+
+TABLE: school_registry | RLS: ON (deny all school JWTs)
+id, school_id, contact_name, contact_email, contact_phone,
+deployment_type, status, installation_notes,
+assigned_team_member, cloud_backup_enabled, last_seen_at, created_at
+
+TABLE: send_queue | RLS: ON
+id, school_id, type, payload(jsonb), status,
+attempts(int DEFAULT 0), last_attempted_at, queued_at, sent_at
+
+TABLE: sms_reminders | RLS: ON
+id, school_id, student_id, parent_phone, channel, message,
+status, sent_at, delivered_at, created_at
+
+TABLE: staff | RLS: OFF ⚠ MUST ENABLE — see useStaff.ts for SQL
+id, school_id, auth_user_id, staff_number, first_name, last_name, role,
+department_id, subjects(text[]), classes(uuid[]),
+qualification_level, qualification_title, institution, graduation_year,
+employment_type, employment_date, join_date, salary_band,
+photo_url, is_active(bool DEFAULT true),
+email, phone, national_id, address, date_of_birth, gender, last_login_at, created_at
+
+TABLE: staff_documents | RLS: ON
+id, school_id, staff_id, doc_type, file_url, file_name, uploaded_by, uploaded_at
+
+TABLE: streams | RLS: ON
+id, school_id, class_id, name, class_teacher_id, created_at
+
+TABLE: student_guardians | RLS: ON
+id, school_id, student_id,
+full_name *** NOT 'guardian_name' ***,
+relationship, phone, email, do_not_contact(bool),
+comms_preference('sms'|'whatsapp'|'both'), is_primary(bool), created_at
+
+TABLE: student_surveys | RLS: ON  (PRIMARY survey table)
+id, school_id, student_id, academic_year_id, term(text), year(int),
+rating(1-5), hardest_subject_id, favourite_subject_id,
+teacher_rating(1-5), suggestions, submitted_at
+
+TABLE: students | RLS: ON
+id, school_id, class_id, stream_id, academic_year_id, admission_number,
+first_name, last_name, dob, gender, nationality(DEFAULT 'Ugandan'),
+religion, photo_url, medical_notes, student_type('day'|'boarder'),
+previous_school, status('active'|'suspended'|'expelled'),
+auth_user_id, enrolled_at, created_by, created_at, updated_at
+
+TABLE: subjects | RLS: ON
+id, school_id, department_id, name, curriculum_code,
+level, is_active(bool DEFAULT true), created_at
+
+TABLE: survey_responses | RLS: ON  (simpler secondary table — prefer student_surveys)
+id, school_id, student_id, academic_year_id, term(int), rating,
+enjoyed, improve, submitted_at
+
+TABLE: sync_queue | RLS: ON
+id, school_id, action_type, table_name, record_id, payload(jsonb),
+status, created_at, synced_at
+
+TABLE: teacher_remarks | RLS: ON
+id, school_id, student_id, teacher_id, term(text), year(int),
+remarks, created_at, updated_at
+
+TABLE: timetable_slots | RLS: ON
+id, school_id, class_id, stream_id, subject_id, teacher_id,
+day_of_week(int 1-5), period_number(int), start_time(time), end_time(time),
+term(text), year(int), is_published(bool DEFAULT false)
 ```
 
 ---
@@ -145,15 +301,31 @@ src/
 
 ## Session Log
 
-### Session 013 — Storage Bucket Wiring (In Progress)
+### Session 014 — Schema Alignment (Complete)
 **Date:** 2026-05-28
 
-**Changes so far:**
+- Replaced schema reference section in CLAUDE.md with audited live DB schema
+- `exam_journal`: `date` → `date_given`, `notes` → `teacher_notes` throughout codebase
+- `fee_payments`: `fee_type_id` → `fee_structure_id` throughout codebase
+- `student_guardians`: `guardian_name` → `full_name` throughout codebase
+- `report_cards.term`: fixed to `string` (was `number`) in type + hook
+- `messages`: added `is_announcement`, `attachment_name`, `attachment_type` fields
+- `student_surveys`: switched survey hook from `survey_responses` → `student_surveys`
+- `send_queue`: fixed insert to use `type + payload(jsonb)` schema
+- Added `StudentSurvey`, `departmentId` on `Subject`, `unlockCount` on `ReportCard` types
+- Removed all "DB NEEDS" stubs for columns that now exist
+- Added RLS security warning comment to `useStaff.ts`
+- CBC grade scale was already correct (A=80); fixed CLAUDE.md comment that said A=90
+- Tests: 344 passing (0 errors)
+
+### Session 013 — Storage Bucket Wiring
+**Date:** 2026-05-28
+
 - `.gitignore`: added `.claude/` and `supabase/.temp/`
 - `git rm --cached .claude/settings.local.json` — untracked from remote
-- `CLAUDE.md`: trimmed to <300 lines; sessions 001-012 archived to `src/docs/SESSION_ARCHIVE.md`
-- Creating: `src/lib/storage.ts`, `src/lib/fileValidation.ts`, `src/hooks/useSignedUrl.ts`, `src/components/shared/Avatar.tsx`
-- Fixing: all photo display across the app (student-photos → signed URLs, staff-photos → public URL)
-- Fixing: `StaffRegistrationWizard` document bucket `staff-documents` → `documents`
-- Fixing: `StudentRegistrationWizard` student photo stored as path (not full URL)
-- Wiring: `TemplatesPage.tsx` — real upload UI against `templates` bucket
+- `CLAUDE.md`: trimmed; sessions 001-012 archived to `src/docs/SESSION_ARCHIVE.md`
+- Created: `src/lib/storage.ts`, `src/lib/fileValidation.ts`, `src/hooks/useSignedUrl.ts`, `src/components/shared/Avatar.tsx`
+- Fixed: all photo display across the app (student-photos → signed URLs, staff-photos → public URL)
+- Fixed: `StaffRegistrationWizard` document bucket `staff-documents` → `documents`
+- Fixed: `StudentRegistrationWizard` student photo stored as path (not full URL)
+- Wired: `TemplatesPage.tsx` — real upload UI against `templates` bucket

@@ -21,16 +21,17 @@ function toReportCard(r: AnyRow): ReportCard {
     id:               r.id as string,
     schoolId:         r.school_id as string,
     studentId:        r.student_id as string,
-    term:             r.term as number,
+    term:             r.term as string,
     year:             r.year as number,
     status:           r.status as ReportCardStatus,
     principalRemarks: (r.principal_remarks as string) ?? null,
     generatedAt:      (r.generated_at as string) ?? null,
     approvedAt:       (r.approved_at as string) ?? null,
-    approvedBy:       null,    // DB NEEDS: ADD COLUMN approved_by UUID
+    approvedBy:       (r.approved_by as string) ?? null,
     releasedAt:       (r.released_at as string) ?? null,
-    releasedBy:       null,    // DB NEEDS: ADD COLUMN released_by UUID
-    unlockReason:     null,    // DB NEEDS: ADD COLUMN unlock_reason TEXT
+    releasedBy:       (r.released_by as string) ?? null,
+    unlockReason:     (r.unlock_reason as string) ?? null,
+    unlockCount:      (r.unlock_count as number) ?? 0,
     pdfUrl:           (r.pdf_url as string) ?? null,
   }
 }

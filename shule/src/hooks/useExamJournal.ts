@@ -4,9 +4,9 @@ import { useAuth } from '../store/AuthContext'
 import type { ExamJournal, AssessmentType } from '../types/app'
 
 const JOURNAL_COLS = [
-  'id', 'school_id', 'teacher_id', 'subject_id', 'class_id', 'stream_id',
-  'assessment_type', 'name', 'date', 'total_marks', 'pass_mark', 'term', 'year',
-  'notes', 'status',
+  'id', 'school_id', 'teacher_id', 'subject_id', 'class_id', 'stream_id', 'academic_year_id',
+  'assessment_type', 'name', 'date_given', 'total_marks', 'pass_mark', 'term', 'year',
+  'teacher_notes', 'status',
   'learning_area', 'competency', 'integration_theme',
   'trade_area', 'dit_module_code',
   'ca_component', 'ca_weighting', 'ca_label',
@@ -23,13 +23,14 @@ function toJournal(r: AnyRow): ExamJournal {
     classId:          r.class_id as string,
     streamId:         (r.stream_id as string) ?? null,
     assessmentType:   r.assessment_type as AssessmentType,
+    academicYearId:   (r.academic_year_id as string) ?? null,
     name:             r.name as string,
-    date:             r.date as string,
+    dateGiven:        (r.date_given as string) ?? null,
     totalMarks:       r.total_marks as number,
     passMark:         r.pass_mark as number,
     term:             r.term as string,
     year:             r.year as number,
-    notes:            (r.notes as string) ?? null,
+    teacherNotes:     (r.teacher_notes as string) ?? null,
     status:           ((r.status as string) ?? 'draft') as ExamJournal['status'],
     learningArea:     (r.learning_area as string) ?? null,
     competency:       (r.competency as string) ?? null,
@@ -63,7 +64,7 @@ export function useExamJournals(filters: JournalFilters = {}) {
         .select(JOURNAL_COLS)
         .eq('school_id', user!.schoolId)
         .eq('teacher_id', user!.id)
-        .order('date', { ascending: false })
+        .order('date_given', { ascending: false })
 
       if (filters.subjectId)      q = q.eq('subject_id',     filters.subjectId)
       if (filters.classId)        q = q.eq('class_id',        filters.classId)
@@ -136,12 +137,12 @@ export type CreateJournalInput = {
   classId:         string
   streamId:        string | null
   assessmentType:  AssessmentType
-  date:            string
+  dateGiven:       string
   totalMarks:      number
   passMark:        number
   term:            string
   year:            number
-  notes:           string | null
+  teacherNotes:    string | null
   learningArea?:     string | null
   competency?:       string | null
   integrationTheme?: string | null
@@ -186,12 +187,12 @@ export function useCreateJournal() {
           stream_id:         input.streamId,
           assessment_type:   input.assessmentType,
           name,
-          date:              input.date,
+          date_given:        input.dateGiven,
           total_marks:       totalMarks,
           pass_mark:         passMark,
           term:              input.term,
           year:              input.year,
-          notes:             input.notes,
+          teacher_notes:     input.teacherNotes,
           status:            'draft',
           learning_area:     input.learningArea ?? null,
           competency:        input.competency ?? null,

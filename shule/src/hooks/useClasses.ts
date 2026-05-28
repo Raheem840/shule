@@ -74,7 +74,7 @@ export function useSubjects(level?: string) {
     queryFn: async () => {
       let q = supabase
         .from('subjects')
-        .select('id, name, curriculum_code, level')
+        .select('id, name, curriculum_code, level, department_id, is_active')
         .eq('school_id', user!.schoolId)
         .order('name', { ascending: true })
 
@@ -86,10 +86,11 @@ export function useSubjects(level?: string) {
       return (data ?? []).map(r => ({
         id:             r.id as string,
         schoolId:       user!.schoolId,
+        departmentId:   (r.department_id as string) ?? null,
         name:           r.name as string,
         curriculumCode: (r.curriculum_code as string) ?? null,
         level:          (r.level as string) ?? null,
-        isActive:       true,
+        isActive:       (r.is_active as boolean) ?? true,
       } satisfies Subject))
     },
   })

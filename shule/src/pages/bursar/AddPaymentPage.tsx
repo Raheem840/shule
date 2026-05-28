@@ -221,7 +221,8 @@ export function AddPaymentPage() {
     try {
       await addPayment.mutateAsync({
         studentId:     selectedStudent.id,
-        feeTypeId:     null,
+        feeStructureId: null,
+        academicYearId: null,
         amountDue:     values.amountDue,
         amountPaid:    values.amountPaid,
         paymentDate:   values.paymentDate,

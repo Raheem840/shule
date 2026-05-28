@@ -72,7 +72,7 @@ describe('useFeePayments', () => {
     setResponse('fee_payments', {
       data: [{
         id: 'pay-1', school_id: 'school-1', student_id: 'stu-1',
-        fee_type_id: null, amount_due: 400_000, amount_paid: 200_000,
+        fee_structure_id: null, amount_due: 400_000, amount_paid: 200_000,
         balance: 200_000, payment_date: '2025-06-01',
         receipt_number: 'RCP-001', term: 1, year: 2025, notes: null, imported: false,
       }],
@@ -108,7 +108,7 @@ describe('useFeePayments', () => {
     setResponse('fee_payments', {
       data: [{
         id: 'pay-2', school_id: 'school-1', student_id: 'stu-2',
-        fee_type_id: null, amount_due: 400_000, amount_paid: 0,
+        fee_structure_id: null, amount_due: 400_000, amount_paid: 0,
         balance: 400_000, payment_date: null, receipt_number: null,
         term: 1, year: 2025, notes: null, imported: false,
       }],
@@ -134,7 +134,7 @@ describe('useFeePayments', () => {
     setResponse('fee_payments', {
       data: [{
         id: 'pay-3', school_id: 'school-1', student_id: 'stu-3',
-        fee_type_id: null, amount_due: 300_000, amount_paid: 300_000,
+        fee_structure_id: null, amount_due: 300_000, amount_paid: 300_000,
         balance: 0, payment_date: '2025-06-01', receipt_number: 'RCP-003',
         term: 1, year: 2025, notes: null, imported: false,
       }],
@@ -177,7 +177,7 @@ describe('useAddPayment', () => {
     let returnedId: string | undefined
     await act(async () => {
       returnedId = await result.current.mutateAsync({
-        studentId: 'stu-1', feeTypeId: null,
+        studentId: 'stu-1', feeStructureId: null, academicYearId: null,
         amountDue: 400_000, amountPaid: 200_000,
         paymentDate: '2025-06-01', receiptNumber: 'RCP-001',
         notes: null, term: 1, year: 2025,
@@ -195,7 +195,7 @@ describe('useAddPayment', () => {
 
     await act(async () => {
       await result.current.mutateAsync({
-        studentId: 'stu-1', feeTypeId: null,
+        studentId: 'stu-1', feeStructureId: null, academicYearId: null,
         amountDue: 500_000, amountPaid: 150_000,
         paymentDate: '2025-06-01', receiptNumber: null,
         notes: null, term: 1, year: 2025,

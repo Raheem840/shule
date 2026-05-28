@@ -18,11 +18,9 @@ const DETAIL_COLS = [
   'photo_url', 'medical_notes', 'status', 'enrolled_at',
 ].join(', ')
 
-// guardian_name is the real DB column (not full_name)
-// is_primary and comms_preference are NOT in schema yet — DB NEEDS: ADD COLUMN
 const GUARDIAN_COLS = [
-  'id', 'school_id', 'student_id', 'guardian_name', 'relationship',
-  'phone', 'email', 'do_not_contact',
+  'id', 'school_id', 'student_id', 'full_name', 'relationship',
+  'phone', 'email', 'do_not_contact', 'is_primary', 'comms_preference',
 ].join(', ')
 
 // ── Row → TypeScript mappers ───────────────────────────────────
@@ -46,10 +44,10 @@ function toStudent(r: AnyRow): Student {
     status:          r.status as Student['status'],
     enrolledAt:      r.enrolled_at as string,
     createdBy:       (r.created_by as string) ?? null,
-    nationality:     null,  // DB NEEDS: ADD COLUMN nationality TEXT
-    religion:        null,  // DB NEEDS: ADD COLUMN religion TEXT
-    studentType:     null,  // DB NEEDS: ADD COLUMN student_type TEXT
-    previousSchool:  null,  // DB NEEDS: ADD COLUMN previous_school TEXT
+    nationality:     (r.nationality as string) ?? null,
+    religion:        (r.religion as string) ?? null,
+    studentType:     (r.student_type as Student['studentType']) ?? null,
+    previousSchool:  (r.previous_school as string) ?? null,
   }
 }
 
@@ -58,13 +56,13 @@ function toGuardian(r: AnyRow): StudentGuardian {
     id:              r.id as string,
     schoolId:        r.school_id as string,
     studentId:       r.student_id as string,
-    guardianName:    (r.guardian_name as string) ?? '',
+    fullName:        (r.full_name as string) ?? '',
     relationship:    r.relationship as string,
     phone:           r.phone as string,
     email:           (r.email as string) ?? null,
     doNotContact:    (r.do_not_contact as boolean) ?? false,
-    isPrimary:       false,          // DB NEEDS: ADD COLUMN is_primary BOOLEAN
-    commsPreference: 'sms',          // DB NEEDS: ADD COLUMN comms_preference TEXT
+    isPrimary:       (r.is_primary as boolean) ?? false,
+    commsPreference: ((r.comms_preference as string) ?? 'sms') as StudentGuardian['commsPreference'],
   }
 }
 
@@ -186,13 +184,13 @@ export function useNextAdmissionNumber(year: number) {
 
 // ── Mutation input types ───────────────────────────────────────
 export type GuardianInput = {
-  guardianName:    string
+  fullName:        string
   relationship:    string
   phone:           string
   email:           string | null
-  isPrimary:       boolean       // UI-only until DB NEEDS: ADD COLUMN is_primary
+  isPrimary:       boolean
   doNotContact:    boolean
-  commsPreference: StudentGuardian['commsPreference']  // UI-only until DB NEEDS: ADD COLUMN comms_preference
+  commsPreference: StudentGuardian['commsPreference']
 }
 
 export type RegisterStudentInput = {
@@ -246,7 +244,10 @@ export function useRegisterStudent() {
           medical_notes:    input.medicalNotes,
           enrolled_at:      input.enrolledAt,
           status:           'active',
-          // DB NEEDS: nationality, religion, student_type, previous_school
+          nationality:      input.nationality,
+          religion:         input.religion,
+          student_type:     input.studentType,
+          previous_school:  input.previousSchool,
         })
         .select('id')
         .single()
@@ -258,14 +259,15 @@ export function useRegisterStudent() {
           .from('student_guardians')
           .insert(
             input.guardians.map(g => ({
-              school_id:      user!.schoolId,
-              student_id:     newStudent.id,
-              guardian_name:  g.guardianName,
-              relationship:   g.relationship,
-              phone:          g.phone,
-              email:          g.email,
-              do_not_contact: g.doNotContact,
-              // DB NEEDS: is_primary, comms_preference
+              school_id:       user!.schoolId,
+              student_id:      newStudent.id,
+              full_name:       g.fullName,
+              relationship:    g.relationship,
+              phone:           g.phone,
+              email:           g.email,
+              do_not_contact:  g.doNotContact,
+              is_primary:      g.isPrimary,
+              comms_preference: g.commsPreference,
             }))
           )
 

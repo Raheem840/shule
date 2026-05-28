@@ -387,9 +387,11 @@ function SurveyTab({ studentId }: { studentId: string }) {
     try {
       await submitSurvey.mutateAsync({
         studentId,
+        academicYearId: null,
+        term:           null,
+        year:           null,
         rating,
-        enjoyedMost:     enjoyed.trim(),
-        improveNextTerm: improve.trim(),
+        suggestions:    [enjoyed.trim(), improve.trim()].filter(Boolean).join('\n\n') || null,
       })
       setSubmitted(true)
     } catch (err: any) {
