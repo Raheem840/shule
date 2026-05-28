@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/Badge'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
 import { ROLE_LABEL } from '../../config/roleNav'
+import { Avatar } from '../../components/shared/Avatar'
 import type { UserRole } from '../../store/AuthContext'
 
 type SalaryRow = {
@@ -133,27 +134,14 @@ function SalaryBandCell({ row }: { row: SalaryRow }) {
   )
 }
 
-// ── Avatar ────────────────────────────────────────────────────
 function StaffAvatar({ row }: { row: SalaryRow }) {
-  if (row.photoUrl) {
-    return (
-      <img
-        src={row.photoUrl}
-        alt=""
-        style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-      />
-    )
-  }
-  const initials = `${row.firstName[0] ?? ''}${row.lastName[0] ?? ''}`.toUpperCase()
   return (
-    <div style={{
-      width: 32, height: 32, borderRadius: '50%',
-      background: 'var(--brand-light)', color: 'var(--brand)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 11, flexShrink: 0,
-    }}>
-      {initials}
-    </div>
+    <Avatar
+      photoPath={row.photoUrl}
+      bucket="staff-photos"
+      name={`${row.firstName} ${row.lastName}`}
+      size="sm"
+    />
   )
 }
 

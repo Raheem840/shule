@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useStudentFullProfile, useSuspendStudent } from '../../hooks/usePrincipal'
+import { Avatar } from '../../components/shared/Avatar'
 
 const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
   active:    { bg: 'var(--success-bg)', color: 'var(--success)' },
@@ -48,17 +49,12 @@ export function StudentFullProfilePage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none',
           cursor: 'pointer', fontSize: 20, color: 'var(--txt3)', padding: 0 }}>←</button>
-        {profile.photoUrl ? (
-          <img src={profile.photoUrl} alt="" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover' }} />
-        ) : (
-          <div style={{
-            width: 64, height: 64, borderRadius: '50%',
-            background: 'var(--brand-light)', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', fontSize: 22, fontWeight: 900, color: 'var(--brand)',
-          }}>
-            {profile.firstName[0]}{profile.lastName[0]}
-          </div>
-        )}
+        <Avatar
+          photoPath={profile.photoUrl}
+          bucket="student-photos"
+          name={`${profile.firstName} ${profile.lastName}`}
+          size="lg"
+        />
         <div>
           <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, margin: 0, color: 'var(--txt)' }}>
             {profile.firstName} {profile.lastName}

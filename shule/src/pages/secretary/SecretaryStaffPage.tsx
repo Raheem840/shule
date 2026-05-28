@@ -9,6 +9,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { Avatar } from '../../components/shared/Avatar'
 import type { Staff, UserRole } from '../../types/app'
 
 // ── Role display labels ───────────────────────────────────────
@@ -45,27 +46,14 @@ const ROLE_FILTER_OPTIONS = [
   { value: 'teacher',       label: 'Teacher' },
 ]
 
-// ── Avatar initials ───────────────────────────────────────────
 function StaffAvatar({ staff }: { staff: Staff }) {
-  if (staff.photoUrl) {
-    return (
-      <img
-        src={staff.photoUrl}
-        alt=""
-        style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-      />
-    )
-  }
-  const initials = `${staff.firstName[0] ?? ''}${staff.lastName[0] ?? ''}`.toUpperCase()
   return (
-    <div style={{
-      width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-      background: 'var(--brand-light)', border: '1.5px solid var(--brand)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 12, color: 'var(--brand)',
-    }}>
-      {initials}
-    </div>
+    <Avatar
+      photoPath={staff.photoUrl}
+      bucket="staff-photos"
+      name={`${staff.firstName} ${staff.lastName}`}
+      size="md"
+    />
   )
 }
 

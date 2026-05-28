@@ -10,6 +10,7 @@ import { useAttendanceSummary, useStudentAttendanceHistory } from '../../hooks/u
 import { Badge } from '../../components/ui/Badge'
 import { Card } from '../../components/ui/Card'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { Avatar } from '../../components/shared/Avatar'
 import type { Student } from '../../types/app'
 import type { AttendanceDay } from '../../hooks/useAttendance'
 import type { ExamResultRow, StudentFeeRecord, PortalReportCard } from '../../hooks/useParentPortal'
@@ -371,27 +372,15 @@ function ChildInfoCard({ student, classes, streams }: {
 }) {
   const className  = classes.find(c => c.id === student.classId)?.name ?? '—'
   const streamName = streams.find(s => s.id === student.streamId)?.name ?? '—'
-  const initials   = `${student.firstName[0] ?? ''}${student.lastName[0] ?? ''}`.toUpperCase()
-
   return (
     <Card style={{ padding: '1rem 1.25rem', marginBottom: '1rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        {student.photoUrl ? (
-          <img
-            src={student.photoUrl}
-            alt={`${student.firstName} ${student.lastName}`}
-            style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-          />
-        ) : (
-          <div style={{
-            width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
-            background: 'rgba(13,148,136,0.12)', color: 'var(--brand)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 16, fontWeight: 900, fontFamily: 'var(--font2)',
-          }}>
-            {initials}
-          </div>
-        )}
+        <Avatar
+          photoPath={student.photoUrl}
+          bucket="student-photos"
+          name={`${student.firstName} ${student.lastName}`}
+          size="lg"
+        />
         <div>
           <div style={{ fontSize: 15, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--txt)' }}>
             {student.firstName} {student.lastName}

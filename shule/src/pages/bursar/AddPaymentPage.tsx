@@ -9,6 +9,7 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/Toast'
+import { Avatar as StudentAvatar } from '../../components/shared/Avatar'
 import type { Student } from '../../types/app'
 
 const schema = z.object({
@@ -27,27 +28,15 @@ const STATUS_LABEL   = { paid: 'Paid', partial: 'Partial', unpaid: 'Unpaid' }
 
 const CURRENT_YEAR = new Date().getFullYear()
 
-// ── Initials avatar ───────────────────────────────────────────
+// ── Student avatar ────────────────────────────────────────────
 function Avatar({ student }: { student: Student }) {
-  if (student.photoUrl) {
-    return (
-      <img
-        src={student.photoUrl}
-        alt=""
-        style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }}
-      />
-    )
-  }
-  const initials = `${student.firstName[0] ?? ''}${student.lastName[0] ?? ''}`.toUpperCase()
   return (
-    <div style={{
-      width: 48, height: 48, borderRadius: '50%',
-      background: 'var(--brand-light)', color: 'var(--brand)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16,
-    }}>
-      {initials}
-    </div>
+    <StudentAvatar
+      photoPath={student.photoUrl}
+      bucket="student-photos"
+      name={`${student.firstName} ${student.lastName}`}
+      size="lg"
+    />
   )
 }
 

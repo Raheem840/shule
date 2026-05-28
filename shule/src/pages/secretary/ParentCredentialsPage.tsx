@@ -12,6 +12,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
+import { Avatar } from '../../components/shared/Avatar'
 import type { ParentAccount, Student } from '../../types/app'
 
 
@@ -600,13 +601,12 @@ export function ParentCredentialsPage() {
                       {/* Name + adm number */}
                       <td style={{ padding: '0.7rem 1rem', width: '35%' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          {student.photoUrl ? (
-                            <img src={student.photoUrl} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                          ) : (
-                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--brand-light)', border: '1.5px solid var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 11, color: 'var(--brand)', flexShrink: 0 }}>
-                              {`${student.firstName[0] ?? ''}${student.lastName[0] ?? ''}`.toUpperCase()}
-                            </div>
-                          )}
+                          <Avatar
+                            photoPath={student.photoUrl}
+                            bucket="student-photos"
+                            name={`${student.firstName} ${student.lastName}`}
+                            size="sm"
+                          />
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
                               {student.firstName} {student.lastName}
