@@ -21,6 +21,8 @@ import { OfflineBanner } from '../shared/OfflineBanner'
 import { ErrorBoundary } from '../shared/ErrorBoundary'
 import { useNotifications, useMarkNotificationsRead } from '../../hooks/useNotifications'
 import { useUnreadCount } from '../../hooks/useMessaging'
+import { useSchoolSettings } from '../../hooks/useAdmin'
+import { applyBrandColor } from '../../lib/brandColor'
 import type { UserRole } from '../../store/AuthContext'
 import type { NotificationType } from '../../types/week9'
 
@@ -81,11 +83,19 @@ export function AppShell() {
   const { user, signOut } = useAuth()
   const [theme, setTheme] = useState<'light' | 'dark'>(getStoredTheme)
   const location = useLocation()
+  const { data: schoolSettings } = useSchoolSettings()
 
   // Persist theme to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('shule-theme', theme)
   }, [theme])
+
+  // Apply brand color whenever settings load or change
+  useEffect(() => {
+    if (schoolSettings?.primaryColor) {
+      applyBrandColor(schoolSettings.primaryColor)
+    }
+  }, [schoolSettings?.primaryColor])
 
   const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light')
 
@@ -105,6 +115,8 @@ export function AppShell() {
         roleLabel={label}
         currentPath={location.pathname}
         onSignOut={signOut}
+        schoolName={schoolSettings?.schoolName ?? null}
+        schoolMotto={schoolSettings?.motto ?? null}
       />
 
       {/* ── RIGHT PANEL ─────────────────────────────────────────────── */}
@@ -136,17 +148,22 @@ export function AppShell() {
 // SIDEBAR
 // ═══════════════════════════════════════════════════════════════════════════════
 type SidebarProps = {
-  nav:         import('../../config/roleNav').RoleNav
-  user:        NonNullable<ReturnType<typeof useAuth>['user']>
-  avatar:      { bg: string; color: string }
-  roleLabel:   string
-  currentPath: string
-  onSignOut:   () => void
+  nav:          import('../../config/roleNav').RoleNav
+  user:         NonNullable<ReturnType<typeof useAuth>['user']>
+  avatar:       { bg: string; color: string }
+  roleLabel:    string
+  currentPath:  string
+  onSignOut:    () => void
+  schoolName:   string | null
+  schoolMotto:  string | null
 }
 
-function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut }: SidebarProps) {
+function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolName, schoolMotto }: SidebarProps) {
   const navigate = useNavigate()
   const { data: msgUnread = 0 } = useUnreadCount()
+
+  const displayName = schoolName ?? 'My School'
+  const schoolInitial = displayName.trim()[0]?.toUpperCase() ?? 'S'
 
   return (
     <nav className="sb">
@@ -160,12 +177,18 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut }: Sideb
           </div>
         </div>
 
-        {/* School pill — name comes from user.schoolId for now; real name via DB later */}
+        {/* School pill — driven by school_profile */}
         <div className="school-pill">
-          <div className="school-ico">K</div>
-          <div>
-            <div className="school-name">Kampala Junior Academy</div>
-            <div className="school-loc">Nakasero, Kampala</div>
+          <div className="school-ico">{schoolInitial}</div>
+          <div style={{ minWidth: 0 }}>
+            <div className="school-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {displayName}
+            </div>
+            {schoolMotto && (
+              <div className="school-loc" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {schoolMotto}
+              </div>
+            )}
           </div>
         </div>
       </div>

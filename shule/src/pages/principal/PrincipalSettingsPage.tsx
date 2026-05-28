@@ -5,6 +5,7 @@ import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { useToast } from '../../components/ui/Toast'
+import { applyBrandColor } from '../../lib/brandColor'
 
 function useSaveSchoolProfile() {
   const { user } = useAuth()
@@ -55,6 +56,7 @@ export function PrincipalSettingsPage() {
   async function handleSave() {
     try {
       await save.mutateAsync({ schoolName, shortName, motto, primaryColor })
+      applyBrandColor(primaryColor)
       ok('School profile updated.')
       setDirty(false)
     } catch (e: any) { err(e.message) }
@@ -108,33 +110,66 @@ export function PrincipalSettingsPage() {
               placeholder="e.g. KGGS"
             />
           </FormField>
-          <FormField label="Motto">
-            <input
-              className="sui-input"
-              value={motto}
-              onChange={e => { setMotto(e.target.value); markDirty() }}
-              placeholder="School motto"
-              style={{ gridColumn: 'span 1' }}
-            />
-          </FormField>
-          <FormField label="Primary Colour">
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <input
-                type="color"
-                value={primaryColor}
-                onChange={e => { setPrimaryColor(e.target.value); markDirty() }}
-                style={{ width: 44, height: 36, padding: 2, border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' }}
-              />
+          <div style={{ gridColumn: 'span 2' }}>
+            <FormField label="Motto">
               <input
                 className="sui-input"
-                value={primaryColor}
-                onChange={e => { setPrimaryColor(e.target.value); markDirty() }}
-                style={{ fontFamily: 'var(--font3)', flex: 1 }}
-                placeholder="#0d9488"
+                value={motto}
+                onChange={e => { setMotto(e.target.value); markDirty() }}
+                placeholder="e.g. Knowledge · Integrity · Service"
+                style={{ width: '100%' }}
               />
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: primaryColor, border: '1px solid var(--border)', flexShrink: 0 }} />
-            </div>
-          </FormField>
+            </FormField>
+          </div>
+          <div style={{ gridColumn: 'span 2' }}>
+            <FormField label="Primary Colour">
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <input
+                  type="color"
+                  value={primaryColor}
+                  onChange={e => {
+                    const c = e.target.value
+                    setPrimaryColor(c)
+                    applyBrandColor(c)
+                    markDirty()
+                  }}
+                  style={{ width: 44, height: 40, padding: 2, border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', flexShrink: 0 }}
+                />
+                <input
+                  className="sui-input"
+                  value={primaryColor}
+                  onChange={e => {
+                    const c = e.target.value
+                    setPrimaryColor(c)
+                    applyBrandColor(c)
+                    markDirty()
+                  }}
+                  style={{ fontFamily: 'var(--font3)', flex: 1 }}
+                  placeholder="#0d9488"
+                />
+                <div style={{ width: 40, height: 40, borderRadius: 8, background: primaryColor, border: '1px solid var(--border)', flexShrink: 0 }} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrimaryColor('#0d9488')
+                    applyBrandColor('#0d9488')
+                    markDirty()
+                  }}
+                  style={{
+                    padding: '0 12px', height: 40, border: '1.5px solid var(--border)',
+                    borderRadius: 8, background: 'var(--surface2)',
+                    color: 'var(--txt3)', fontSize: 11, fontWeight: 700,
+                    cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
+              <div style={{ marginTop: 6, fontSize: 11, color: 'var(--txt3)' }}>
+                Changes are previewed live — save to make them permanent.
+              </div>
+            </FormField>
+          </div>
         </div>
       </div>
 
