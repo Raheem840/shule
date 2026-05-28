@@ -10,7 +10,7 @@ import { useToast } from '../../components/ui/Toast'
 import { useRegisterStaff, useNextStaffNumber } from '../../hooks/useStaff'
 import { useClasses, useSubjects, useDepartments } from '../../hooks/useClasses'
 import { supabase } from '../../lib/supabase'
-import { uploadDocument, BUCKETS } from '../../lib/storage'
+import { uploadDocument } from '../../lib/storage'
 import { validateFile } from '../../lib/fileValidation'
 import { useAuth } from '../../store/AuthContext'
 import type { UserRole } from '../../types/app'
@@ -307,7 +307,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
     if (validationError) { err(validationError); return }
     setUploading(u => ({ ...u, [idx]: true }))
     try {
-      const docType = watch(`documents.${idx}.docType`) || `doc_${idx}`
+      const docType = (watch(`documents.${idx}.documentType` as any) as string) || `doc_${idx}`
       const path = await uploadDocument(user!.schoolId, 'temp', docType, file)
       setValue(`documents.${idx}.fileUrl`,  path)
       setValue(`documents.${idx}.fileName`, file.name)

@@ -14,7 +14,6 @@ import { useRegisterStudent, useNextAdmissionNumber } from '../../hooks/useStude
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { supabase } from '../../lib/supabase'
 import { uploadFile, BUCKETS } from '../../lib/storage'
-import { validateFile } from '../../lib/fileValidation'
 import { useAuth } from '../../store/AuthContext'
 import type { Class, Stream } from '../../types/app'
 

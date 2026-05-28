@@ -79,8 +79,8 @@ export function useSaveRemarks() {
     mutationFn: async ({
       term,
       year,
-      classId,
-      streamId,
+      classId:  _classId,
+      streamId: _streamId,
       rows,
     }: {
       term:     string

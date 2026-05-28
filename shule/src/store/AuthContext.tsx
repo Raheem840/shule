@@ -137,7 +137,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     )
 
-    return () => subscription.unsubscribe()
+    const handleOnline = () => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) setIsOfflineMode(false)
+      })
+    }
+    window.addEventListener('online', handleOnline)
+
+    return () => {
+      subscription.unsubscribe()
+      window.removeEventListener('online', handleOnline)
+    }
   }, [])
 
   const signOut = async () => {
