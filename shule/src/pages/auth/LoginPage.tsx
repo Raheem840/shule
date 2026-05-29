@@ -57,17 +57,39 @@ export function LoginPage() {
     // user_role into app_metadata inside the token payload.
     // session.user.app_metadata is NOT updated by the hook,
     // only the token itself is, so we decode it manually.
-    const token = data.session?.access_token
-    if (!token) {
+    let session = data.session
+    if (!session) {
       setError('No session returned. Please try again.')
       setLoading(false)
       return
     }
 
-    const jwt  = decodeJWT(token)
-    // Read from app_metadata (hook used {claims,app_metadata,user_role})
-    // OR from top-level (hook used {claims,user_role}) — handle both.
-    const role = (jwt.app_metadata?.user_role ?? jwt.user_role) as UserRole | undefined
+    if (import.meta.env.DEV) {
+      try {
+        const p = JSON.parse(atob(session.access_token.split('.')[1]))
+        console.log('[AUTH DEBUG] JWT payload keys:', Object.keys(p))
+        console.log('[AUTH DEBUG] user_role:', p.user_role)
+        console.log('[AUTH DEBUG] school_id:', p.school_id)
+        console.log('[AUTH DEBUG] app_metadata:', session.user.app_metadata)
+      } catch (e) { console.error('[AUTH DEBUG] Failed to decode JWT', e) }
+    }
+
+    let jwt  = decodeJWT(session.access_token)
+    let role = (jwt.user_role ?? jwt.app_metadata?.user_role) as UserRole | undefined
+
+    if (!role) {
+      // Claims not in first token — refresh once so the hook can stamp them
+      console.log('[Shule Auth] Role missing after sign-in, refreshing session...')
+      const { data: refreshed } = await supabase.auth.refreshSession()
+      if (refreshed.session) {
+        session = refreshed.session
+        jwt  = decodeJWT(session.access_token)
+        role = (jwt.user_role ?? jwt.app_metadata?.user_role) as UserRole | undefined
+        if (import.meta.env.DEV) {
+          console.log('[AUTH DEBUG] After refresh — user_role:', jwt.user_role, 'app_metadata:', session.user.app_metadata)
+        }
+      }
+    }
 
     if (!role) {
       setError('Account not linked to a school role. Contact your IT Admin.')

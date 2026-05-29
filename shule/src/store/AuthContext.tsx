@@ -28,11 +28,12 @@ type AuthCtx = {
   user:          AuthUser | null
   loading:       boolean
   isOfflineMode: boolean
+  authError:     string | null
   signOut:       () => Promise<void>
 }
 
 const AuthContext = createContext<AuthCtx>({
-  user: null, loading: true, isOfflineMode: false, signOut: async () => {}
+  user: null, loading: true, isOfflineMode: false, authError: null, signOut: async () => {}
 })
 
 // ── Decode the JWT access token to get custom claims ──────────
@@ -95,15 +96,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user,          setUser]          = useState<AuthUser | null>(null)
   const [loading,       setLoading]       = useState(true)
   const [isOfflineMode, setIsOfflineMode] = useState(false)
+  const [authError,     setAuthError]     = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        const u = sessionToUser(session)
-        setUser(u)
+        let u = sessionToUser(session)
+        let activeSession = session
+
+        if (!u) {
+          // Claims not in this token yet — refresh once to get hook claims
+          const { data } = await supabase.auth.refreshSession()
+          if (data.session) {
+            activeSession = data.session
+            u = sessionToUser(data.session)
+          }
+        }
+
         if (u) {
-          await cacheSessionToDb(session, u)
+          setUser(u)
+          setAuthError(null)
+          await cacheSessionToDb(activeSession, u)
           void primeOfflineCache(u.schoolId)
+        } else {
+          if (import.meta.env.DEV) {
+            console.error(
+              '⚠ SHULE AUTH: JWT missing user_role/school_id.\n' +
+              'Check:\n' +
+              '1. Supabase Dashboard → Authentication → Hooks → Custom Access Token hook is registered\n' +
+              '2. public.custom_access_token_hook function exists\n' +
+              '3. Staff row has auth_user_id matching this auth user\n' +
+              '4. Hook function is SECURITY DEFINER'
+            )
+          }
+          setAuthError('Account not linked to a school role. Contact your IT Admin.')
         }
       } else if (!navigator.onLine) {
         // Offline — attempt to restore cached session
@@ -119,17 +145,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         if (session) {
-          const u = sessionToUser(session)
-          setUser(u)
+          let u = sessionToUser(session)
           setIsOfflineMode(false)
+
+          if (!u && event === 'SIGNED_IN') {
+            // Fresh sign-in — hook claims may not be in this first token
+            const { data } = await supabase.auth.refreshSession()
+            if (data.session) u = sessionToUser(data.session)
+          }
+
           if (u) {
+            setUser(u)
+            setAuthError(null)
             await cacheSessionToDb(session, u)
             void primeOfflineCache(u.schoolId)
+          } else if (event === 'SIGNED_IN') {
+            setAuthError('Account not linked to a school role. Contact your IT Admin.')
           }
         } else {
           setUser(null)
+          setAuthError(null)
           setIsOfflineMode(false)
           try { await db.auth_session.delete('current') } catch { /* ignore */ }
         }
@@ -156,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, isOfflineMode, signOut }}>
+    <AuthContext.Provider value={{ user, loading, isOfflineMode, authError, signOut }}>
       {children}
     </AuthContext.Provider>
   )
