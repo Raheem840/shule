@@ -3,7 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useDosTeacherPerformance, useAssignClassTeacher } from '../../hooks/useDos'
-import { useStreams } from '../../hooks/useClasses'
+import { useClasses, useStreams } from '../../hooks/useClasses'
 import type { TeacherPerfRow } from '../../types/week9'
 
 // ─── RATE BAR ─────────────────────────────────────────────────────────────
@@ -27,13 +27,18 @@ function AssignModal({
   teacher: TeacherPerfRow
   onClose: () => void
 }) {
+  const { data: allClasses = [] } = useClasses()
   const { data: allStreams = [] } = useStreams(null)
   const assignMut = useAssignClassTeacher()
-  const [streamId, setStreamId] = useState('')
-  const [err,      setErr]      = useState('')
-  const [success,  setSuccess]  = useState(false)
+  const [selectedClassId, setSelectedClassId] = useState('')
+  const [streamId, setStreamId]               = useState('')
+  const [err,      setErr]                    = useState('')
+  const [success,  setSuccess]                = useState(false)
 
-  const availableStreams = allStreams.filter(s => !s.classTeacherId || s.classTeacherId === teacher.staffId)
+  const classMap = Object.fromEntries(allClasses.map(c => [c.id, c.name]))
+  const streamsForClass = selectedClassId
+    ? allStreams.filter(s => s.classId === selectedClassId && (!s.classTeacherId || s.classTeacherId === teacher.staffId))
+    : []
 
   async function confirm() {
     if (!streamId) { setErr('Select a stream first'); return }
@@ -58,7 +63,7 @@ function AssignModal({
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
     }}>
       <div style={{
-        background: 'var(--surface)', borderRadius: 20, padding: 28,
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 28,
         maxWidth: 420, width: '100%', boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
       }}>
         <h2 style={{ fontSize: 17, fontWeight: 800, color: 'var(--txt)', margin: '0 0 16px' }}>
@@ -73,15 +78,47 @@ function AssignModal({
             <p style={{ fontSize: 13, color: 'var(--txt2)', marginBottom: 16 }}>
               Assigning <strong>{teacher.name}</strong> as class teacher for a stream.
             </p>
+
             <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 4 }}>
-              Select Stream
+              Select Class
             </label>
-            <select className="sui-input" value={streamId} onChange={e => setStreamId(e.target.value)} style={{ width: '100%', marginBottom: 12 }}>
-              <option value="">Choose stream…</option>
-              {availableStreams.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+            <select
+              className="sui-input"
+              value={selectedClassId}
+              onChange={e => { setSelectedClassId(e.target.value); setStreamId('') }}
+              style={{ width: '100%', marginBottom: 12 }}
+            >
+              <option value="">Choose class…</option>
+              {allClasses.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+
+            {selectedClassId && (
+              <>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 4 }}>
+                  Select Stream
+                </label>
+                {streamsForClass.length === 0 ? (
+                  <div style={{ fontSize: 12, color: 'var(--txt3)', marginBottom: 12 }}>
+                    No available streams for this class.
+                  </div>
+                ) : (
+                  <select
+                    className="sui-input"
+                    value={streamId}
+                    onChange={e => setStreamId(e.target.value)}
+                    style={{ width: '100%', marginBottom: 12 }}
+                  >
+                    <option value="">Choose stream…</option>
+                    {streamsForClass.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                )}
+              </>
+            )}
+
             {err && <div style={{ color: 'var(--danger)', fontSize: 12, marginBottom: 8 }}>{err}</div>}
           </>
         )}
@@ -89,11 +126,12 @@ function AssignModal({
           <button className="sui-btn-outline" onClick={onClose}>{success ? 'Close' : 'Cancel'}</button>
           {!success && (
             <button
-              disabled={assignMut.isPending}
+              disabled={assignMut.isPending || !streamId}
               onClick={() => { void confirm() }}
               style={{
                 padding: '8px 20px', background: 'var(--brand)', color: '#fff',
-                border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13,
+                cursor: streamId ? 'pointer' : 'default', opacity: streamId ? 1 : 0.5,
               }}
             >
               {assignMut.isPending ? 'Assigning…' : 'Confirm'}
@@ -115,6 +153,8 @@ function TeacherDetailModal({
 }) {
   const [tab, setTab] = useState<'performance' | 'contact'>('performance')
   const [showAssign, setShowAssign] = useState(false)
+  const { data: allClasses = [] } = useClasses()
+  const classMap = Object.fromEntries(allClasses.map(c => [c.id, c.name]))
 
   return (
     <div style={{
@@ -195,7 +235,7 @@ function TeacherDetailModal({
                       padding: '2px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
                       background: 'var(--brand-light)', color: 'var(--brand)',
                     }}>
-                      {cId.slice(0, 8)}
+                      {classMap[cId] ?? cId.slice(0, 8)}
                     </span>
                   ))}
                 </div>

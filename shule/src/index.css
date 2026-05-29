@@ -671,29 +671,95 @@ html, body, #root {
 .sui-fade-up { animation: fadeUp 0.18s ease both; }
 
 /* ── BUTTON ────────────────────────────────────────── */
-.sui-btn { transition: all 0.18s; }
-
-/* secondary: border + text go teal on hover */
-.sui-btn-secondary:hover:not(:disabled) {
-  border-color: var(--brand) !important;
-  color: var(--brand) !important;
+.sui-btn,
+.sui-btn-primary,
+.sui-btn-secondary,
+.sui-btn-outline,
+.sui-btn-ghost,
+.sui-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font1);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.18s;
+  text-decoration: none;
+}
+.sui-btn:disabled,
+.sui-btn-primary:disabled,
+.sui-btn-secondary:disabled,
+.sui-btn-outline:disabled,
+.sui-btn-ghost:disabled,
+.sui-btn-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
-/* primary: subtle lift + opacity dip */
+/* primary — teal fill */
+.sui-btn-primary {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+}
 .sui-btn-primary:hover:not(:disabled) {
-  opacity: 0.92;
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(13,148,136,0.35);
 }
 
-/* danger: slight opacity pull-back */
+/* secondary — surface2 fill, brand on hover */
+.sui-btn-secondary {
+  background: var(--surface2);
+  color: var(--txt2);
+  border-color: var(--border);
+}
+.sui-btn-secondary:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+/* outline — transparent bg, border visible */
+.sui-btn-outline {
+  background: transparent;
+  color: var(--txt2);
+  border-color: var(--border);
+}
+.sui-btn-outline:hover:not(:disabled) {
+  background: var(--surface2);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+/* ghost — no border, no bg */
+.sui-btn-ghost {
+  background: transparent;
+  color: var(--txt2);
+  border-color: transparent;
+}
+.sui-btn-ghost:hover:not(:disabled) {
+  color: var(--txt);
+  background: var(--surface2);
+}
+
+/* danger — red fill */
+.sui-btn-danger {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
 .sui-btn-danger:hover:not(:disabled) {
   opacity: 0.88;
-}
-
-/* ghost: fill with surface2 on hover */
-.sui-btn-ghost:hover:not(:disabled) {
-  color: var(--txt) !important;
-  background: var(--surface2) !important;
+  transform: translateY(-1px);
 }
 
 /* ── CARD ───────────────────────────────────────────── */

@@ -173,7 +173,7 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
           <div className="slogo">S</div>
           <div>
             <div className="sname">Shule</div>
-            <div className="ssub">School OS</div>
+            <div className="ssub">{schoolName ?? 'School OS'}</div>
           </div>
         </div>
 

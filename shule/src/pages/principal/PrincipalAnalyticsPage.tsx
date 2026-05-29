@@ -215,15 +215,23 @@ export function PrincipalAnalyticsPage() {
           {/* Class performance heatmap */}
           {classPerfLoading
             ? <Loading />
-            : classPerf && classPerf.length > 0 && (
+            : (
               <div style={card}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 6 }}>
                   Class Pass Rate Heatmap
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 16 }}>
-                  Each tile shows the pass rate across all recorded exams for that class.
-                </div>
-                <ClassHeatmap classes={classPerf} />
+                {!classPerf?.length ? (
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--txt3)', fontSize: 13 }}>
+                    Class performance data will appear once teachers enter and publish exam marks.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 16 }}>
+                      Each tile shows the pass rate across all recorded exams for that class.
+                    </div>
+                    <ClassHeatmap classes={classPerf} />
+                  </>
+                )}
               </div>
             )
           }
@@ -233,66 +241,86 @@ export function PrincipalAnalyticsPage() {
             ? <Loading />
             : (
               <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
-                {dos && dos.passRateTrend.length > 0 && (
-                  <ChartCard title="Pass Rate Trend" height={220}>
-                    <LineChart data={dos.passRateTrend} margin={{ top: 4, right: 12, bottom: 4, left: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                      <XAxis dataKey="label" tick={{ fontSize: 10, fill: C.txt3 }} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: C.txt3 }} tickFormatter={v => `${v}%`} />
-                      <Tooltip formatter={(v) => [`${Number(v)}%`, 'Pass Rate']} />
-                      <Line type="monotone" dataKey="rate" stroke={C.brand} strokeWidth={2.5} dot={{ r: 4, fill: C.brand }} name="Pass Rate" />
-                    </LineChart>
-                  </ChartCard>
-                )}
+                <div style={card}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 16 }}>Pass Rate Trend</div>
+                  {!dos?.passRateTrend.length ? (
+                    <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--txt3)', fontSize: 13 }}>
+                      Pass rate trend will appear once exam results are published.
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <LineChart data={dos.passRateTrend} margin={{ top: 4, right: 12, bottom: 4, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: C.txt3 }} />
+                        <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: C.txt3 }} tickFormatter={v => `${v}%`} />
+                        <Tooltip formatter={(v) => [`${Number(v)}%`, 'Pass Rate']} />
+                        <Line type="monotone" dataKey="rate" stroke={C.brand} strokeWidth={2.5} dot={{ r: 4, fill: C.brand }} name="Pass Rate" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
 
-                {gender && gender.length > 0 && (
-                  <ChartCard title="Gender Enrollment" height={220}>
-                    <PieChart>
-                      <Pie
-                        data={gender}
-                        dataKey="count"
-                        nameKey="gender"
-                        cx="50%" cy="50%"
-                        outerRadius={72}
-                        innerRadius={36}
-                        paddingAngle={3}
-                        label={({ name, percent = 0 }) => `${name} ${Math.round(percent * 100)}%`}
-                      >
-                        {gender.map((_, i) => (
-                          <Cell key={i} fill={GENDER_COLORS[i % GENDER_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(v) => [`${v} students`, '']} />
-                    </PieChart>
-                  </ChartCard>
-                )}
+                <div style={card}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 16 }}>Gender Enrollment</div>
+                  {!gender?.length ? (
+                    <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--txt3)', fontSize: 13 }}>
+                      No student enrollment data yet.
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={gender}
+                          dataKey="count"
+                          nameKey="gender"
+                          cx="50%" cy="50%"
+                          outerRadius={72}
+                          innerRadius={36}
+                          paddingAngle={3}
+                          label={({ name, percent = 0 }) => `${name} ${Math.round(percent * 100)}%`}
+                        >
+                          {gender.map((_, i) => (
+                            <Cell key={i} fill={GENDER_COLORS[i % GENDER_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(v) => [`${v} students`, '']} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
               </div>
             )
           }
 
           {/* Subject rankings */}
-          {dosLoading
-            ? null
-            : dos && dos.subjectRankings.length > 0 && (
-              <ChartCard title="Subject Rankings by Pass Rate" height={Math.min(320, dos.subjectRankings.length * 28 + 40)}>
-                <BarChart
-                  data={dos.subjectRankings.slice(0, 12)}
-                  layout="vertical"
-                  margin={{ top: 4, right: 16, bottom: 4, left: 110 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                  <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: C.txt3 }} />
-                  <YAxis type="category" dataKey="subjectName" tick={{ fontSize: 11, fill: C.txt3 }} width={110} />
-                  <Tooltip formatter={(v) => [`${Number(v)}%`, 'Pass Rate']} />
-                  <Bar dataKey="passRate" name="Pass Rate" radius={[0, 5, 5, 0]}>
-                    {(dos.subjectRankings.slice(0, 12)).map((entry, i) => (
-                      <Cell key={i} fill={entry.passRate >= 80 ? C.success : entry.passRate >= 60 ? C.brand : C.danger} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ChartCard>
-            )
-          }
+          {!dosLoading && (
+            <div style={card}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 16 }}>Subject Rankings by Pass Rate</div>
+              {!dos?.subjectRankings.length ? (
+                <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--txt3)', fontSize: 13 }}>
+                  Subject rankings will appear once exam results are published.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={Math.min(320, dos.subjectRankings.length * 28 + 40)}>
+                  <BarChart
+                    data={dos.subjectRankings.slice(0, 12)}
+                    layout="vertical"
+                    margin={{ top: 4, right: 16, bottom: 4, left: 110 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                    <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: C.txt3 }} />
+                    <YAxis type="category" dataKey="subjectName" tick={{ fontSize: 11, fill: C.txt3 }} width={110} />
+                    <Tooltip formatter={(v) => [`${Number(v)}%`, 'Pass Rate']} />
+                    <Bar dataKey="passRate" name="Pass Rate" radius={[0, 5, 5, 0]}>
+                      {dos.subjectRankings.slice(0, 12).map((entry, i) => (
+                        <Cell key={i} fill={entry.passRate >= 80 ? C.success : entry.passRate >= 60 ? C.brand : C.danger} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -367,48 +395,66 @@ export function PrincipalAnalyticsPage() {
           {/* Attendance by class */}
           {attLoading
             ? <Loading />
-            : attByClass && attByClass.length > 0 && (
-              <ChartCard title="Attendance by Class — Last 30 Days" height={Math.min(340, attByClass.length * 30 + 40)}>
-                <BarChart
-                  data={attByClass}
-                  layout="vertical"
-                  margin={{ top: 4, right: 20, bottom: 4, left: 60 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                  <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: C.txt3 }} />
-                  <YAxis type="category" dataKey="className" tick={{ fontSize: 11, fill: C.txt3 }} width={60} />
-                  <Tooltip formatter={(v) => [`${Number(v)}%`, 'Attendance']} />
-                  <Bar dataKey="rate" name="Attendance" radius={[0, 5, 5, 0]}>
-                    {attByClass.map((entry, i) => (
-                      <Cell key={i} fill={
-                        entry.rate == null ? C.txt3
-                        : entry.rate >= 85 ? C.success
-                        : entry.rate >= 70 ? C.warning : C.danger
-                      } />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ChartCard>
+            : (
+              <div style={card}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 16 }}>Attendance by Class — Last 30 Days</div>
+                {!attByClass?.length ? (
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--txt3)', fontSize: 13 }}>
+                    Attendance data will appear once teachers start recording daily attendance.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={Math.min(340, attByClass.length * 30 + 40)}>
+                    <BarChart
+                      data={attByClass}
+                      layout="vertical"
+                      margin={{ top: 4, right: 20, bottom: 4, left: 60 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                      <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: C.txt3 }} />
+                      <YAxis type="category" dataKey="className" tick={{ fontSize: 11, fill: C.txt3 }} width={60} />
+                      <Tooltip formatter={(v) => [`${Number(v)}%`, 'Attendance']} />
+                      <Bar dataKey="rate" name="Attendance" radius={[0, 5, 5, 0]}>
+                        {attByClass.map((entry, i) => (
+                          <Cell key={i} fill={
+                            entry.rate == null ? C.txt3
+                            : entry.rate >= 85 ? C.success
+                            : entry.rate >= 70 ? C.warning : C.danger
+                          } />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
             )
           }
 
           {/* Monthly discipline trend */}
           {disciplineLoading
             ? <Loading />
-            : discipline && (
-              <ChartCard title="Discipline Incidents — Last 6 Months" height={220}>
-                <BarChart data={discipline} margin={{ top: 4, right: 12, bottom: 4, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: C.txt3 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: C.txt3 }} />
-                  <Tooltip formatter={(v) => [`${v} incident${Number(v) !== 1 ? 's' : ''}`, '']} />
-                  <Bar dataKey="count" name="Incidents" fill={C.warning} radius={[4, 4, 0, 0]}>
-                    {discipline.map((entry, i) => (
-                      <Cell key={i} fill={entry.count === 0 ? C.txt3 : entry.count >= 5 ? C.danger : C.warning} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ChartCard>
+            : (
+              <div style={card}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 16 }}>Discipline Incidents — Last 6 Months</div>
+                {!discipline?.length ? (
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--txt3)', fontSize: 13 }}>
+                    No discipline records found for the last 6 months.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={discipline} margin={{ top: 4, right: 12, bottom: 4, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                      <XAxis dataKey="month" tick={{ fontSize: 10, fill: C.txt3 }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: C.txt3 }} />
+                      <Tooltip formatter={(v) => [`${v} incident${Number(v) !== 1 ? 's' : ''}`, '']} />
+                      <Bar dataKey="count" name="Incidents" fill={C.warning} radius={[4, 4, 0, 0]}>
+                        {discipline.map((entry, i) => (
+                          <Cell key={i} fill={entry.count === 0 ? C.txt3 : entry.count >= 5 ? C.danger : C.warning} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
             )
           }
         </div>
@@ -459,21 +505,32 @@ export function PrincipalAnalyticsPage() {
 
                   {byClassLoading
                     ? <div style={card}><Loading /></div>
-                    : byClass && byClass.length > 0 && (
-                      <ChartCard title={`Fees by Class — Term 1 ${currentYear}`} height={220}>
-                        <BarChart
-                          data={byClass.map(c => ({ name: c.className, collected: c.collected, outstanding: c.outstanding }))}
-                          margin={{ top: 4, right: 12, bottom: 4, left: 10 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                          <XAxis dataKey="name" tick={{ fontSize: 9, fill: C.txt3 }} />
-                          <YAxis tickFormatter={ugxCompact} tick={{ fontSize: 9, fill: C.txt3 }} />
-                          <Tooltip formatter={(v) => [ugx(Number(v)), '']} />
-                          <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Bar dataKey="collected"   name="Collected"   fill={C.success} radius={[4, 4, 0, 0]} />
-                          <Bar dataKey="outstanding" name="Outstanding" fill={C.danger}  radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ChartCard>
+                    : (
+                      <div style={card}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 16 }}>
+                          {`Fees by Class — Term 1 ${currentYear}`}
+                        </div>
+                        {!byClass?.length ? (
+                          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--txt3)', fontSize: 13 }}>
+                            No fee payment data for Term 1 {currentYear} yet.
+                          </div>
+                        ) : (
+                          <ResponsiveContainer width="100%" height={220}>
+                            <BarChart
+                              data={byClass.map(c => ({ name: c.className, collected: c.collected, outstanding: c.outstanding }))}
+                              margin={{ top: 4, right: 12, bottom: 4, left: 10 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                              <XAxis dataKey="name" tick={{ fontSize: 9, fill: C.txt3 }} />
+                              <YAxis tickFormatter={ugxCompact} tick={{ fontSize: 9, fill: C.txt3 }} />
+                              <Tooltip formatter={(v) => [ugx(Number(v)), '']} />
+                              <Legend wrapperStyle={{ fontSize: 11 }} />
+                              <Bar dataKey="collected"   name="Collected"   fill={C.success} radius={[4, 4, 0, 0]} />
+                              <Bar dataKey="outstanding" name="Outstanding" fill={C.danger}  radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        )}
+                      </div>
                     )
                   }
                 </div>
