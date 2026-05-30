@@ -184,15 +184,27 @@ export function PrincipalStaffPage() {
 
       {!isLoading && filtered.length > 0 && (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                {['Name', 'Role', 'Staff #', 'Employment', 'Status'].map(h => (
-                  <th key={h} className="sui-th">{h}</th>
-                ))}
-              </tr>
-            </thead>
-          </table>
+          <div style={{
+            display: 'flex', alignItems: 'center',
+            padding: '0 14px', height: 36,
+            borderBottom: '2px solid var(--border)',
+            background: 'var(--surface2)',
+          }}>
+            {[
+              { label: 'Name',        flex: 2 },
+              { label: 'Role',        flex: 1 },
+              { label: 'Staff #',     flex: 1 },
+              { label: 'Employment',  flex: 1 },
+              { label: 'Status',      flex: 1 },
+            ].map(({ label, flex }) => (
+              <div key={label} style={{
+                flex, fontSize: 10, fontWeight: 800,
+                color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.6,
+              }}>
+                {label}
+              </div>
+            ))}
+          </div>
           <div ref={parentRef} style={{ overflowY: 'auto', maxHeight: 600 }}>
             <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
               {virtualizer.getVirtualItems().map(vRow => {

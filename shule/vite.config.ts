@@ -9,20 +9,26 @@ export default defineConfig(({ mode }) => ({
       VitePWA({
         registerType: 'autoUpdate',
         devOptions: {
-          enabled: false,   // disable SW in dev — stops Workbox logging Supabase URLs
+          enabled: true,   // keep SW active in dev so the install prompt fires
         },
         manifest: {
           name: 'Shule — School Management',
           short_name: 'Shule',
           description: 'Offline-capable school management for Ugandan secondary schools',
           theme_color: '#0d9488',
-          background_color: '#f8fafc',
+          background_color: '#0d9488',
           display: 'standalone',
+          orientation: 'portrait-primary',
           start_url: '/',
           scope: '/',
+          categories: ['education', 'productivity'],
           icons: [
-            { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-            { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+            // 'any' — general display (browser tab, bookmarks)
+            { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            // 'maskable' — adaptive icons on Android (safe-zone clipping)
+            { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           ],
         },
         workbox: {

@@ -180,8 +180,13 @@ export function useSaveSchoolSettings() {
 
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       void qc.invalidateQueries({ queryKey: ['school-settings', user?.schoolId] })
+      // When short_name changes the DB trigger re-prefixes all staff numbers
+      if (variables.shortName != null) {
+        void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
+        void qc.invalidateQueries({ queryKey: ['next-staff-num', user?.schoolId] })
+      }
     },
   })
 }

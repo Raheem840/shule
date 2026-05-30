@@ -41,63 +41,67 @@ const REACTIONS = ['👍', '❤️', '😂', '😮', '🙏', '👏']
 
 // ─── Global styles injected once ───────────────────────────────────────────────
 const MSG_CSS = `
+  /* ── Shell wrapper — the colourful backdrop the glass blurs through ── */
   .msg-shell {
     position: relative; overflow: hidden;
     background: linear-gradient(145deg,
-      rgba(13,148,136,0.08) 0%,
-      rgba(139,92,246,0.05) 35%,
-      rgba(14,165,233,0.05) 65%,
-      rgba(245,158,11,0.04) 100%
+      rgba(13,148,136,0.10) 0%,
+      rgba(139,92,246,0.07) 40%,
+      rgba(14,165,233,0.06) 70%,
+      rgba(245,158,11,0.05) 100%
     );
   }
   [data-theme="dark"] .msg-shell {
     background: linear-gradient(145deg,
-      rgba(13,148,136,0.15) 0%,
-      rgba(139,92,246,0.10) 40%,
-      rgba(7,13,26,0.98) 100%
+      rgba(13,148,136,0.18) 0%,
+      rgba(139,92,246,0.12) 40%,
+      rgba(7,13,26,1) 100%
     );
   }
+
+  /* ── Ambient orbs (give glass something vivid to blur through) ── */
   .msg-orb {
     position: absolute; border-radius: 50%;
     pointer-events: none; filter: blur(80px);
   }
+
+  /* ── Sidebar — solid surface so it's always visible ── */
   .msg-sidebar {
-    background: rgba(255,255,255,0.88) !important;
-    backdrop-filter: blur(32px) saturate(200%);
-    -webkit-backdrop-filter: blur(32px) saturate(200%);
-    border-right: 1px solid rgba(255,255,255,0.45) !important;
+    background: var(--surface) !important;
+    border-right: 1px solid var(--border) !important;
+    box-shadow: 2px 0 16px rgba(0,0,0,0.04);
   }
   [data-theme="dark"] .msg-sidebar {
-    background: rgba(15,23,42,0.90) !important;
-    border-right: 1px solid rgba(255,255,255,0.06) !important;
+    background: #0f172a !important;
+    border-right: 1px solid rgba(255,255,255,0.07) !important;
   }
+
+  /* ── Right panel — slightly tinted to contrast with the shell gradient ── */
   .msg-panel {
-    background: rgba(248,250,252,0.72) !important;
-    backdrop-filter: blur(24px) saturate(160%);
-    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    background: var(--bg) !important;
   }
   [data-theme="dark"] .msg-panel {
-    background: rgba(7,13,26,0.82) !important;
+    background: #070d1a !important;
   }
+
+  /* ── Chat headers and input bars — solid, always readable ── */
   .msg-topbar {
-    background: rgba(255,255,255,0.85) !important;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255,255,255,0.35) !important;
+    background: var(--surface) !important;
+    border-bottom: 1px solid var(--border) !important;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.04);
   }
   [data-theme="dark"] .msg-topbar {
-    background: rgba(15,23,42,0.88) !important;
+    background: #0f172a !important;
     border-bottom: 1px solid rgba(255,255,255,0.06) !important;
   }
   .msg-inputbar {
-    background: rgba(255,255,255,0.92) !important;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(255,255,255,0.4) !important;
+    background: var(--surface) !important;
+    border-top: 1px solid var(--border) !important;
+    box-shadow: 0 -1px 8px rgba(0,0,0,0.03);
   }
   [data-theme="dark"] .msg-inputbar {
-    background: rgba(15,23,42,0.92) !important;
-    border-top: 1px solid rgba(255,255,255,0.05) !important;
+    background: #0f172a !important;
+    border-top: 1px solid rgba(255,255,255,0.06) !important;
   }
 
   /* ── Contact rows ── */

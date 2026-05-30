@@ -26,8 +26,11 @@ function useSave() {
         .eq('id', user.schoolId)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       void qc.invalidateQueries({ queryKey: ['school-settings'] })
+      // DB trigger re-prefixes all staff numbers when short_name changes
+      void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['next-staff-num', user?.schoolId] })
     },
   })
 }
@@ -115,10 +118,15 @@ export function PrincipalSettingsPage() {
   }
 
   async function handleSave() {
+    const shortNameChanged = shortName.trim() !== (settings?.shortName ?? '').trim()
     try {
       await save.mutateAsync({ schoolName, shortName, motto, primaryColor, logoUrl: logoUrl ?? undefined })
       applyBrandColor(primaryColor)
-      ok('Settings saved.')
+      if (shortNameChanged && shortName.trim()) {
+        ok('School short name updated — all staff numbers have been refreshed.')
+      } else {
+        ok('Settings saved.')
+      }
       setEditMode(false)
     } catch (e: any) { err(e.message) }
   }
@@ -343,7 +351,24 @@ export function PrincipalSettingsPage() {
                     <input className="sui-input" value={shortName}
                       onChange={e => setShortName(e.target.value)}
                       placeholder="e.g. KGGS" style={{ fontFamily: 'var(--font3)', fontWeight: 700 }} />
-                    <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 4 }}>Used as prefix for staff IDs and admission numbers.</div>
+                    {shortName.trim() !== (settings?.shortName ?? '').trim() && shortName.trim() ? (
+                      <div style={{
+                        marginTop: 6, padding: '6px 10px', borderRadius: 8,
+                        background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
+                        display: 'flex', alignItems: 'flex-start', gap: 6,
+                      }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" style={{ flexShrink: 0, marginTop: 1 }}>
+                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        <span style={{ fontSize: 10, color: '#d97706', lineHeight: 1.5 }}>
+                          Changing this will update the prefix on all staff numbers
+                          (e.g. <strong>{settings?.shortName || 'OLD'}/STAFF/001</strong> → <strong>{shortName.trim()}/STAFF/001</strong>)
+                        </span>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 4 }}>Used as prefix for staff IDs and admission numbers.</div>
+                    )}
                   </div>
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 5 }}>SCHOOL MOTTO</label>

@@ -3,8 +3,31 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Viewport -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <!-- Primary favicon + app icon -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+
+  <!-- PWA theme colour (address bar on Android Chrome) -->
+  <meta name="theme-color" content="#0d9488" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!-- iOS / Safari PWA support -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Shule" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <!-- MS Tiles (Windows / Edge) -->
+  <meta name="msapplication-TileColor" content="#0d9488" />
+  <meta name="msapplication-TileImage" content="/icon-192.png" />
+
+  <!-- App description (used by some install dialogs) -->
+  <meta name="description" content="Offline-capable school management for Ugandan secondary schools" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
