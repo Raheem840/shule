@@ -348,26 +348,42 @@ export function ReportCardsPage() {
       )}
 
       {/* ── Actions ───────────────────────────────────────────── */}
-      {cohortReady && reportCards.length > 0 && (
-        <div style={{
-          background: 'var(--surface)', borderRadius: 14,
-          border: '1px solid var(--border)', padding: 20,
-          display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
-        }}>
-          <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--txt)', fontFamily: 'var(--font2)', flex: 1 }}>
-            Step 3 — Approval Workflow
+      {cohortReady && reportCards.length > 0 && (() => {
+        const readyCount    = reportCards.filter(c => c.status === 'ready').length
+        const hasDownloads  = reportCards.some(c => ['ready','approved','released'].includes(c.status) && c.pdfUrl)
+        if (!hasDownloads && readyCount === 0) return null
+        return (
+          <div style={{
+            background: 'var(--surface)', borderRadius: 14,
+            border: '1px solid var(--border)', padding: 20,
+            display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
+                Step 3 — Approval Workflow
+              </div>
+              {readyCount === 0 && (
+                <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>
+                  All report cards have been submitted for approval.
+                </div>
+              )}
+            </div>
+            {hasDownloads && (
+              <Button variant="secondary" onClick={handleDownloadAll}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                </svg>
+                Download All (ZIP)
+              </Button>
+            )}
+            {readyCount > 0 && (
+              <Button variant="primary" onClick={handleSendForApproval} loading={notify.isPending}>
+                Send {readyCount} card{readyCount !== 1 ? 's' : ''} for Approval
+              </Button>
+            )}
           </div>
-          <Button variant="secondary" onClick={handleDownloadAll}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}>
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
-            </svg>
-            Download All (ZIP)
-          </Button>
-          <Button variant="primary" onClick={handleSendForApproval} loading={notify.isPending}>
-            Send for Approval
-          </Button>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
