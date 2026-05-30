@@ -218,14 +218,10 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
           ) : (
             <div className="school-ico">{schoolInitial}</div>
           )}
-          <div style={{ minWidth: 0 }}>
-            <div className="school-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {displayName}
-            </div>
+          <div className="school-pill-text">
+            <div className="school-name">{displayName}</div>
             {schoolMotto && (
-              <div className="school-loc" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {schoolMotto}
-              </div>
+              <div className="school-loc">{schoolMotto}</div>
             )}
           </div>
         </div>
