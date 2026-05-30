@@ -119,6 +119,7 @@ export function LoginPage() {
   }
 
   return (
+    <>
     <div style={{
       minHeight: '100vh',
       display: 'grid',
@@ -327,6 +328,7 @@ export function LoginPage() {
     </div>
 
     {/* ── Forgot Password modal ── */}
+
     {showForgot && (
       <div style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
@@ -433,5 +435,6 @@ export function LoginPage() {
         </div>
       </div>
     )}
+    </>
   )
 }
