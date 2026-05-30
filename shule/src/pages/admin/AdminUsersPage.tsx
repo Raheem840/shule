@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useUserManagement } from '../../hooks/useAdmin'
@@ -10,6 +10,27 @@ import {
 import type { UserRow } from '../../types/week9'
 import { useToast } from '../../components/ui/Toast'
 
+// ── Role config ────────────────────────────────────────────────────────────
+const ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
+  principal:     { label: 'Principal',     color: '#0d9488', bg: 'rgba(13,148,136,0.12)' },
+  deputy:        { label: 'Deputy',        color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' },
+  dos:           { label: 'Dir. of Studies', color: '#0ea5e9', bg: 'rgba(14,165,233,0.12)' },
+  secretary:     { label: 'Secretary',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+  bursar:        { label: 'Bursar',        color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  class_teacher: { label: 'Class Teacher', color: '#f43f5e', bg: 'rgba(244,63,94,0.12)'  },
+  teacher:       { label: 'Teacher',       color: '#f43f5e', bg: 'rgba(244,63,94,0.12)'  },
+  it_admin:      { label: 'IT Admin',      color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+}
+
+function roleMeta(role: string) {
+  return ROLE_META[role] ?? { label: role, color: 'var(--txt2)', bg: 'var(--surface2)' }
+}
+
+function initials(name: string) {
+  return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
+}
+
+// ── Credential banner ──────────────────────────────────────────────────────
 function CredentialBanner({ email, tempPassword, manual, onDismiss }: {
   email: string; tempPassword: string; manual: boolean; onDismiss: () => void
 }) {
@@ -20,44 +41,403 @@ function CredentialBanner({ email, tempPassword, manual, onDismiss }: {
     setTimeout(() => setCopied(null), 2000)
   }
   return (
-    <div style={{ background: 'var(--success-bg)', border: '1px solid var(--success)', borderRadius: 12, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--success)' }}>
-        {manual ? 'Credentials stored locally (Edge Function not yet deployed)' : 'Login activated successfully'}
-      </div>
-      {manual && <div style={{ fontSize: 11, color: 'var(--success)', opacity: 0.8 }}>These credentials are saved in localStorage. Use them to create the auth account manually in Supabase Dashboard.</div>}
-      {[{ label: 'Email', value: email, key: 'email' }, { label: 'Temp Password', value: tempPassword, key: 'pass' }].map(f => (
-        <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.06)', borderRadius: 8, padding: '8px 12px' }}>
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--success)', textTransform: 'uppercase' }}>{f.label}</div>
-            <div style={{ fontSize: 13, fontFamily: 'var(--font3)', color: 'var(--txt)' }}>{f.value}</div>
-          </div>
-          <button className="sui-btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => copy(f.value, f.key)}>
-            {copied === f.key ? 'Copied!' : 'Copy'}
-          </button>
+    <div style={{
+      background: 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(13,148,136,0.06) 100%)',
+      border: '1px solid rgba(16,185,129,0.3)',
+      borderRadius: 16, padding: '20px 24px',
+      display: 'flex', flexDirection: 'column', gap: 12,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* check icon */}
+        <div style={{
+          width: 32, height: 32, borderRadius: '50%',
+          background: 'rgba(16,185,129,0.15)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
         </div>
-      ))}
-      <button className="sui-btn-ghost" style={{ alignSelf: 'flex-end', fontSize: 11 }} onClick={onDismiss}>Dismiss</button>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--success)' }}>
+            {manual ? 'Stored locally — create manually in Supabase' : 'Login activated'}
+          </div>
+          {manual && <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>
+            Copy credentials below then create the auth account in Supabase Dashboard.
+          </div>}
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {[{ label: 'Email', value: email, key: 'email' }, { label: 'Temp Password', value: tempPassword, key: 'pass' }].map(f => (
+          <div key={f.key} style={{
+            background: 'rgba(0,0,0,0.04)', borderRadius: 10,
+            padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            border: '1px solid rgba(16,185,129,0.15)',
+          }}>
+            <div>
+              <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 }}>{f.label}</div>
+              <div style={{ fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt)', fontWeight: 600 }}>{f.value}</div>
+            </div>
+            <button
+              onClick={() => copy(f.value, f.key)}
+              style={{
+                border: '1px solid rgba(16,185,129,0.3)', borderRadius: 7,
+                padding: '4px 10px', fontSize: 11, fontWeight: 700,
+                background: copied === f.key ? 'rgba(16,185,129,0.15)' : 'transparent',
+                color: 'var(--success)', cursor: 'pointer', transition: 'all 0.15s',
+              }}
+            >
+              {copied === f.key ? '✓ Copied' : 'Copy'}
+            </button>
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={onDismiss}
+        style={{ alignSelf: 'flex-end', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--txt3)', padding: '2px 0' }}
+      >
+        Dismiss
+      </button>
     </div>
   )
 }
 
+// ── KPI chip ───────────────────────────────────────────────────────────────
+function KpiChip({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 14, padding: '14px 20px', flex: 1,
+    }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: 12,
+        background: `${color}18`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <div style={{ width: 12, height: 12, borderRadius: '50%', background: color }} />
+      </div>
+      <div>
+        <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--txt)', lineHeight: 1 }}>{value}</div>
+        <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 3, fontWeight: 600 }}>{label}</div>
+      </div>
+    </div>
+  )
+}
+
+// ── Status badge ───────────────────────────────────────────────────────────
+function StatusBadge({ active }: { active: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+      <div style={{ position: 'relative', width: 8, height: 8 }}>
+        <div style={{
+          width: 8, height: 8, borderRadius: '50%',
+          background: active ? '#10b981' : '#94a3b8',
+        }} />
+        {active && (
+          <div style={{
+            position: 'absolute', inset: -2, borderRadius: '50%',
+            border: '1.5px solid #10b981', opacity: 0.5,
+            animation: 'shule-ping 1.8s ease-out infinite',
+          }} />
+        )}
+      </div>
+      <span style={{
+        fontSize: 11, fontWeight: 700,
+        color: active ? 'var(--success)' : 'var(--txt3)',
+      }}>
+        {active ? 'Active' : 'No Login'}
+      </span>
+    </div>
+  )
+}
+
+// ── User row card ──────────────────────────────────────────────────────────
+function UserCard({
+  row, actionId,
+  onActivate, onReset, onConfirmActivated,
+}: {
+  row: UserRow
+  actionId: string | null
+  onActivate: (r: UserRow) => void
+  onReset:    (r: UserRow) => void
+  onConfirmActivated: (r: UserRow) => void
+}) {
+  const [hovered, setHovered] = useState(false)
+  const meta   = roleMeta(row.role)
+  const busy   = actionId === row.staffId
+  const active = !!row.authUserId
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr auto auto',
+        alignItems: 'center',
+        gap: 16,
+        padding: '14px 20px',
+        borderBottom: '1px solid var(--border)',
+        background: hovered ? 'var(--surface2)' : 'transparent',
+        transition: 'background 0.15s',
+      }}
+    >
+      {/* ── Identity ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+        {/* Avatar */}
+        <div style={{
+          width: 42, height: 42, borderRadius: 13, flexShrink: 0,
+          background: `linear-gradient(135deg, ${meta.color}cc 0%, ${meta.color}88 100%)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 13, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)',
+          boxShadow: `0 4px 12px ${meta.color}30`,
+        }}>
+          {initials(row.name)}
+        </div>
+
+        <div style={{ minWidth: 0 }}>
+          <div style={{
+            fontSize: 14, fontWeight: 700, color: 'var(--txt)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {row.name}
+          </div>
+          {/* Role pill */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 4 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '2px 8px', borderRadius: 99,
+              background: meta.bg,
+              fontSize: 10, fontWeight: 800, color: meta.color,
+              textTransform: 'uppercase', letterSpacing: 0.5,
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: meta.color, display: 'inline-block' }} />
+              {meta.label}
+            </span>
+            {!row.isActive && (
+              <span style={{
+                padding: '2px 7px', borderRadius: 99,
+                background: 'rgba(148,163,184,0.12)',
+                fontSize: 10, fontWeight: 700, color: 'var(--txt3)',
+              }}>
+                Deactivated
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Status ── */}
+      <StatusBadge active={active} />
+
+      {/* ── Actions ── */}
+      <div style={{
+        display: 'flex', gap: 8, alignItems: 'center',
+        opacity: hovered || busy ? 1 : 0.45,
+        transition: 'opacity 0.2s',
+      }}>
+        {!active ? (
+          <>
+            <button
+              disabled={busy}
+              onClick={() => onActivate(row)}
+              style={{
+                padding: '7px 16px', borderRadius: 9,
+                background: busy ? 'var(--surface2)' : 'var(--brand)',
+                color: busy ? 'var(--txt3)' : '#fff',
+                border: 'none', fontWeight: 700, fontSize: 12,
+                cursor: busy ? 'default' : 'pointer',
+                transition: 'all 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {busy ? 'Activating…' : 'Activate Login'}
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => onConfirmActivated(row)}
+              style={{
+                padding: '7px 14px', borderRadius: 9,
+                background: 'transparent',
+                border: '1px solid var(--info)',
+                color: 'var(--info)', fontWeight: 700, fontSize: 12,
+                cursor: 'pointer', whiteSpace: 'nowrap',
+                transition: 'all 0.15s',
+              }}
+            >
+              Link Existing
+            </button>
+          </>
+        ) : (
+          <button
+            disabled={busy}
+            onClick={() => onReset(row)}
+            style={{
+              padding: '7px 16px', borderRadius: 9,
+              background: 'transparent',
+              border: `1px solid ${hovered ? 'var(--warning)' : 'var(--border)'}`,
+              color: hovered ? 'var(--warning)' : 'var(--txt2)',
+              fontWeight: 700, fontSize: 12,
+              cursor: busy ? 'default' : 'pointer',
+              transition: 'all 0.2s', whiteSpace: 'nowrap',
+            }}
+          >
+            {busy ? 'Resetting…' : 'Reset Password'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Link modal ─────────────────────────────────────────────────────────────
+function LinkModal({ target, onClose, onLink, isPending }: {
+  target: UserRow
+  onClose: () => void
+  onLink:  (authUserId: string) => Promise<void>
+  isPending: boolean
+}) {
+  const [val, setVal]   = useState('')
+  const [err, setErr]   = useState('')
+  const meta = roleMeta(target.role)
+
+  async function submit() {
+    if (!val.trim()) return
+    setErr('')
+    try {
+      await onLink(val.trim())
+    } catch (e: any) {
+      setErr(e.message ?? 'Failed to link account')
+    }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      background: 'rgba(0,0,0,0.55)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+    }}>
+      <div style={{
+        background: 'var(--surface)', borderRadius: 20, padding: 32,
+        width: 460, maxWidth: '90vw',
+        border: '1px solid var(--border)',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 14,
+            background: `linear-gradient(135deg, ${meta.color}cc, ${meta.color}88)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 15, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)',
+            boxShadow: `0 4px 14px ${meta.color}30`,
+          }}>
+            {initials(target.name)}
+          </div>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
+              Link Existing Account
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>{target.name}</div>
+          </div>
+        </div>
+
+        {/* Instructions */}
+        <div style={{
+          background: 'var(--surface2)', borderRadius: 12,
+          padding: '12px 16px', marginBottom: 20,
+          border: '1px solid var(--border)',
+        }}>
+          <div style={{ fontSize: 12, color: 'var(--txt2)', lineHeight: 1.7 }}>
+            <strong style={{ color: 'var(--txt)' }}>How to find the UUID:</strong><br />
+            Supabase Dashboard → Authentication → Users → copy the UUID from the user's row.
+          </div>
+        </div>
+
+        <input
+          className="sui-input"
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') void submit() }}
+          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+          style={{ width: '100%', marginBottom: 12, fontFamily: 'var(--font3)', fontSize: 12 }}
+          autoFocus
+        />
+
+        {err && (
+          <div style={{
+            background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.2)',
+            color: 'var(--danger)', padding: '10px 14px',
+            borderRadius: 10, fontSize: 13, marginBottom: 16,
+          }}>
+            {err}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '9px 20px', borderRadius: 10,
+              background: 'transparent', border: '1px solid var(--border)',
+              color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            disabled={!val.trim() || isPending}
+            onClick={() => void submit()}
+            style={{
+              padding: '9px 22px', borderRadius: 10,
+              background: val.trim() && !isPending ? 'var(--brand)' : 'var(--surface2)',
+              color: val.trim() && !isPending ? '#fff' : 'var(--txt3)',
+              border: 'none', fontWeight: 700, fontSize: 13,
+              cursor: val.trim() && !isPending ? 'pointer' : 'default',
+              transition: 'all 0.15s',
+            }}
+          >
+            {isPending ? 'Linking…' : 'Link Account'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ═══════════════════════════════════════════════════════════════════════════
+const ALL_ROLES = ['principal','deputy','dos','secretary','bursar','class_teacher','teacher','it_admin']
+
 export function AdminUsersPage() {
   const { data = [], isLoading } = useUserManagement()
-  const activateLogin  = useActivateStaffLogin()
-  const resetPassword  = useResetStaffPassword()
+  const activateLogin = useActivateStaffLogin()
+  const resetPassword = useResetStaffPassword()
+  const linkAuth      = useLinkAuthUser()
   const { success: ok, error: err } = useToast()
 
-  const linkAuth   = useLinkAuthUser()
   const [search,        setSearch]        = useState('')
+  const [roleFilter,    setRoleFilter]    = useState<string | null>(null)
   const [creds,         setCreds]         = useState<{ email: string; tempPassword: string; manual: boolean } | null>(null)
   const [actionId,      setActionId]      = useState<string | null>(null)
   const [confirmTarget, setConfirmTarget] = useState<UserRow | null>(null)
-  const [authUidInput,  setAuthUidInput]  = useState('')
-  const [linkError,     setLinkError]     = useState('')
 
-  const rows = search.trim()
-    ? data.filter(r => r.name.toLowerCase().includes(search.toLowerCase()) || r.role.includes(search.toLowerCase()))
-    : data
+  const rows = useMemo(() => {
+    let r = data
+    if (roleFilter)     r = r.filter(u => u.role === roleFilter)
+    if (search.trim())  r = r.filter(u =>
+      u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.role.toLowerCase().includes(search.toLowerCase())
+    )
+    return r
+  }, [data, search, roleFilter])
+
+  const totalActive   = data.filter(u => !!u.authUserId).length
+  const totalInactive = data.filter(u => !u.authUserId).length
 
   async function handleActivate(row: UserRow) {
     setActionId(row.staffId)
@@ -74,10 +454,7 @@ export function AdminUsersPage() {
     setActionId(row.staffId)
     try {
       const result = await resetPassword.mutateAsync({
-        authUserId: row.authUserId,
-        staffId:    row.staffId,
-        email:      '',
-        name:       row.name,
+        authUserId: row.authUserId, staffId: row.staffId, email: '', name: row.name,
       })
       setCreds({ email: '(unchanged)', ...result })
       ok('Password reset.')
@@ -86,137 +463,174 @@ export function AdminUsersPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <PageHeader
-        title="Users"
-        subtitle="Activate staff logins and reset passwords."
-      />
+    <>
+      {/* Ping animation */}
+      <style>{`
+        @keyframes shule-ping {
+          0%   { transform: scale(1); opacity: 0.6; }
+          100% { transform: scale(2.2); opacity: 0; }
+        }
+      `}</style>
 
-      {creds && <CredentialBanner {...creds} onDismiss={() => setCreds(null)} />}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <PageHeader title="User Management" subtitle="Activate logins, reset credentials and link staff accounts." />
 
-      <input className="sui-input" placeholder="Search by name or role…" value={search}
-        onChange={e => setSearch(e.target.value)} style={{ maxWidth: 360 }} />
+        {creds && <CredentialBanner {...creds} onDismiss={() => setCreds(null)} />}
 
-      {isLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><LoadingSpinner size="md" /></div>}
+        {/* KPI strip */}
+        {!isLoading && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            <KpiChip label="Total Staff"     value={data.length}    color="var(--brand)"   />
+            <KpiChip label="Active Logins"   value={totalActive}    color="var(--success)" />
+            <KpiChip label="Pending Activation" value={totalInactive} color="var(--warning)" />
+          </div>
+        )}
 
-      {!isLoading && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                {['Staff Member', 'Role', 'Login Status', 'Active', 'Actions'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--txt3)' }}>No staff found.</td></tr>
-              ) : rows.map(row => (
-                <tr key={row.staffId} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>{row.name}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--txt2)', textTransform: 'capitalize' }}>{row.role.replace('_', ' ')}</td>
-                  <td style={{ padding: '10px 14px' }}>
-                    {row.authUserId ? (
-                      <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'var(--success-bg)', color: 'var(--success)' }}>Active</span>
-                    ) : (
-                      <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'var(--warning-bg)', color: 'var(--warning)' }}>No Login</span>
-                    )}
-                  </td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <span style={{ fontSize: 12, color: row.isActive ? 'var(--success)' : 'var(--txt3)' }}>
-                      {row.isActive ? 'Yes' : 'No'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '10px 14px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {!row.authUserId ? (
-                      <>
-                        <button className="sui-btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}
-                          disabled={actionId === row.staffId}
-                          onClick={() => handleActivate(row)}>
-                          {actionId === row.staffId ? 'Activating…' : 'Activate Login'}
-                        </button>
-                        <button
-                          className="sui-btn-ghost"
-                          style={{ fontSize: 11, padding: '4px 12px', color: 'var(--info)', borderColor: 'var(--info)' }}
-                          onClick={() => { setConfirmTarget(row); setAuthUidInput(''); setLinkError('') }}
-                        >
-                          Confirm Activated
-                        </button>
-                      </>
-                    ) : (
-                      <button className="sui-btn-ghost" style={{ fontSize: 11, padding: '4px 12px' }}
-                        disabled={actionId === row.staffId}
-                        onClick={() => handleReset(row)}>
-                        {actionId === row.staffId ? 'Resetting…' : 'Reset Password'}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {rows.length > 0 && (
-            <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--txt3)' }}>
-              {rows.length} staff member{rows.length !== 1 ? 's' : ''}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Confirm Activated modal */}
-      {confirmTarget && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-        }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 28, width: 440 }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
-              Confirm Activation
-            </h3>
-            <p style={{ fontSize: 13, color: 'var(--txt)', fontWeight: 700, margin: '0 0 4px' }}>{confirmTarget.name}</p>
-            <p style={{ fontSize: 13, color: 'var(--txt2)', lineHeight: 1.6, margin: '0 0 4px' }}>
-              After creating the account in Supabase Dashboard, paste the auth user UUID below to link it.
-            </p>
-            <p style={{ fontSize: 11, color: 'var(--txt3)', margin: '0 0 14px' }}>
-              Supabase Dashboard → Authentication → Users → copy the UUID column.
-            </p>
+        {/* Search + role filters */}
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: 200, maxWidth: 340 }}>
+            <svg
+              style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
             <input
               className="sui-input"
-              value={authUidInput}
-              onChange={e => setAuthUidInput(e.target.value)}
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              style={{ width: '100%', marginBottom: 12, fontFamily: 'var(--font3)', fontSize: 12 }}
-              autoFocus
+              placeholder="Search staff…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ paddingLeft: 34, width: '100%' }}
             />
-            {linkError && (
-              <div style={{ background: 'var(--danger-bg)', color: 'var(--danger)',
-                padding: '8px 12px', borderRadius: 8, fontSize: 13, marginBottom: 12 }}>
-                {linkError}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="sui-btn-ghost" onClick={() => setConfirmTarget(null)}>Cancel</button>
-              <button
-                className="sui-btn-primary"
-                disabled={!authUidInput.trim() || linkAuth.isPending}
-                onClick={async () => {
-                  setLinkError('')
-                  try {
-                    await linkAuth.mutateAsync({ staffId: confirmTarget.staffId, authUserId: authUidInput.trim() })
-                    ok(`${confirmTarget.name}'s account linked successfully.`)
-                    setConfirmTarget(null)
-                  } catch (e: any) {
-                    setLinkError(e.message ?? 'Failed to link account')
-                  }
-                }}
-              >
-                {linkAuth.isPending ? 'Linking…' : 'Link Account'}
-              </button>
-            </div>
+          </div>
+
+          {/* Role chips */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setRoleFilter(null)}
+              style={{
+                padding: '5px 14px', borderRadius: 99, fontSize: 11, fontWeight: 700,
+                background: !roleFilter ? 'var(--brand)' : 'var(--surface2)',
+                color: !roleFilter ? '#fff' : 'var(--txt2)',
+                border: !roleFilter ? 'none' : '1px solid var(--border)',
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}
+            >
+              All
+            </button>
+            {ALL_ROLES.filter(r => data.some(u => u.role === r)).map(r => {
+              const m = roleMeta(r)
+              const active = roleFilter === r
+              return (
+                <button
+                  key={r}
+                  onClick={() => setRoleFilter(active ? null : r)}
+                  style={{
+                    padding: '5px 14px', borderRadius: 99, fontSize: 11, fontWeight: 700,
+                    background: active ? m.bg : 'var(--surface2)',
+                    color: active ? m.color : 'var(--txt2)',
+                    border: active ? `1px solid ${m.color}50` : '1px solid var(--border)',
+                    cursor: 'pointer', transition: 'all 0.15s',
+                  }}
+                >
+                  {m.label}
+                </button>
+              )
+            })}
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Table */}
+        {isLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+            <LoadingSpinner size="md" />
+          </div>
+        ) : (
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 16, overflow: 'hidden',
+          }}>
+            {/* Table header */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr auto auto',
+              gap: 16, padding: '10px 20px',
+              background: 'var(--surface2)',
+              borderBottom: '1px solid var(--border)',
+            }}>
+              {['Staff Member', 'Status', 'Actions'].map(h => (
+                <div key={h} style={{
+                  fontSize: 10, fontWeight: 800, color: 'var(--txt3)',
+                  textTransform: 'uppercase', letterSpacing: 0.8,
+                }}>
+                  {h}
+                </div>
+              ))}
+            </div>
+
+            {rows.length === 0 ? (
+              <div style={{
+                padding: '56px 24px', textAlign: 'center',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+              }}>
+                <div style={{
+                  width: 52, height: 52, borderRadius: 16,
+                  background: 'var(--surface2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5">
+                    <circle cx="12" cy="8" r="4"/><path d="M6 20v-1a6 6 0 0112 0v1"/>
+                  </svg>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt2)' }}>No staff found</div>
+                <div style={{ fontSize: 12, color: 'var(--txt3)' }}>
+                  {search || roleFilter ? 'Try a different search or filter.' : 'No staff have been registered yet.'}
+                </div>
+              </div>
+            ) : (
+              rows.map(row => (
+                <UserCard
+                  key={row.staffId}
+                  row={row}
+                  actionId={actionId}
+                  onActivate={handleActivate}
+                  onReset={handleReset}
+                  onConfirmActivated={r => setConfirmTarget(r)}
+                />
+              ))
+            )}
+
+            {rows.length > 0 && (
+              <div style={{
+                padding: '10px 20px', borderTop: '1px solid var(--border)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <span style={{ fontSize: 11, color: 'var(--txt3)', fontWeight: 600 }}>
+                  {rows.length} staff member{rows.length !== 1 ? 's' : ''}
+                  {roleFilter ? ` · ${roleMeta(roleFilter).label}` : ''}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--txt3)' }}>
+                  <span style={{ color: 'var(--success)', fontWeight: 700 }}>{totalActive}</span> active ·{' '}
+                  <span style={{ color: 'var(--warning)', fontWeight: 700 }}>{totalInactive}</span> pending
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Link modal */}
+        {confirmTarget && (
+          <LinkModal
+            target={confirmTarget}
+            onClose={() => setConfirmTarget(null)}
+            isPending={linkAuth.isPending}
+            onLink={async (authUserId) => {
+              await linkAuth.mutateAsync({ staffId: confirmTarget.staffId, authUserId })
+              ok(`${confirmTarget.name}'s account linked successfully.`)
+              setConfirmTarget(null)
+            }}
+          />
+        )}
+      </div>
+    </>
   )
 }
