@@ -281,7 +281,7 @@ export function useDosTeacherPerformance() {
           .eq('school_id', sid),
         supabase
           .from('curriculum_plan')
-          .select('teacher_id, covered_at, school_id')
+          .select('subject_id, covered_at, school_id')
           .eq('school_id', sid),
       ])
 
@@ -307,7 +307,9 @@ export function useDosTeacherPerformance() {
           ? Math.round((passed.length / tResults.length) * 100)
           : 0
 
-        const tTopics   = topics.filter((t: any) => t.teacher_id === teacher.id)
+        // curriculum_plan has no teacher_id column — derive via subject ownership
+        const teacherSubjects = new Set<string>((teacher.subjects ?? []) as string[])
+        const tTopics   = topics.filter((t: any) => teacherSubjects.has(t.subject_id as string))
         const covered   = tTopics.filter((t: any) => t.covered_at != null).length
         const coverage  = tTopics.length > 0 ? Math.round((covered / tTopics.length) * 100) : 0
 
@@ -344,30 +346,30 @@ export function useDosCurriculumPlan(
       const { data, error } = await supabase
         .from('curriculum_plan')
         .select(
-          'id, school_id, subject_id, class_id, topic_name, ncdc_code, term, year,' +
-          ' planned_date, covered_at, covered_by, teacher_id, sequence_order'
+          'id, school_id, subject_id, class_id, topic, term, year,' +
+          ' expected_date, covered, covered_at, covered_by'
         )
         .eq('school_id', user!.schoolId)
         .eq('subject_id', subjectId!)
         .eq('class_id', classId!)
-        .order('sequence_order', { ascending: true })
+        .order('expected_date', { ascending: true, nullsFirst: false })
 
       if (error) throw new Error(error.message)
 
-      return (data ?? []).map((r: any) => ({
+      return (data ?? []).map((r: any, idx: number) => ({
         id:            r.id,
         schoolId:      r.school_id,
         subjectId:     r.subject_id,
         classId:       r.class_id,
-        topicName:     r.topic_name,
-        ncdcCode:      r.ncdc_code,
+        topicName:     r.topic,
+        ncdcCode:      null,
         term:          r.term,
         year:          r.year,
-        plannedDate:   r.planned_date,
+        plannedDate:   r.expected_date,
         coveredAt:     r.covered_at,
         coveredBy:     r.covered_by,
-        teacherId:     r.teacher_id,
-        sequenceOrder: r.sequence_order,
+        teacherId:     null,
+        sequenceOrder: idx + 1,
       }))
     },
     staleTime: 2 * 60_000,

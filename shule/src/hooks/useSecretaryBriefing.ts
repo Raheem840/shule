@@ -114,8 +114,7 @@ export function useSecretaryBriefing(term: number, year: number) {
         supabase.from('fee_payments')
           .select('student_id, amount_paid, amount_due')
           .eq('school_id', sid)
-          .eq('term', term)
-          .eq('year', year),
+          .eq('term', term),
         supabase.from('attendance')
           .select('student_id, class_id, status, date')
           .eq('school_id', sid)

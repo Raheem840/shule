@@ -157,10 +157,10 @@ export function useMyFeeBalance(studentId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('fee_payments')
-        .select('id, amount_due, amount_paid, balance, payment_date, receipt_number, term, year')
+        .select('id, amount_due, amount_paid, balance, payment_date, receipt_number, term')
         .eq('school_id',  user!.schoolId)
         .eq('student_id', studentId!)
-        .order('year', { ascending: false })
+        .order('payment_date', { ascending: false, nullsFirst: false })
         .order('term', { ascending: false })
 
       if (error) throw error
@@ -171,7 +171,7 @@ export function useMyFeeBalance(studentId: string | null) {
         const balance = Number(r.balance)     ?? (amtDue - amtPaid)
         return {
           id:            r.id as string,
-          termLabel:     `Term ${r.term} — ${r.year}`,
+          termLabel:     `Term ${r.term}`,
           amountDue:     amtDue,
           amountPaid:    amtPaid,
           balance,

@@ -58,17 +58,16 @@ function useTeacherKpis() {
         .eq('year', currentYear)
       journalsThisTerm = jCount ?? 0
 
-      // Step 3: Topics covered by this teacher
-      let topicsCovered = 0
-      if (staffId) {
-        const { count: tCount } = await supabase
-          .from('curriculum_plan')
-          .select('id', { count: 'exact', head: true })
-          .eq('school_id', user!.schoolId)
-          .eq('teacher_id', staffId)
-          .not('covered_at', 'is', null)
-        topicsCovered = tCount ?? 0
-      }
+      // Step 3: Topics covered by this teacher (filter by covered_by auth user id,
+      // since curriculum_plan has no teacher_id column)
+      void staffId
+      const { count: tCount } = await supabase
+        .from('curriculum_plan')
+        .select('id', { count: 'exact', head: true })
+        .eq('school_id', user!.schoolId)
+        .eq('covered_by', user!.id)
+        .not('covered_at', 'is', null)
+      const topicsCovered = tCount ?? 0
 
       // Step 4: Students below 80% attendance in my classes
       let belowThresholdCount = 0

@@ -117,15 +117,19 @@ export function AttendancePage() {
       .join('|')
   }, [attendanceMap])
 
+  // Derive a stable key from students. `students` from useQuery defaults to a
+  // fresh [] each render when data is undefined, which would re-fire the effect
+  // every render and trigger an infinite setMarks loop.
+  const studentsKey = students.map(s => s.id).join('|')
+
   useEffect(() => {
     if (students.length === 0) { setMarks(new Map()); return }
     const init = new Map<string, AttendanceStatus>()
     for (const s of students) init.set(s.id, attendanceMap?.get(s.id) ?? 'present')
     setMarks(init)
     setSaved(false)
-  // attendanceMap is read inside but attendanceKey is the stable proxy for its content
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [students, attendanceKey])
+  }, [studentsKey, attendanceKey])
 
   function handleClassChange(cid: string) {
     setClassId(cid)

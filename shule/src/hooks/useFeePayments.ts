@@ -38,25 +38,34 @@ export function useBursarKpis(term: number, year: number) {
     queryKey: ['bursar-kpis', user?.schoolId, term, year],
     enabled:  !!user?.schoolId,
     queryFn: async () => {
+      void year
       const { data, error } = await supabase
-        .from('fee_summary_for_principal')
-        .select('total_expected, total_collected, total_outstanding, fully_unpaid_count')
+        .from('fee_payments')
+        .select('student_id, amount_due, amount_paid, balance')
         .eq('school_id', user!.schoolId)
         .eq('term', term)
-        .eq('year', year)
-        .maybeSingle()
 
-      if (error?.code === '42P01') return { expected: 0, collected: 0, outstanding: 0, unpaidCount: 0 }
-      if (error) throw error
-      if (!data) return { expected: 0, collected: 0, outstanding: 0, unpaidCount: 0 }
+      if (error) return { expected: 0, collected: 0, outstanding: 0, unpaidCount: 0 }
 
-      const r = data as AnyRow
-      return {
-        expected:    Number(r.total_expected)     || 0,
-        collected:   Number(r.total_collected)    || 0,
-        outstanding: Number(r.total_outstanding)  || 0,
-        unpaidCount: Number(r.fully_unpaid_count) || 0,
-      } satisfies BursarKpis
+      const rows = (data ?? []) as AnyRow[]
+      let expected = 0, collected = 0, outstanding = 0
+      const unpaidByStudent = new Map<string, boolean>()
+      for (const r of rows) {
+        const due = Number(r.amount_due) || 0
+        const paid = Number(r.amount_paid) || 0
+        const bal = Number(r.balance) || (due - paid)
+        expected += due
+        collected += paid
+        outstanding += Math.max(0, bal)
+        const sid = r.student_id as string
+        const prev = unpaidByStudent.get(sid)
+        const fullyUnpaid = paid <= 0 && due > 0
+        unpaidByStudent.set(sid, prev === undefined ? fullyUnpaid : (prev && fullyUnpaid))
+      }
+      let unpaidCount = 0
+      for (const v of unpaidByStudent.values()) if (v) unpaidCount++
+
+      return { expected, collected, outstanding, unpaidCount } satisfies BursarKpis
     },
   })
 }
@@ -94,13 +103,13 @@ export function useFeeCollectionByClass(term: number, year: number) {
     queryKey: ['fee-by-class', user?.schoolId, term, year],
     enabled:  !!user?.schoolId,
     queryFn: async () => {
+      void year
       const [paymentsRes, studentsRes, classesRes] = await Promise.all([
         supabase
           .from('fee_payments')
           .select('student_id, amount_paid, balance')
           .eq('school_id', user!.schoolId)
-          .eq('term', term)
-          .eq('year', year),
+          .eq('term', term),
         supabase
           .from('students')
           .select('id, class_id')
@@ -240,10 +249,9 @@ export function useFeePayments(filters: FeeFilters = {}) {
       const [paymentsRes, studentsRes, classesRes, streamsRes] = await Promise.all([
         supabase
           .from('fee_payments')
-          .select('id, school_id, student_id, fee_structure_id, academic_year_id, amount_due, amount_paid, balance, payment_date, receipt_number, term, year, notes, imported, created_by')
+          .select('id, school_id, student_id, fee_structure_id, academic_year_id, amount_due, amount_paid, balance, payment_date, receipt_number, term, notes, imported, created_by')
           .eq('school_id', user!.schoolId)
           .eq('term', term)
-          .eq('year', year)
           .order('payment_date', { ascending: false }),
         supabase
           .from('students')
@@ -304,7 +312,7 @@ export function useFeePayments(filters: FeeFilters = {}) {
           paymentDate:    (r.payment_date as string)   ?? null,
           receiptNumber:  (r.receipt_number as string) ?? null,
           term:           Number(r.term) || 1,
-          year:           Number(r.year) || year,
+          year:           year,
           notes:          (r.notes as string) ?? null,
           imported:       (r.imported as boolean) ?? false,
           admissionNumber: stu?.admissionNumber ?? '—',
@@ -383,7 +391,6 @@ export function useAddPayment() {
           receipt_number: input.receiptNumber || null,
           notes:          input.notes || null,
           term:           input.term,
-          year:           input.year,
           imported:       false,
         })
         .select('id')

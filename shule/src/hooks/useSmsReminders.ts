@@ -56,8 +56,7 @@ export function useSmsStudents(filters: SmsFilters) {
           .from('fee_payments')
           .select('student_id, amount_due, amount_paid, balance')
           .eq('school_id', user!.schoolId)
-          .eq('term', filters.term)
-          .eq('year', filters.year),
+          .eq('term', filters.term),
         supabase
           .from('classes')
           .select('id, name')
@@ -161,7 +160,7 @@ export function useSmsReminderLog() {
       const [remindersRes, studentsRes] = await Promise.all([
         supabase
           .from('sms_reminders')
-          .select('id, school_id, student_id, guardian_phone, channel, message, status, sent_at, created_at')
+          .select('id, school_id, student_id, parent_phone, channel, message, status, sent_at, created_at')
           .eq('school_id', user!.schoolId)
           .order('created_at', { ascending: false })
           .limit(500),
@@ -188,7 +187,7 @@ export function useSmsReminderLog() {
           id:            r.id as string,
           schoolId:      r.school_id as string,
           studentId:     r.student_id as string,
-          guardianPhone: r.guardian_phone as string,
+          guardianPhone: (r as any).parent_phone as string,
           channel:       r.channel as SmsChannel,
           message:       r.message as string,
           status:        r.status as SmsReminder['status'],
@@ -221,7 +220,7 @@ export function useSendReminders() {
       const reminderRows = reminders.map(r => ({
         school_id:     user!.schoolId,
         student_id:    r.studentId,
-        guardian_phone: r.guardianPhone,
+        parent_phone: r.guardianPhone,
         channel:       r.channel,
         message:       r.message,
         status:        'pending',
@@ -231,14 +230,14 @@ export function useSendReminders() {
       const { data: inserted, error: reminderErr } = await supabase
         .from('sms_reminders')
         .insert(reminderRows)
-        .select('id, student_id, guardian_phone, channel, message')
+        .select('id, student_id, parent_phone, channel, message')
 
       if (reminderErr) throw reminderErr
 
       const queueRows = (inserted ?? []).map(r => ({
         school_id: user!.schoolId,
         type:      r.channel,
-        payload:   { to: r.guardian_phone, message: r.message, student_id: r.student_id },
+        payload:   { to: r.parent_phone, message: r.message, student_id: r.student_id },
         status:    'pending',
       }))
 

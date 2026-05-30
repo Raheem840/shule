@@ -138,9 +138,8 @@ function useSecretaryDashData() {
           .select('id, pass_mark, term, year')
           .eq('school_id', sid),
         supabase.from('fee_payments')
-          .select('student_id, amount_paid, amount_due, year')
-          .eq('school_id', sid)
-          .eq('year', currentYear),
+          .select('student_id, amount_paid, amount_due')
+          .eq('school_id', sid),
         supabase.from('audit_log')
           .select('id, table_name, action, record_id, new_value, created_at')
           .eq('school_id', sid)

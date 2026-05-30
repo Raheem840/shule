@@ -49,8 +49,7 @@ function useStudentFeeStatus(classId: string, streamId: string) {
         supabase
           .from('fee_payments')
           .select('student_id, amount_paid, amount_due')
-          .eq('school_id', sid)
-          .eq('year', new Date().getFullYear()),
+          .eq('school_id', sid),
       ])
 
       if (studRes.error)  throw studRes.error

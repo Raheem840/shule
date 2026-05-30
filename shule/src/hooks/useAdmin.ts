@@ -227,22 +227,25 @@ export function useApiConfigStatus() {
     queryKey: ['api-config', user?.schoolId],
     enabled: !!user,
     queryFn: async (): Promise<ApiConfig> => {
-      const { data, error } = await supabase.rpc('get_school_api_config_status', {
-        p_school_id: user!.schoolId,
-      })
+      // Derive "enabled" purely from whether the credentials exist. The schema
+      // has no at_enabled/wa_enabled flags — and exposing the raw keys here
+      // would breach the finance/secrets isolation rule, so we only return
+      // booleans indicating presence.
+      const { data } = await supabase
+        .from('school_profile')
+        .select('at_api_key, wa_access_token')
+        .eq('id', user!.schoolId)
+        .maybeSingle()
 
-      if (error) throw new Error(error.message)
-
-      // The RPC returns masked flags, never raw key values
-      const config = (data ?? {}) as Record<string, unknown>
+      const row = (data ?? {}) as Record<string, unknown>
       return {
-        atApiKey:        null,  // never returned — masked server-side
+        atApiKey:        null,
         atUsername:      null,
         atSenderId:      null,
         waPhoneNumberId: null,
         waAccessToken:   null,
-        atEnabled:       (config['at_enabled'] as boolean) ?? false,
-        waEnabled:       (config['wa_enabled'] as boolean) ?? false,
+        atEnabled:       Boolean(row['at_api_key']),
+        waEnabled:       Boolean(row['wa_access_token']),
       }
     },
     staleTime: 5 * 60_000,

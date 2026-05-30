@@ -15,38 +15,42 @@ function useMyTopics() {
     queryKey: ['my-curriculum', user?.schoolId, user?.id],
     enabled:  !!user,
     queryFn: async (): Promise<CurriculumTopic[]> => {
+      // curriculum_plan has no teacher_id column. Fetch all topics for the school
+      // and filter client-side to subjects this teacher is assigned to.
       const { data: staffRow } = await supabase
         .from('staff')
-        .select('id')
+        .select('id, subjects')
         .eq('auth_user_id', user!.id)
         .maybeSingle()
 
       if (!staffRow) return []
+      const mySubjects = new Set<string>(((staffRow as any).subjects ?? []) as string[])
 
       const { data, error } = await supabase
         .from('curriculum_plan')
-        .select('id, school_id, subject_id, class_id, topic_name, ncdc_code, term, year, planned_date, covered_at, covered_by, teacher_id, sequence_order')
+        .select('id, school_id, subject_id, class_id, topic, term, year, expected_date, covered, covered_at, covered_by')
         .eq('school_id', user!.schoolId)
-        .eq('teacher_id', (staffRow as any).id)
-        .order('sequence_order', { ascending: true })
+        .order('expected_date', { ascending: true, nullsFirst: false })
 
       if (error) throw new Error(error.message)
 
-      return (data ?? []).map((r: any): CurriculumTopic => ({
-        id:            r.id,
-        schoolId:      r.school_id,
-        subjectId:     r.subject_id,
-        classId:       r.class_id,
-        topicName:     r.topic_name,
-        ncdcCode:      r.ncdc_code,
-        term:          r.term,
-        year:          r.year,
-        plannedDate:   r.planned_date,
-        coveredAt:     r.covered_at,
-        coveredBy:     r.covered_by,
-        teacherId:     r.teacher_id,
-        sequenceOrder: r.sequence_order,
-      }))
+      return (data ?? [])
+        .filter((r: any) => mySubjects.size === 0 || mySubjects.has(r.subject_id as string))
+        .map((r: any, idx: number): CurriculumTopic => ({
+          id:            r.id,
+          schoolId:      r.school_id,
+          subjectId:     r.subject_id,
+          classId:       r.class_id,
+          topicName:     r.topic,
+          ncdcCode:      null,
+          term:          r.term,
+          year:          r.year,
+          plannedDate:   r.expected_date,
+          coveredAt:     r.covered_at,
+          coveredBy:     r.covered_by,
+          teacherId:     null,
+          sequenceOrder: idx + 1,
+        }))
     },
     staleTime: 2 * 60_000,
   })
