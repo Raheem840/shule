@@ -114,6 +114,20 @@ function SystemKpisSection() {
 }
 
 // ─── SECTION 2 — User Management ─────────────────────────────────────────
+// Role colours shared within the dashboard section
+const UM_ROLE: Record<string, { label: string; color: string; bg: string }> = {
+  principal:     { label: 'Principal',       color: '#0d9488', bg: 'rgba(13,148,136,0.12)'  },
+  deputy:        { label: 'Deputy',           color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)'  },
+  dos:           { label: 'Dir. of Studies',  color: '#0ea5e9', bg: 'rgba(14,165,233,0.12)'  },
+  secretary:     { label: 'Secretary',        color: '#f59e0b', bg: 'rgba(245,158,11,0.12)'  },
+  bursar:        { label: 'Bursar',           color: '#10b981', bg: 'rgba(16,185,129,0.12)'  },
+  class_teacher: { label: 'Class Teacher',    color: '#f43f5e', bg: 'rgba(244,63,94,0.12)'   },
+  teacher:       { label: 'Teacher',          color: '#f43f5e', bg: 'rgba(244,63,94,0.12)'   },
+  it_admin:      { label: 'IT Admin',         color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+}
+function umRole(r: string) { return UM_ROLE[r] ?? { label: r, color: 'var(--txt2)', bg: 'var(--surface2)' } }
+function umInitials(name: string) { return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') }
+
 function UserManagementSection() {
   const { data: users = [], isLoading } = useUserManagement()
   const { mutateAsync: resetPwd,    isPending: resetting } = useResetPassword()
@@ -125,14 +139,22 @@ function UserManagementSection() {
   const [deleteError,  setDeleteError]  = useState('')
   const [resetDone,    setResetDone]    = useState(false)
   const [resetError,   setResetError]   = useState('')
+  const [search,       setSearch]       = useState('')
   const listRef = useRef<HTMLDivElement>(null)
 
+  const filtered = search.trim()
+    ? users.filter(u => u.name.toLowerCase().includes(search.toLowerCase()) || u.role.includes(search.toLowerCase()))
+    : users
+
   const rowVirtualizer = useVirtualizer({
-    count:            users.length,
+    count:            filtered.length,
     getScrollElement: () => listRef.current,
-    estimateSize:     () => 52,
+    estimateSize:     () => 64,
     overscan:         5,
   })
+
+  const totalActive   = users.filter(u => u.isActive).length
+  const totalInactive = users.filter(u => !u.isActive).length
 
   async function handleReset() {
     if (!resetTarget?.authUserId) return
@@ -159,89 +181,184 @@ function UserManagementSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {isLoading && <div style={{ color: 'var(--txt3)' }}>Loading users…</div>}
+      {/* KPI strip */}
+      {!isLoading && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+          {[
+            { label: 'Total Staff',  value: users.length,    color: '#0d9488' },
+            { label: 'Active',       value: totalActive,     color: '#10b981' },
+            { label: 'Inactive',     value: totalInactive,   color: '#f43f5e' },
+          ].map(k => (
+            <div key={k.label} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              background: 'var(--surface2)', borderRadius: 12,
+              padding: '12px 16px', border: '1px solid var(--border)',
+            }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                background: `${k.color}18`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: k.color }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--txt)', lineHeight: 1 }}>{k.value}</div>
+                <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 2, fontWeight: 600 }}>{k.label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      <div
-        ref={listRef}
-        className="sui-glass-panel sui-table-head-sticky"
-        style={{ overflow: 'auto', maxHeight: 480 }}
-      >
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              {['Name', 'Role', 'Last Login', 'Status', 'Actions'].map(h => (
-                <th key={h} className="sui-th" style={{ background: 'var(--surface2)' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody style={{ height: rowVirtualizer.getTotalSize() }}>
+      {/* Search */}
+      <div style={{ position: 'relative', maxWidth: 320 }}>
+        <svg style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+          width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input className="sui-input" placeholder="Search staff…" value={search}
+          onChange={e => setSearch(e.target.value)} style={{ paddingLeft: 32 }} />
+      </div>
+
+      {isLoading && <div style={{ color: 'var(--txt3)', fontSize: 13 }}>Loading users…</div>}
+
+      {/* Premium card list */}
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--border)',
+        borderRadius: 14, overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 110px 120px 180px',
+          padding: '9px 16px', background: 'var(--surface2)',
+          borderBottom: '1px solid var(--border)',
+        }}>
+          {['Staff Member', 'Last Login', 'Status', 'Actions'].map(h => (
+            <div key={h} style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8 }}>{h}</div>
+          ))}
+        </div>
+
+        <div ref={listRef} style={{ overflowY: 'auto', maxHeight: 440, position: 'relative' }}>
+          <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
             {rowVirtualizer.getVirtualItems().map(vr => {
-              const u = users[vr.index]
+              const u = users[vr.index] // use original `users` since virtualizer uses that count
+              if (!u) return null
+              // Skip if filtered out
+              if (filtered.indexOf(u) === -1 && search.trim()) return null
+              const meta = umRole(u.role)
               return (
-                <tr
+                <div
                   key={u.staffId}
-                  className="sui-tr"
-                  style={{ height: vr.size, transform: `translateY(${vr.start}px)` }}
+                  style={{
+                    position: 'absolute', top: 0, left: 0, right: 0,
+                    height: vr.size, transform: `translateY(${vr.start}px)`,
+                    display: 'grid', gridTemplateColumns: '1fr 110px 120px 180px',
+                    alignItems: 'center', padding: '0 16px',
+                    borderBottom: '1px solid var(--border)',
+                  }}
                 >
-                  <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--txt)' }}>{u.name}</td>
-                  <td style={{ padding: '8px 12px' }}>
-                    <span style={{
-                      padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-                      background: 'var(--brand-light)', color: 'var(--brand)',
-                      textTransform: 'capitalize',
+                  {/* Identity */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                    <div style={{
+                      width: 38, height: 38, borderRadius: 11, flexShrink: 0,
+                      background: `linear-gradient(135deg, ${meta.color}cc, ${meta.color}77)`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 12, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)',
+                      boxShadow: `0 3px 10px ${meta.color}28`,
                     }}>
-                      {u.role.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td style={{ padding: '8px 12px', color: 'var(--txt2)', fontSize: 12 }}>
+                      {umInitials(u.name)}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {u.name}
+                      </div>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 3,
+                        padding: '1px 7px', borderRadius: 99,
+                        background: meta.bg, fontSize: 9, fontWeight: 800,
+                        color: meta.color, textTransform: 'uppercase', letterSpacing: 0.5,
+                      }}>
+                        <span style={{ width: 4, height: 4, borderRadius: '50%', background: meta.color, display: 'inline-block' }} />
+                        {meta.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Last login */}
+                  <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>
                     {u.lastLogin
-                      ? new Date(u.lastLogin).toLocaleString('en-GB', {
-                          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-                        })
-                      : 'Never'}
-                  </td>
-                  <td style={{ padding: '8px 12px' }}>
-                    <span style={{
-                      padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-                      background: u.isActive ? 'var(--success-bg)' : 'var(--danger-bg)',
-                      color: u.isActive ? 'var(--success)' : 'var(--danger)',
-                    }}>
+                      ? new Date(u.lastLogin).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                      : <span style={{ color: 'var(--txt3)', fontStyle: 'italic' }}>Never</span>}
+                  </div>
+
+                  {/* Status */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{
+                      width: 7, height: 7, borderRadius: '50%',
+                      background: u.isActive ? '#10b981' : '#f43f5e',
+                      boxShadow: u.isActive ? '0 0 0 2px rgba(16,185,129,0.2)' : '0 0 0 2px rgba(244,63,94,0.2)',
+                    }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: u.isActive ? 'var(--success)' : 'var(--danger)' }}>
                       {u.isActive ? 'Active' : 'Inactive'}
                     </span>
-                  </td>
-                  <td style={{ padding: '8px 12px', display: 'flex', gap: 6 }}>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                     {u.authUserId && (
                       <button
                         onClick={() => { setResetTarget(u); setResetDone(false); setResetError('') }}
-                        className="sui-btn-outline"
-                        style={{ fontSize: 11, padding: '4px 10px' }}
+                        style={{
+                          padding: '4px 10px', borderRadius: 7, fontSize: 10, fontWeight: 700,
+                          border: '1px solid var(--border)', background: 'transparent',
+                          color: 'var(--txt2)', cursor: 'pointer',
+                        }}
                       >
                         Reset Pwd
                       </button>
                     )}
                     <button
                       onClick={() => toggleActive({ staffId: u.staffId, isActive: !u.isActive })}
-                      className="sui-btn-outline"
-                      style={{ fontSize: 11, padding: '4px 10px',
-                        color: u.isActive ? 'var(--warning)' : 'var(--success)',
-                        borderColor: u.isActive ? 'var(--warning)' : 'var(--success)' }}
+                      style={{
+                        padding: '4px 10px', borderRadius: 7, fontSize: 10, fontWeight: 700,
+                        border: `1px solid ${u.isActive ? 'rgba(245,158,11,0.4)' : 'rgba(16,185,129,0.4)'}`,
+                        background: u.isActive ? 'rgba(245,158,11,0.08)' : 'rgba(16,185,129,0.08)',
+                        color: u.isActive ? 'var(--warning)' : 'var(--success)', cursor: 'pointer',
+                      }}
                     >
                       {u.isActive ? 'Deactivate' : 'Activate'}
                     </button>
                     <button
                       onClick={() => { setDeleteTarget(u); setDeleteTyped(''); setDeleteError('') }}
-                      className="sui-btn-outline"
-                      style={{ fontSize: 11, padding: '4px 10px',
-                        color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                      style={{
+                        padding: '4px 10px', borderRadius: 7, fontSize: 10, fontWeight: 700,
+                        border: '1px solid rgba(244,63,94,0.3)', background: 'rgba(244,63,94,0.06)',
+                        color: 'var(--danger)', cursor: 'pointer',
+                      }}
                     >
                       Delete
                     </button>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               )
             })}
-          </tbody>
-        </table>
+          </div>
+        </div>
+
+        {/* Footer */}
+        {filtered.length > 0 && (
+          <div style={{
+            padding: '9px 16px', borderTop: '1px solid var(--border)',
+            display: 'flex', justifyContent: 'space-between',
+            fontSize: 11, color: 'var(--txt3)', fontWeight: 600,
+          }}>
+            <span>{filtered.length} staff member{filtered.length !== 1 ? 's' : ''}</span>
+            <span>
+              <span style={{ color: 'var(--success)', fontWeight: 700 }}>{totalActive}</span> active ·{' '}
+              <span style={{ color: 'var(--danger)', fontWeight: 700 }}>{totalInactive}</span> inactive
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Delete User Modal */}

@@ -314,7 +314,18 @@ export function useDeleteUser() {
 }
 
 // ── useStorageBuckets ──────────────────────────────────────────────────────
-// Lists all storage buckets and their approximate file counts and sizes.
+// listBuckets() requires the service role key and returns empty with the
+// anon key. Use the known bucket names from the schema instead, then query
+// each for file count/size (which the anon key CAN do via RLS).
+const KNOWN_BUCKETS: Array<{ name: string; public: boolean }> = [
+  { name: 'staff-photos',      public: true  },
+  { name: 'student-photos',    public: false },
+  { name: 'documents',         public: false },
+  { name: 'report-cards',      public: true  },
+  { name: 'templates',         public: false },
+  { name: 'staff-attachments', public: true  },
+]
+
 export function useStorageBuckets() {
   const { user } = useAuth()
 
@@ -322,16 +333,14 @@ export function useStorageBuckets() {
     queryKey: ['storage-buckets', user?.schoolId],
     enabled: !!user,
     queryFn: async () => {
-      const { data: buckets, error } = await supabase.storage.listBuckets()
-      if (error) throw new Error(error.message)
-
       const results = await Promise.allSettled(
-        (buckets ?? []).map(async (b) => {
+        KNOWN_BUCKETS.map(async (b) => {
           const { data: files } = await supabase.storage.from(b.name).list('', { limit: 1000 })
-          const fileList = files ?? []
+          const fileList  = files ?? []
           const totalBytes = fileList.reduce((sum, f) => sum + (f.metadata?.size ?? 0), 0)
           return {
             name:      b.name,
+            isPublic:  b.public,
             fileCount: fileList.length,
             sizeMb:    +(totalBytes / (1024 * 1024)).toFixed(2),
           }
@@ -339,7 +348,7 @@ export function useStorageBuckets() {
       )
 
       return results
-        .filter((r): r is PromiseFulfilledResult<{ name: string; fileCount: number; sizeMb: number }> =>
+        .filter((r): r is PromiseFulfilledResult<{ name: string; isPublic: boolean; fileCount: number; sizeMb: number }> =>
           r.status === 'fulfilled'
         )
         .map(r => r.value)
