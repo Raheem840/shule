@@ -93,6 +93,26 @@ export function AppShell() {
   const location = useLocation()
   const { data: schoolSettings } = useSchoolSettings()
 
+  // Fetch the real first name from the staff table.
+  // user.name is populated from the JWT full_name claim which is only set
+  // when the auth account was created with metadata. For accounts created
+  // directly in Supabase or with email-only credentials the claim is missing
+  // and user.name falls back to the email address, producing greetings like
+  // "Good morning, Principal". This query fixes that at the layout level.
+  const { data: staffFirstName } = useQuery({
+    queryKey: ['staff-first-name', user?.id],
+    enabled: !!user?.id,
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('staff')
+        .select('first_name')
+        .eq('auth_user_id', user!.id)
+        .single()
+      return (data?.first_name as string | null) ?? null
+    },
+  })
+
   // Persist theme to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('shule-theme', theme)
@@ -112,6 +132,9 @@ export function AppShell() {
   const nav    = ROLE_NAV[user.role]
   const avatar = ROLE_AVATAR[user.role]
   const label  = ROLE_LABEL[user.role]
+
+  // Use the real DB name when available, fall back to JWT claim / email
+  const displayName = staffFirstName ?? user.name
 
   return (
     <div className="ar" data-theme={theme}>
@@ -136,7 +159,7 @@ export function AppShell() {
         <TopBar
           theme={theme}
           onToggle={toggleTheme}
-          greeting={greeting(user.name)}
+          greeting={greeting(displayName)}
           today={todayLine()}
           user={user}
           avatar={avatar}
