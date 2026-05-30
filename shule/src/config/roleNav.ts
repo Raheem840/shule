@@ -295,6 +295,58 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
   ],
 }
 
+// ─── Bottom navigation — max 4 primary tabs (Messages always last if present) ─
+export const ROLE_BOTTOM_NAV: Partial<Record<UserRole, NavItem[]>> = {
+  principal: [
+    { label: 'Home',     path: '/principal/dashboard',    svg: SVG.dashboard    },
+    { label: 'Students', path: '/principal/students',     svg: SVG.students     },
+    { label: 'Reports',  path: '/principal/report-cards', svg: SVG.reportCards  },
+    { label: 'Messages', path: '/principal/messages',     svg: SVG.messages,    badge: 'alert' },
+  ],
+  secretary: [
+    { label: 'Home',     path: '/secretary/dashboard',    svg: SVG.dashboard    },
+    { label: 'Students', path: '/secretary/students',     svg: SVG.students     },
+    { label: 'Staff',    path: '/secretary/staff',        svg: SVG.staff        },
+    { label: 'Messages', path: '/secretary/messages',     svg: SVG.messages,    badge: 'alert' },
+  ],
+  bursar: [
+    { label: 'Home',     path: '/bursar/dashboard',       svg: SVG.dashboard    },
+    { label: 'Fees',     path: '/bursar/fees',            svg: SVG.feeLedger    },
+    { label: 'Payment',  path: '/bursar/add-payment',     svg: SVG.addPayment   },
+    { label: 'Messages', path: '/bursar/messages',        svg: SVG.messages,    badge: 'alert' },
+  ],
+  teacher: [
+    { label: 'Home',     path: '/teacher/dashboard',      svg: SVG.dashboard    },
+    { label: 'Exams',    path: '/teacher/exams',          svg: SVG.examJournal  },
+    { label: 'Attend.',  path: '/teacher/attendance',     svg: SVG.attendance   },
+    { label: 'Messages', path: '/teacher/messages',       svg: SVG.messages,    badge: 'alert' },
+  ],
+  class_teacher: [
+    { label: 'Home',     path: '/teacher/dashboard',      svg: SVG.dashboard    },
+    { label: 'Exams',    path: '/teacher/exams',          svg: SVG.examJournal  },
+    { label: 'Attend.',  path: '/teacher/attendance',     svg: SVG.attendance   },
+    { label: 'Messages', path: '/teacher/messages',       svg: SVG.messages,    badge: 'alert' },
+  ],
+  dos: [
+    { label: 'Home',     path: '/dos/dashboard',          svg: SVG.analytics    },
+    { label: 'Subjects', path: '/dos/subjects',           svg: SVG.subjects     },
+    { label: 'Schedule', path: '/dos/timetable',          svg: SVG.timetable    },
+    { label: 'Messages', path: '/dos/messages',           svg: SVG.messages,    badge: 'alert' },
+  ],
+  deputy: [
+    { label: 'Home',      path: '/deputy/dashboard',      svg: SVG.dashboard    },
+    { label: 'Discipline',path: '/deputy/discipline',     svg: SVG.discipline   },
+    { label: 'Students',  path: '/deputy/students',       svg: SVG.students     },
+    { label: 'Messages',  path: '/deputy/messages',       svg: SVG.messages,    badge: 'alert' },
+  ],
+  it_admin: [
+    { label: 'Home',     path: '/admin/dashboard',        svg: SVG.dashboard    },
+    { label: 'Users',    path: '/admin/users',            svg: SVG.users        },
+    { label: 'School',   path: '/admin/school',           svg: SVG.schoolProfile },
+    { label: 'Messages', path: '/admin/messages',         svg: SVG.messages,    badge: 'alert' },
+  ],
+}
+
 // ─── Avatar colors per role (from CLAUDE.md) ──────────────────────────────────
 export const ROLE_AVATAR: Record<UserRole, { bg: string; color: string }> = {
   principal:     { bg: 'rgba(245,158,11,0.15)',  color: '#f59e0b' },

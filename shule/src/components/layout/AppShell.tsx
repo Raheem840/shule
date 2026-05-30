@@ -18,13 +18,14 @@ import { useQuery } from '@tanstack/react-query'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { ROLE_NAV, ROLE_AVATAR, ROLE_LABEL } from '../../config/roleNav'
+import { ROLE_NAV, ROLE_AVATAR, ROLE_LABEL, ROLE_BOTTOM_NAV } from '../../config/roleNav'
 import { OfflineBanner } from '../shared/OfflineBanner'
 import { ErrorBoundary } from '../shared/ErrorBoundary'
 import { useNotifications, useMarkNotificationsRead } from '../../hooks/useNotifications'
 import { useUnreadCount } from '../../hooks/useMessaging'
 import { useSchoolSettings } from '../../hooks/useAdmin'
 import { applyBrandColor } from '../../lib/brandColor'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import type { UserRole } from '../../store/AuthContext'
 import type { NotificationType } from '../../types/week9'
 
@@ -87,18 +88,32 @@ function todayLine(): string {
 // ═══════════════════════════════════════════════════════════════════════════════
 // APPSHELL
 // ═══════════════════════════════════════════════════════════════════════════════
+// ─── Page title lookup (mobile topbar) ──────────────────────────────────────
+function getPageTitle(pathname: string, nav: import('../../config/roleNav').RoleNav): string {
+  for (const group of nav) {
+    for (const item of group.items) {
+      if (pathname === item.path || pathname.startsWith(item.path + '/')) {
+        return item.label
+      }
+    }
+  }
+  if (pathname.endsWith('/profile')) return 'My Profile'
+  return 'Shule'
+}
+
 export function AppShell() {
   const { user, signOut } = useAuth()
-  const [theme, setTheme] = useState<'light' | 'dark'>(getStoredTheme)
-  const location = useLocation()
+  const [theme, setTheme]       = useState<'light' | 'dark'>(getStoredTheme)
+  const [drawerOpen, setDrawer] = useState(false)
+  const location  = useLocation()
+  const navigate  = useNavigate()
+  const isMobile  = useIsMobile()
   const { data: schoolSettings } = useSchoolSettings()
+  const { data: unreadCount = 0 } = useUnreadCount()
 
-  // Fetch the real first name from the staff table.
-  // user.name is populated from the JWT full_name claim which is only set
-  // when the auth account was created with metadata. For accounts created
-  // directly in Supabase or with email-only credentials the claim is missing
-  // and user.name falls back to the email address, producing greetings like
-  // "Good morning, Principal". This query fixes that at the layout level.
+  // Fetch real first name from staff table — JWT full_name claim is often
+  // missing for accounts created directly in Supabase dashboard, so user.name
+  // falls back to email which the greeting() helper capitalises to "Principal".
   const { data: staffFirstName } = useQuery({
     queryKey: ['staff-first-name', user?.id],
     enabled: !!user?.id,
@@ -113,32 +128,44 @@ export function AppShell() {
     },
   })
 
-  // Persist theme to localStorage whenever it changes
+  useEffect(() => { localStorage.setItem('shule-theme', theme) }, [theme])
   useEffect(() => {
-    localStorage.setItem('shule-theme', theme)
-  }, [theme])
-
-  // Apply brand color whenever settings load or change
-  useEffect(() => {
-    if (schoolSettings?.primaryColor) {
-      applyBrandColor(schoolSettings.primaryColor)
-    }
+    if (schoolSettings?.primaryColor) applyBrandColor(schoolSettings.primaryColor)
   }, [schoolSettings?.primaryColor])
+
+  // Close drawer whenever route changes
+  useEffect(() => { setDrawer(false) }, [location.pathname])
+
+  // Lock body scroll when drawer is open on mobile
+  useEffect(() => {
+    if (isMobile && drawerOpen) {
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = '' }
+    }
+    document.body.style.overflow = ''
+  }, [isMobile, drawerOpen])
 
   const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light')
 
-  if (!user) return null   // ProtectedRoute handles the redirect
+  if (!user) return null
 
-  const nav    = ROLE_NAV[user.role]
-  const avatar = ROLE_AVATAR[user.role]
-  const label  = ROLE_LABEL[user.role]
-
-  // Use the real DB name when available, fall back to JWT claim / email
+  const nav         = ROLE_NAV[user.role]
+  const avatar      = ROLE_AVATAR[user.role]
+  const label       = ROLE_LABEL[user.role]
+  const bottomItems = ROLE_BOTTOM_NAV[user.role] ?? []
   const displayName = staffFirstName ?? user.name
+  const pageTitle   = getPageTitle(location.pathname, nav)
 
   return (
     <div className="ar" data-theme={theme}>
-      {/* ── SIDEBAR ──────────────────────────────────────────────────── */}
+
+      {/* ── Drawer overlay (mobile only) ─────────────────────────── */}
+      <div
+        className={`mob-overlay${drawerOpen ? ' open' : ''}`}
+        onClick={() => setDrawer(false)}
+      />
+
+      {/* ── SIDEBAR (desktop fixed / mobile drawer) ──────────────── */}
       <Sidebar
         nav={nav}
         user={user}
@@ -149,13 +176,78 @@ export function AppShell() {
         schoolName={schoolSettings?.schoolName ?? null}
         schoolMotto={schoolSettings?.motto ?? null}
         schoolLogoUrl={schoolSettings?.logoUrl ?? null}
+        drawerOpen={drawerOpen}
+        onClose={() => setDrawer(false)}
       />
 
-      {/* ── RIGHT PANEL ─────────────────────────────────────────────── */}
+      {/* ── RIGHT PANEL ──────────────────────────────────────────── */}
       <div className="shell-r">
-        {/* Offline/online banner sits above TopBar */}
         <OfflineBanner />
 
+        {/* Mobile topbar */}
+        <div className="mob-topbar">
+          {/* Hamburger */}
+          <button
+            className="mob-icon-btn"
+            onClick={() => setDrawer(o => !o)}
+            aria-label="Menu"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              {drawerOpen ? (
+                <>
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </>
+              ) : (
+                <>
+                  <line x1="3" y1="7" x2="21" y2="7"/>
+                  <line x1="3" y1="12" x2="21" y2="12"/>
+                  <line x1="3" y1="17" x2="21" y2="17"/>
+                </>
+              )}
+            </svg>
+          </button>
+
+          {/* School logo / badge */}
+          {schoolSettings?.logoUrl ? (
+            <img src={schoolSettings.logoUrl} alt="" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'contain', flexShrink: 0 }} />
+          ) : (
+            <div style={{
+              width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+              background: `linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)',
+            }}>
+              {(schoolSettings?.shortName || schoolSettings?.schoolName || 'S')[0]?.toUpperCase()}
+            </div>
+          )}
+
+          {/* Page title (centered) */}
+          <div style={{
+            flex: 1, textAlign: 'center',
+            fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16,
+            color: 'var(--txt)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            margin: '0 4px',
+          }}>
+            {pageTitle}
+          </div>
+
+          {/* Theme toggle */}
+          <button
+            className="mob-icon-btn"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            style={{ fontSize: 16 }}
+          >
+            {theme === 'dark' ? '🌙' : '☀️'}
+          </button>
+
+          {/* Notification bell */}
+          <MobileNotifBell role={user.role} />
+        </div>
+
+        {/* Desktop topbar */}
         <TopBar
           theme={theme}
           onToggle={toggleTheme}
@@ -164,6 +256,7 @@ export function AppShell() {
           user={user}
           avatar={avatar}
         />
+
         <main className="shell-main">
           <div className="page sui-page-enter" key={location.pathname}>
             <ErrorBoundary>
@@ -171,6 +264,59 @@ export function AppShell() {
             </ErrorBoundary>
           </div>
         </main>
+
+        {/* ── Bottom navigation (mobile only) ─────────────────────── */}
+        {bottomItems.length > 0 && (
+          <nav className="mob-nav" role="navigation" aria-label="Main navigation">
+            {bottomItems.map(item => {
+              const isActive = location.pathname === item.path ||
+                location.pathname.startsWith(item.path + '/')
+              const isMsg    = item.path.endsWith('/messages')
+              return (
+                <button
+                  key={item.path}
+                  className={`mob-tab${isActive ? ' active' : ''}`}
+                  onClick={() => navigate(item.path)}
+                  aria-label={item.label}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <div className="mob-tab-icon-wrap">
+                    <svg
+                      viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor"
+                      strokeLinecap="round" strokeLinejoin="round"
+                      dangerouslySetInnerHTML={{
+                        __html: item.svg.replace(/<svg[^>]*>/, '').replace('</svg>', '')
+                      }}
+                    />
+                    {isMsg && unreadCount > 0 && (
+                      <span className="mob-tab-badge">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </div>
+                  <span className="mob-tab-label">{item.label}</span>
+                </button>
+              )
+            })}
+
+            {/* More button — opens sidebar drawer */}
+            <button
+              className={`mob-tab${drawerOpen ? ' active' : ''}`}
+              onClick={() => setDrawer(o => !o)}
+              aria-label="More options"
+            >
+              <div className="mob-tab-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round">
+                  <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+                  <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+                  <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+                </svg>
+              </div>
+              <span className="mob-tab-label">More</span>
+            </button>
+          </nav>
+        )}
       </div>
     </div>
   )
@@ -189,9 +335,11 @@ type SidebarProps = {
   schoolName:    string | null
   schoolMotto:   string | null
   schoolLogoUrl: string | null
+  drawerOpen?:   boolean
+  onClose?:      () => void
 }
 
-function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolName, schoolMotto, schoolLogoUrl }: SidebarProps) {
+function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolName, schoolMotto, schoolLogoUrl, drawerOpen, onClose }: SidebarProps) {
   const navigate = useNavigate()
   const { data: msgUnread = 0 } = useUnreadCount()
 
@@ -215,7 +363,25 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
   const schoolInitial = displayName.trim()[0]?.toUpperCase() ?? 'S'
 
   return (
-    <nav className="sb">
+    <nav className={`sb${drawerOpen ? ' sb-open' : ''}`}>
+      {/* Mobile drawer close button */}
+      {onClose && (
+        <button
+          onClick={onClose}
+          style={{
+            display: 'none',
+            position: 'absolute', top: 12, right: 12,
+            width: 32, height: 32, borderRadius: 10,
+            border: 'none', background: 'rgba(255,255,255,0.08)',
+            color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+            alignItems: 'center', justifyContent: 'center',
+            fontSize: 18, fontWeight: 300, lineHeight: 1,
+          }}
+          className="mob-drawer-close"
+          aria-label="Close menu"
+        >×</button>
+      )}
+
       {/* Logo + school name */}
       <div className="sbtop">
 
@@ -342,6 +508,70 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
         )}
       </div>
     </nav>
+  )
+}
+
+// ─── Mobile notification bell (compact) ─────────────────────────────────────
+function MobileNotifBell({ role }: { role: UserRole }) {
+  const { data: notifications = [] } = useNotifications()
+  const { mutate: markAllRead }       = useMarkNotificationsRead()
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const unread = notifications.length
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button className="mob-icon-btn" onClick={() => setOpen(o => !o)} aria-label="Notifications" style={{ position: 'relative' }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+        {unread > 0 && (
+          <div style={{
+            position: 'absolute', top: 6, right: 6,
+            width: 8, height: 8, borderRadius: '50%',
+            background: 'var(--danger)', border: '2px solid var(--surface)',
+          }} />
+        )}
+      </button>
+      {open && (
+        <div className="sui-dropdown-glass" style={{
+          position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+          width: 280, maxHeight: 360, overflowY: 'auto', zIndex: 100,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>
+              Notifications {unread > 0 && <span style={{ marginLeft: 4, background: 'var(--brand)', color: '#fff', borderRadius: 99, fontSize: 10, fontWeight: 800, padding: '1px 5px' }}>{unread}</span>}
+            </span>
+            {unread > 0 && (
+              <button onClick={() => markAllRead()} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--brand)', fontWeight: 700 }}>
+                Mark all read
+              </button>
+            )}
+          </div>
+          {notifications.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No new notifications</div>
+          ) : notifications.map(n => (
+            <div key={n.id} className="sui-feed-row" onClick={() => { setOpen(false); navigate(n.link ?? '/') }}
+              style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)', background: n.readAt ? 'transparent' : 'var(--brand-light)' }}>
+              <div style={{ fontSize: 13, color: 'var(--txt)', lineHeight: 1.4 }}>{n.body}</div>
+              <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 4 }}>
+                {new Date(n.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

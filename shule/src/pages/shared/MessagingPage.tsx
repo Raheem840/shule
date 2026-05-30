@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../../store/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { ROLE_LABEL } from '../../config/roleNav'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import type { Contact, Announcement } from '../../types/week9'
 import type { Message, UserRole } from '../../types/app'
 
@@ -394,7 +395,7 @@ function ChatBubble({ msg, isMine, idx }: { msg: Message; isMine: boolean; idx: 
 }
 
 // ─── Chat thread ───────────────────────────────────────────────────────────────
-function ChatThread({ contact }: { contact: Contact }) {
+function ChatThread({ contact, onBack }: { contact: Contact; onBack?: () => void }) {
   const { user } = useAuth()
   const { isLowBandwidth } = useBandwidth()
   const { data: messages = [] } = useMessages(contact.id)
@@ -441,8 +442,16 @@ function ChatThread({ contact }: { contact: Contact }) {
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
 
       {/* ── Header ── */}
-      <div className="msg-topbar" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-        <StaffAvatar name={contact.name} photoPath={contact.photoUrl} size={42} lowBandwidth={isLowBandwidth} />
+      <div className="msg-topbar" style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+        {/* Back button (mobile only — rendered always, hidden by CSS on desktop) */}
+        {onBack && (
+          <button onClick={onBack} className="mob-icon-btn" style={{ marginLeft: -4, marginRight: -2 }} aria-label="Back to contacts">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+        )}
+        <StaffAvatar name={contact.name} photoPath={contact.photoUrl} size={40} lowBandwidth={isLowBandwidth} />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 800, fontSize: 15, fontFamily: 'var(--font2)', color: 'var(--txt)' }}>
             {contact.name}
@@ -695,7 +704,7 @@ function AnnBubble({ ann, idx }: { ann: Announcement; idx: number }) {
 }
 
 // ─── Announcements channel ─────────────────────────────────────────────────────
-function AnnouncementsChannel() {
+function AnnouncementsChannel({ onBack }: { onBack?: () => void }) {
   const { user } = useAuth()
   const { data: announcements = [] } = useAnnouncements()
   const { mutateAsync: post, isPending } = usePostAnnouncement()
@@ -721,7 +730,14 @@ function AnnouncementsChannel() {
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
 
       {/* Header */}
-      <div className="msg-topbar" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+      <div className="msg-topbar" style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+        {onBack && (
+          <button onClick={onBack} className="mob-icon-btn" style={{ marginLeft: -4, marginRight: -2 }} aria-label="Back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+        )}
         <div style={{
           width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
           background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
@@ -837,12 +853,15 @@ export function MessagingPage() {
   const { data: contacts = [], isLoading } = useContacts()
   const [active, setActive] = useState<Contact | 'announcements' | null>(null)
   const [search, setSearch] = useState('')
+  const isMobile = useIsMobile()
 
   const filtered = search.trim()
     ? contacts.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.role.includes(search.toLowerCase()))
     : contacts
 
   const totalUnread = contacts.reduce((s, c) => s + c.unreadCount, 0)
+  // On mobile, a contact/announcements being selected means the chat panel is visible
+  const mobileChatOpen = isMobile && active !== null
 
   return (
     <div
@@ -874,7 +893,7 @@ export function MessagingPage() {
         }} />
 
         {/* ════ SIDEBAR ════ */}
-        <div className="msg-sidebar" style={{
+        <div className={`msg-sidebar${mobileChatOpen ? ' mob-chat-open' : ''}`} style={{
           width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column',
           position: 'relative', zIndex: 1,
         }}>
@@ -984,7 +1003,7 @@ export function MessagingPage() {
         </div>
 
         {/* ════ RIGHT PANEL ════ */}
-        <div className="msg-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden', position: 'relative', zIndex: 1, alignItems: 'stretch' }}>
+        <div className={`msg-panel${mobileChatOpen ? ' mob-chat-open' : ''}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden', position: 'relative', zIndex: 1, alignItems: 'stretch' }}>
           {active === null ? (
             /* Empty state */
             <div style={{
@@ -1054,9 +1073,12 @@ export function MessagingPage() {
               )}
             </div>
           ) : active === 'announcements' ? (
-            <AnnouncementsChannel />
+            <AnnouncementsChannel onBack={isMobile ? () => setActive(null) : undefined} />
           ) : (
-            <ChatThread contact={active as Contact} />
+            <ChatThread
+              contact={active as Contact}
+              onBack={isMobile ? () => setActive(null) : undefined}
+            />
           )}
         </div>
     </div>
