@@ -154,7 +154,7 @@ describe('student data isolation', () => {
 
     expect(result.current.data).toHaveLength(1)
     expect(result.current.data![0].status).toBe('paid')
-    expect(result.current.data![0].termLabel).toBe('Term 1 — 2026')
+    expect(result.current.data![0].termLabel).toBe('Term 1')
     expect(mockFrom).toHaveBeenCalledWith('fee_payments')
   })
 

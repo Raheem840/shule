@@ -8,15 +8,22 @@ export default defineConfig(({ mode }) => ({
     ...(mode !== 'test' ? [
       VitePWA({
         registerType: 'autoUpdate',
+        devOptions: {
+          enabled: true,
+          type: 'module',
+        },
         manifest: {
           name: 'Shule — School Management',
           short_name: 'Shule',
+          description: 'Offline-capable school management for Ugandan secondary schools',
           theme_color: '#0d9488',
           background_color: '#f8fafc',
           display: 'standalone',
+          start_url: '/',
+          scope: '/',
           icons: [
-            { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-            { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+            { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
           ],
         },
         workbox: {
@@ -58,6 +65,7 @@ export default defineConfig(({ mode }) => ({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    exclude: ['node_modules', 'dist', 'e2e/**', '.idea', '.git', '.cache'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],

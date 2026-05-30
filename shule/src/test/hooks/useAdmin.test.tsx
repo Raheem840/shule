@@ -25,6 +25,9 @@ const { mockFrom, mockFunctions, mockRpc, setTableData, clearAll } = vi.hoisted(
       single:  vi.fn().mockImplementation(() =>
         Promise.resolve(tableData[table] ?? { data: null, error: null })
       ),
+      maybeSingle: vi.fn().mockImplementation(() =>
+        Promise.resolve(tableData[table] ?? { data: null, error: null })
+      ),
       then: (resolve: any, reject?: any) =>
         Promise.resolve(tableData[table] ?? { data: [], error: null }).then(resolve, reject),
     }
@@ -206,8 +209,10 @@ describe('useSaveApiConfig', () => {
 // ── useApiConfigStatus ─────────────────────────────────────────────────────
 describe('useApiConfigStatus', () => {
   it('returns only enabled flags — never raw key values', async () => {
-    mockRpc.mockResolvedValueOnce({
-      data: { at_enabled: true, wa_enabled: false },
+    // school_profile carries at_api_key + wa_access_token; the hook derives
+    // enabled flags purely from their presence and never returns the raw values.
+    setTableData('school_profile', {
+      data: { at_api_key: 'present', wa_access_token: null },
       error: null,
     })
 
@@ -217,7 +222,6 @@ describe('useApiConfigStatus', () => {
     const cfg = result.current.data!
     expect(cfg.atEnabled).toBe(true)
     expect(cfg.waEnabled).toBe(false)
-    // Key values are ALWAYS null — never returned from this hook
     expect(cfg.atApiKey).toBeNull()
     expect(cfg.waAccessToken).toBeNull()
   })

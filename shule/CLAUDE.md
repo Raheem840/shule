@@ -271,8 +271,9 @@ term(text), year(int), is_published(bool DEFAULT false)
 - [x] PWA: service worker, NetworkFirst/CacheFirst, offline sync queue
 - [x] Report cards: generate PDF, approve, release, parent download
 - [x] Admin: system KPIs, user management, school settings, templates stub
-- [x] Tests: 340 passing (28 test files)
-- [ ] Storage bucket wiring — **IN PROGRESS (Session 013)**
+- [x] Tests: 423 passing (39 test files)
+- [x] Storage bucket wiring — complete (Session 013)
+- [x] Test suite upgrade + MSW integration layer — complete (Session 015)
 
 ---
 
@@ -300,6 +301,38 @@ term(text), year(int), is_published(bool DEFAULT false)
 ---
 
 ## Session Log
+
+### Session 015 — Rigorous Test Suite Upgrade (Complete)
+**Date:** 2026-05-28
+
+**Part 1 — Two real hook bugs fixed:**
+- `useExamResults.ts`: `is_absent` added to `RESULT_COLS`; mapper reads from DB instead of hardcoding `false`
+- `useReportCards.ts`: filter type `term: number → string`; added 7 missing columns to `RC_COLS` (`approved_at/by`, `released_at/by`, `unlock_reason`, `unlock_count`, `pdf_url`); wired `approved_by`/`released_by` in `useUpdateStatus`; upsert `term: String(term)`
+
+**Part 2 — Stale test data fixed:** All `term: 1` → `term: '1'` in `useReportCards.test.tsx`
+
+**Part 3 — Shared mock helper:** `src/test/helpers/makeSupabaseMock.ts`
+
+**Part 4 — 11 new hook test files (79 new tests):**
+`useClasses`, `useStudentPortal`, `useTermProgress`, `useTimetableSlots`, `useTeacherEvents`, `useProfile`, `useSignedUrl`, `useStaffAuth`, `useSecretaryBriefing`, `useParentPortal`, `usePrincipal`
+
+**Part 5 — Schema boundary assertions** added to 5 existing test files; verify correct column names via mapper output (not SELECT string — `mockFrom.mock.calls` only captures table name, not chain)
+
+**Part 6 — CBC grade unit tests** verified (A=80 boundary correct)
+
+**Part 7 — MSW integration layer:**
+- `src/test/mocks/server.ts` + `handlers.ts` (5 handlers with schema-correct column names)
+- `src/test/setup.ts` wired with `server.listen/resetHandlers/close`
+- `.env.test` with `VITE_SUPABASE_URL=http://test.supabase.co`
+- `src/test/integration/schemaColumns.integration.test.ts` — 5 tests capturing real fetch URLs
+
+**Part 8 — Coverage thresholds:** `vite.config.ts` coverage block (v8, lines:65%, functions:60%, branches:50%, statements:65%)
+
+**Schema violations fixed in pages:**
+- `BursarImportPage.tsx`: rewrote import to use correct columns (`student_id` lookup by admission_number, `amount_due`/`amount_paid`/`balance`/`receipt_number`, removed `payment_method`/`admission_number` from insert)
+- `ParentCredentialsPage.tsx`: SELECT now fetches `full_name, phone, auth_user_id, temp_password`; insert now writes all 4 columns; removed all "DB NEEDS" stubs
+
+**Tests: 423 passing (39 test files, 0 TS errors)**
 
 ### Session 014 — Schema Alignment (Complete)
 **Date:** 2026-05-28
