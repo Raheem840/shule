@@ -117,6 +117,7 @@ export function AppShell() {
         onSignOut={signOut}
         schoolName={schoolSettings?.schoolName ?? null}
         schoolMotto={schoolSettings?.motto ?? null}
+        schoolLogoUrl={schoolSettings?.logoUrl ?? null}
       />
 
       {/* ── RIGHT PANEL ─────────────────────────────────────────────── */}
@@ -148,38 +149,69 @@ export function AppShell() {
 // SIDEBAR
 // ═══════════════════════════════════════════════════════════════════════════════
 type SidebarProps = {
-  nav:          import('../../config/roleNav').RoleNav
-  user:         NonNullable<ReturnType<typeof useAuth>['user']>
-  avatar:       { bg: string; color: string }
-  roleLabel:    string
-  currentPath:  string
-  onSignOut:    () => void
-  schoolName:   string | null
-  schoolMotto:  string | null
+  nav:           import('../../config/roleNav').RoleNav
+  user:          NonNullable<ReturnType<typeof useAuth>['user']>
+  avatar:        { bg: string; color: string }
+  roleLabel:     string
+  currentPath:   string
+  onSignOut:     () => void
+  schoolName:    string | null
+  schoolMotto:   string | null
+  schoolLogoUrl: string | null
 }
 
-function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolName, schoolMotto }: SidebarProps) {
+function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolName, schoolMotto, schoolLogoUrl }: SidebarProps) {
   const navigate = useNavigate()
   const { data: msgUnread = 0 } = useUnreadCount()
 
-  const displayName = schoolName ?? 'My School'
+  const displayName   = schoolName ?? 'My School'
   const schoolInitial = displayName.trim()[0]?.toUpperCase() ?? 'S'
 
   return (
     <nav className="sb">
       {/* Logo + school name */}
       <div className="sbtop">
+
+        {/* ── Shule product brand ── */}
         <div className="sbrand">
-          <div className="slogo">S</div>
+          {/* Crafted SVG mark — custom bezier S on gradient ground */}
+          <div className="slogo">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path
+                d="M 15.5 6.5
+                   C 15.5 4.8 13.8 3.5 11.5 3.5
+                   C 8.5 3.5 5.5 5.2 5.5 8.2
+                   C 5.5 10.8 7.8 11.8 10.2 12.6
+                   C 12.6 13.4 15 14.5 15 17
+                   C 15 19 12.8 20.5 10 20.5
+                   C 7.5 20.5 5.5 19 5 17.5"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+              {/* Top shine overlay */}
+              <rect x="0" y="0" width="20" height="9" rx="5" fill="white" fillOpacity="0.09"/>
+            </svg>
+          </div>
           <div>
             <div className="sname">Shule</div>
-            <div className="ssub">{displayName}</div>
+            <div className="ssub">School Management</div>
           </div>
         </div>
 
-        {/* School pill — driven by school_profile */}
+        {/* ── School identity pill — driven by school_profile ── */}
         <div className="school-pill">
-          <div className="school-ico">{schoolInitial}</div>
+          {schoolLogoUrl ? (
+            <img
+              src={schoolLogoUrl}
+              alt={displayName}
+              className="school-logo-img"
+            />
+          ) : (
+            <div className="school-ico">{schoolInitial}</div>
+          )}
           <div style={{ minWidth: 0 }}>
             <div className="school-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {displayName}

@@ -280,23 +280,38 @@ html, body, #root {
 .school-pill {
   display: flex;
   align-items: center;
-  gap: 7px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--sb-border);
-  border-radius: var(--r-sm);
-  padding: 5px 8px;
+  gap: 9px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 8px 10px;
 }
 .school-ico {
-  width: 22px; height: 22px;
-  border-radius: 5px;
+  width: 30px; height: 30px;
+  border-radius: 8px;
   background: linear-gradient(135deg, #0d9488, #0891b2);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font2);
-  font-size: 9px; font-weight: 900; color: #fff;
+  font-size: 11px; font-weight: 900; color: #fff;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(13,148,136,0.4);
 }
-.school-name { font-size: 11px; font-weight: 700; color: #b0d0e8; line-height: 1.2; }
-.school-loc  { font-size: 9px; color: #3a5470; }
+.school-logo-img {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+.school-name {
+  font-family: var(--font2);
+  font-size: 13px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1.2;
+  letter-spacing: -0.2px;
+}
+.school-loc { font-size: 10px; color: rgba(148,163,184,0.6); margin-top: 2px; }
 
 /* Nav groups */
 .sb-nav { flex: 1; padding: 0.5rem 0; overflow-y: auto; scrollbar-width: none; }
