@@ -11,12 +11,55 @@ const ROLE_OPTS: UserRole[] = [
   'class_teacher', 'teacher', 'it_admin',
 ]
 
+const ROLE_META: Record<string, { color: string; bg: string }> = {
+  principal:     { color: '#0d9488', bg: 'rgba(13,148,136,0.12)' },
+  deputy:        { color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' },
+  dos:           { color: '#0ea5e9', bg: 'rgba(14,165,233,0.12)' },
+  secretary:     { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+  bursar:        { color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  class_teacher: { color: '#f43f5e', bg: 'rgba(244,63,94,0.12)'  },
+  teacher:       { color: '#f43f5e', bg: 'rgba(244,63,94,0.12)'  },
+  it_admin:      { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+}
+
+const STATUS_META = {
+  active:   { label: 'Active',   color: '#10b981', bg: 'rgba(16,185,129,0.12)'  },
+  inactive: { label: 'Inactive', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+}
+
+function FilterPill({
+  label, active, color, bg, border, onClick,
+}: {
+  label: string; active: boolean
+  color?: string; bg?: string; border?: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '5px 14px', borderRadius: 99, fontSize: 11, fontWeight: 700,
+        fontFamily: 'var(--font2)',
+        background: active ? (bg ?? 'var(--brand)') : 'var(--surface2)',
+        color:      active ? (color ?? '#fff')       : 'var(--txt2)',
+        border:     active ? `1px solid ${border ?? color ?? 'var(--brand)'}50`
+                           : '1px solid var(--border)',
+        cursor: 'pointer', transition: 'all 0.15s',
+        boxShadow: active ? `0 2px 8px ${color ?? 'var(--brand)'}25` : 'none',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
 export function PrincipalStaffPage() {
   const navigate = useNavigate()
   const { data: staff = [], isLoading } = useStaff()
   const [search,       setSearch]       = useState('')
-  const [roleFilter,   setRoleFilter]   = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [roleFilter,   setRoleFilter]   = useState<UserRole | ''>('')
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | ''>('')
 
   const filtered = staff.filter(s => {
     const q = search.toLowerCase()
@@ -32,6 +75,9 @@ export function PrincipalStaffPage() {
       || (statusFilter === 'inactive' && !s.isActive)
     return matchSearch && matchRole && matchStatus
   })
+
+  // Only show role pills that actually exist in data
+  const presentRoles = ROLE_OPTS.filter(r => staff.some(s => s.role === r))
 
   const parentRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
@@ -52,46 +98,87 @@ export function PrincipalStaffPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <input
-          placeholder="Search by name, role, or staff number…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="sui-input"
-          style={{ maxWidth: 300 }}
-        />
-        <select
-          value={roleFilter}
-          onChange={e => setRoleFilter(e.target.value)}
-          className="sui-input"
-          style={{ minWidth: 150 }}
-        >
-          <option value="">All Roles</option>
-          {ROLE_OPTS.map(r => (
-            <option key={r} value={r}>{ROLE_LABEL[r] ?? r}</option>
+      {/* ── Filters ─────────────────────────────────────────── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+        {/* Search bar */}
+        <div style={{ position: 'relative', maxWidth: 340 }}>
+          <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+            width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            placeholder="Search by name, role, or staff number…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="sui-input"
+            style={{ paddingLeft: 34, width: '100%' }}
+          />
+        </div>
+
+        {/* Role pills */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8, marginRight: 2 }}>Role</span>
+          <FilterPill
+            label="All Roles"
+            active={roleFilter === ''}
+            color="#fff" bg="var(--brand)" border="var(--brand)"
+            onClick={() => setRoleFilter('')}
+          />
+          {presentRoles.map(r => {
+            const m = ROLE_META[r] ?? { color: 'var(--txt2)', bg: 'var(--surface2)' }
+            return (
+              <FilterPill
+                key={r}
+                label={ROLE_LABEL[r] ?? r}
+                active={roleFilter === r}
+                color={m.color} bg={m.bg} border={m.color}
+                onClick={() => setRoleFilter(roleFilter === r ? '' : r)}
+              />
+            )
+          })}
+        </div>
+
+        {/* Status pills */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8, marginRight: 2 }}>Status</span>
+          <FilterPill
+            label="All"
+            active={statusFilter === ''}
+            color="#fff" bg="var(--brand)" border="var(--brand)"
+            onClick={() => setStatusFilter('')}
+          />
+          {(Object.entries(STATUS_META) as [keyof typeof STATUS_META, typeof STATUS_META[keyof typeof STATUS_META]][]).map(([key, m]) => (
+            <FilterPill
+              key={key}
+              label={m.label}
+              active={statusFilter === key}
+              color={m.color} bg={m.bg} border={m.color}
+              onClick={() => setStatusFilter(statusFilter === key ? '' : key)}
+            />
           ))}
-        </select>
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          className="sui-input"
-          style={{ minWidth: 130 }}
-        >
-          <option value="">All Statuses</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
+        </div>
       </div>
 
-      {isLoading && <div style={{ color: 'var(--txt3)' }}>Loading staff…</div>}
+      {isLoading && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="shule-skeleton" style={{ height: 56, borderRadius: i === 0 ? '14px 14px 0 0' : i === 4 ? '0 0 14px 14px' : 0 }} />
+          ))}
+        </div>
+      )}
 
       {!isLoading && filtered.length === 0 && (
         <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
           padding: 40, textAlign: 'center', color: 'var(--txt3)',
           background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)',
         }}>
-          No staff found.
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5">
+            <circle cx="12" cy="8" r="4"/><path d="M6 20v-1a6 6 0 0112 0v1"/>
+          </svg>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt2)', fontFamily: 'var(--font2)' }}>No staff found</div>
+          <div style={{ fontSize: 12 }}>Try a different search or filter.</div>
         </div>
       )}
 
@@ -101,10 +188,7 @@ export function PrincipalStaffPage() {
             <thead>
               <tr>
                 {['Name', 'Role', 'Staff #', 'Employment', 'Status'].map(h => (
-                  <th key={h} style={{
-                    padding: '10px 14px', background: 'var(--surface2)',
-                    fontWeight: 700, fontSize: 12, color: 'var(--txt2)', textAlign: 'left',
-                  }}>{h}</th>
+                  <th key={h} className="sui-th">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -113,6 +197,7 @@ export function PrincipalStaffPage() {
             <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
               {virtualizer.getVirtualItems().map(vRow => {
                 const s = filtered[vRow.index]
+                const roleMeta = ROLE_META[s.role] ?? { color: 'var(--brand)', bg: 'var(--brand-light)' }
                 return (
                   <div
                     key={s.id}
@@ -134,9 +219,12 @@ export function PrincipalStaffPage() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <span style={{
-                        padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
-                        background: 'var(--brand-light)', color: 'var(--brand)',
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 800,
+                        background: roleMeta.bg, color: roleMeta.color,
+                        textTransform: 'uppercase', letterSpacing: 0.5,
                       }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: roleMeta.color, display: 'inline-block' }} />
                         {ROLE_LABEL[s.role as UserRole] ?? s.role}
                       </span>
                     </div>
@@ -149,8 +237,8 @@ export function PrincipalStaffPage() {
                     <div style={{ flex: 1 }}>
                       <span style={{
                         padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
-                        background: s.isActive ? 'var(--success-bg)' : 'var(--danger-bg)',
-                        color: s.isActive ? 'var(--success)' : 'var(--danger)',
+                        background: s.isActive ? 'rgba(16,185,129,0.12)' : 'rgba(148,163,184,0.12)',
+                        color: s.isActive ? '#10b981' : '#94a3b8',
                       }}>
                         {s.isActive ? 'Active' : 'Inactive'}
                       </span>
