@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, type ReactNode } from 'react'
 import {
   useMyProfile,
   useUpdateProfile,
-  useChangePassword,
+  useRequestPasswordReset,
   useUpdateProfilePhoto,
 } from '../../hooks/useProfile'
 import { useBandwidth } from '../../store/BandwidthContext'
@@ -111,7 +111,7 @@ export function ProfilePage() {
   const { data: profile, isLoading, isError }      = useMyProfile()
   const updateProfile                              = useUpdateProfile()
   const updatePhoto                                = useUpdateProfilePhoto()
-  const changePassword                             = useChangePassword()
+  const requestPwdReset                           = useRequestPasswordReset()
   const { isLowBandwidth, toggleBandwidth }        = useBandwidth()
 
   const [isEditing, setIsEditing]  = useState(false)
@@ -120,17 +120,23 @@ export function ProfilePage() {
   const [address,   setAddress]    = useState('')
   const [saveMsg,   setSaveMsg]    = useState<{ text: string; ok: boolean } | null>(null)
 
-  const [newPwd,  setNewPwd]  = useState('')
-  const [confPwd, setConfPwd] = useState('')
-  const [pwdMsg,  setPwdMsg]  = useState('')
-  const [pwdErr,  setPwdErr]  = useState('')
+  // Password reset request state
+  const [showPwdModal, setShowPwdModal] = useState(false)
+  const [reqPwd,       setReqPwd]       = useState('')
+  const [reqPwdConf,   setReqPwdConf]   = useState('')
+  const [reqPwdErr,    setReqPwdErr]    = useState('')
+  const [reqPwdSent,   setReqPwdSent]   = useState(false)
 
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // Auth email is the reliable fallback when staff.email is null
+  const authEmail = user?.email ?? null
+
   useEffect(() => {
     if (profile) {
-      setPhone(profile.phone     ?? '')
-      setEmail(profile.email     ?? '')
+      setPhone(profile.phone   ?? '')
+      // Pre-fill with auth email when staff table email is null
+      setEmail(profile.email   ?? authEmail ?? '')
       setAddress(profile.address ?? '')
     }
   }, [profile])
@@ -161,17 +167,21 @@ export function ProfilePage() {
     setSaveMsg(null)
   }
 
-  async function handlePasswordChange(e: React.FormEvent) {
-    e.preventDefault()
-    setPwdErr('')
-    if (newPwd !== confPwd) { setPwdErr('Passwords do not match.'); return }
-    if (newPwd.length < 8)  { setPwdErr('Must be at least 8 characters.'); return }
+  async function handlePwdRequest() {
+    setReqPwdErr('')
+    if (reqPwd.length < 8)        { setReqPwdErr('Password must be at least 8 characters.'); return }
+    if (reqPwd !== reqPwdConf)    { setReqPwdErr('Passwords do not match.'); return }
+    if (!profile) return
     try {
-      await changePassword.mutateAsync(newPwd)
-      setPwdMsg('Password changed.')
-      setNewPwd(''); setConfPwd('')
-      setTimeout(() => setPwdMsg(''), 4000)
-    } catch (err: any) { setPwdErr(err.message) }
+      await requestPwdReset.mutateAsync({
+        staffName:       `${profile.firstName} ${profile.lastName}`,
+        desiredPassword: reqPwd,
+      })
+      setReqPwdSent(true)
+      setReqPwd(''); setReqPwdConf('')
+    } catch (err: any) {
+      setReqPwdErr(err.message)
+    }
   }
 
   async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -361,7 +371,7 @@ export function ProfilePage() {
               </>
             ) : (
               <>
-                <InfoRow label="Email"   value={profile.email   ?? 'Not set'} />
+                <InfoRow label="Email"   value={profile.email ?? authEmail ?? 'Not set'} />
                 <InfoRow label="Phone"   value={profile.phone   ?? 'Not set'} />
                 <InfoRow label="Address" value={profile.address ?? 'Not set'} last />
               </>
@@ -370,7 +380,16 @@ export function ProfilePage() {
 
           {/* ── Employment ── */}
           <InfoCard title="Employment">
-            <InfoRow label="Staff No."     value={profile.staffNumber ?? '—'} mono />
+            <InfoRow
+              label="Staff ID"
+              value={profile.staffNumber ?? undefined}
+              mono
+              badge={!profile.staffNumber ? (
+                <span style={{ fontSize: 11, color: 'var(--txt3)', fontStyle: 'italic' }}>
+                  Not yet assigned — contact IT Admin
+                </span>
+              ) : undefined}
+            />
             <InfoRow label="Department"    value={profile.departmentName ?? '—'} />
             <InfoRow label="Type"          value={EMPLOYMENT_LABEL[profile.employmentType ?? ''] ?? (profile.employmentType ?? '—')} />
             <InfoRow label="Join Date"     value={profile.joinDate ? formatDate(profile.joinDate) : '—'} />
@@ -436,58 +455,158 @@ export function ProfilePage() {
           </div>
         </div>
 
-        {/* ── Change Password ── */}
+        {/* ── Password Reset Request ── */}
         <div style={{
           marginTop: 16,
           background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--r-lg)', padding: '16px 20px',
+          borderRadius: 'var(--r-lg)', padding: '20px 24px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
         }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', fontFamily: 'var(--font2)', marginBottom: 16 }}>
-            Change Password
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
+              Password
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 3 }}>
+              To change your password, submit a request to the IT Admin for approval.
+            </div>
           </div>
-          <form onSubmit={e => { void handlePasswordChange(e) }}
-            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 5, fontFamily: 'var(--font2)' }}>
-                New Password
-              </label>
-              <input
-                type="password" value={newPwd} minLength={8} required
-                onChange={e => { setNewPwd(e.target.value); setPwdErr('') }}
-                className="sui-input" style={{ fontSize: 13 }} placeholder="At least 8 chars"
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 5, fontFamily: 'var(--font2)' }}>
-                Confirm Password
-              </label>
-              <input
-                type="password" value={confPwd} required
-                onChange={e => { setConfPwd(e.target.value); setPwdErr('') }}
-                className="sui-input" style={{ fontSize: 13 }} placeholder="Repeat new password"
-              />
-            </div>
-            {pwdErr && (
-              <div style={{ gridColumn: '1/-1', background: 'var(--danger-bg)', color: 'var(--danger)', padding: '8px 12px', borderRadius: 'var(--r)', fontSize: 13 }}>
-                {pwdErr}
-              </div>
-            )}
-            {pwdMsg && (
-              <div style={{ gridColumn: '1/-1', background: 'var(--success-bg)', color: 'var(--success)', padding: '8px 12px', borderRadius: 'var(--r)', fontSize: 13 }}>
-                {pwdMsg}
-              </div>
-            )}
-            <div style={{ gridColumn: '1/-1' }}>
-              <button type="submit" className="sui-btn-primary"
-                disabled={changePassword.isPending || !newPwd || !confPwd}
-                style={{ fontSize: 12, padding: '8px 20px' }}>
-                {changePassword.isPending ? 'Changing…' : 'Change Password'}
-              </button>
-            </div>
-          </form>
+          <button
+            onClick={() => { setShowPwdModal(true); setReqPwdSent(false); setReqPwdErr(''); setReqPwd(''); setReqPwdConf('') }}
+            style={{
+              padding: '9px 22px', borderRadius: 10, flexShrink: 0,
+              background: 'var(--brand)', color: '#fff',
+              border: 'none', fontWeight: 700, fontSize: 13,
+              cursor: 'pointer', fontFamily: 'var(--font2)',
+              boxShadow: '0 2px 8px rgba(13,148,136,0.3)',
+              transition: 'all 0.15s',
+            }}
+          >
+            Request Password Change
+          </button>
         </div>
 
       </div>
+
+      {/* ── Password Reset Modal ── */}
+      {showPwdModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300,
+        }}>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 20, padding: 32,
+            width: 440, maxWidth: '90vw',
+            border: '1px solid var(--border)',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.2)',
+          }}>
+            {reqPwdSent ? (
+              <>
+                <div style={{ textAlign: 'center', padding: '12px 0 24px' }}>
+                  <div style={{
+                    width: 52, height: 52, borderRadius: '50%',
+                    background: 'rgba(16,185,129,0.12)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    margin: '0 auto 16px',
+                  }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)', marginBottom: 8 }}>
+                    Request sent
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--txt2)', lineHeight: 1.6 }}>
+                    Your password change request has been sent to the IT Admin. You will be notified once it has been approved.
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPwdModal(false)}
+                  className="sui-btn-primary"
+                  style={{ width: '100%', fontSize: 13 }}
+                >
+                  Done
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)', marginBottom: 6 }}>
+                    Request Password Change
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--txt2)', lineHeight: 1.6 }}>
+                    Enter your desired new password. The IT Admin will review and confirm the change.
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6, fontFamily: 'var(--font2)' }}>
+                      New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={reqPwd}
+                      onChange={e => { setReqPwd(e.target.value); setReqPwdErr('') }}
+                      className="sui-input"
+                      placeholder="At least 8 characters"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6, fontFamily: 'var(--font2)' }}>
+                      Confirm Password
+                    </label>
+                    <input
+                      type="password"
+                      value={reqPwdConf}
+                      onChange={e => { setReqPwdConf(e.target.value); setReqPwdErr('') }}
+                      className="sui-input"
+                      placeholder="Repeat new password"
+                    />
+                  </div>
+
+                  {reqPwdErr && (
+                    <div style={{
+                      background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.2)',
+                      color: 'var(--danger)', padding: '10px 14px', borderRadius: 10, fontSize: 13,
+                    }}>
+                      {reqPwdErr}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
+                  <button
+                    onClick={() => setShowPwdModal(false)}
+                    style={{
+                      padding: '9px 20px', borderRadius: 10,
+                      background: 'transparent', border: '1px solid var(--border)',
+                      color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => void handlePwdRequest()}
+                    disabled={requestPwdReset.isPending || !reqPwd || !reqPwdConf}
+                    style={{
+                      padding: '9px 22px', borderRadius: 10,
+                      background: reqPwd && reqPwdConf ? 'var(--brand)' : 'var(--surface2)',
+                      color: reqPwd && reqPwdConf ? '#fff' : 'var(--txt3)',
+                      border: 'none', fontWeight: 700, fontSize: 13,
+                      cursor: reqPwd && reqPwdConf ? 'pointer' : 'default',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {requestPwdReset.isPending ? 'Sending…' : 'Send Request'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

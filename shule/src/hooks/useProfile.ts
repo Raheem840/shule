@@ -2,6 +2,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 
+export type PasswordResetRequest = {
+  id: string
+  staffName: string
+  authUserId: string
+  requestedAt: string
+  desiredPassword: string
+}
+
 export type MyProfile = {
   id: string
   firstName: string
@@ -138,6 +146,83 @@ export function useChangePassword() {
     mutationFn: async (newPassword: string) => {
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) throw new Error(error.message)
+    },
+  })
+}
+
+// ── useRequestPasswordReset ────────────────────────────────────────────────
+// Staff submits a desired-password request that lands in send_queue.
+// IT admin reads and approves it from PasswordResetsPage.
+export function useRequestPasswordReset() {
+  const { user } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({ staffName, desiredPassword }: { staffName: string; desiredPassword: string }) => {
+      if (!user) throw new Error('Not authenticated')
+      const { error } = await supabase.from('send_queue').insert({
+        school_id: user.schoolId,
+        type:      'password_reset_request',
+        payload:   {
+          auth_user_id:     user.id,
+          staff_name:       staffName,
+          desired_password: desiredPassword,
+          requested_at:     new Date().toISOString(),
+        },
+        status: 'pending',
+      })
+      if (error) throw new Error(error.message)
+    },
+  })
+}
+
+// ── usePasswordResetRequests ───────────────────────────────────────────────
+// IT admin reads pending password-reset requests.
+export function usePasswordResetRequests() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['pwd-reset-requests', user?.schoolId],
+    enabled:  !!user && user.role === 'it_admin',
+    staleTime: 0,
+    queryFn: async (): Promise<PasswordResetRequest[]> => {
+      const { data, error } = await supabase
+        .from('send_queue')
+        .select('id, payload, queued_at')
+        .eq('school_id', user!.schoolId)
+        .eq('type', 'password_reset_request')
+        .eq('status', 'pending')
+        .order('queued_at', { ascending: false })
+
+      if (error) throw new Error(error.message)
+
+      return (data ?? []).map((r: any) => ({
+        id:              r.id,
+        staffName:       (r.payload as any).staff_name       ?? 'Unknown',
+        authUserId:      (r.payload as any).auth_user_id     ?? '',
+        requestedAt:     (r.payload as any).requested_at     ?? r.queued_at,
+        desiredPassword: (r.payload as any).desired_password ?? '',
+      }))
+    },
+  })
+}
+
+// ── useApprovePasswordReset ────────────────────────────────────────────────
+// IT admin marks request as done (manual approval — password changed in Supabase).
+export function useApprovePasswordReset() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      const { error } = await supabase
+        .from('send_queue')
+        .update({ status: 'sent', sent_at: new Date().toISOString() })
+        .eq('id', requestId)
+        .eq('school_id', user!.schoolId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['pwd-reset-requests', user?.schoolId] })
     },
   })
 }

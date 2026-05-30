@@ -66,8 +66,14 @@ function initials(name: string): string {
 function greeting(name: string): string {
   const h = new Date().getHours()
   const greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
-  const firstName = name.split(' ')[0]
-  return `${greet}, ${firstName}`
+  // JWT full_name falls back to email when the hook claim is missing.
+  // Convert "peter.kato@school.ug" → "Peter" so the greeting reads naturally.
+  const display = name.includes('@')
+    ? name.split('@')[0].replace(/[._-]/g, ' ')
+    : name
+  const first = display.split(' ').filter(Boolean)[0] ?? display
+  const cap   = first.charAt(0).toUpperCase() + first.slice(1).toLowerCase()
+  return `${greet}, ${cap}`
 }
 
 function todayLine(): string {
