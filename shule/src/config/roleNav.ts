@@ -97,7 +97,7 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
     {
       label: 'Academic',
       items: [
-        { label: 'Report Cards', path: '/principal/report-cards', svg: SVG.reportCards, badge: 'alert' },
+        { label: 'Report Cards', path: '/principal/report-cards', svg: SVG.reportCards },
         { label: 'Academic Year',path: '/principal/academic-year',svg: SVG.academicYear },
       ],
     },

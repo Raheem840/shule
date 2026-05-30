@@ -14,8 +14,10 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../store/AuthContext'
+import { supabase } from '../../lib/supabase'
 import { ROLE_NAV, ROLE_AVATAR, ROLE_LABEL } from '../../config/roleNav'
 import { OfflineBanner } from '../shared/OfflineBanner'
 import { ErrorBoundary } from '../shared/ErrorBoundary'
@@ -170,6 +172,22 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
   const navigate = useNavigate()
   const { data: msgUnread = 0 } = useUnreadCount()
 
+  // Live pending report card count — only fetched for principals
+  const { data: pendingRCCount = 0 } = useQuery({
+    queryKey: ['pending-rc-sidebar', user.schoolId],
+    enabled:  user.role === 'principal',
+    queryFn:  async () => {
+      const { count, error } = await supabase
+        .from('report_cards')
+        .select('id', { count: 'exact', head: true })
+        .eq('school_id', user.schoolId)
+        .eq('status', 'ready')
+      return error ? 0 : (count ?? 0)
+    },
+    staleTime:       60_000,
+    refetchInterval: 2 * 60_000,
+  })
+
   const displayName   = schoolName ?? 'My School'
   const schoolInitial = displayName.trim()[0]?.toUpperCase() ?? 'S'
 
@@ -250,14 +268,17 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
                   {/* Label */}
                   {item.label}
 
-                  {/* Messaging items: show real unread count; other alert items: show dot */}
+                  {/* Messaging badge — real unread count */}
                   {item.badge === 'alert' && isMsgItem && msgUnread > 0 && (
                     <span className="nb" style={{ fontSize: 9, minWidth: 16, height: 16, padding: '0 3px' }}>
                       {msgUnread > 9 ? '9+' : msgUnread}
                     </span>
                   )}
-                  {item.badge === 'alert' && !isMsgItem && (
-                    <span className="nb">!</span>
+                  {/* Report Cards badge — live pending count, never static */}
+                  {item.path === '/principal/report-cards' && pendingRCCount > 0 && (
+                    <span className="nb" style={{ fontSize: 9, minWidth: 16, height: 16, padding: '0 3px' }}>
+                      {pendingRCCount > 9 ? '9+' : pendingRCCount}
+                    </span>
                   )}
                 </NavLink>
               )
