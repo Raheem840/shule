@@ -31,3 +31,12 @@ CLAUDE.md
 coverage/
 .claude/
 supabase/.temp/
+
+# Playwright / test artefacts
+test-results/
+playwright-report/
+e2e-results*.txt
+unit-test-results.txt
+
+# Vite PWA dev cache
+dev-dist/
