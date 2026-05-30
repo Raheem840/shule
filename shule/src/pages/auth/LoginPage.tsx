@@ -37,6 +37,24 @@ export function LoginPage() {
   const [error,    setError]    = useState('')
   const [loading,  setLoading]  = useState(false)
 
+  // Forgot password modal state
+  const [showForgot,   setShowForgot]   = useState(false)
+  const [forgotEmail,  setForgotEmail]  = useState('')
+  const [forgotSent,   setForgotSent]   = useState(false)
+  const [forgotLoading,setForgotLoading]= useState(false)
+
+  async function handleForgotPassword() {
+    if (!forgotEmail.trim()) return
+    setForgotLoading(true)
+    try {
+      await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      setForgotSent(true)
+    } catch { /* show success regardless to avoid email enumeration */ }
+    finally { setForgotLoading(false) }
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -120,13 +138,19 @@ export function LoginPage() {
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '3rem' }}>
             <div style={{
-              width: 42, height: 42, borderRadius: 10,
-              background: 'linear-gradient(135deg,#0d9488,#0f766e)',
+              width: 42, height: 42, borderRadius: 11,
+              background: 'linear-gradient(145deg,#0f766e 0%,#0891b2 55%,#0369a1 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'Space Grotesk, sans-serif',
-              fontSize: 18, fontWeight: 900, color: '#fff',
-              boxShadow: '0 0 24px rgba(13,148,136,0.4)',
-            }}>S</div>
+              boxShadow: '0 0 24px rgba(13,148,136,0.45), 0 0 0 1px rgba(255,255,255,0.1) inset',
+              position: 'relative', overflow: 'hidden', flexShrink: 0,
+            }}>
+              <svg width="28" height="28" viewBox="0 0 26 26" fill="none">
+                <rect x="2" y="6" width="22" height="4" rx="2" fill="white"/>
+                <rect x="8" y="10" width="10" height="7" rx="1.5" fill="white"/>
+                <line x1="21" y1="8" x2="21" y2="17.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeOpacity="0.75"/>
+                <circle cx="21" cy="19.5" r="2.2" fill="white" fillOpacity="0.75"/>
+              </svg>
+            </div>
             <div>
               <div style={{
                 fontFamily: 'Space Grotesk, sans-serif',
@@ -229,10 +253,13 @@ export function LoginPage() {
                 letterSpacing: 0.5, fontFamily: 'Space Grotesk, sans-serif',
               }}>
                 Password
-                <span style={{
-                  color: '#0d9488', fontWeight: 500,
-                  textTransform: 'none', letterSpacing: 0, cursor: 'pointer',
-                }}>Forgot password?</span>
+                <span
+                  onClick={() => { setShowForgot(true); setForgotSent(false); setForgotEmail('') }}
+                  style={{
+                    color: '#0d9488', fontWeight: 500,
+                    textTransform: 'none', letterSpacing: 0, cursor: 'pointer',
+                  }}
+                >Forgot password?</span>
               </label>
               <input
                 type="password"
@@ -298,5 +325,113 @@ export function LoginPage() {
         </div>
       </div>
     </div>
+
+    {/* ── Forgot Password modal ── */}
+    {showForgot && (
+      <div style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+      }}>
+        <div style={{
+          background: '#fff', borderRadius: 20, padding: 32,
+          width: 420, maxWidth: '90vw',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
+        }}>
+          {forgotSent ? (
+            <>
+              <div style={{ textAlign: 'center', padding: '8px 0 20px' }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: '50%',
+                  background: 'rgba(13,148,136,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  margin: '0 auto 14px',
+                }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', fontFamily: 'Space Grotesk, sans-serif', marginBottom: 8 }}>
+                  Reset link sent
+                </div>
+                <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>
+                  If <strong>{forgotEmail}</strong> is registered, a password reset link has been sent.<br/>
+                  If you don't receive it within a few minutes, contact your <strong>IT Admin</strong> directly.
+                </div>
+              </div>
+              <button
+                onClick={() => setShowForgot(false)}
+                style={{
+                  width: '100%', padding: '10px', borderRadius: 10,
+                  background: 'linear-gradient(135deg,#0d9488,#0f766e)',
+                  color: '#fff', border: 'none', fontWeight: 800,
+                  fontSize: 13, cursor: 'pointer',
+                  fontFamily: 'Space Grotesk, sans-serif',
+                }}
+              >
+                Back to Sign In
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ marginBottom: 22 }}>
+                <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a', fontFamily: 'Space Grotesk, sans-serif', marginBottom: 6 }}>
+                  Forgot your password?
+                </div>
+                <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>
+                  Enter your school email and we'll send you a reset link. If email delivery isn't configured, contact your IT Admin.
+                </div>
+              </div>
+
+              <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 6, fontFamily: 'Space Grotesk, sans-serif' }}>
+                Email address
+              </label>
+              <input
+                type="email"
+                value={forgotEmail}
+                onChange={e => setForgotEmail(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') void handleForgotPassword() }}
+                placeholder="name@school.ac.ug"
+                autoFocus
+                style={{
+                  width: '100%', padding: '0.65rem 0.85rem', marginBottom: 16,
+                  background: '#f8fafc', border: '1.5px solid #e2e8f0',
+                  borderRadius: 10, fontSize: 13, fontFamily: 'inherit',
+                  color: '#0f172a', outline: 'none',
+                }}
+              />
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => setShowForgot(false)}
+                  style={{
+                    flex: 1, padding: '10px', borderRadius: 10,
+                    background: '#f1f5f9', border: '1px solid #e2e8f0',
+                    color: '#475569', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                    fontFamily: 'Space Grotesk, sans-serif',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => void handleForgotPassword()}
+                  disabled={!forgotEmail.trim() || forgotLoading}
+                  style={{
+                    flex: 2, padding: '10px', borderRadius: 10,
+                    background: forgotEmail.trim() ? 'linear-gradient(135deg,#0d9488,#0f766e)' : '#e2e8f0',
+                    color: forgotEmail.trim() ? '#fff' : '#94a3b8',
+                    border: 'none', fontWeight: 800, fontSize: 13,
+                    cursor: forgotEmail.trim() ? 'pointer' : 'default',
+                    fontFamily: 'Space Grotesk, sans-serif',
+                  }}
+                >
+                  {forgotLoading ? 'Sending…' : 'Send Reset Link'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    )}
   )
 }

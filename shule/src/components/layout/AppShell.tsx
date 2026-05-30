@@ -180,25 +180,19 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
 
         {/* ── Shule product brand ── */}
         <div className="sbrand">
-          {/* Crafted SVG mark — custom bezier S on gradient ground */}
+          {/* Mortarboard mark — instantly reads as "school" at any size */}
           <div className="slogo">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path
-                d="M 15.5 6.5
-                   C 15.5 4.8 13.8 3.5 11.5 3.5
-                   C 8.5 3.5 5.5 5.2 5.5 8.2
-                   C 5.5 10.8 7.8 11.8 10.2 12.6
-                   C 12.6 13.4 15 14.5 15 17
-                   C 15 19 12.8 20.5 10 20.5
-                   C 7.5 20.5 5.5 19 5 17.5"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              {/* Top shine overlay */}
-              <rect x="0" y="0" width="20" height="9" rx="5" fill="white" fillOpacity="0.09"/>
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+              {/* Board — the flat wide top of a mortarboard */}
+              <rect x="2" y="6" width="22" height="4" rx="2" fill="white"/>
+              {/* Crown — the cap body below the board */}
+              <rect x="8" y="10" width="10" height="7" rx="1.5" fill="white"/>
+              {/* Tassel string from right end of board */}
+              <line x1="21" y1="8" x2="21" y2="17.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeOpacity="0.75"/>
+              {/* Tassel ball */}
+              <circle cx="21" cy="19.5" r="2.2" fill="white" fillOpacity="0.75"/>
+              {/* Crown bottom baseline */}
+              <rect x="7" y="17" width="12" height="1.5" rx="0.75" fill="white" fillOpacity="0.45"/>
             </svg>
           </div>
           <div>

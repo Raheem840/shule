@@ -151,78 +151,101 @@ export function useChangePassword() {
 }
 
 // ── useRequestPasswordReset ────────────────────────────────────────────────
-// Staff submits a desired-password request that lands in send_queue.
-// IT admin reads and approves it from PasswordResetsPage.
+// Staff submits a desired-password request via the notifications table.
+// This notifies the IT admin's bell AND appears in PasswordResetsPage.
 export function useRequestPasswordReset() {
   const { user } = useAuth()
 
   return useMutation({
     mutationFn: async ({ staffName, desiredPassword }: { staffName: string; desiredPassword: string }) => {
       if (!user) throw new Error('Not authenticated')
-      const { error } = await supabase.from('send_queue').insert({
-        school_id: user.schoolId,
-        type:      'password_reset_request',
-        payload:   {
-          auth_user_id:     user.id,
-          staff_name:       staffName,
-          desired_password: desiredPassword,
-          requested_at:     new Date().toISOString(),
-        },
-        status: 'pending',
-      })
+
+      // Find all IT admin auth_user_ids for this school
+      const { data: admins, error: adminErr } = await supabase
+        .from('staff')
+        .select('auth_user_id')
+        .eq('school_id', user.schoolId)
+        .eq('role', 'it_admin')
+        .not('auth_user_id', 'is', null)
+
+      if (adminErr) throw new Error(adminErr.message)
+      if (!admins || admins.length === 0) {
+        throw new Error('No IT Admin account found. Contact your school administrator directly.')
+      }
+
+      const rows = admins.map((a: any) => ({
+        school_id:   user.schoolId,
+        user_id:     a.auth_user_id as string,
+        from_user:   user.id,
+        type:        'system',
+        title:       'Password Reset Request',
+        body:        `${staffName} wants to change their password. New password: ${desiredPassword}`,
+        read:        false,
+        target_role: 'it_admin',
+      }))
+
+      const { error } = await supabase.from('notifications').insert(rows)
       if (error) throw new Error(error.message)
     },
   })
 }
 
 // ── usePasswordResetRequests ───────────────────────────────────────────────
-// IT admin reads pending password-reset requests.
+// IT admin reads unread system notifications that are password reset requests.
 export function usePasswordResetRequests() {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['pwd-reset-requests', user?.schoolId],
+    queryKey: ['pwd-reset-requests', user?.schoolId, user?.id],
     enabled:  !!user && user.role === 'it_admin',
     staleTime: 0,
     queryFn: async (): Promise<PasswordResetRequest[]> => {
       const { data, error } = await supabase
-        .from('send_queue')
-        .select('id, payload, queued_at')
+        .from('notifications')
+        .select('id, title, body, from_user, created_at')
         .eq('school_id', user!.schoolId)
-        .eq('type', 'password_reset_request')
-        .eq('status', 'pending')
-        .order('queued_at', { ascending: false })
+        .eq('user_id', user!.id)
+        .eq('type', 'system')
+        .ilike('title', 'Password Reset%')
+        .is('read_at', null)
+        .order('created_at', { ascending: false })
 
       if (error) throw new Error(error.message)
 
-      return (data ?? []).map((r: any) => ({
-        id:              r.id,
-        staffName:       (r.payload as any).staff_name       ?? 'Unknown',
-        authUserId:      (r.payload as any).auth_user_id     ?? '',
-        requestedAt:     (r.payload as any).requested_at     ?? r.queued_at,
-        desiredPassword: (r.payload as any).desired_password ?? '',
-      }))
+      return (data ?? []).map((r: any) => {
+        const body: string = r.body ?? ''
+        const nameMatch = body.match(/^(.+?) wants to change/)
+        const pwdMatch  = body.match(/New password: (.+)$/)
+        return {
+          id:              r.id as string,
+          staffName:       nameMatch?.[1] ?? 'Unknown',
+          authUserId:      (r.from_user as string) ?? '',
+          requestedAt:     r.created_at as string,
+          desiredPassword: pwdMatch?.[1] ?? '',
+        }
+      })
     },
   })
 }
 
 // ── useApprovePasswordReset ────────────────────────────────────────────────
-// IT admin marks request as done (manual approval — password changed in Supabase).
+// IT admin marks request notification as read (done).
 export function useApprovePasswordReset() {
   const { user } = useAuth()
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async (requestId: string) => {
+    mutationFn: async (notificationId: string) => {
       const { error } = await supabase
-        .from('send_queue')
-        .update({ status: 'sent', sent_at: new Date().toISOString() })
-        .eq('id', requestId)
+        .from('notifications')
+        .update({ read: true, read_at: new Date().toISOString() })
+        .eq('id', notificationId)
         .eq('school_id', user!.schoolId)
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['pwd-reset-requests', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['pwd-reset-requests'] })
+      void qc.invalidateQueries({ queryKey: ['notifications'] })
     },
   })
 }

@@ -9,8 +9,7 @@ export default defineConfig(({ mode }) => ({
       VitePWA({
         registerType: 'autoUpdate',
         devOptions: {
-          enabled: true,
-          type: 'module',
+          enabled: false,   // disable SW in dev — stops Workbox logging Supabase URLs
         },
         manifest: {
           name: 'Shule — School Management',

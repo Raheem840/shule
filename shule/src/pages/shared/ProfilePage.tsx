@@ -4,6 +4,7 @@ import {
   useUpdateProfile,
   useRequestPasswordReset,
   useUpdateProfilePhoto,
+  useChangePassword,
 } from '../../hooks/useProfile'
 import { useBandwidth } from '../../store/BandwidthContext'
 import { ROLE_LABEL } from '../../config/roleNav'
@@ -112,6 +113,8 @@ export function ProfilePage() {
   const updateProfile                              = useUpdateProfile()
   const updatePhoto                                = useUpdateProfilePhoto()
   const requestPwdReset                           = useRequestPasswordReset()
+  const changePassword                             = useChangePassword()
+  const isItAdmin                                  = user?.role === 'it_admin'
   const { isLowBandwidth, toggleBandwidth }        = useBandwidth()
 
   const [isEditing, setIsEditing]  = useState(false)
@@ -165,6 +168,25 @@ export function ProfilePage() {
     }
     setIsEditing(false)
     setSaveMsg(null)
+  }
+
+  // IT admin: direct password change
+  const [newPwd,  setNewPwd]  = useState('')
+  const [confPwd, setConfPwd] = useState('')
+  const [pwdMsg,  setPwdMsg]  = useState('')
+  const [pwdErr,  setPwdErr]  = useState('')
+
+  async function handleDirectChange(e: React.FormEvent) {
+    e.preventDefault()
+    setPwdErr('')
+    if (newPwd.length < 8)   { setPwdErr('At least 8 characters required.'); return }
+    if (newPwd !== confPwd)  { setPwdErr('Passwords do not match.'); return }
+    try {
+      await changePassword.mutateAsync(newPwd)
+      setPwdMsg('Password changed successfully.')
+      setNewPwd(''); setConfPwd('')
+      setTimeout(() => setPwdMsg(''), 5000)
+    } catch (err: any) { setPwdErr(err.message) }
   }
 
   async function handlePwdRequest() {
@@ -455,35 +477,85 @@ export function ProfilePage() {
           </div>
         </div>
 
-        {/* ── Password Reset Request ── */}
-        <div style={{
-          marginTop: 16,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--r-lg)', padding: '20px 24px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-        }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
-              Password
+        {/* ── Password section — forks by role ── */}
+        {isItAdmin ? (
+          /* IT admin: change directly without going through a request */
+          <div style={{
+            marginTop: 16,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--r-lg)', padding: '20px 24px',
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', fontFamily: 'var(--font2)', marginBottom: 16 }}>
+              Change Password
             </div>
-            <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 3 }}>
-              To change your password, submit a request to the IT Admin for approval.
-            </div>
+            <form onSubmit={e => { void handleDirectChange(e) }}
+              style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6, fontFamily: 'var(--font2)' }}>
+                  New Password
+                </label>
+                <input type="password" value={newPwd} minLength={8} required
+                  onChange={e => { setNewPwd(e.target.value); setPwdErr('') }}
+                  className="sui-input" placeholder="At least 8 characters" />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6, fontFamily: 'var(--font2)' }}>
+                  Confirm Password
+                </label>
+                <input type="password" value={confPwd} required
+                  onChange={e => { setConfPwd(e.target.value); setPwdErr('') }}
+                  className="sui-input" placeholder="Repeat new password" />
+              </div>
+              {pwdErr && (
+                <div style={{ gridColumn: '1/-1', background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.2)', color: 'var(--danger)', padding: '10px 14px', borderRadius: 10, fontSize: 13 }}>
+                  {pwdErr}
+                </div>
+              )}
+              {pwdMsg && (
+                <div style={{ gridColumn: '1/-1', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--success)', padding: '10px 14px', borderRadius: 10, fontSize: 13 }}>
+                  {pwdMsg}
+                </div>
+              )}
+              <div style={{ gridColumn: '1/-1' }}>
+                <button type="submit" className="sui-btn-primary"
+                  disabled={changePassword.isPending || !newPwd || !confPwd}
+                  style={{ fontSize: 13, padding: '9px 24px' }}>
+                  {changePassword.isPending ? 'Changing…' : 'Change Password'}
+                </button>
+              </div>
+            </form>
           </div>
-          <button
-            onClick={() => { setShowPwdModal(true); setReqPwdSent(false); setReqPwdErr(''); setReqPwd(''); setReqPwdConf('') }}
-            style={{
-              padding: '9px 22px', borderRadius: 10, flexShrink: 0,
-              background: 'var(--brand)', color: '#fff',
-              border: 'none', fontWeight: 700, fontSize: 13,
-              cursor: 'pointer', fontFamily: 'var(--font2)',
-              boxShadow: '0 2px 8px rgba(13,148,136,0.3)',
-              transition: 'all 0.15s',
-            }}
-          >
-            Request Password Change
-          </button>
-        </div>
+        ) : (
+          /* All other staff: submit a request to IT admin */
+          <div style={{
+            marginTop: 16,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--r-lg)', padding: '20px 24px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
+                Password
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 3 }}>
+                Submit a request to the IT Admin — they will confirm and apply the change.
+              </div>
+            </div>
+            <button
+              onClick={() => { setShowPwdModal(true); setReqPwdSent(false); setReqPwdErr(''); setReqPwd(''); setReqPwdConf('') }}
+              style={{
+                padding: '9px 22px', borderRadius: 10, flexShrink: 0,
+                background: 'var(--brand)', color: '#fff',
+                border: 'none', fontWeight: 700, fontSize: 13,
+                cursor: 'pointer', fontFamily: 'var(--font2)',
+                boxShadow: '0 2px 8px rgba(13,148,136,0.3)',
+                transition: 'all 0.15s',
+              }}
+            >
+              Request Password Change
+            </button>
+          </div>
+        )}
 
       </div>
 
