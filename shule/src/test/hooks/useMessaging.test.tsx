@@ -15,6 +15,7 @@ const { mockFrom, setTableData, clearAll } = vi.hoisted(() => {
       select:   vi.fn().mockReturnThis(),
       eq:       vi.fn().mockReturnThis(),
       neq:      vi.fn().mockReturnThis(),
+      not:      vi.fn().mockReturnThis(),
       or:       vi.fn().mockReturnThis(),
       is:       vi.fn().mockReturnThis(),
       order:    vi.fn().mockReturnThis(),

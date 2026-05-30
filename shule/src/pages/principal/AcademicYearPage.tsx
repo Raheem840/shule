@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
@@ -354,6 +354,226 @@ function PromoteModal({ years, onClose }: { years: AcademicYearRow[]; onClose: (
   )
 }
 
+// ── Accord-style vertical timeline ────────────────────────────────────────
+const TERM_META = [
+  { num: 1, color: '#0d9488', grad: 'linear-gradient(135deg,#0d9488,#0f766e)', bg: 'rgba(13,148,136,0.09)' },
+  { num: 2, color: '#8b5cf6', grad: 'linear-gradient(135deg,#8b5cf6,#7c3aed)', bg: 'rgba(139,92,246,0.09)' },
+  { num: 3, color: '#f59e0b', grad: 'linear-gradient(135deg,#f59e0b,#d97706)', bg: 'rgba(245,158,11,0.09)' },
+]
+
+function termStatus(start: string | null, end: string | null) {
+  if (!start || !end) return 'unknown' as const
+  const now = Date.now(), s = new Date(start).getTime(), e = new Date(end).getTime()
+  if (now < s) return 'upcoming' as const
+  if (now > e) return 'completed' as const
+  return 'current' as const
+}
+function termPct(start: string | null, end: string | null) {
+  if (!start || !end) return 0
+  const s = new Date(start).getTime(), e = new Date(end).getTime()
+  return Math.min(100, Math.max(0, ((Date.now() - s) / (e - s)) * 100))
+}
+function termWeeks(start: string | null, end: string | null) {
+  if (!start || !end) return 0
+  return Math.round((new Date(end).getTime() - new Date(start).getTime()) / (7 * 24 * 60 * 60 * 1000))
+}
+function breakDays(end: string | null, start: string | null) {
+  if (!end || !start) return null
+  const d = Math.round((new Date(start).getTime() - new Date(end).getTime()) / 86_400_000)
+  return d > 0 ? d : null
+}
+
+const TL_CSS = `
+  @keyframes tl-node-in { from{opacity:0;transform:scale(0.4)} to{opacity:1;transform:scale(1)} }
+  @keyframes tl-card-in { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:none} }
+  @keyframes tl-fill    { from{height:0%} to{height:var(--tl-fill)} }
+  @keyframes tl-blink   { 0%,100%{opacity:1} 50%{opacity:0.35} }
+  @keyframes tl-bar     { from{width:0%} to{width:var(--tl-bar)} }
+`
+
+function AcademicTimeline({ year }: { year: AcademicYearRow }) {
+  const [anim, setAnim] = useState(false)
+  useEffect(() => { const t = setTimeout(() => setAnim(true), 60); return () => clearTimeout(t) }, [])
+
+  const terms = [
+    { ...TERM_META[0], start: year.term1Start, end: year.term1End },
+    { ...TERM_META[1], start: year.term2Start, end: year.term2End },
+    { ...TERM_META[2], start: year.term3Start, end: year.term3End },
+  ]
+
+  const yearStartMs = year.startDate ? new Date(year.startDate).getTime() : null
+  const yearEndMs   = year.endDate   ? new Date(year.endDate).getTime()   : null
+  const yearPct = yearStartMs && yearEndMs
+    ? Math.min(100, Math.max(0, ((Date.now() - yearStartMs) / (yearEndMs - yearStartMs)) * 100))
+    : null
+
+  return (
+    <>
+      <style>{TL_CSS}</style>
+      <div style={{ padding: '24px 28px 28px' }}>
+
+        {/* Year-level header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+          <div style={{ fontSize: 12, color: 'var(--txt3)' }}>
+            {formatDate(year.startDate)} → {formatDate(year.endDate)}
+          </div>
+          {year.isActive && yearPct !== null && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '3px 11px', borderRadius: 99, fontSize: 10, fontWeight: 800,
+              background: 'rgba(13,148,136,0.1)', color: 'var(--brand)',
+              border: '1px solid rgba(13,148,136,0.22)',
+            }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--brand)', animation: 'tl-blink 2s ease infinite' }} />
+              {Math.round(yearPct)}% of year elapsed
+            </div>
+          )}
+        </div>
+
+        {/* Timeline body */}
+        <div style={{ position: 'relative' }}>
+
+          {/* Spine */}
+          <div style={{
+            position: 'absolute', left: 23, top: 24, bottom: 0,
+            width: 2, background: 'var(--border)', borderRadius: 2,
+          }}>
+            {/* Animated fill */}
+            {year.isActive && yearPct !== null && (
+              <div style={{
+                position: 'absolute', top: 0, left: 0, width: '100%', borderRadius: 2,
+                background: 'linear-gradient(180deg,#0d9488 0%,#8b5cf6 50%,#f59e0b 100%)',
+                height: anim ? `${yearPct}%` : '0%',
+                transition: 'height 1.4s cubic-bezier(0.4,0,0.2,1)',
+              }} />
+            )}
+          </div>
+
+          {terms.map((term, i) => {
+            const status = termStatus(term.start, term.end)
+            const pct    = termPct(term.start, term.end)
+            const weeks  = termWeeks(term.start, term.end)
+            const bd     = i < 2 ? breakDays(term.end, terms[i + 1].start) : null
+            const isDone = status === 'completed'
+            const isCur  = status === 'current'
+
+            return (
+              <div key={term.num}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, paddingLeft: 56, marginBottom: 8 }}>
+
+                  {/* Node */}
+                  <div style={{
+                    position: 'absolute', left: 0, width: 48, height: 48, borderRadius: '50%',
+                    background: status === 'upcoming' ? 'var(--surface)' : term.grad,
+                    border: `2.5px solid ${status === 'upcoming' ? 'var(--border)' : term.color}`,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: status !== 'upcoming' ? `0 4px 20px ${term.color}45` : '0 2px 8px rgba(0,0,0,0.06)',
+                    zIndex: 2,
+                    animation: anim ? `tl-node-in 0.5s ${i * 0.11}s both` : 'none',
+                  }}>
+                    <span style={{ fontSize: 8, fontWeight: 800, color: status === 'upcoming' ? 'var(--txt3)' : '#fff', letterSpacing: 0.4, lineHeight: 1 }}>TERM</span>
+                    <span style={{ fontSize: 15, fontWeight: 900, color: status === 'upcoming' ? 'var(--txt3)' : '#fff', fontFamily: 'var(--font3)', lineHeight: 1.1 }}>{term.num}</span>
+                  </div>
+
+                  {/* Card */}
+                  <div
+                    style={{
+                      flex: 1, background: 'var(--surface)',
+                      border: `1px solid ${isCur ? term.color + '35' : 'var(--border)'}`,
+                      borderLeft: `4px solid ${status === 'upcoming' ? 'var(--border)' : term.color}`,
+                      borderRadius: 16, overflow: 'hidden',
+                      boxShadow: isCur ? `0 6px 32px ${term.color}18` : '0 2px 10px rgba(0,0,0,0.04)',
+                      animation: anim ? `tl-card-in 0.45s ${i * 0.11}s both` : 'none',
+                    }}
+                  >
+                    <div style={{ padding: '14px 18px 14px 20px' }}>
+                      {/* Header row */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontWeight: 900, fontSize: 16, fontFamily: 'var(--font2)', color: 'var(--txt)' }}>
+                              Term {term.num}
+                            </span>
+                            {isCur && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <div style={{ width: 6, height: 6, borderRadius: '50%', background: term.color, animation: 'tl-blink 1.8s ease infinite' }} />
+                                <span style={{ fontSize: 9, fontWeight: 900, color: term.color, letterSpacing: 0.5, textTransform: 'uppercase' }}>Live</span>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 4, fontSize: 12, color: 'var(--txt3)' }}>
+                            <span>{formatDate(term.start)}</span>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+                            </svg>
+                            <span>{formatDate(term.end)}</span>
+                            {weeks > 0 && <span>· {weeks} wks</span>}
+                          </div>
+                        </div>
+
+                        <span style={{
+                          padding: '4px 12px', borderRadius: 99, fontSize: 10, fontWeight: 800,
+                          flexShrink: 0, textTransform: 'uppercase', letterSpacing: 0.5,
+                          background: isCur ? term.bg : isDone ? 'rgba(16,185,129,0.1)' : 'var(--surface2)',
+                          color: isCur ? term.color : isDone ? '#10b981' : 'var(--txt3)',
+                          border: `1px solid ${isCur ? term.color + '30' : isDone ? 'rgba(16,185,129,0.25)' : 'var(--border)'}`,
+                        }}>
+                          {isCur ? 'In Progress' : isDone ? 'Completed' : 'Upcoming'}
+                        </span>
+                      </div>
+
+                      {/* Progress bar */}
+                      {(isCur || isDone) && (
+                        <div>
+                          <div style={{ height: 6, borderRadius: 3, background: 'var(--surface2)', overflow: 'hidden', position: 'relative' }}>
+                            <div style={{
+                              height: '100%', borderRadius: 3,
+                              background: term.grad,
+                              width: anim ? `${pct}%` : '0%',
+                              transition: 'width 1.1s cubic-bezier(0.4,0,0.2,1)',
+                              boxShadow: `0 0 10px ${term.color}50`,
+                            }} />
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--txt3)', marginTop: 5 }}>
+                            <span>{Math.round(pct)}% through</span>
+                            {isCur && weeks > 0 && (
+                              <span>{Math.ceil(weeks * (1 - pct / 100))} wks remaining</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Break pill */}
+                {bd !== null && (
+                  <div style={{
+                    paddingLeft: 72, marginBottom: 8,
+                    animation: anim ? `tl-card-in 0.35s ${i * 0.11 + 0.08}s both` : 'none',
+                  }}>
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      fontSize: 10, fontWeight: 700, color: 'var(--txt3)',
+                      background: 'var(--surface2)', border: '1px dashed var(--border)',
+                      padding: '4px 12px', borderRadius: 99,
+                    }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                      </svg>
+                      {bd}-day term break
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────
 export function AcademicYearPage() {
   const { data = [], isLoading } = useAcademicYearsFull()
@@ -457,23 +677,8 @@ export function AcademicYearPage() {
               </div>
 
               {expanded === year.id && (
-                <div style={{
-                  borderTop: '1px solid var(--border)', padding: '16px 20px',
-                  display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16,
-                }}>
-                  {[
-                    { label: 'Term 1', start: year.term1Start, end: year.term1End },
-                    { label: 'Term 2', start: year.term2Start, end: year.term2End },
-                    { label: 'Term 3', start: year.term3Start, end: year.term3End },
-                  ].map(t => (
-                    <div key={t.label} style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 16px' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', marginBottom: 6 }}>
-                        {t.label}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--txt)' }}>{formatDate(t.start)}</div>
-                      <div style={{ fontSize: 11, color: 'var(--txt3)' }}>to {formatDate(t.end)}</div>
-                    </div>
-                  ))}
+                <div style={{ borderTop: `2px solid ${year.isActive ? 'rgba(13,148,136,0.2)' : 'var(--border)'}` }}>
+                  <AcademicTimeline year={year} />
                 </div>
               )}
             </div>

@@ -1,17 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSchoolSettings } from '../../hooks/useAdmin'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { PageHeader } from '../../components/ui/PageHeader'
 import { useToast } from '../../components/ui/Toast'
 import { applyBrandColor } from '../../lib/brandColor'
+import { uploadSchoolLogo } from '../../lib/storage'
 
-function useSaveSchoolProfile() {
+// ─── Save mutation ─────────────────────────────────────────────────────────────
+function useSave() {
   const { user } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (updates: { schoolName: string; shortName: string; motto: string; primaryColor: string }) => {
+    mutationFn: async (updates: { schoolName: string; shortName: string; motto: string; primaryColor: string; logoUrl?: string }) => {
       if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('school_profile')
@@ -20,6 +21,7 @@ function useSaveSchoolProfile() {
           short_name:    updates.shortName || null,
           motto:         updates.motto     || null,
           primary_color: updates.primaryColor,
+          ...(updates.logoUrl != null ? { logo_url: updates.logoUrl } : {}),
         })
         .eq('id', user.schoolId)
       if (error) throw new Error(error.message)
@@ -30,16 +32,58 @@ function useSaveSchoolProfile() {
   })
 }
 
+// ─── Settings CSS ─────────────────────────────────────────────────────────────
+const SETTINGS_CSS = `
+  .sts-badge-wrap { position: relative; cursor: pointer; display: inline-block; }
+  .sts-badge-wrap:hover .sts-badge-overlay { opacity: 1; }
+  .sts-badge-overlay {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.2s ease;
+    gap: 4px;
+  }
+  .sts-edit-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 20px; border-radius: 12px; font-size: 13px; font-weight: 700;
+    border: 1.5px solid var(--border); background: var(--surface);
+    color: var(--txt2); cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+    font-family: var(--font1);
+  }
+  .sts-edit-btn:hover {
+    border-color: var(--brand); color: var(--brand);
+    background: rgba(13,148,136,0.06);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(13,148,136,0.15);
+  }
+  .sts-field-in { animation: stsFadeUp 0.22s ease both; }
+  @keyframes stsFadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+  @keyframes stsSpin   { to{transform:rotate(360deg)} }
+`
+
+// ─── Colour swatches ──────────────────────────────────────────────────────────
+const BRAND_SWATCHES = [
+  '#0d9488', '#0ea5e9', '#8b5cf6', '#f59e0b',
+  '#f43f5e', '#10b981', '#6366f1', '#ec4899',
+]
+
 export function PrincipalSettingsPage() {
   const { data: settings, isLoading } = useSchoolSettings()
   const { success: ok, error: err } = useToast()
-  const save = useSaveSchoolProfile()
+  const save = useSave()
+  const logoRef = useRef<HTMLInputElement>(null)
 
+  const [editMode,     setEditMode]     = useState(false)
   const [schoolName,   setSchoolName]   = useState('')
   const [shortName,    setShortName]    = useState('')
   const [motto,        setMotto]        = useState('')
   const [primaryColor, setPrimaryColor] = useState('#0d9488')
-  const [dirty, setDirty] = useState(false)
+  const [logoUrl,      setLogoUrl]      = useState<string | null>(null)
+  const [uploading,    setUploading]    = useState(false)
+  const [logoPreview,  setLogoPreview]  = useState<string | null>(null)
+
+  const { user } = useAuth()
 
   useEffect(() => {
     if (settings) {
@@ -47,179 +91,378 @@ export function PrincipalSettingsPage() {
       setShortName(settings.shortName ?? '')
       setMotto(settings.motto ?? '')
       setPrimaryColor(settings.primaryColor ?? '#0d9488')
-      setDirty(false)
+      setLogoUrl(settings.logoUrl ?? null)
+      setLogoPreview(settings.logoUrl ?? null)
     }
   }, [settings])
 
-  function markDirty() { setDirty(true) }
+  async function handleLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return
+    if (!user) return
+    const localPreview = URL.createObjectURL(file)
+    setLogoPreview(localPreview)
+    setUploading(true)
+    try {
+      const url = await uploadSchoolLogo(user.schoolId, file)
+      setLogoUrl(url)
+      ok('Badge uploaded. Save to confirm.')
+    } catch (e: any) {
+      err(e.message)
+      setLogoPreview(logoUrl)
+    } finally {
+      setUploading(false)
+    }
+  }
 
   async function handleSave() {
     try {
-      await save.mutateAsync({ schoolName, shortName, motto, primaryColor })
+      await save.mutateAsync({ schoolName, shortName, motto, primaryColor, logoUrl: logoUrl ?? undefined })
       applyBrandColor(primaryColor)
-      ok('School profile updated.')
-      setDirty(false)
+      ok('Settings saved.')
+      setEditMode(false)
     } catch (e: any) { err(e.message) }
   }
 
-  if (isLoading) return <div style={{ color: 'var(--txt3)', padding: 32 }}>Loading settings…</div>
-  if (!settings) return null
+  function handleCancel() {
+    if (settings) {
+      setSchoolName(settings.schoolName ?? '')
+      setShortName(settings.shortName ?? '')
+      setMotto(settings.motto ?? '')
+      setPrimaryColor(settings.primaryColor ?? '#0d9488')
+      setLogoUrl(settings.logoUrl ?? null)
+      setLogoPreview(settings.logoUrl ?? null)
+    }
+    setEditMode(false)
+  }
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 80, gap: 10, color: 'var(--txt3)' }}>
+        <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--brand)', animation: 'stsSpin 0.7s linear infinite' }} />
+        Loading settings…
+      </div>
+    )
+  }
+
+  const schoolInitial = (schoolName || settings?.schoolName || 'S').trim()[0]?.toUpperCase() ?? 'S'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <PageHeader
-          title="School Settings"
-          subtitle="Update your school's profile information."
-        />
-        {dirty && (
-          <button
-            onClick={handleSave}
-            className="sui-btn-primary"
-            disabled={save.isPending || !schoolName.trim()}
-          >
-            {save.isPending ? 'Saving…' : 'Save Changes'}
-          </button>
-        )}
-      </div>
+    <>
+      <style>{SETTINGS_CSS}</style>
+      <input ref={logoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoFile} />
 
-      {/* Basic info card */}
-      <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 14, padding: 24,
-        display: 'flex', flexDirection: 'column', gap: 18,
-      }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 4 }}>
-          Basic Information
-        </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 720 }}>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <FormField label="School Name ★">
-            <input
-              className="sui-input"
-              value={schoolName}
-              onChange={e => { setSchoolName(e.target.value); markDirty() }}
-              placeholder="Full school name"
-            />
-          </FormField>
-          <FormField label="Short Name / Abbreviation">
-            <input
-              className="sui-input"
-              value={shortName}
-              onChange={e => { setShortName(e.target.value); markDirty() }}
-              placeholder="e.g. KGGS"
-            />
-          </FormField>
-          <div style={{ gridColumn: 'span 2' }}>
-            <FormField label="Motto">
-              <input
-                className="sui-input"
-                value={motto}
-                onChange={e => { setMotto(e.target.value); markDirty() }}
-                placeholder="e.g. Knowledge · Integrity · Service"
-                style={{ width: '100%' }}
-              />
-            </FormField>
+        {/* ── Identity Hero Card ── */}
+        <div style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 20, overflow: 'hidden',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.05)',
+        }}>
+          {/* Gradient stripe header */}
+          <div style={{
+            height: 80,
+            background: `linear-gradient(135deg, ${primaryColor}22 0%, ${primaryColor}10 50%, rgba(139,92,246,0.08) 100%)`,
+            position: 'relative',
+          }}>
+            {/* Subtle pattern */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              backgroundImage: 'radial-gradient(rgba(255,255,255,0.3) 1px, transparent 1px)',
+              backgroundSize: '20px 20px',
+            }} />
           </div>
-          <div style={{ gridColumn: 'span 2' }}>
-            <FormField label="Primary Colour">
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                <input
-                  type="color"
-                  value={primaryColor}
-                  onChange={e => {
-                    const c = e.target.value
-                    setPrimaryColor(c)
-                    applyBrandColor(c)
-                    markDirty()
-                  }}
-                  style={{ width: 44, height: 40, padding: 2, border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', flexShrink: 0 }}
-                />
-                <input
-                  className="sui-input"
-                  value={primaryColor}
-                  onChange={e => {
-                    const c = e.target.value
-                    setPrimaryColor(c)
-                    applyBrandColor(c)
-                    markDirty()
-                  }}
-                  style={{ fontFamily: 'var(--font3)', flex: 1 }}
-                  placeholder="#0d9488"
-                />
-                <div style={{ width: 40, height: 40, borderRadius: 8, background: primaryColor, border: '1px solid var(--border)', flexShrink: 0 }} />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPrimaryColor('#0d9488')
-                    applyBrandColor('#0d9488')
-                    markDirty()
-                  }}
-                  style={{
-                    padding: '0 12px', height: 40, border: '1.5px solid var(--border)',
-                    borderRadius: 8, background: 'var(--surface2)',
-                    color: 'var(--txt3)', fontSize: 11, fontWeight: 700,
-                    cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-                  }}
-                >
-                  Reset
-                </button>
-              </div>
-              <div style={{ marginTop: 6, fontSize: 11, color: 'var(--txt3)' }}>
-                Changes are previewed live — save to make them permanent.
-              </div>
-            </FormField>
-          </div>
-        </div>
-      </div>
 
-      {/* Read-only info */}
-      <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 14, padding: 24,
-      }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 16 }}>
-          Read-Only Information
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <ReadRow label="School ID"   value={settings.id?.slice(0, 8) + '…'} mono />
-          {settings.logoUrl && (
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', marginBottom: 6 }}>Logo</div>
-              <img
-                src={settings.logoUrl}
-                alt="School logo"
-                style={{ height: 48, width: 'auto', objectFit: 'contain', borderRadius: 8, border: '1px solid var(--border)' }}
-              />
+          {/* Content */}
+          <div style={{ padding: '0 28px 28px', marginTop: -40 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 20 }}>
+
+              {/* Badge / Logo */}
+              <div className="sts-badge-wrap" onClick={() => editMode && logoRef.current?.click()}>
+                <div style={{
+                  width: 80, height: 80, borderRadius: '50%', flexShrink: 0,
+                  background: logoPreview ? 'transparent' : `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}99 100%)`,
+                  border: `3px solid var(--surface)`,
+                  boxShadow: `0 4px 20px ${primaryColor}35, 0 0 0 3px ${primaryColor}20`,
+                  overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  position: 'relative',
+                }}>
+                  {logoPreview
+                    ? <img src={logoPreview} alt="School badge" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    : <span style={{ fontSize: 32, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)' }}>{schoolInitial}</span>
+                  }
+                  {uploading && (
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', animation: 'stsSpin 0.6s linear infinite' }} />
+                    </div>
+                  )}
+                </div>
+                {editMode && !uploading && (
+                  <div className="sts-badge-overlay">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+                      <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+                      <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                    <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', letterSpacing: 0.4 }}>CHANGE</span>
+                  </div>
+                )}
+              </div>
+
+              {/* School info */}
+              <div style={{ flex: 1, paddingBottom: 4 }}>
+                {!editMode ? (
+                  <>
+                    <div style={{
+                      fontSize: 26, fontWeight: 900, fontFamily: 'var(--font2)',
+                      background: `linear-gradient(135deg, var(--txt) 0%, ${primaryColor} 100%)`,
+                      WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                      lineHeight: 1.2, marginBottom: 4,
+                    }}>
+                      {schoolName || 'Your School Name'}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {shortName && (
+                        <span style={{
+                          fontFamily: 'var(--font3)', fontSize: 11, fontWeight: 700,
+                          padding: '2px 8px', borderRadius: 6,
+                          background: `${primaryColor}15`, color: primaryColor,
+                          border: `1px solid ${primaryColor}25`,
+                        }}>
+                          {shortName}
+                        </span>
+                      )}
+                      {motto && (
+                        <span style={{ fontSize: 12, color: 'var(--txt3)', fontStyle: 'italic' }}>
+                          "{motto}"
+                        </span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ paddingTop: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', marginBottom: 4 }}>SCHOOL NAME ★</div>
+                    <input
+                      className="sui-input sts-field-in"
+                      value={schoolName}
+                      onChange={e => setSchoolName(e.target.value)}
+                      placeholder="Full school name"
+                      style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--font2)' }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Edit / Save button */}
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0, paddingBottom: 4 }}>
+                {!editMode ? (
+                  <button className="sts-edit-btn" onClick={() => setEditMode(true)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    Edit Profile
+                  </button>
+                ) : (
+                  <>
+                    <button onClick={handleCancel} style={{
+                      padding: '9px 16px', borderRadius: 12, fontSize: 13, fontWeight: 700,
+                      border: '1.5px solid var(--border)', background: 'var(--surface)',
+                      color: 'var(--txt3)', cursor: 'pointer', transition: 'all 0.15s',
+                    }}>
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={save.isPending || !schoolName.trim()}
+                      style={{
+                        padding: '9px 20px', borderRadius: 12, fontSize: 13, fontWeight: 700,
+                        border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                        background: save.isPending || !schoolName.trim()
+                          ? 'var(--surface2)'
+                          : `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}cc 100%)`,
+                        color: save.isPending || !schoolName.trim() ? 'var(--txt3)' : '#fff',
+                        boxShadow: save.isPending ? 'none' : `0 4px 14px ${primaryColor}35`,
+                        display: 'flex', alignItems: 'center', gap: 6,
+                      }}
+                    >
+                      {save.isPending ? (
+                        <>
+                          <div style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', animation: 'stsSpin 0.6s linear infinite' }} />
+                          Saving…
+                        </>
+                      ) : (
+                        <>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          Save Changes
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
-          )}
+
+            {/* Edit mode fields */}
+            {editMode && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'stsFadeUp 0.25s ease both' }}>
+
+                {/* Badge upload hint */}
+                <div style={{
+                  padding: '12px 16px', borderRadius: 12,
+                  background: `${primaryColor}08`, border: `1px dashed ${primaryColor}30`,
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  cursor: 'pointer',
+                }}
+                  onClick={() => logoRef.current?.click()}
+                >
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                    background: `${primaryColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={primaryColor} strokeWidth="2">
+                      <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+                      <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
+                      {logoPreview ? 'Click to change the school badge' : 'Upload school badge / crest'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>PNG, JPG, SVG · Recommended 200×200px</div>
+                  </div>
+                  {logoPreview && (
+                    <img src={logoPreview} alt="" style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 6, marginLeft: 'auto', border: '1px solid var(--border)' }} />
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 5 }}>SHORT NAME / ABBREVIATION</label>
+                    <input className="sui-input" value={shortName}
+                      onChange={e => setShortName(e.target.value)}
+                      placeholder="e.g. KGGS" style={{ fontFamily: 'var(--font3)', fontWeight: 700 }} />
+                    <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 4 }}>Used as prefix for staff IDs and admission numbers.</div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 5 }}>SCHOOL MOTTO</label>
+                    <input className="sui-input" value={motto}
+                      onChange={e => setMotto(e.target.value)}
+                      placeholder="e.g. Knowledge · Integrity · Service" />
+                  </div>
+                </div>
+
+                {/* Brand colour */}
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 8 }}>BRAND COLOUR</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    {BRAND_SWATCHES.map(c => (
+                      <button key={c} onClick={() => { setPrimaryColor(c); applyBrandColor(c) }} style={{
+                        width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer',
+                        background: c, flexShrink: 0, transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                        outline: primaryColor === c ? `3px solid ${c}` : 'none',
+                        outlineOffset: 2,
+                        transform: primaryColor === c ? 'scale(1.18)' : 'none',
+                        boxShadow: primaryColor === c ? `0 4px 12px ${c}50` : 'none',
+                      }} />
+                    ))}
+                    <input type="color" value={primaryColor}
+                      onChange={e => { setPrimaryColor(e.target.value); applyBrandColor(e.target.value) }}
+                      style={{ width: 28, height: 28, padding: 2, border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' }} />
+                    <input className="sui-input"
+                      value={primaryColor}
+                      onChange={e => { setPrimaryColor(e.target.value); applyBrandColor(e.target.value) }}
+                      style={{ fontFamily: 'var(--font3)', fontSize: 12, width: 100 }} />
+                    <button type="button" onClick={() => { setPrimaryColor('#0d9488'); applyBrandColor('#0d9488') }}
+                      style={{ padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)', cursor: 'pointer' }}>
+                      Reset
+                    </button>
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 11, color: 'var(--txt3)' }}>Changes preview live — save to make permanent.</div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-        <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--info-bg)', borderRadius: 10, fontSize: 12, color: 'var(--info)' }}>
-          To change the logo, currency, or API integrations, contact your IT Administrator.
+
+        {/* ── Info tiles (view mode only) ── */}
+        {!editMode && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, animation: 'stsFadeUp 0.3s ease both' }}>
+            {[
+              { label: 'School Name', value: settings?.schoolName, icon: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z' },
+              { label: 'Abbreviation', value: settings?.shortName, icon: 'M7 20l4-16m2 16l4-16M6 9h14M4 15h14', mono: true },
+              { label: 'Brand Colour', value: settings?.primaryColor, icon: 'M12 2a10 10 0 100 20 10 10 0 000-20z', color: primaryColor },
+            ].map(tile => (
+              <div key={tile.label} style={{
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 14, padding: '16px 18px',
+                display: 'flex', flexDirection: 'column', gap: 8,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{
+                    width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                    background: tile.color ? tile.color + '18' : 'var(--surface2)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {tile.color ? (
+                      <div style={{ width: 14, height: 14, borderRadius: '50%', background: tile.color, boxShadow: `0 2px 6px ${tile.color}50` }} />
+                    ) : (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2">
+                        <path d={tile.icon} />
+                      </svg>
+                    )}
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.6 }}>{tile.label}</span>
+                </div>
+                <div style={{
+                  fontSize: 13, fontWeight: 700,
+                  color: tile.value ? 'var(--txt)' : 'var(--txt3)',
+                  fontStyle: tile.value ? 'normal' : 'italic',
+                  fontFamily: tile.mono ? 'var(--font3)' : undefined,
+                }}>
+                  {tile.value || 'Not set'}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Motto strip (view mode) ── */}
+        {!editMode && settings?.motto && (
+          <div style={{
+            background: `linear-gradient(135deg, ${primaryColor}0a 0%, rgba(139,92,246,0.04) 100%)`,
+            border: `1px solid ${primaryColor}20`,
+            borderRadius: 14, padding: '16px 20px',
+            display: 'flex', alignItems: 'center', gap: 14,
+          }}>
+            <div style={{
+              width: 2, height: 32, background: `linear-gradient(180deg, ${primaryColor} 0%, rgba(139,92,246,0.6) 100%)`,
+              borderRadius: 2, flexShrink: 0,
+            }} />
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>School Motto</div>
+              <div style={{ fontSize: 15, fontWeight: 700, fontStyle: 'italic', color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
+                "{settings.motto}"
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Read-only footer ── */}
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 14, padding: '14px 20px',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--info)" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span style={{ fontSize: 12, color: 'var(--txt2)' }}>
+            To update SMS/WhatsApp API keys, currency, or deploy settings — contact your IT Administrator.
+          </span>
         </div>
       </div>
-    </div>
-  )
-}
-
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 5 }}>
-        {label}
-      </label>
-      {children}
-    </div>
-  )
-}
-
-function ReadRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', marginBottom: 3 }}>{label}</div>
-      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--txt)', fontFamily: mono ? 'var(--font3)' : undefined }}>
-        {value}
-      </span>
-    </div>
+    </>
   )
 }

@@ -70,6 +70,14 @@ export async function uploadTemplate(schoolId: string, file: File): Promise<stri
   return uploadFile(BUCKETS.TEMPLATES, path, file, { upsert: true })
 }
 
+export async function uploadSchoolLogo(schoolId: string, file: File): Promise<string> {
+  const compressed = await compressImage(file, 400, 0.9)
+  const path = `school-logos/${schoolId}/badge.jpg`
+  await uploadFile(BUCKETS.STAFF_ATTACHMENTS, path, compressed, { upsert: true, contentType: 'image/jpeg' })
+  const { data } = supabase.storage.from(BUCKETS.STAFF_ATTACHMENTS).getPublicUrl(path)
+  return data.publicUrl
+}
+
 // ── URL helpers ───────────────────────────────────────────────────────────────
 
 export function getPublicUrl(bucket: string, pathOrUrl: string | null | undefined): string | null {
