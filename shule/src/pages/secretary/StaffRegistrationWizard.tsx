@@ -11,6 +11,7 @@ import { useRegisterStaff, useNextStaffNumber } from '../../hooks/useStaff'
 import { useClasses, useSubjects, useDepartments } from '../../hooks/useClasses'
 import { supabase } from '../../lib/supabase'
 import { uploadDocument } from '../../lib/storage'
+import { uploadStaffPhoto } from '../../lib/uploadStaffPhoto'
 import { validateFile } from '../../lib/fileValidation'
 import { useAuth } from '../../store/AuthContext'
 import type { UserRole } from '../../types/app'
@@ -344,22 +345,16 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
       documents:          values.documents.filter(d => d.fileUrl),
     }, {
       onSuccess: async id => {
-        // Upload photo now that we have staffId — path: staff-photos/{schoolId}/{staffId}.jpg
+        // Upload photo via Edge Function — private bucket requires server-side upload
         if (photoDataUrl) {
           try {
             const base64 = photoDataUrl.split(',')[1]
             const binary = atob(base64)
             const ua     = new Uint8Array(binary.length)
             for (let i = 0; i < binary.length; i++) ua[i] = binary.charCodeAt(i)
-            const blob = new Blob([ua], { type: 'image/jpeg' })
-            const path = `${user!.schoolId}/${id}.jpg`
-            const { error: upErr } = await supabase.storage
-              .from('staff-photos')
-              .upload(path, blob, { upsert: true })
-            if (!upErr) {
-              const photoUrl = supabase.storage.from('staff-photos').getPublicUrl(path).data.publicUrl
-              await supabase.from('staff').update({ photo_url: photoUrl }).eq('id', id).eq('school_id', user!.schoolId)
-            }
+            const photoFile = new File([new Blob([ua], { type: 'image/jpeg' })], 'photo.jpg', { type: 'image/jpeg' })
+            const path = await uploadStaffPhoto(photoFile, id)
+            await supabase.from('staff').update({ photo_url: path }).eq('id', id).eq('school_id', user!.schoolId)
           } catch { /* non-critical — registration already succeeded */ }
         }
 

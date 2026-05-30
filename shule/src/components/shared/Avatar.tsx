@@ -38,7 +38,8 @@ export function Avatar({
   size = 'md',
   style,
 }: AvatarProps) {
-  const isPrivate = bucket === BUCKETS.STUDENT_PHOTOS
+  // Both staff-photos and student-photos are now private — always use signed URLs.
+  const isPrivate = bucket === BUCKETS.STUDENT_PHOTOS || bucket === BUCKETS.STAFF_PHOTOS
   const signedUrl = useSignedUrl(isPrivate ? bucket : null, isPrivate ? photoPath : null)
   const publicUrl = !isPrivate ? getPublicUrl(bucket, photoPath) : null
   const src       = isPrivate ? signedUrl : publicUrl

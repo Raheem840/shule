@@ -222,11 +222,11 @@ export function PrincipalReportCardsPage() {
       {cohortReady && reportCards.length > 0 && (
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
           {[
-            { label: 'Ready',    count: countByStatus('ready'),    variant: 'green' as const },
-            { label: 'Approved', count: countByStatus('approved'), variant: 'blue' as const },
-            { label: 'Released', count: countByStatus('released'), variant: 'teal' as const },
-            { label: 'Draft',    count: countByStatus('draft'),    variant: 'muted' as const },
-          ].map(({ label, count, variant }) => (
+            { label: 'Ready for approval', count: countByStatus('ready'),    variant: 'green' as const },
+            { label: 'Approved',           count: countByStatus('approved'), variant: 'blue' as const },
+            { label: 'Released',           count: countByStatus('released'), variant: 'teal' as const },
+            { label: 'Draft',              count: countByStatus('draft'),    variant: 'muted' as const },
+          ].filter(({ count }) => count > 0).map(({ label, count, variant }) => (
             <div key={label} style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '6px 12px', borderRadius: 99,

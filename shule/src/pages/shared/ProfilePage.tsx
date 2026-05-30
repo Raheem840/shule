@@ -6,6 +6,7 @@ import {
   useUpdateProfilePhoto,
   useChangePassword,
 } from '../../hooks/useProfile'
+import { useStaffPhotoUrl } from '../../hooks/useStaffPhotoUrl'
 import { useBandwidth } from '../../store/BandwidthContext'
 import { ROLE_LABEL } from '../../config/roleNav'
 import { useAuth } from '../../store/AuthContext'
@@ -115,6 +116,7 @@ export function ProfilePage() {
   const requestPwdReset                           = useRequestPasswordReset()
   const changePassword                             = useChangePassword()
   const isItAdmin                                  = user?.role === 'it_admin'
+  const signedPhotoUrl                             = useStaffPhotoUrl(profile?.photoUrl)
   const { isLowBandwidth, toggleBandwidth }        = useBandwidth()
 
   const [isEditing, setIsEditing]  = useState(false)
@@ -210,7 +212,7 @@ export function ProfilePage() {
     const file = e.target.files?.[0]
     if (!file) return
     try { await updatePhoto.mutateAsync(file) }
-    catch (err: any) { alert(`Photo upload failed: ${err.message}`) }
+    catch (err: any) { setSaveMsg({ text: `Photo upload failed: ${err.message}`, ok: false }) }
   }
 
   if (isLoading) return (
@@ -262,9 +264,9 @@ export function ProfilePage() {
           title="Click to change photo"
           style={{ cursor: 'pointer', position: 'relative', marginTop: -48, flexShrink: 0 }}
         >
-          {profile.photoUrl ? (
+          {signedPhotoUrl ? (
             <img
-              src={profile.photoUrl} alt=""
+              src={signedPhotoUrl} alt=""
               style={{
                 width: 96, height: 96, borderRadius: '50%', objectFit: 'cover',
                 border: '3px solid var(--surface)',

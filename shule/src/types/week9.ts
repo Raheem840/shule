@@ -315,6 +315,7 @@ export type AuditEntry = {
   id: string
   action: string
   tableName: string
+  entityName: string | null
   userId: string
   userRole: string
   oldData: Record<string, unknown> | null

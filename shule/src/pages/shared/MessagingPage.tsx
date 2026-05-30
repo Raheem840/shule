@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useStaffPhotoUrl } from '../../hooks/useStaffPhotoUrl'
 import { useBandwidth } from '../../store/BandwidthContext'
 import { supabase } from '../../lib/supabase'
 import {
@@ -11,11 +12,34 @@ import {
   useUploadAttachment,
 } from '../../hooks/useMessaging'
 import { useAuth } from '../../store/AuthContext'
+import { useToast } from '../../components/ui/Toast'
 import type { Contact, Announcement } from '../../types/week9'
 import type { Message } from '../../types/app'
 
 // ─── Announcement poster roles (for post button visibility) ───────────────
 const CAN_POST_ROLES = ['principal', 'deputy', 'dos', 'secretary', 'bursar', 'it_admin'] as const
+
+// ─── Contact avatar — resolves signed URL for private staff-photos bucket ──
+function ContactAvatar({ photoPath, name, lowBandwidth }: {
+  photoPath: string | null | undefined
+  name: string
+  lowBandwidth: boolean
+}) {
+  const signedUrl = useStaffPhotoUrl(lowBandwidth ? null : photoPath)
+  const inits = name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
+  return (
+    <div style={{
+      width: 36, height: 36, borderRadius: '50%',
+      background: 'var(--surface2)', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', fontSize: 13, fontWeight: 800,
+      color: 'var(--brand)', flexShrink: 0, overflow: 'hidden',
+    }}>
+      {signedUrl
+        ? <img src={signedUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : inits}
+    </div>
+  )
+}
 
 // ─── DoS message templates ─────────────────────────────────────────────────
 const DOS_TEMPLATES = [
@@ -79,18 +103,7 @@ function ContactItem({
         transition: 'background 0.1s',
       }}
     >
-      <div style={{
-        width: 36, height: 36, borderRadius: '50%',
-        background: 'var(--surface2)', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', fontSize: 13, fontWeight: 800,
-        color: 'var(--brand)', flexShrink: 0,
-        overflow: 'hidden',
-      }}>
-        {contact.photoUrl && !isLowBandwidth
-          ? <img src={contact.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : initials(contact.name)
-        }
-      </div>
+      <ContactAvatar photoPath={contact.photoUrl} name={contact.name} lowBandwidth={isLowBandwidth} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt)',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -195,6 +208,7 @@ function ChatThread({ contact }: { contact: Contact }) {
   const { mutate: markRead } = useMarkRead()
   const { mutateAsync: sendMsg, isPending } = useSendMessage()
   const { mutateAsync: uploadFile } = useUploadAttachment()
+  const { error: showError } = useToast()
   const [text, setText] = useState('')
   const [attachUrl, setAttachUrl] = useState<string | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
@@ -228,7 +242,7 @@ function ChatThread({ contact }: { contact: Contact }) {
       const url = await uploadFile(file)
       setAttachUrl(url)
     } catch (err: any) {
-      alert(err.message ?? 'Upload failed')
+      showError(err.message ?? 'Upload failed')
     }
   }
 
@@ -380,6 +394,7 @@ function AnnouncementsChannel() {
   const { user } = useAuth()
   const { data: announcements = [] } = useAnnouncements()
   const { mutateAsync: post, isPending } = usePostAnnouncement()
+  const { error: showError } = useToast()
   const [text, setText] = useState('')
   const canPost = user && (CAN_POST_ROLES as readonly string[]).includes(user.role)
 
@@ -393,7 +408,7 @@ function AnnouncementsChannel() {
       // Fire-and-forget: broadcast via Edge Function for push notifications
       void supabase.functions.invoke('broadcast-announcement', { body: { body, role: user?.role } })
     } catch (err: any) {
-      alert(err.message)
+      showError(err.message)
     }
   }
 

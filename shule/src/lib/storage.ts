@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 
 // ── Bucket registry ───────────────────────────────────────────────────────────
 export const BUCKETS = {
-  STAFF_PHOTOS:      'staff-photos',      // public
+  STAFF_PHOTOS:      'staff-photos',      // private — signed URLs only (changed from public)
   STUDENT_PHOTOS:    'student-photos',    // private — signed URLs only
   DOCUMENTS:         'documents',         // private — signed URLs only
   REPORT_CARDS:      'report-cards',      // public
@@ -86,10 +86,25 @@ export async function getSignedUrl(
   expiresIn = 3600
 ): Promise<string | null> {
   if (!path) return null
-  // Full URL stored for legacy data — return as-is (won't work for private buckets,
-  // but prevents a runtime crash; new data always stores paths)
-  if (path.startsWith('http')) return path
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn)
+
+  // Legacy data stored the full public URL instead of just the path.
+  // Extract the storage path so createSignedUrl works for private buckets.
+  let storagePath = path
+  if (path.startsWith('http')) {
+    const publicMarker = `/object/public/${bucket}/`
+    const signedMarker = `/object/sign/${bucket}/`
+    const idx = path.indexOf(publicMarker)
+    const idx2 = path.indexOf(signedMarker)
+    if (idx !== -1) {
+      storagePath = path.slice(idx + publicMarker.length)
+    } else if (idx2 !== -1) {
+      storagePath = path.slice(idx2 + signedMarker.length).split('?')[0]
+    } else {
+      return null  // unrecognised URL format — show initials instead
+    }
+  }
+
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(storagePath, expiresIn)
   if (error) return null
   return data.signedUrl
 }

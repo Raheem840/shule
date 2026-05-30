@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { uploadStaffPhoto } from '../lib/uploadStaffPhoto'
 import { useAuth } from '../store/AuthContext'
 
 export type PasswordResetRequest = {
@@ -283,24 +284,17 @@ export function useUpdateProfilePhoto() {
         if (blob) uploadFile = new File([blob], 'photo.jpg', { type: 'image/jpeg' })
       }
 
-      const path = `staff-photos/${user.schoolId}/${staffRow.id}.jpg`
-      const { error: upErr } = await supabase.storage
-        .from('staff-photos')
-        .upload(path, uploadFile, { upsert: true, contentType: 'image/jpeg' })
-
-      if (upErr) throw new Error(upErr.message)
-
-      const { data: urlData } = supabase.storage.from('staff-photos').getPublicUrl(path)
-      const photoUrl = urlData.publicUrl
+      // Upload via Edge Function — never call storage directly for private buckets
+      const path = await uploadStaffPhoto(uploadFile, staffRow.id)
 
       const { error: dbErr } = await supabase
         .from('staff')
-        .update({ photo_url: photoUrl })
+        .update({ photo_url: path })
         .eq('id', staffRow.id)
         .eq('school_id', user.schoolId)
 
       if (dbErr) throw new Error(dbErr.message)
-      return photoUrl
+      return path
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['my-profile', user?.id] })

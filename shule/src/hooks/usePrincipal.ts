@@ -161,7 +161,7 @@ export function useAuditLog(params?: {
     queryFn: async (): Promise<AuditEntry[]> => {
       let q = supabase
         .from('audit_log')
-        .select('id, action, table_name, user_id, role, old_value, new_value, created_at')
+        .select('id, action, table_name, entity_name, user_id, role, old_value, new_value, created_at')
         .eq('school_id', user!.schoolId)
         .order('created_at', { ascending: false })
         .limit(params?.limit ?? 50)
@@ -179,14 +179,15 @@ export function useAuditLog(params?: {
       }
 
       return (data ?? []).map((r: any) => ({
-        id:        r.id,
-        action:    r.action,
-        tableName: r.table_name,
-        userId:    r.user_id,
-        userRole:  r.role,
-        oldData:   r.old_value,
-        newData:   r.new_value,
-        createdAt: r.created_at,
+        id:         r.id,
+        action:     r.action,
+        tableName:  r.table_name,
+        entityName: r.entity_name ?? null,
+        userId:     r.user_id,
+        userRole:   r.role,
+        oldData:    r.old_value,
+        newData:    r.new_value,
+        createdAt:  r.created_at,
       } satisfies AuditEntry))
     },
     staleTime: 60_000,

@@ -318,7 +318,7 @@ export function useDeleteUser() {
 // anon key. Use the known bucket names from the schema instead, then query
 // each for file count/size (which the anon key CAN do via RLS).
 const KNOWN_BUCKETS: Array<{ name: string; public: boolean }> = [
-  { name: 'staff-photos',      public: true  },
+  { name: 'staff-photos',      public: false },
   { name: 'student-photos',    public: false },
   { name: 'documents',         public: false },
   { name: 'report-cards',      public: true  },

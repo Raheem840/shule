@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/Button'
 import { Select } from '../../components/ui/Select'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { useToast } from '../../components/ui/Toast'
 import type { ReadinessStatus, StudentReadiness } from '../../hooks/useReportCards'
 import type { ReportCard } from '../../types/app'
 
@@ -77,6 +78,7 @@ export function ReportCardsPage() {
   const { data: streams  = [] } = useStreams(classId || null)
   const generate                = useGenerateReportCards()
   const notify                  = useNotifyPrincipal()
+  const { success: ok }         = useToast()
 
   const cohortReady = !!term && !!classId
 
@@ -164,7 +166,7 @@ export function ReportCardsPage() {
     const count = reportCards.filter(c => c.status === 'ready').length
     if (count === 0) return
     await notify.mutateAsync({ term: Number(term), year: Number(year), count })
-    alert(`Principal notified — ${count} report card(s) awaiting approval.`)
+    ok(`Principal notified — ${count} report card${count !== 1 ? 's' : ''} sent for approval.`)
   }
 
   const yearOptions = [0, 1, 2].map(offset => {

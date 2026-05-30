@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useStaff } from '../../hooks/useStaff'
-import { InitialsAvatar } from '../../components/shared/InitialsAvatar'
+import { Avatar } from '../../components/shared/Avatar'
 import { ROLE_LABEL } from '../../config/roleNav'
 import type { UserRole } from '../../store/AuthContext'
 
@@ -127,7 +127,7 @@ export function PrincipalStaffPage() {
                     className="sui-tr"
                   >
                     <div style={{ flex: 2, display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <InitialsAvatar name={`${s.firstName} ${s.lastName}`} photoUrl={s.photoUrl} size="sm" />
+                      <Avatar name={`${s.firstName} ${s.lastName}`} photoPath={s.photoUrl} bucket="staff-photos" size="sm" />
                       <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--txt)' }}>
                         {s.firstName} {s.lastName}
                       </span>

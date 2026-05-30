@@ -185,23 +185,31 @@ function RecentActivity() {
             No audit entries yet.
           </div>
         ) : (
-          auditEntries.map((e: AuditEntry) => (
-            <div key={e.id} style={{
-              padding: '10px 16px', borderBottom: '1px solid var(--border)',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            }}>
-              <div>
-                <span style={{ fontWeight: 700, fontSize: 12, color: 'var(--txt)' }}>{e.action}</span>
-                <span style={{ fontSize: 11, color: 'var(--txt3)', marginLeft: 6 }}>on {e.tableName}</span>
-                <div style={{ fontSize: 10, color: 'var(--txt3)' }}>by {e.userRole}</div>
+          auditEntries.map((e: AuditEntry) => {
+            const actionLabel = ({ INSERT: 'Added', UPDATE: 'Changed', DELETE: 'Removed' } as Record<string,string>)[e.action] ?? e.action
+            const tableLabel  = e.tableName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+            const roleLabel   = ({ principal:'Principal', deputy:'Deputy Principal', dos:'Director of Studies', secretary:'Secretary', bursar:'Bursar', class_teacher:'Class Teacher', teacher:'Teacher', it_admin:'IT Admin' } as Record<string,string>)[e.userRole] ?? e.userRole
+            const actionColor = ({ INSERT: 'var(--success)', UPDATE: 'var(--info)', DELETE: 'var(--danger)' } as Record<string,string>)[e.action] ?? 'var(--txt3)'
+            return (
+              <div key={e.id} style={{
+                padding: '10px 16px', borderBottom: '1px solid var(--border)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <div>
+                  <span style={{ fontWeight: 800, fontSize: 12, color: actionColor }}>{actionLabel}</span>
+                  <span style={{ fontSize: 12, color: 'var(--txt)', marginLeft: 5 }}>
+                    {tableLabel}{e.entityName ? ` — ${e.entityName}` : ''}
+                  </span>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 1 }}>by {roleLabel}</div>
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--txt3)', whiteSpace: 'nowrap' }}>
+                  {new Date(e.createdAt).toLocaleString('en-GB', {
+                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                  })}
+                </div>
               </div>
-              <div style={{ fontSize: 10, color: 'var(--txt3)', whiteSpace: 'nowrap' }}>
-                {new Date(e.createdAt).toLocaleString('en-GB', {
-                  day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-                })}
-              </div>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
 

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStaffById } from '../../hooks/useStaff'
 import { useSuspendStaff } from '../../hooks/usePrincipal'
-import { InitialsAvatar } from '../../components/shared/InitialsAvatar'
+import { Avatar } from '../../components/shared/Avatar'
 import { ROLE_LABEL } from '../../config/roleNav'
 import type { UserRole } from '../../store/AuthContext'
 
@@ -50,7 +50,7 @@ export function PrincipalStaffProfilePage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <InitialsAvatar name={fullName} photoUrl={staff.photoUrl} size="xl" />
+          <Avatar name={fullName} photoPath={staff.photoUrl} bucket="staff-photos" size="xl" />
           <div>
             <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)', margin: 0 }}>
               {fullName}
