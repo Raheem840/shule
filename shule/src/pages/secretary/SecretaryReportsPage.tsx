@@ -259,7 +259,7 @@ function Report1Content() {
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
           <h2 style={{ margin: 0, fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Student Register</h2>
-          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Active students only — {data.total} total</div>
+          <div style={{ fontSize: 12, color: 'var(--txt2)', marginTop: 2 }}>Active students only — {data.total} total</div>
         </div>
         <div style={{ fontSize: 11, color: '#94a3b8' }}>{new Date().toLocaleDateString('en-GB')}</div>
       </div>
@@ -283,7 +283,7 @@ function Report1Content() {
             <tbody>
               {students.map((s, i) => (
                 <tr key={s.id} style={{ background: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
-                  <td style={{ padding: '7px 10px', fontSize: 12, fontFamily: 'monospace', color: '#64748b' }}>{s.admNo}</td>
+                  <td style={{ padding: '7px 10px', fontSize: 12, fontFamily: 'monospace', color: 'var(--txt2)' }}>{s.admNo}</td>
                   <td style={{ padding: '7px 10px', fontSize: 13, fontWeight: 600 }}>{s.name}</td>
                   <td style={{ padding: '7px 10px', fontSize: 12 }}>{s.streamName}</td>
                   <td style={{ padding: '7px 10px', fontSize: 11 }}>
@@ -348,7 +348,7 @@ function Report2Content() {
       <ReportActions elementId="rpt-2" filename="EnrolmentStatistics.pdf" />
       <h2 style={{ margin: '0 0 16px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Enrolment Statistics</h2>
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, marginBottom: 8 }}>Students per Class</div>
+        <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 700, marginBottom: 8 }}>Students per Class</div>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={data.byClassArr} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
@@ -359,7 +359,7 @@ function Report2Content() {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, marginBottom: 8 }}>Gender Breakdown per Class</div>
+      <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 700, marginBottom: 8 }}>Gender Breakdown per Class</div>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={data.byClassArr} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
@@ -420,7 +420,7 @@ function Report3Content() {
         <tbody>
           {data.map((s, i) => (
             <tr key={s.id} style={{ background: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
-              <td style={{ padding: '7px 10px', fontSize: 12, fontFamily: 'monospace', color: '#64748b' }}>{s.staffNo}</td>
+              <td style={{ padding: '7px 10px', fontSize: 12, fontFamily: 'monospace', color: 'var(--txt2)' }}>{s.staffNo}</td>
               <td style={{ padding: '7px 10px', fontSize: 13, fontWeight: 600 }}>{s.name}</td>
               <td style={{ padding: '7px 10px', fontSize: 12, textTransform: 'capitalize' }}>{s.role}</td>
               <td style={{ padding: '7px 10px', fontSize: 12, textTransform: 'capitalize' }}>{s.empType}</td>
@@ -496,7 +496,7 @@ function Report4Content() {
     <div id="rpt-4">
       <ReportActions elementId="rpt-4" filename="AttendanceSummary.pdf" />
       <h2 style={{ margin: '0 0 16px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Attendance Summary</h2>
-      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>Last 30 days by class and week</div>
+      <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 12 }}>Last 30 days by class and week</div>
       <AttendanceHeatmap data={res.data} termWeeks={res.termWeeks} />
     </div>
   )
@@ -610,7 +610,7 @@ function useReport6Data() {
     queryFn: async () => {
       const sid = user!.schoolId
       const [feeRes, studRes, classRes] = await Promise.all([
-        supabase.from('fee_payments').select('student_id, amount_paid, amount_due').eq('school_id', sid).eq('year', year),
+        supabase.from('fee_payments').select('student_id, amount_paid, amount_due').eq('school_id', sid),
         supabase.from('students').select('id, class_id').eq('school_id', sid).eq('status', 'active'),
         supabase.from('classes').select('id, name').eq('school_id', sid),
       ])
@@ -881,7 +881,7 @@ function Report8Content() {
     <div id="rpt-8">
       <ReportActions elementId="rpt-8" filename="NewStudentsThisTerm.pdf" />
       <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>New Students This Term</h2>
-      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>{data.length} new enrolments</div>
+      <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 16 }}>{data.length} new enrolments</div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ background: '#f8fafc' }}>
@@ -897,7 +897,7 @@ function Report8Content() {
               <td style={{ padding: '7px 10px', fontSize: 12 }}>{s.className}</td>
               <td style={{ padding: '7px 10px', fontSize: 12 }}>{s.guardianName}</td>
               <td style={{ padding: '7px 10px', fontSize: 12, fontFamily: 'monospace' }}>{s.guardianPhone}</td>
-              <td style={{ padding: '7px 10px', fontSize: 12, color: '#64748b' }}>{s.enrolledDate}</td>
+              <td style={{ padding: '7px 10px', fontSize: 12, color: 'var(--txt2)' }}>{s.enrolledDate}</td>
             </tr>
           ))}
         </tbody>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useClasses, useStreams } from '../../hooks/useClasses'
@@ -116,8 +116,8 @@ export function DosClassesPage() {
               {classes.length === 0 ? (
                 <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No classes found.</td></tr>
               ) : classes.map(c => (
-                <>
-                  <tr key={c.id} style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)', cursor: 'pointer' }}
+                <Fragment key={c.id}>
+                  <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)', cursor: 'pointer' }}
                     onClick={() => toggle(c.id)}>
                     <td style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 10, color: 'var(--txt3)' }}>{expanded.has(c.id) ? '▼' : '▶'}</span>
@@ -126,8 +126,8 @@ export function DosClassesPage() {
                     <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--txt3)' }}>—</td>
                     <td style={{ padding: '10px 14px' }}></td>
                   </tr>
-                  {expanded.has(c.id) && <StreamRows classId={c.id} key={`streams-${c.id}`} />}
-                </>
+                  {expanded.has(c.id) && <StreamRows classId={c.id} />}
+                </Fragment>
               ))}
             </tbody>
           </table>

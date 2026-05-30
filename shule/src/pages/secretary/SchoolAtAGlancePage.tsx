@@ -246,7 +246,7 @@ export function SchoolAtAGlancePage() {
           }}>
             School at a Glance
           </div>
-          <div style={{ fontSize: 12, color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          <div style={{ fontSize: 12, color: 'var(--txt2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
             <span>Prepared by: <strong>{preparedBy}</strong></span>
             <span>·</span>
             <span>{dateStr}</span>
@@ -323,7 +323,7 @@ export function SchoolAtAGlancePage() {
                 </div>
                 {briefing.academicOverview.topSubjects.length > 0 && (
                   <div style={{ flex: 1, minWidth: 260 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                       Top Subjects
                     </div>
                     <ResponsiveContainer width="100%" height={130}>
