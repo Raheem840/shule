@@ -235,6 +235,8 @@ export function useMarkRead() {
 }
 
 // ── useAnnouncements ───────────────────────────────────────────────────────
+// Announcements are stored in the messages table with is_announcement = true.
+// There is no separate 'announcements' table.
 export function useAnnouncements() {
   const { user } = useAuth()
 
@@ -242,24 +244,36 @@ export function useAnnouncements() {
     queryKey: ['announcements', user?.schoolId],
     enabled: !!user,
     queryFn: async (): Promise<Announcement[]> => {
-      const { data, error } = await supabase
-        .from('announcements')
-        .select('id, school_id, from_user_id, from_name, body, attachment_url, posted_at')
-        .eq('school_id', user!.schoolId)
-        .order('posted_at', { ascending: false })
-        .limit(50)
+      const [msgRes, staffRes] = await Promise.all([
+        supabase
+          .from('messages')
+          .select('id, school_id, from_user_id, body, attachment_url, sent_at')
+          .eq('school_id', user!.schoolId)
+          .eq('is_announcement', true)
+          .order('sent_at', { ascending: false })
+          .limit(50),
+        supabase
+          .from('staff')
+          .select('auth_user_id, first_name, last_name')
+          .eq('school_id', user!.schoolId)
+          .not('auth_user_id', 'is', null),
+      ])
 
-      if (error?.code === '42P01') return []
-      if (error) throw new Error(error.message)
+      if (msgRes.error) throw new Error(msgRes.error.message)
 
-      return (data ?? []).map((r: any) => ({
+      const nameMap = new Map<string, string>()
+      for (const s of staffRes.data ?? []) {
+        if (s.auth_user_id) nameMap.set(s.auth_user_id, `${s.first_name} ${s.last_name}`)
+      }
+
+      return (msgRes.data ?? []).map((r: any) => ({
         id:            r.id,
         schoolId:      r.school_id,
         fromUserId:    r.from_user_id,
-        fromName:      r.from_name,
+        fromName:      nameMap.get(r.from_user_id) ?? 'Staff',
         body:          r.body,
         attachmentUrl: r.attachment_url,
-        postedAt:      r.posted_at,
+        postedAt:      r.sent_at,
       } satisfies Announcement))
     },
     staleTime: 30_000,
@@ -285,17 +299,17 @@ export function usePostAnnouncement() {
       }
 
       const { error } = await supabase
-        .from('announcements')
+        .from('messages')
         .insert({
-          school_id:      user.schoolId,
-          from_user_id:   user.id,
-          from_name:      user.name,
-          body:           input.body,
-          attachment_url: input.attachmentUrl ?? null,
-          posted_at:      new Date().toISOString(),
+          school_id:       user.schoolId,
+          from_user_id:    user.id,
+          to_user_id:      null,
+          is_announcement: true,
+          body:            input.body,
+          attachment_url:  input.attachmentUrl ?? null,
+          sent_at:         new Date().toISOString(),
         })
 
-      if (error?.code === '42P01') throw new Error('Announcements not yet enabled on this server')
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {

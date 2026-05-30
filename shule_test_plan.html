@@ -1,0 +1,2513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shule — Manual Test Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #0f0f0f;
+  --ink2: #3a3a3a;
+  --ink3: #777;
+  --bg: #f5f2ed;
+  --bg2: #ece8e0;
+  --bg3: #e0dbd0;
+  --white: #ffffff;
+  --green: #1a6b3c;
+  --green-l: #e8f3ec;
+  --green-m: #2d8b52;
+  --red: #c53030;
+  --red-l: #fef2f2;
+  --amber: #b45309;
+  --amber-l: #fffbeb;
+  --blue: #1e40af;
+  --blue-l: #eff6ff;
+  --purple: #5b21b6;
+  --purple-l: #f5f3ff;
+  --border: #d6d0c4;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Syne', sans-serif;
+  --radius: 8px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--ink);
+  color: var(--bg);
+  padding: 3rem 2rem 2.5rem;
+  position: relative;
+  overflow: hidden;
+}
+.header::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.header::after {
+  content: '';
+  position: absolute;
+  bottom: -40px; left: 30%;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.04);
+}
+.header-inner { max-width: 1100px; margin: 0 auto; position: relative; z-index: 1; }
+.header-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--green-m);
+  margin-bottom: 0.75rem;
+}
+.header h1 {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1.1;
+  margin-bottom: 0.75rem;
+}
+.header h1 span { color: #5fbf7f; }
+.header-desc { color: #888; font-size: 0.9rem; max-width: 580px; }
+.header-stats {
+  display: flex; gap: 2rem; flex-wrap: wrap;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.stat { }
+.stat-n { font-size: 1.6rem; font-weight: 700; color: var(--white); }
+.stat-l { font-size: 11px; color: #666; font-family: var(--mono); letter-spacing: 1px; }
+
+/* ── LAYOUT ── */
+.layout { display: flex; max-width: 1100px; margin: 0 auto; gap: 0; }
+
+.sidebar {
+  width: 240px;
+  min-width: 240px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 1.5rem 1rem;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+}
+.sidebar::-webkit-scrollbar { width: 2px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+
+.sb-section { margin-bottom: 1.5rem; }
+.sb-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink3);
+  padding: 0 0.5rem 0.4rem;
+  display: block;
+}
+.sb-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink2);
+  text-decoration: none;
+  padding: 0.35rem 0.5rem;
+  border-radius: 5px;
+  transition: all 0.12s;
+  border-left: 2px solid transparent;
+}
+.sb-link:hover { background: var(--bg2); color: var(--ink); border-left-color: var(--green); }
+.sb-link.active { background: var(--green-l); color: var(--green); border-left-color: var(--green); font-weight: 500; }
+.sb-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* pass counts in sidebar */
+.sb-badge {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--bg3);
+  color: var(--ink3);
+}
+
+.content { flex: 1; min-width: 0; padding: 2.5rem 2rem 5rem; }
+
+/* ── PROGRESS BAR ── */
+.progress-bar-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.progress-label { font-family: var(--mono); font-size: 11px; color: var(--ink2); white-space: nowrap; }
+.progress-track { flex: 1; height: 6px; background: var(--bg3); border-radius: 99px; min-width: 100px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--green); border-radius: 99px; transition: width 0.4s; }
+.progress-counts { display: flex; gap: 1rem; flex-shrink: 0; }
+.pc { font-size: 11px; font-family: var(--mono); display: flex; align-items: center; gap: 4px; }
+.pc-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── SECTION ── */
+section { margin-bottom: 3rem; scroll-margin-top: 2rem; }
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.section-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink3);
+  background: var(--bg2);
+  padding: 2px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.section-title { font-size: 1.1rem; font-weight: 600; }
+.section-role {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  font-family: var(--mono);
+}
+
+/* role colors */
+.role-principal { background: #f5f3ff; color: #5b21b6; }
+.role-deputy    { background: #eff6ff; color: #1e40af; }
+.role-dos       { background: #ecfdf5; color: #065f46; }
+.role-secretary { background: #fff7ed; color: #9a3412; }
+.role-bursar    { background: #fffbeb; color: #b45309; }
+.role-teacher   { background: #f0f7ff; color: #1e3a5f; }
+.role-student   { background: #f0fdf4; color: #166534; }
+.role-parent    { background: #fdf2f8; color: #831843; }
+.role-it        { background: #f9fafb; color: #374151; }
+.role-system    { background: #fef2f2; color: #c53030; }
+.role-design    { background: #fff0f9; color: #9d174d; }
+.role-all       { background: var(--bg2); color: var(--ink2); }
+
+/* ── TEST CARD ── */
+.test-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.test-card:has(.status-btn.pass.active) { border-left: 3px solid var(--green); }
+.test-card:has(.status-btn.fail.active) { border-left: 3px solid var(--red); }
+.test-card:has(.status-btn.skip.active) { border-left: 3px solid var(--amber); }
+
+.test-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  user-select: none;
+}
+.test-id {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink3);
+  background: var(--bg2);
+  padding: 2px 7px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.test-title { flex: 1; font-size: 0.88rem; font-weight: 500; color: var(--ink); }
+.test-type {
+  font-size: 9px;
+  font-family: var(--mono);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.type-func { background: var(--blue-l); color: var(--blue); }
+.type-sec  { background: var(--red-l); color: var(--red); }
+.type-ux   { background: var(--purple-l); color: var(--purple); }
+.type-data { background: #f0fdf4; color: #166534; }
+.type-design { background: #fff0f9; color: #9d174d; }
+
+.test-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.status-btn {
+  font-size: 11px;
+  font-family: var(--mono);
+  padding: 3px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  color: var(--ink3);
+  transition: all 0.12s;
+}
+.status-btn:hover { border-color: var(--ink3); color: var(--ink); }
+.status-btn.pass.active { background: var(--green); border-color: var(--green); color: white; }
+.status-btn.fail.active { background: var(--red); border-color: var(--red); color: white; }
+.status-btn.skip.active { background: var(--amber); border-color: var(--amber); color: white; }
+
+.test-body { display: none; padding: 0 1rem 1rem; border-top: 1px solid var(--bg2); }
+.test-body.open { display: block; }
+
+.test-steps { margin: 0.75rem 0; }
+.step-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  font-size: 0.83rem;
+  color: var(--ink2);
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--bg2);
+}
+.step-row:last-child { border-bottom: none; }
+.step-n {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink3);
+  background: var(--bg2);
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.step-text { flex: 1; }
+.step-expect { color: var(--green); font-size: 0.8rem; }
+
+.test-expect {
+  background: var(--green-l);
+  border: 1px solid #c6e8d1;
+  border-radius: 5px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.82rem;
+  color: #1a4a2e;
+  margin: 0.75rem 0 0;
+}
+.test-expect-label { font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; font-family: var(--mono); }
+
+.prompt-box {
+  background: #1e1e2e;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-top: 0.75rem;
+  position: relative;
+}
+.prompt-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #6272a4;
+  margin-bottom: 0.4rem;
+}
+.prompt-text {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: #cdd6f4;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.copy-btn {
+  position: absolute;
+  top: 0.5rem; right: 0.5rem;
+  font-size: 10px;
+  font-family: var(--mono);
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #888;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.copy-btn:hover { background: rgba(255,255,255,0.12); color: #ccc; }
+.copy-btn.copied { background: rgba(45,139,82,0.3); color: #5fbf7f; border-color: rgba(45,139,82,0.4); }
+
+.warn-box {
+  background: var(--amber-l);
+  border: 1px solid #fcd34d;
+  border-radius: 5px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.82rem;
+  color: #78350f;
+  margin: 0.5rem 0 0;
+}
+.warn-box-label { font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; font-family: var(--mono); color: #92400e; }
+
+/* ── CONTROLS BAR ── */
+.controls {
+  display: flex; gap: 0.75rem; flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+  align-items: center;
+}
+.filter-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--white);
+  color: var(--ink2);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.filter-btn:hover { border-color: var(--ink2); color: var(--ink); }
+.filter-btn.active { background: var(--ink); color: var(--white); border-color: var(--ink); }
+.search-input {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--white);
+  color: var(--ink);
+  width: 200px;
+  outline: none;
+}
+.search-input:focus { border-color: var(--green); }
+
+/* ── CHEVRON ── */
+.chevron {
+  width: 16px; height: 16px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--ink3);
+  transition: transform 0.2s;
+}
+.test-head.open .chevron { transform: rotate(90deg); }
+
+/* ── EXPORT AREA ── */
+.export-bar {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  gap: 0.5rem;
+  z-index: 100;
+}
+.export-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.export-btn.primary { background: var(--ink); color: var(--white); }
+.export-btn.primary:hover { background: #333; }
+.export-btn.secondary { background: var(--white); color: var(--ink); border: 1px solid var(--border); }
+
+/* ── MISC ── */
+.divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+code {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--bg2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--green);
+}
+.hidden { display: none !important; }
+
+@media (max-width: 780px) {
+  .sidebar { display: none; }
+  .content { padding: 1.5rem 1rem 4rem; }
+}
+@media print {
+  .sidebar, .export-bar, .status-btn, .controls { display: none; }
+  .test-body { display: block !important; }
+  .content { padding: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-inner">
+    <div class="header-tag">Shule · QA · Manual Test Plan v1.0</div>
+    <h1>Full-Scale<br><span>Manual Test Plan</span></h1>
+    <p class="header-desc">Every use case, every role, every edge case — with ready-to-paste Claude Code fix prompts. Test in order. Mark as you go.</p>
+    <div class="header-stats">
+      <div class="stat"><div class="stat-n" id="total-count">0</div><div class="stat-l">TOTAL TESTS</div></div>
+      <div class="stat"><div class="stat-n" id="pass-count" style="color:#5fbf7f">0</div><div class="stat-l">PASSED</div></div>
+      <div class="stat"><div class="stat-n" id="fail-count" style="color:#f87171">0</div><div class="stat-l">FAILED</div></div>
+      <div class="stat"><div class="stat-n" id="skip-count" style="color:#fbbf24">0</div><div class="stat-l">SKIPPED</div></div>
+      <div class="stat"><div class="stat-n" id="todo-count">0</div><div class="stat-l">TODO</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sb-section">
+    <span class="sb-label">Navigation</span>
+    <a href="#auth" class="sb-link"><span class="sb-dot" style="background:#5b21b6"></span>Authentication</a>
+    <a href="#principal" class="sb-link"><span class="sb-dot" style="background:#7c3aed"></span>Principal</a>
+    <a href="#deputy" class="sb-link"><span class="sb-dot" style="background:#1e40af"></span>Deputy Principal</a>
+    <a href="#dos" class="sb-link"><span class="sb-dot" style="background:#065f46"></span>Director of Studies</a>
+    <a href="#secretary" class="sb-link"><span class="sb-dot" style="background:#9a3412"></span>Secretary</a>
+    <a href="#bursar" class="sb-link"><span class="sb-dot" style="background:#b45309"></span>Bursar</a>
+    <a href="#teacher" class="sb-link"><span class="sb-dot" style="background:#1e3a5f"></span>Teacher</a>
+    <a href="#student" class="sb-link"><span class="sb-dot" style="background:#166534"></span>Student Portal</a>
+    <a href="#parent" class="sb-link"><span class="sb-dot" style="background:#831843"></span>Parent Portal</a>
+    <a href="#it" class="sb-link"><span class="sb-dot" style="background:#374151"></span>IT Admin</a>
+    <a href="#security" class="sb-link"><span class="sb-dot" style="background:#c53030"></span>Security / RLS</a>
+    <a href="#pwa" class="sb-link"><span class="sb-dot" style="background:#0369a1"></span>PWA & Offline</a>
+    <a href="#design" class="sb-link"><span class="sb-dot" style="background:#9d174d"></span>Design / Dark Mode</a>
+    <a href="#perf" class="sb-link"><span class="sb-dot" style="background:#374151"></span>Performance</a>
+  </div>
+  <div class="sb-section">
+    <span class="sb-label">Filter</span>
+    <a href="#" class="sb-link" onclick="filterType('all'); return false;">All types</a>
+    <a href="#" class="sb-link" onclick="filterType('func'); return false;">Functional</a>
+    <a href="#" class="sb-link" onclick="filterType('sec'); return false;">Security</a>
+    <a href="#" class="sb-link" onclick="filterType('ux'); return false;">UX</a>
+    <a href="#" class="sb-link" onclick="filterType('design'); return false;">Design</a>
+    <a href="#" class="sb-link" onclick="filterType('data'); return false;">Data</a>
+  </div>
+</nav>
+
+<main class="content">
+
+<!-- PROGRESS -->
+<div class="progress-bar-wrap">
+  <span class="progress-label">PROGRESS</span>
+  <div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="progress-counts">
+    <span class="pc"><span class="pc-dot" style="background:var(--green)"></span><span id="pct">0%</span></span>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <input class="search-input" type="text" placeholder="Search tests..." oninput="searchTests(this.value)">
+  <button class="filter-btn active" onclick="filterStatus('all', this)">All</button>
+  <button class="filter-btn" onclick="filterStatus('todo', this)">Todo</button>
+  <button class="filter-btn" onclick="filterStatus('fail', this)">Failed</button>
+  <button class="filter-btn" onclick="filterStatus('pass', this)">Passed</button>
+  <button class="filter-btn" style="margin-left:auto" onclick="expandAll()">Expand all</button>
+  <button class="filter-btn" onclick="collapseAll()">Collapse all</button>
+  <button class="filter-btn" onclick="resetAll()" style="color:var(--red);">Reset results</button>
+</div>
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 1: AUTHENTICATION -->
+<!-- ════════════════════════════════════ -->
+<section id="auth">
+  <div class="section-header">
+    <span class="section-num">01</span>
+    <span class="section-title">Authentication & JWT Role System</span>
+    <span class="section-role role-system">ALL ROLES</span>
+  </div>
+
+  <!-- T01 -->
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T01</span>
+      <span class="test-title">All 9 roles log in and land on correct dashboard</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Open <code>http://localhost:5173/login</code> in a fresh incognito window</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Log in as <code>principal@shule.ug</code> / <code>Shule2025!</code> (note: no @ and ends with !)</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Verify redirect goes to <code>/principal/dashboard</code>, sidebar shows Principal nav items</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Repeat for all other 8 roles using password <code>Shule@2025</code>. Each must land on their specific dashboard route.</span></div>
+        <div class="step-row"><span class="step-n">5</span><span class="step-text">Open DevTools → Application → Cookies. Confirm supabase session exists with <code>user_role</code> in claims.</span></div>
+      </div>
+      <div class="test-expect">
+        <div class="test-expect-label">Expected</div>
+        9/9 roles redirect to correct dashboard. JWT claims include <code>user_role</code> and <code>school_id</code>. No "undefined" in the URL or sidebar.
+      </div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">In Shule, login for [ROLE] lands on the wrong route / JWT claims missing user_role.
+
+Check:
+1. src/store/AuthContext.tsx — verify the atob decode reads user_role from JWT payload, not app_metadata
+2. The custom_access_token_hook SQL function — confirm it is registered in Supabase Dashboard → Auth → Hooks
+3. The ProtectedRoute component — verify the role map object has all 9 role strings matching exactly what the DB inserts
+
+Run this SQL in Supabase to test the hook directly:
+SELECT public.custom_access_token_hook('{"user_id":"[PASTE_AUTH_UUID]"}'::jsonb);
+
+The actual failing role is: [ROLE]. The actual redirect URL was: [URL].</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- T02 -->
+  <div class="test-card" data-type="sec" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T02</span>
+      <span class="test-title">Unauthenticated users cannot access any protected route</span>
+      <span class="test-type type-sec">Security</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log out fully (clear all cookies/localStorage)</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Navigate directly to <code>/principal/dashboard</code>, <code>/bursar/fees</code>, <code>/secretary/students</code></span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Each route must redirect to <code>/login</code></span></div>
+      </div>
+      <div class="test-expect">
+        <div class="test-expect-label">Expected</div>
+        Every protected route redirects to <code>/login</code>. No flash of content before redirect.
+      </div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">In Shule ProtectedRoute (src/components/layout/ProtectedRoute.tsx), unauthenticated users can briefly see the page content before redirect (flash of content).
+
+Fix: while AuthContext is in loading state (loading === true), show a full-page LoadingSpinner. Only after loading is false should the route guard check run. This prevents any flash. Also confirm all routes in App.tsx are wrapped in ProtectedRoute — check if any route was accidentally left unwrapped.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- T03 -->
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T03</span>
+      <span class="test-title">Session persists after page refresh</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as any role</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Hard refresh the page (Ctrl+Shift+R)</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">User should remain logged in on the same route</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Session survives page refresh. No redirect to login.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">After a page refresh, Shule logs the user out unexpectedly.
+
+Check AuthContext.tsx: the useEffect must call supabase.auth.getSession() first (not just rely on onAuthStateChange). getSession() reads the persisted session from localStorage synchronously before any async state settles. The loading state must remain true until getSession() resolves. If using Dexie for offline login caching, also verify the Dexie session cache is being seeded correctly from the initial getSession call.</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<hr class="divider">
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 2: PRINCIPAL -->
+<!-- ════════════════════════════════════ -->
+<section id="principal">
+  <div class="section-header">
+    <span class="section-num">02</span>
+    <span class="section-title">Principal Dashboard & Permissions</span>
+    <span class="section-role role-principal">Principal</span>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T04</span>
+      <span class="test-title">Principal dashboard KPI cards load with real data</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as Principal. Open DevTools → Network tab.</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Observe KPI cards: student count, staff count, attendance rate, fee collection summary.</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Confirm no card shows "—", "NaN", "undefined", or "0" when data exists in the DB.</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Check Network tab — all Supabase queries return 200, no 403 errors.</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>All KPI cards show real numbers. No blank cards. No console errors. Network shows 200 on all REST calls.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Principal dashboard KPI cards show [describe what's wrong — NaN / 0 / 403 error / blank].
+
+The cards pulling data: students count, staff count, attendance rate, fee totals.
+
+Issues to check:
+1. If 403: RLS policy for [affected table] is missing SELECT for principal role. Run: SELECT * FROM pg_policies WHERE tablename = '[table]';
+2. If NaN/undefined: the Supabase .select() query is returning null for a field that the component tries to do arithmetic on. Add null coalescing: (data?.amount_paid ?? 0)
+3. If 0 when data exists: check school_id filter — query may be using wrong school_id. Confirm public.user_school_id() returns correct UUID.
+
+Console error shown: [PASTE ERROR]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T05</span>
+      <span class="test-title">Principal can approve a report card (READY → APPROVED)</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Ensure at least one report card has status = <code>ready</code> in the DB</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Log in as Principal → navigate to Report Cards page</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Click "Approve" on a READY card. Confirm status changes to APPROVED in the UI immediately.</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Click "Release" — confirm status changes to RELEASED</span></div>
+        <div class="step-row"><span class="step-n">5</span><span class="step-text">Click "Unlock" — confirm a reason input appears and unlock_count increments</span></div>
+        <div class="step-row"><span class="step-n">6</span><span class="step-text">Log in as Teacher and attempt to access <code>/principal/report-cards</code> — must get AccessDenied</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Full DRAFT→READY→APPROVED→RELEASED workflow completes. Unlock requires typed reason. Teachers cannot access this page.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">The report card approval workflow in Shule is broken: [describe what fails — approve button does nothing / status doesn't update in UI / unlock_count not incrementing].
+
+Check:
+1. The Supabase mutation uses .update({ status: 'approved', approved_at: new Date().toISOString(), approved_by: user.id }) on the report_cards table
+2. The RLS UPDATE policy on report_cards must allow principal role
+3. After mutation, React Query must invalidate the ['report-cards'] query key so the UI re-renders
+4. The report_cards.term column is TEXT not integer — ensure no type mismatch in the WHERE clause
+5. unlock_count uses .update({ unlock_count: supabase.sql\`unlock_count + 1\`, unlock_reason: reason })
+
+The specific step that fails: [step number]. Error in console: [PASTE]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T06</span>
+      <span class="test-title">School name appears in sidebar (not "SCHOOL OS")</span>
+      <span class="test-type type-design">Design</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as any role</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Look at the top of the sidebar — it must show the school name from <code>school_profile.school_name</code></span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Confirm it does NOT show the hardcoded string "SCHOOL OS"</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Sidebar shows "Kampala Junior Academy" (or whatever the demo school name is). Not "SCHOOL OS".</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">The Shule sidebar shows hardcoded "SCHOOL OS" instead of the real school name.
+
+Fix in src/components/layout/Sidebar.tsx (or AppShell.tsx):
+1. Add a useSchoolProfile() hook that queries: supabase.from('school_profile').select('school_name, logo_url, short_name').eq('id', user.schoolId).single()
+2. school_profile has RLS OFF (readable by all authenticated users) so no policy needed
+3. Show school_name in the sidebar header. Show short_name if school_name is > 20 chars.
+4. While loading, show a skeleton placeholder (gray rounded bar) not "SCHOOL OS"
+5. Cache with React Query staleTime: 10 minutes — this data rarely changes</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="sec" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T07</span>
+      <span class="test-title">Principal can read audit log (other roles cannot)</span>
+      <span class="test-type type-sec">Security</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as Principal → navigate to Audit Log page. Confirm entries load.</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Log in as Secretary → open browser console, run: <code>await supabase.from('audit_log').select('*').limit(1)</code></span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Result must return <code>{ data: [] }</code> or a permission error — zero rows for non-principal roles</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Only Principal can read audit_log. All other roles get 0 rows (RLS blocks, not 403).</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">The audit_log table is visible to non-principal roles in Shule.
+
+Add this RLS policy:
+CREATE POLICY "principal_only_audit_log"
+ON audit_log FOR SELECT
+TO authenticated
+USING (
+  school_id = public.user_school_id()
+  AND public.user_role() = 'principal'
+);
+
+Also confirm ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY; has been run.
+Then test in Supabase SQL editor with: SET request.jwt.claims TO '{"user_role":"secretary","school_id":"00000000-0000-0000-0000-000000000001"}'; SELECT * FROM audit_log;</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<hr class="divider">
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 3: DEPUTY PRINCIPAL -->
+<!-- ════════════════════════════════════ -->
+<section id="deputy">
+  <div class="section-header">
+    <span class="section-num">03</span>
+    <span class="section-title">Deputy Principal</span>
+    <span class="section-role role-deputy">Deputy</span>
+  </div>
+
+  <div class="test-card" data-type="sec" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T08</span>
+      <span class="test-title">Deputy cannot access any finance route (hard block)</span>
+      <span class="test-type type-sec">Security</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as Deputy Principal</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Manually navigate to <code>/bursar/fees</code>, <code>/bursar/ledger</code>, <code>/bursar/salary</code></span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Each must render AccessDenied, not a blank page or redirect to login</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">In DevTools console: run <code>await supabase.from('fee_payments').select('id').limit(1)</code> — must return 0 rows</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>UI shows AccessDenied page. DB query returns empty data. No fee amounts visible anywhere.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Deputy Principal in Shule can [see fee data / access /bursar route without block].
+
+Two-layer fix needed:
+1. ROUTE GUARD: In ProtectedRoute, ensure the allowedRoles array for all /bursar/* routes does NOT include 'deputy'. The AccessDenied component should render (not redirect to login) so the user knows they're blocked intentionally.
+2. RLS: The fee_payments SELECT policy must only include: public.user_role() IN ('bursar', 'principal'). Run this to verify: SELECT policyname, cmd, qual FROM pg_policies WHERE tablename = 'fee_payments';</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T09</span>
+      <span class="test-title">Deputy can add, edit, and delete discipline records</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as Deputy → Discipline page</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Type 2+ letters in the student typeahead search. Dropdown must populate with matching students.</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Select a student and fill: incident_date, nature, resolution, notes. Save.</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Record appears in the list below. Edit it — changes persist after save.</span></div>
+        <div class="step-row"><span class="step-n">5</span><span class="step-text">Delete the record — confirm it disappears from the list.</span></div>
+        <div class="step-row"><span class="step-n">6</span><span class="step-text">Confirm no fee data or salary data appears anywhere on this page.</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Full CRUD on discipline_records works. Student typeahead works. No financial data exposed.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Discipline records in Shule Deputy page fail at: [describe — student typeahead empty / save fails / list not refreshing after delete].
+
+Typeahead fix: The student search query must use .ilike('first_name', \`%\${query}%\`) OR .ilike('last_name', \`%\${query}%\`) and only fire when query.length >= 2. Use useDebounce(query, 300ms) to avoid hammering Supabase.
+
+Mutation fix: After insert/update/delete on discipline_records, call queryClient.invalidateQueries(['discipline-records']). The discipline_records table schema: id, school_id, student_id, class_id, recorded_by, incident_date, nature, resolution, notes, created_at, updated_at.
+
+The specific error: [PASTE CONSOLE ERROR]</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<hr class="divider">
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 4: DIRECTOR OF STUDIES -->
+<!-- ════════════════════════════════════ -->
+<section id="dos">
+  <div class="section-header">
+    <span class="section-num">04</span>
+    <span class="section-title">Director of Studies (DoS)</span>
+    <span class="section-role role-dos">DoS</span>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T10</span>
+      <span class="test-title">DoS dashboard analytics charts render with real data (not blank)</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as DoS → Dashboard</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Look for: pass rates chart, class averages heatmap, subject rankings, teacher activity heatmap</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">If exam data exists in DB — charts must show data. If no data exists — an EmptyState component must appear (not a blank chart area)</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Open DevTools console. Confirm no "Cannot read properties of undefined" errors from chart data mapping.</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Charts render correctly. Empty state component shown when no data. Zero console errors from analytics code.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">DoS analytics dashboard in Shule shows blank charts / "Cannot read properties of undefined" errors.
+
+Common cause: Recharts crashes when the data prop is an empty array [] or undefined. Fix pattern for every chart:
+
+const chartData = (data ?? []).map(row => ({
+  name: row.subject_name ?? 'Unknown',
+  avg: row.avg_score ?? 0,
+}));
+
+if (chartData.length === 0) return &lt;EmptyState message="No exam data yet for this term" /&gt;;
+
+return &lt;BarChart data={chartData}&gt;...&lt;/BarChart&gt;;
+
+Also ensure the Supabase query for DoS analytics has the correct RLS — DoS must have SELECT on exam_journal and exam_results. Check the specific query that's failing: [PASTE QUERY]. Error: [PASTE ERROR]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T11</span>
+      <span class="test-title">DoS can mark curriculum topics as covered</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as DoS → Curriculum Plan page</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Select a class and subject from dropdowns — topic list must populate</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Toggle a topic as "covered" — the <code>covered</code> boolean must update in DB, covered_at timestamp set</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Log in as Teacher — verify the same topic shows as covered (from teacher's view)</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Curriculum coverage persists across both DoS and Teacher views. Timestamps populate correctly.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Curriculum plan page in Shule fails when: [describe — dropdowns empty / toggle doesn't save / topics don't load].
+
+curriculum_plan schema: id, school_id, subject_id, class_id, term(text), year(int), topic, expected_date, covered(bool), covered_at, covered_by.
+
+For dropdowns: useClasses() must NOT filter by academic_year_id if that value is undefined. useSubjects() should query subjects filtered by school_id only.
+
+For the toggle: update query must be:
+supabase.from('curriculum_plan')
+  .update({ covered: !current, covered_at: new Date().toISOString(), covered_by: user.id })
+  .eq('id', topic.id)
+
+Then invalidate ['curriculum-plan', classId, subjectId] query key.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="sec" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T12</span>
+      <span class="test-title">DoS cannot access fee data (hard block at DB level)</span>
+      <span class="test-type type-sec">Security</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as DoS</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Open DevTools console. Run: <code>await supabase.from('fee_payments').select('id,amount_paid').limit(1)</code></span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Result must be <code>{ data: [] }</code> — zero rows, no amounts visible</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Navigate to <code>/bursar/fees</code> — must see AccessDenied page</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>RLS returns zero rows. Route guard shows AccessDenied. No fee amounts ever visible to DoS.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">DoS role in Shule can see fee_payments data — RLS is not blocking correctly.
+
+Fix the RLS policy:
+DROP POLICY IF EXISTS "fee_payments_select" ON fee_payments;
+CREATE POLICY "bursar_principal_only_fee_payments"
+ON fee_payments FOR SELECT
+TO authenticated
+USING (
+  school_id = public.user_school_id()
+  AND public.user_role() IN ('bursar', 'principal')
+);
+
+Test with: SET LOCAL request.jwt.claims TO '{"user_role":"dos","school_id":"00000000-0000-0000-0000-000000000001"}'; SELECT count(*) FROM fee_payments; -- must return 0</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<hr class="divider">
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 5: SECRETARY -->
+<!-- ════════════════════════════════════ -->
+<section id="secretary">
+  <div class="section-header">
+    <span class="section-num">05</span>
+    <span class="section-title">Secretary</span>
+    <span class="section-role role-secretary">Secretary</span>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T13</span>
+      <span class="test-title">Student registration wizard completes end-to-end (3 steps)</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as Secretary → Students → Register Student button</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Step 1: Fill first_name, last_name, dob, gender, nationality. Upload a photo (test with a 500KB JPG). Click Next.</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Step 2: Verify admission number was auto-generated (format: school prefix + sequence). Select class and stream from dropdowns (not empty!). Click Next.</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Step 3: Add guardian: full_name (not guardian_name), relationship, phone, DNC toggle. Click Finish.</span></div>
+        <div class="step-row"><span class="step-n">5</span><span class="step-text">Verify new student appears in the student list. Check Supabase DB — row exists in both <code>students</code> and <code>student_guardians</code> tables.</span></div>
+        <div class="step-row"><span class="step-n">6</span><span class="step-text">Check photo: it must be stored in the <code>student-photos</code> bucket (private), max 200KB after compression.</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>All 3 steps complete without errors. Student row created. Guardian row created with full_name (not guardian_name). Photo in private bucket, compressed. Admission number generated.</div>
+      <div class="warn-box">
+        <div class="warn-box-label">Common Traps</div>
+        The guardian column is <code>full_name</code> NOT <code>guardian_name</code>. Using the wrong column will cause a 400 error. Class dropdowns will be empty if useClasses() filters by undefined academic_year_id.
+      </div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Student registration wizard in Shule fails at step [STEP NUMBER]. Error: [PASTE ERROR].
+
+Common issues and fixes:
+
+1. CLASS DROPDOWN EMPTY: useClasses() is filtering by academic_year_id when it's undefined. Fix:
+let query = supabase.from('classes').select('id, name').eq('school_id', schoolId);
+if (academicYearId) query = query.eq('academic_year_id', academicYearId);
+
+2. GUARDIAN INSERT FAILS: You're using 'guardian_name' — the correct column is 'full_name' on student_guardians table.
+
+3. PHOTO NOT COMPRESSED: Use browser-image-compression library before upload:
+import imageCompression from 'browser-image-compression';
+const compressed = await imageCompression(file, { maxSizeMB: 0.2 });
+
+4. ADMISSION NUMBER: Generate with format: school.short_name + '/' + currentYear + '/' + padded sequence from count of existing students.
+
+The exact step failing: [STEP]. Console error: [PASTE]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="data" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T14</span>
+      <span class="test-title">Excel import wizard correctly maps columns and inserts students</span>
+      <span class="test-type type-data">Data</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Create a test Excel file with columns: "Adm No", "Student Name", "Class", "Gender" (intentionally messy headers)</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Upload via the import wizard</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Verify auto-detect maps "Adm No" → admission_number, "Student Name" → full_name</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Preview table: valid rows green, invalid rows red. One test row should have an invalid/missing required field to confirm red state.</span></div>
+        <div class="step-row"><span class="step-n">5</span><span class="step-text">Confirm import. Check students table in Supabase — rows inserted. Red/invalid rows were skipped.</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Auto-column mapping works. Preview shows validation colours. Only valid rows inserted. Invalid rows skipped with count shown.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">The Excel import wizard in Shule fails at: [describe — file doesn't parse / column mapping wrong / preview not colour-coded / insert fails].
+
+Import wizard must use SheetJS: const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }); — first row is headers array, rest are data rows.
+
+COLUMN_ALIASES map must include: 'adm no', 'admission no', 'adm number', 'reg no' → 'admission_number'; 'student name', 'full name', 'name' → 'full_name'.
+
+Preview colour logic:
+- green: all required fields present and valid
+- yellow: optional field missing or auto-fixable
+- red: required field missing or duplicate admission_number detected
+
+Upsert logic: supabase.from('students').upsert(validRows, { onConflict: 'school_id,admission_number' })
+
+Error: [PASTE]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="sec" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T15</span>
+      <span class="test-title">Secretary sees fee STATUS only — no amounts</span>
+      <span class="test-type type-sec">Security</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as Secretary → Fee Status page</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Confirm only status badges appear: "PAID", "PARTIAL", "UNPAID" — no UGX amounts, no numbers</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">In DevTools console: <code>await supabase.from('fee_payments').select('amount_paid, amount_due').limit(1)</code></span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Must return empty data array — RLS blocks amount columns from Secretary</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Secretary UI shows status badges only. Console query returns 0 rows for fee amounts. No financial numbers visible anywhere.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Secretary in Shule can see fee payment amounts — this should be restricted to status only.
+
+Two approaches:
+APPROACH A (separate RLS policy): Create a view or separate query for secretary that only returns a computed status field, not amounts. The RLS on fee_payments already blocks secretary from seeing amount_paid/amount_due directly.
+
+APPROACH B (computed status from student table): Secretary's fee view queries a dedicated secretary_fee_status view:
+CREATE VIEW secretary_fee_status AS
+SELECT s.id, s.first_name, s.last_name, s.admission_number,
+  CASE
+    WHEN COALESCE(SUM(fp.amount_paid), 0) >= SUM(fp.amount_due) THEN 'paid'
+    WHEN COALESCE(SUM(fp.amount_paid), 0) > 0 THEN 'partial'
+    ELSE 'unpaid'
+  END AS fee_status
+FROM students s
+LEFT JOIN fee_payments fp ON fp.student_id = s.id
+GROUP BY s.id, s.first_name, s.last_name, s.admission_number;
+
+No amounts ever returned to Secretary's client.</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<hr class="divider">
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 6: BURSAR -->
+<!-- ════════════════════════════════════ -->
+<section id="bursar">
+  <div class="section-header">
+    <span class="section-num">06</span>
+    <span class="section-title">Bursar / Fee Management</span>
+    <span class="section-role role-bursar">Bursar</span>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T16</span>
+      <span class="test-title">Fee ledger inline editing — balance auto-recalculates</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as Bursar → Fee Ledger. Note a student's amount_due (e.g. 500,000 UGX)</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Click on the amount_paid cell for that student. Input becomes editable.</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Change value to 300,000. Click away (blur). Value saves immediately.</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Balance column must update to 200,000 automatically. Fee status badge must change to PARTIAL.</span></div>
+        <div class="step-row"><span class="step-n">5</span><span class="step-text">Reload page — changes must persist (not just local state).</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Inline edit saves on blur. Balance = amount_due - amount_paid auto-calculated. Status badge updates. Survives page reload.</div>
+      <div class="warn-box">
+        <div class="warn-box-label">Column Trap</div>
+        fee_payments has NO <code>status</code> column and NO <code>amount</code> column. Use <code>amount_due</code>, <code>amount_paid</code>, <code>balance</code>. Status is computed: paid/partial/unpaid.
+      </div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Bursar fee ledger inline editing in Shule is broken: [describe — edit doesn't trigger / balance doesn't update / 400 error on save].
+
+fee_payments has NO 'status' column and NO 'amount' column. Correct columns: amount_due, amount_paid, balance.
+
+Inline edit save query:
+await supabase.from('fee_payments')
+  .update({
+    amount_paid: newValue,
+    balance: row.amount_due - newValue,
+    updated_at: new Date().toISOString()
+  })
+  .eq('id', row.id);
+
+Status badge computed client-side:
+const status = paid >= due ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
+
+After save: invalidate ['fee-payments'] query. Also log to audit_log: { action: 'UPDATE', table_name: 'fee_payments', old_value: oldPaid, new_value: newValue }.
+
+Console error: [PASTE]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T17</span>
+      <span class="test-title">Fee import: upsert logic prompts when duplicate detected</span>
+      <span class="test-type type-data">Data</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Import a fee Excel file. Confirm rows insert successfully.</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Re-import the SAME file (simulating a Bursar importing twice by mistake)</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">System must detect the duplicates (same admission_number + term + year + fee_structure_id) and prompt: "Update existing?" or "Add as new?"</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Confirm "Update existing" — no duplicate rows created in DB</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Duplicate detection works. User is prompted. Choosing "update" overwrites, not duplicates. No phantom extra rows.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Fee import in Shule creates duplicate rows instead of detecting existing records.
+
+Upsert detection: before inserting, query existing rows:
+const existing = await supabase.from('fee_payments')
+  .select('id, student_id, term, year')
+  .in('student_id', importedStudentIds)
+  .eq('term', selectedTerm)
+  .eq('year', selectedYear);
+
+Compare by (student_id + term + year + fee_structure_id). Show duplicate count to user with choice:
+- "Update [N] existing records" → upsert with { onConflict: ... }
+- "Add as new records" → plain insert
+
+Note: fee_payments uses fee_structure_id (NOT fee_type_id). The correct column name is fee_structure_id.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T18</span>
+      <span class="test-title">SMS reminder queue populates (offline mode)</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as Bursar → SMS Reminders</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Filter students by class and "unpaid" status. Select all. Compose message.</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Click "Send Reminders"</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Check <code>sms_reminders</code> and <code>send_queue</code> tables in Supabase — rows must be inserted with status "pending"</span></div>
+        <div class="step-row"><span class="step-n">5</span><span class="step-text">Confirm that students with guardian DNC flag = true are NOT included in the send batch</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Rows inserted into send_queue. DNC-flagged guardians excluded. Delivery log page shows pending status.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Bursar SMS reminder queue in Shule is not inserting rows into send_queue or is including DNC-flagged parents.
+
+send_queue schema: id, school_id, type('sms'|'whatsapp'), payload(jsonb), status('pending'), attempts(int), queued_at, sent_at.
+
+Correct insert flow:
+1. Query student_guardians WHERE student_id IN (selectedStudentIds) AND do_not_contact = false AND comms_preference IN ('sms', 'both')
+2. For each guardian, insert into sms_reminders AND send_queue:
+   { type: 'sms', payload: { phone: guardian.phone, message: composedMessage, student_id }, status: 'pending', queued_at: now() }
+3. DNC check: do_not_contact = true means SKIP that guardian entirely
+
+The school's SMS API credentials are in school_profile.at_api_key, at_username, at_sender_id (Africa's Talking fields).</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<hr class="divider">
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 7: TEACHER -->
+<!-- ════════════════════════════════════ -->
+<section id="teacher">
+  <div class="section-header">
+    <span class="section-num">07</span>
+    <span class="section-title">Teacher / Exam Journal / Marks</span>
+    <span class="section-role role-teacher">Teacher</span>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" onclick="toggleCard(this.parentElement)" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T19</span>
+      <span class="test-title">Exam journal creation — all assessment types and conditional fields</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as Teacher → Exam Journal → Create entry</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Select assessment type "AoI" — verify conditional fields appear: Learning Area, Competency, Integration Theme</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Switch to "CA" — verify CA component and weighting appear. Verify ca_label auto-generates (C1, C2…) based on existing CA count for this subject.</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Switch to "DIT" — verify Module Code field appears</span></div>
+        <div class="step-row"><span class="step-n">5</span><span class="step-text">Fill remaining fields: subject, class, stream, term, date_given (NOT 'date'), total_marks, pass_mark, teacher_notes (NOT 'notes'). Save.</span></div>
+        <div class="step-row"><span class="step-n">6</span><span class="step-text">Journal entry appears in list. Click it — mark entry table loads with all students from that class/stream.</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Conditional fields show/hide correctly per type. CA label auto-increments. Correct DB columns used. Students load in mark table.</div>
+      <div class="warn-box">
+        <div class="warn-box-label">Column Traps</div>
+        Use <code>date_given</code> not <code>date</code>. Use <code>teacher_notes</code> not <code>notes</code>. These are the actual exam_journal column names.
+      </div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Exam journal creation in Shule fails: [describe — conditional fields not showing / 400 error on save / CA label wrong / mark table empty after creation].
+
+exam_journal column traps:
+- Use 'date_given' NOT 'date'
+- Use 'teacher_notes' NOT 'notes'
+- assessment_type values: 'aoi', 'dit', 'beginning_of_term', 'mid_term', 'end_of_term', 'ca', 'practical', 'class_test', 'assignment'
+
+CA label auto-increment: query existing CA entries for this subject+class+term+year, count them, next label = 'C' + (count + 1).
+
+Conditional fields by type:
+- aoi → show: learning_area, competency, integration_theme
+- dit → show: trade_area, dit_module_code
+- ca → show: ca_component, ca_weighting (and auto-set ca_label)
+
+The failing type is: [TYPE]. The 400 error payload: [PASTE]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="data" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T20</span>
+      <span class="test-title">CBC grade calculation correct (A=80–100 not 90–100)</span>
+      <span class="test-type type-data">Data</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Create an exam journal with a CA assessment for a student</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Enter CA scores: 3 competencies each scored 2/3. Total = 6/9. out_of_20 = (6/9)×20 = 13.33</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Enter end-of-term score of 70/80. Total = 13.33 + 70 = 83.33</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Grade must show "B" (70–79) — NOT "A" — since 83.33 falls in B range (80 = A starts). Verify against: A=80–100, B=70–79, C=60–69, D=50–59, E=0–49</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>83.33 → Grade A (80–100). The grade scale in the context brief says A=80–100. The system design PDF says A=90–100. THE CONTEXT BRIEF IS THE GROUND TRUTH — use A=80–100.</div>
+      <div class="warn-box">
+        <div class="warn-box-label">Discrepancy Alert</div>
+        The PDF system design doc says A=90–100. The project context brief says A=80–100. The context brief is ground truth. Confirm with the school before go-live, but build A=80–100 for now.
+      </div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">CBC grade calculation in Shule returns wrong grade. The correct scale (from context brief — NOT the PDF) is:
+A = 80–100, B = 70–79, C = 60–69, D = 50–59, E = 0–49
+
+Fix the grade function in src/lib/utils.ts (or wherever CBC calc lives):
+function getGrade(total: number): string {
+  if (total >= 80) return 'A';
+  if (total >= 70) return 'B';
+  if (total >= 60) return 'C';
+  if (total >= 50) return 'D';
+  return 'E';
+}
+
+Formula: max_points = assessed × 3; out_of_20 = (total_points / max_points) × 20; final = out_of_20 + exam_score_out_of_80
+
+Current wrong output: [DESCRIBE]. Expected: [DESCRIBE].</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="sec" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T21</span>
+      <span class="test-title">Teacher cannot see another teacher's exam journals</span>
+      <span class="test-type type-sec">Security</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Create an exam journal as Teacher A (teacher@shule.ug)</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Log in as a second teacher (create a test account). Navigate to their Exam Journal list.</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Teacher B's list must NOT show Teacher A's journals</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Directly query from Teacher B's console: <code>await supabase.from('exam_journal').select('id, teacher_id').limit(10)</code> — results must only have teacher_id = Teacher B's ID</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>RLS filters exam_journal by teacher_id = auth.uid() for teacher role. Teacher B cannot see Teacher A's work.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Teacher role in Shule can see all teachers' exam journals — RLS not filtering by teacher_id.
+
+Add selective RLS:
+CREATE POLICY "teacher_sees_own_journals"
+ON exam_journal FOR SELECT
+TO authenticated
+USING (
+  school_id = public.user_school_id()
+  AND (
+    teacher_id = auth.uid()
+    OR public.user_role() IN ('principal', 'dos', 'secretary', 'deputy')
+  )
+);
+
+Note: principal, dos, deputy, secretary can see ALL journals. Only teacher role is restricted to own teacher_id.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T22</span>
+      <span class="test-title">Teacher cannot INSERT or UPDATE students table</span>
+      <span class="test-type type-sec">Security</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as Teacher</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">In DevTools console: attempt to insert a student: <code>await supabase.from('students').insert({first_name:'Hack', last_name:'Test', school_id:'00000000-0000-0000-0000-000000000001'})</code></span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Must get a permission error or 0 rows inserted — never a success</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Also confirm "Register Student" button does not exist in teacher sidebar or any teacher page</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>INSERT rejected at RLS level. No register student UI anywhere in teacher views.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Teacher role in Shule can INSERT into the students table — critical RLS violation.
+
+Fix:
+DROP POLICY IF EXISTS "students_insert" ON students;
+CREATE POLICY "secretary_principal_can_insert_students"
+ON students FOR INSERT
+TO authenticated
+WITH CHECK (
+  school_id = public.user_school_id()
+  AND public.user_role() IN ('secretary', 'principal')
+);
+
+For UPDATE:
+CREATE POLICY "secretary_principal_can_update_students"
+ON students FOR UPDATE
+TO authenticated
+USING (school_id = public.user_school_id())
+WITH CHECK (public.user_role() IN ('secretary', 'principal'));
+
+This is a critical security gap — teacher must NEVER be able to modify student records.</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<hr class="divider">
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 8: STUDENT PORTAL -->
+<!-- ════════════════════════════════════ -->
+<section id="student">
+  <div class="section-header">
+    <span class="section-num">08</span>
+    <span class="section-title">Student Portal</span>
+    <span class="section-role role-student">Student</span>
+  </div>
+
+  <div class="test-card" data-type="sec" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T23</span>
+      <span class="test-title">Student can only see their own results — not other students</span>
+      <span class="test-type type-sec">Security</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as Student A. View results — only Student A's results show.</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">In console: <code>await supabase.from('exam_results').select('id, student_id').limit(10)</code></span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">All returned student_ids must match Student A's ID only</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Student A cannot see Student B's fee balance, attendance, or grades</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>student role RLS filters all tables to student_id = linked student. Zero cross-student data leakage.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Student role in Shule can see other students' data.
+
+Student portal RLS pattern — the student's auth_user_id is stored in students.auth_user_id. Use this to build the filter:
+
+CREATE POLICY "student_sees_own_results"
+ON exam_results FOR SELECT
+TO authenticated
+USING (
+  student_id IN (
+    SELECT id FROM students WHERE auth_user_id = auth.uid()
+  )
+);
+
+Same pattern for: attendance (student_id filter), fee_payments (student_id filter), report_cards (student_id filter — only RELEASED status).
+
+For fee_payments, student sees only their OWN balance — no amounts from other students.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T24</span>
+      <span class="test-title">Student can only download RELEASED report cards (not APPROVED)</span>
+      <span class="test-type type-sec">Security</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Set a report card to status = "approved" (not released) in the DB</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Log in as the linked Student — report card must NOT be downloadable or visible</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Log in as Principal, release the report card (status → "released")</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Log in as Student — report card now appears and PDF download button works</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Students can only access report cards with status = "released". APPROVED cards are invisible to students.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Student portal in Shule shows report cards that haven't been released yet.
+
+Fix RLS for report_cards for student role:
+CREATE POLICY "student_sees_released_cards"
+ON report_cards FOR SELECT
+TO authenticated
+USING (
+  student_id IN (SELECT id FROM students WHERE auth_user_id = auth.uid())
+  AND status = 'released'
+);
+
+Also verify the PDF download: report_cards.pdf_url points to the 'report-cards' storage bucket (PUBLIC bucket). The signed URL call is NOT needed for this bucket — a direct URL works. But confirm the file actually exists at that URL before rendering the download button.</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<hr class="divider">
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 9: PARENT PORTAL -->
+<!-- ════════════════════════════════════ -->
+<section id="parent">
+  <div class="section-header">
+    <span class="section-num">09</span>
+    <span class="section-title">Parent Portal</span>
+    <span class="section-role role-parent">Parent</span>
+  </div>
+
+  <div class="test-card" data-type="sec" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T25</span>
+      <span class="test-title">Parent with 2 linked children can switch between them — data isolated</span>
+      <span class="test-type type-sec">Security</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Create a parent account linked to 2 different students (student_ids array has 2 UUIDs)</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Log in as parent. Child selector must show 2 children's names.</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Switch between children — results, fees, attendance all update to reflect selected child only</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">In console: <code>await supabase.from('exam_results').select('student_id').limit(5)</code> — results must only contain IDs belonging to this parent's children, never other students</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Child switcher works. Data updates per selected child. RLS ensures parent can never see data for students not in their student_ids array.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Parent portal in Shule shows wrong child data / child switcher doesn't work / parent can see data for other students.
+
+parent_accounts schema: id, school_id, auth_user_id, student_ids(uuid[]).
+
+RLS for parent on exam_results:
+CREATE POLICY "parent_sees_own_children_results"
+ON exam_results FOR SELECT
+TO authenticated
+USING (
+  student_id IN (
+    SELECT unnest(student_ids) FROM parent_accounts
+    WHERE auth_user_id = auth.uid()
+  )
+);
+
+Child switcher: the selected child ID is stored in local React state (useState). Each data hook (useResults, useFees, useAttendance) receives selectedChildId as a parameter and includes it in the query + React Query key.
+
+Same RLS pattern applies to: fee_payments, attendance, report_cards (status='released' only), student_guardians.</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<hr class="divider">
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 10: IT ADMIN -->
+<!-- ════════════════════════════════════ -->
+<section id="it">
+  <div class="section-header">
+    <span class="section-num">10</span>
+    <span class="section-title">IT Admin</span>
+    <span class="section-role role-it">IT Admin</span>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T26</span>
+      <span class="test-title">IT Admin can reset any user's password</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as IT Admin → User Management</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Select the Teacher user. Click "Reset Password". Enter a new temporary password.</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Log out. Log in as Teacher with the new password — must work</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Confirm IT Admin CANNOT see student records, fee amounts, or exam results anywhere on their pages</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Password reset works. New password accepted on login. IT Admin dashboard shows system metrics only — no student/fee/exam data.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">IT Admin password reset in Shule is broken: [describe — button does nothing / reset doesn't work / error on login with new password].
+
+Password reset requires service_role key (bypasses RLS). This call must happen through a Supabase Edge Function — NEVER call service_role from the frontend.
+
+Edge Function (supabase/functions/reset-password/index.ts):
+import { createClient } from '@supabase/supabase-js'
+const adminClient = createClient(url, serviceRoleKey)
+const { error } = await adminClient.auth.admin.updateUserById(targetAuthId, { password: newPassword })
+
+The Edge Function must verify the calling user's JWT has role = 'it_admin' before performing the reset.
+
+The exact failure: [DESCRIBE]. Console error: [PASTE]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T27</span>
+      <span class="test-title">School Settings: brand colour change updates UI system-wide</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as IT Admin → Settings → School Profile</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Change the primary_color to a different hex (e.g. #1e40af — blue). Save.</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Reload the page. The sidebar, active nav items, and primary buttons should reflect the new colour.</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Log in as Teacher — same colour must appear (sourced from DB, not hardcoded)</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Colour change persists and propagates to all authenticated users. No hardcoded #1a6b3c remains.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">School brand colour change in Shule doesn't propagate to other users / only works after hard reload / hardcoded colour remains somewhere.
+
+The primary_color is stored in school_profile.primary_color. On app load:
+1. Fetch school_profile (RLS OFF — all auth users can read)
+2. Inject into CSS: document.documentElement.style.setProperty('--primary', school.primary_color)
+3. This must happen in AppShell or AuthProvider before the sidebar renders
+
+Also audit Tailwind for any hardcoded primary-color classes — replace ALL with CSS variable usage: var(--primary) everywhere. Never use bg-green-700 or #1a6b3c directly in JSX.
+
+The component where colour is still hardcoded: [IDENTIFY AND PASTE]</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<hr class="divider">
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 11: SECURITY RLS -->
+<!-- ════════════════════════════════════ -->
+<section id="security">
+  <div class="section-header">
+    <span class="section-num">11</span>
+    <span class="section-title">Security & RLS Verification</span>
+    <span class="section-role role-system">Critical</span>
+  </div>
+
+  <div class="test-card" data-type="sec" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T28</span>
+      <span class="test-title">RLS enabled on ALL tables — no table left unprotected</span>
+      <span class="test-type type-sec">Security</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">In Supabase SQL Editor, run the RLS audit query:</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text"><code>SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public' AND rowsecurity = false;</code></span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Result must return ZERO rows. If any tables appear — RLS is off on those tables.</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Exception: <code>school_profile</code> has RLS OFF by design (readable by all auth users) — this is acceptable.</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Zero tables with rowsecurity=false except school_profile. All data tables are locked.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">The following Shule tables have RLS disabled (from running the audit query): [LIST TABLE NAMES].
+
+Run for each unprotected table:
+ALTER TABLE [table_name] ENABLE ROW LEVEL SECURITY;
+
+Then add appropriate policies. General pattern for staff-accessible tables:
+CREATE POLICY "[table]_school_isolation"
+ON [table_name] FOR SELECT
+TO authenticated
+USING (school_id = public.user_school_id());
+
+For INSERT/UPDATE/DELETE, add role-specific WITH CHECK clauses.
+
+Priority order to fix: fee_payments, students, staff, exam_results, attendance, report_cards, messages.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="sec" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T29</span>
+      <span class="test-title">Cross-school data isolation — School A cannot see School B data</span>
+      <span class="test-type type-sec">Security</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">In Supabase, insert a test student with a different school_id (e.g. <code>11111111-1111-1111-1111-111111111111</code>)</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Log in as Secretary of the demo school (school_id <code>000...001</code>)</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">In console: <code>await supabase.from('students').select('school_id').limit(100)</code></span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">All returned school_ids must be <code>000...001</code> only. The test student from school <code>111...111</code> must not appear.</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>RLS school_id filter isolates all data to the user's school. No cross-school data leakage possible.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Cross-school data isolation in Shule is broken — users from school A can see data from school B.
+
+The root cause is that public.user_school_id() is not working correctly. Debug:
+1. In SQL editor: SELECT public.user_school_id(); — does it return the correct UUID?
+2. Check the function definition: SELECT prosrc FROM pg_proc WHERE proname = 'user_school_id';
+3. Verify the JWT claim name is exactly 'school_id' (not 'schoolId' or 'school_uuid')
+4. Check custom_access_token_hook — it must set claims.school_id from the staff table
+
+If the function returns NULL: the staff table lookup in the hook is failing. Ensure auth_user_id column in staff table is populated for all demo users.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="sec" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T30</span>
+      <span class="test-title">school_registry and error_log deny all school JWTs</span>
+      <span class="test-type type-sec">Security</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as Principal (highest privilege school role)</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">In console: <code>await supabase.from('school_registry').select('*').limit(1)</code></span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Must return an error or empty data — no rows from school_registry should ever be accessible to any school JWT</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Repeat for <code>error_log</code> table</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Both tables return zero rows to any school JWT. Only the Supabase service_role key (Shule HQ) can access these tables.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">school_registry or error_log tables in Shule are accessible to school user JWTs — critical security violation.
+
+These tables must have DENY ALL for authenticated school users:
+ALTER TABLE school_registry ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "deny_all_school_jwts_registry"
+ON school_registry FOR ALL
+TO authenticated
+USING (false);
+
+ALTER TABLE error_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "deny_all_school_jwts_errors"
+ON error_log FOR ALL
+TO authenticated
+USING (false);
+
+These tables are ONLY accessible via the service_role key used by the Shule HQ admin dashboard — never via the anon key or any school user JWT.</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<hr class="divider">
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 12: PWA & OFFLINE -->
+<!-- ════════════════════════════════════ -->
+<section id="pwa">
+  <div class="section-header">
+    <span class="section-num">12</span>
+    <span class="section-title">PWA & Offline Capability</span>
+    <span class="section-role role-all">All Roles</span>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T31</span>
+      <span class="test-title">PWA installs on Android Chrome and shows on home screen</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Access the app on an Android device via Chrome (http://local IP or localhost)</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Chrome menu → "Add to Home Screen" must appear. Tap it.</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">App icon appears on home screen with correct name (not "localhost") and school brand colour in splash</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Launch from home screen — opens in standalone mode (no browser URL bar)</span></div>
+        <div class="step-row"><span class="step-n">5</span><span class="step-text">In DevTools → Application → Service Workers: service worker must be "activated and running"</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>App installs as PWA. Correct icon. Opens standalone. Service worker active. Theme colour shows in Android status bar.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Shule PWA install prompt is not appearing / icon is wrong / app opens in browser instead of standalone.
+
+Check vite.config.ts VitePWA config:
+1. manifest.name must be "Shule — School Management" (not localhost)
+2. manifest.short_name: "Shule"
+3. manifest.theme_color: "#1a6b3c" (or school's primary_color)
+4. manifest.display: "standalone"
+5. manifest.icons must include a 192x192 and 512x512 PNG in /public/
+6. registerType: 'autoUpdate'
+
+Run in DevTools → Application → Manifest to see any manifest errors.
+
+Common issue: the icon PNGs are missing from /public/ or have wrong paths. Place them at public/icon-192.png and public/icon-512.png.
+
+Error shown: [PASTE]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T32</span>
+      <span class="test-title">Offline banner appears and sync queue flushes on reconnect</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Log in as Teacher. Open DevTools → Network → select "Offline" throttle.</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">The amber offline banner must appear at top of screen within 2 seconds</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Try marking attendance — must be queued to Dexie sync_queue without crashing</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Switch Network back to "Online"</span></div>
+        <div class="step-row"><span class="step-n">5</span><span class="step-text">Banner disappears. Offline changes flush to Supabase. Attendance record appears in the DB.</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Offline banner appears instantly. Actions queue to IndexedDB. Sync flushes on reconnect. No data loss.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Shule offline mode is broken: [describe — banner not appearing / offline writes crash / sync doesn't flush on reconnect].
+
+OfflineBanner fix — must use both navigator.onLine AND window events:
+const [isOnline, setIsOnline] = useState(navigator.onLine);
+useEffect(() => {
+  const up = () => setIsOnline(true);
+  const down = () => setIsOnline(false);
+  window.addEventListener('online', up);
+  window.addEventListener('offline', down);
+  return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); };
+}, []);
+
+Sync flush on reconnect: in the 'online' event handler, call flushSyncQueue() which processes all rows from db.syncQueue where status = 'pending', sends them to Supabase, then marks them 'synced'.
+
+The specific failure: [DESCRIBE]. Error: [PASTE]</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<hr class="divider">
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 13: DESIGN & DARK MODE -->
+<!-- ════════════════════════════════════ -->
+<section id="design">
+  <div class="section-header">
+    <span class="section-num">13</span>
+    <span class="section-title">Design Quality & Dark Mode</span>
+    <span class="section-role role-design">Design</span>
+  </div>
+
+  <div class="test-card" data-type="design" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T33</span>
+      <span class="test-title">Dark mode: all modals use CSS variables (no hardcoded bg-white)</span>
+      <span class="test-type type-design">Design</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Switch the OS/browser to dark mode</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Open every modal in the system: Student Registration, Fee Edit, Exam Journal Create, Assign Class Teacher (DoS), any confirmation dialog</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">No modal background must appear as harsh white-on-dark. Each must use <code>var(--surface)</code> or equivalent CSS variable</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Check text inside modals — must be legible (not black text on dark background)</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>All modals adapt to dark mode. No white flash on dark backgrounds. All text remains legible.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Modals in Shule show white background in dark mode. The affected modal(s): [LIST COMPONENT NAMES].
+
+The design rule: NEVER use bg-white, background: '#fff', or backgroundColor: 'white' in any component. Always use CSS variables.
+
+Global search and replace in the project:
+- bg-white → bg-[var(--surface)]  (or the Tailwind token if defined)
+- bg-gray-50 → bg-[var(--bg-subtle)]
+- text-gray-900 → text-[var(--text)]
+- text-gray-500 → text-[var(--text-muted)]
+- border-gray-200 → border-[var(--border)]
+
+In the specific failing modal, find className="...bg-white..." and replace with the CSS variable equivalent. Run: grep -r "bg-white" src/components/ to find all occurrences.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="ux" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T34</span>
+      <span class="test-title">Empty states: all data tables show EmptyState component when no data</span>
+      <span class="test-type type-ux">UX</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">On a fresh demo account with no data, navigate to: Students list, Fee Ledger, Exam Journal, Attendance, Messages</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Each must show a meaningful EmptyState (icon + message + optional CTA button), not a blank white area or endless spinner</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">DoS analytics charts with no exam data must show EmptyState, not broken chart areas</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Every data-driven page handles the empty state gracefully. No blank areas. Clear message explains what to do next.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">The [PAGE NAME] in Shule shows a blank area when data is empty instead of an EmptyState component.
+
+Build a reusable EmptyState component:
+function EmptyState({ icon, title, description, action }: {
+  icon: string; title: string; description: string; action?: React.ReactNode;
+}) {
+  return (
+    &lt;div className="flex flex-col items-center justify-center py-16 text-center"&gt;
+      &lt;div className="text-4xl mb-4 opacity-30"&gt;{icon}&lt;/div&gt;
+      &lt;h3 className="font-semibold text-[var(--text)] mb-1"&gt;{title}&lt;/h3&gt;
+      &lt;p className="text-[var(--text-muted)] text-sm max-w-xs"&gt;{description}&lt;/p&gt;
+      {action &amp;&amp; &lt;div className="mt-4"&gt;{action}&lt;/div&gt;}
+    &lt;/div&gt;
+  );
+}
+
+Usage: if (!data || data.length === 0) return &lt;EmptyState icon="📋" title="No students yet" description="Register the first student to get started." action={&lt;RegisterStudentButton /&gt;} /&gt;;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="ux" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T35</span>
+      <span class="test-title">All lists with 50+ rows use virtualisation (max 50 DOM rows)</span>
+      <span class="test-type type-ux">UX</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Insert 200+ students into the demo school (can do this via Supabase SQL bulk insert)</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Open Secretary → Students list</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Open DevTools → Elements → count the number of <code>&lt;tr&gt;</code> or list row elements rendered in the DOM</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Must be ≤ 60 rows rendered at any time, even with 200 students. Scroll — rows virtualise in/out.</span></div>
+        <div class="step-row"><span class="step-n">5</span><span class="step-text">Page must load in under 2 seconds with 200+ students on local LAN</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Max 50–60 DOM rows at all times. Smooth scrolling. No browser freeze. Load under 2s.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Shule student list renders all rows to DOM, causing browser slowdown with 200+ students.
+
+Implement virtualisation with @tanstack/react-virtual:
+import { useVirtualizer } from '@tanstack/react-virtual';
+
+const parentRef = useRef&lt;HTMLDivElement&gt;(null);
+const rowVirtualizer = useVirtualizer({
+  count: students.length,
+  getScrollElement: () => parentRef.current,
+  estimateSize: () => 52, // row height in px
+  overscan: 5,
+});
+
+return (
+  &lt;div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}&gt;
+    &lt;div style={{ height: rowVirtualizer.getTotalSize() + 'px', position: 'relative' }}&gt;
+      {rowVirtualizer.getVirtualItems().map(vRow =&gt; (
+        &lt;div key={vRow.index} style={{ position: 'absolute', top: vRow.start + 'px', width: '100%' }}&gt;
+          &lt;StudentRow student={students[vRow.index]} /&gt;
+        &lt;/div&gt;
+      ))}
+    &lt;/div&gt;
+  &lt;/div&gt;
+);</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="ux" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T36</span>
+      <span class="test-title">Student photos display correctly (private bucket — signed URLs)</span>
+      <span class="test-type type-design">Design</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Register a student with a photo</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">View the student profile — photo must display</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Copy the image URL shown in the browser. Open it in an incognito tab (no auth). It must return an error / access denied — not a public URL.</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Confirm the Avatar component falls back to student initials when photo is missing/broken</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Photos display via signed URLs. Direct URL access denied without auth. Initials fallback works for missing photos.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Student photos in Shule are either not showing or using public direct URLs instead of signed URLs.
+
+student-photos bucket is PRIVATE. Always use signed URLs:
+const { data } = await supabase.storage
+  .from('student-photos')
+  .createSignedUrl(student.photo_url, 3600); // 1 hour expiry
+
+Store the signed URL in React state. Never embed the raw storage path in an &lt;img src&gt;.
+
+Avatar component fallback (in src/components/shared/Avatar.tsx):
+- If signedUrl exists and loads: show image
+- If signedUrl is null OR image fails to load (onError): show initials circle
+- Initials: firstName[0] + lastName[0], uppercase, coloured background based on name hash
+
+The specific failure: [photo shows broken / direct URL accessible / initials not showing]. Error: [PASTE]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="design" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T37</span>
+      <span class="test-title">No hardcoded colours anywhere in the codebase</span>
+      <span class="test-type type-design">Design</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">In the project terminal, run: <code>grep -r "#1a6b3c\|#0d9488\|bg-white\|text-gray-900" src/ --include="*.tsx" --include="*.ts"</code></span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Any match is a violation — that line must be updated to use CSS variables</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Also check inline styles: <code>grep -r "backgroundColor.*#\|color.*#" src/</code></span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Zero hardcoded colour values. All colours reference CSS variables.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Shule codebase contains hardcoded colour values. Found in these files: [PASTE grep output].
+
+For each occurrence, replace with the correct CSS variable:
+- #1a6b3c or #0d9488 → var(--primary)  
+- bg-white → bg-[var(--surface)]
+- text-gray-900 → text-[var(--text)]
+- text-gray-500 → text-[var(--text-muted)]
+- border-gray-200 → border-[var(--border)]
+- bg-gray-50 → bg-[var(--bg-subtle)]
+- text-white (on coloured bg) → keep as-is (white text on primary is OK)
+
+Tailwind v4 CSS variable tokens should be defined in the global CSS file and referenced in tailwind.config.js theme.extend.colors.</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<hr class="divider">
+
+<!-- ════════════════════════════════════ -->
+<!-- SECTION 14: PERFORMANCE -->
+<!-- ════════════════════════════════════ -->
+<section id="perf">
+  <div class="section-header">
+    <span class="section-num">14</span>
+    <span class="section-title">Performance</span>
+    <span class="section-role role-all">Technical</span>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T38</span>
+      <span class="test-title">Production build JS bundle is under 200KB gzipped</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">Run <code>npm run build</code> in the project</span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Run <code>npm run preview</code> to serve the production build</span></div>
+        <div class="step-row"><span class="step-n">3</span><span class="step-text">Open Chrome DevTools → Network → Hard reload. Filter by JS. Check main chunk gzipped size.</span></div>
+        <div class="step-row"><span class="step-n">4</span><span class="step-text">Total initial JS bundle (all chunks loaded on first page) must be under 200KB gzipped</span></div>
+        <div class="step-row"><span class="step-n">5</span><span class="step-text">Confirm no <code>console.log</code> calls appear in the browser console from production build</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Total initial JS &lt; 200KB gzipped. console.log stripped. Vite chunk splitting distributes bundles across chunks.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Shule production bundle is too large: [current size]. Target is under 200KB gzipped.
+
+Fix in vite.config.ts:
+build: {
+  rollupOptions: {
+    output: {
+      manualChunks: {
+        'vendor': ['react', 'react-dom', 'react-router-dom'],
+        'supabase': ['@supabase/supabase-js'],
+        'charts': ['recharts'],
+        'ui': ['@radix-ui/react-dialog', '@radix-ui/react-select'],
+        'excel': ['xlsx'],
+        'pdf': ['jspdf', 'jspdf-autotable'],
+      }
+    }
+  },
+  minify: 'terser',
+  terserOptions: { compress: { drop_console: true } }
+}
+
+Also ensure ALL page components use React.lazy():
+const PrincipalDashboard = lazy(() => import('./pages/principal/Dashboard'));
+
+The biggest chunks from the build output: [PASTE build output]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-card" data-type="func" data-status="todo">
+    <div class="test-head" onclick="toggleCard(this)">
+      <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+      <span class="test-id">T39</span>
+      <span class="test-title">No .select('*') queries in the codebase</span>
+      <span class="test-type type-func">Functional</span>
+      <div class="test-actions">
+        <button class="status-btn pass" onclick="setStatus(this,'pass')">PASS</button>
+        <button class="status-btn fail" onclick="setStatus(this,'fail')">FAIL</button>
+        <button class="status-btn skip" onclick="setStatus(this,'skip')">SKIP</button>
+      </div>
+    </div>
+    <div class="test-body">
+      <div class="test-steps">
+        <div class="step-row"><span class="step-n">1</span><span class="step-text">In the terminal, run: <code>grep -r "\.select('\*')\|\.select(\"\*\")" src/</code></span></div>
+        <div class="step-row"><span class="step-n">2</span><span class="step-text">Any result is a violation. Every Supabase query must specify exact column names.</span></div>
+      </div>
+      <div class="test-expect"><div class="test-expect-label">Expected</div>Zero .select('*') calls anywhere in the codebase. All queries specify exact columns.</div>
+      <div class="prompt-box">
+        <div class="prompt-label">Claude Code Fix Prompt (if FAIL)</div>
+        <button class="copy-btn" onclick="copyPrompt(this)">COPY</button>
+        <div class="prompt-text">Found .select('*') queries in Shule at: [PASTE grep output with file paths and line numbers].
+
+For each occurrence, replace with explicit column selection. Use only the columns the component actually renders. Example:
+
+// WRONG:
+supabase.from('students').select('*')
+
+// CORRECT:
+supabase.from('students').select('id, admission_number, first_name, last_name, class_id, stream_id, status, photo_url')
+
+This matters for two reasons: (1) performance — only fetch what you need, (2) security — don't expose sensitive columns like medical_notes to UI components that don't need them.</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+</main>
+</div>
+
+<!-- EXPORT BAR -->
+<div class="export-bar">
+  <button class="export-btn secondary" onclick="exportResults()">Export Results</button>
+  <button class="export-btn primary" onclick="window.print()">Print Plan</button>
+</div>
+
+<script>
+const STORAGE_KEY = 'shule_test_results_v1';
+
+function loadResults() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  } catch { return {}; }
+}
+
+function saveResults(results) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
+}
+
+let results = loadResults();
+
+function setStatus(btn, status) {
+  const actions = btn.parentElement;
+  const card = actions.closest('.test-card');
+  const id = card.querySelector('.test-id').textContent;
+  
+  actions.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+  
+  if (results[id] === status) {
+    delete results[id];
+    card.dataset.status = 'todo';
+  } else {
+    btn.classList.add('active');
+    results[id] = status;
+    card.dataset.status = status;
+  }
+  
+  saveResults(results);
+  updateCounts();
+}
+
+function restoreResults() {
+  document.querySelectorAll('.test-card').forEach(card => {
+    const id = card.querySelector('.test-id').textContent;
+    const status = results[id];
+    if (status) {
+      card.dataset.status = status;
+      const btn = card.querySelector(`.status-btn.${status}`);
+      if (btn) btn.classList.add('active');
+    }
+  });
+}
+
+function updateCounts() {
+  const cards = document.querySelectorAll('.test-card');
+  let pass = 0, fail = 0, skip = 0, todo = 0;
+  cards.forEach(c => {
+    const s = c.dataset.status;
+    if (s === 'pass') pass++;
+    else if (s === 'fail') fail++;
+    else if (s === 'skip') skip++;
+    else todo++;
+  });
+  const total = cards.length;
+  const done = pass + fail + skip;
+  
+  document.getElementById('total-count').textContent = total;
+  document.getElementById('pass-count').textContent = pass;
+  document.getElementById('fail-count').textContent = fail;
+  document.getElementById('skip-count').textContent = skip;
+  document.getElementById('todo-count').textContent = todo;
+  
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('pct').textContent = pct + '%';
+}
+
+function toggleCard(header) {
+  const body = header.nextElementSibling;
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  header.classList.toggle('open', !isOpen);
+}
+
+function expandAll() {
+  document.querySelectorAll('.test-body').forEach(b => b.classList.add('open'));
+  document.querySelectorAll('.test-head').forEach(h => h.classList.add('open'));
+}
+
+function collapseAll() {
+  document.querySelectorAll('.test-body').forEach(b => b.classList.remove('open'));
+  document.querySelectorAll('.test-head').forEach(h => h.classList.remove('open'));
+}
+
+function resetAll() {
+  if (!confirm('Reset all test results? This cannot be undone.')) return;
+  results = {};
+  saveResults(results);
+  document.querySelectorAll('.test-card').forEach(c => {
+    c.dataset.status = 'todo';
+    c.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+  });
+  updateCounts();
+}
+
+let currentTypeFilter = 'all';
+let currentStatusFilter = 'all';
+let currentSearch = '';
+
+function filterType(type) {
+  currentTypeFilter = type;
+  applyFilters();
+}
+
+function filterStatus(status, btn) {
+  currentStatusFilter = status;
+  document.querySelectorAll('.controls .filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  applyFilters();
+}
+
+function searchTests(query) {
+  currentSearch = query.toLowerCase();
+  applyFilters();
+}
+
+function applyFilters() {
+  document.querySelectorAll('.test-card').forEach(card => {
+    const type = card.dataset.type;
+    const status = card.dataset.status;
+    const text = card.querySelector('.test-title').textContent.toLowerCase();
+    const id = card.querySelector('.test-id').textContent.toLowerCase();
+    
+    const typeMatch = currentTypeFilter === 'all' || type === currentTypeFilter;
+    const statusMatch = currentStatusFilter === 'all' || status === currentStatusFilter;
+    const searchMatch = !currentSearch || text.includes(currentSearch) || id.includes(currentSearch);
+    
+    card.classList.toggle('hidden', !(typeMatch && statusMatch && searchMatch));
+  });
+}
+
+function copyPrompt(btn) {
+  const text = btn.nextElementSibling.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'COPIED';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'COPY';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+function exportResults() {
+  const cards = document.querySelectorAll('.test-card');
+  let csv = 'ID,Title,Type,Status\n';
+  cards.forEach(c => {
+    const id = c.querySelector('.test-id').textContent;
+    const title = c.querySelector('.test-title').textContent;
+    const type = c.dataset.type;
+    const status = c.dataset.status;
+    csv += `"${id}","${title}","${type}","${status}"\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'shule_test_results.csv'; a.click();
+}
+
+// Sidebar scroll spy
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.sb-link[href^="#"]');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + e.target.id));
+    }
+  });
+}, { rootMargin: '-20% 0% -70% 0%' });
+sections.forEach(s => observer.observe(s));
+
+// Init
+restoreResults();
+updateCounts();
+</script>
+</body>
+</html>

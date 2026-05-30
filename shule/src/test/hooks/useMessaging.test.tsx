@@ -196,7 +196,8 @@ describe('usePostAnnouncement', () => {
 
   it('succeeds for principal role', async () => {
     mockRole = 'principal'
-    setTableData('announcements', { data: null, error: null })
+    // Announcements are stored in the messages table (is_announcement = true)
+    setTableData('messages', { data: null, error: null })
 
     const { result } = renderHook(() => usePostAnnouncement(), { wrapper: createWrapper() })
     await act(async () => {
@@ -204,12 +205,12 @@ describe('usePostAnnouncement', () => {
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(mockFrom).toHaveBeenCalledWith('announcements')
+    expect(mockFrom).toHaveBeenCalledWith('messages')
   })
 
   it('succeeds for dos role', async () => {
     mockRole = 'dos'
-    setTableData('announcements', { data: null, error: null })
+    setTableData('messages', { data: null, error: null })
 
     const { result } = renderHook(() => usePostAnnouncement(), { wrapper: createWrapper() })
     await act(async () => {
@@ -221,16 +222,24 @@ describe('usePostAnnouncement', () => {
 })
 
 // ── useAnnouncements ───────────────────────────────────────────────────────
+// Announcements now live in the messages table (is_announcement = true).
+// A secondary staff query resolves from_user_id → full name.
 describe('useAnnouncements', () => {
   it('returns announcement objects with correct shape', async () => {
-    setTableData('announcements', {
+    // messages query returns the announcement row
+    setTableData('messages', {
       data: [
         {
           id: 'a1', school_id: 'school-1', from_user_id: 'principal-1',
-          from_name: 'John Doe', body: 'Term ends Friday',
-          attachment_url: null, posted_at: '2026-05-24T09:00:00Z',
+          body: 'Term ends Friday',
+          attachment_url: null, sent_at: '2026-05-24T09:00:00Z',
         },
       ],
+      error: null,
+    })
+    // staff query resolves the name
+    setTableData('staff', {
+      data: [{ auth_user_id: 'principal-1', first_name: 'John', last_name: 'Doe' }],
       error: null,
     })
 
