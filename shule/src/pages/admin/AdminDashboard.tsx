@@ -229,7 +229,7 @@ function UserManagementSection() {
       }}>
         {/* Header */}
         <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 110px 120px 180px',
+          display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 110px 90px 260px',
           padding: '9px 16px', background: 'var(--surface2)',
           borderBottom: '1px solid var(--border)',
         }}>
@@ -252,7 +252,7 @@ function UserManagementSection() {
                   style={{
                     position: 'absolute', top: 0, left: 0, right: 0,
                     height: vr.size, transform: `translateY(${vr.start}px)`,
-                    display: 'grid', gridTemplateColumns: '1fr 110px 120px 180px',
+                    display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 110px 90px 260px',
                     alignItems: 'center', padding: '0 16px',
                     borderBottom: '1px solid var(--border)',
                   }}
