@@ -48,23 +48,6 @@ async function compressToJpeg(file: File, maxBytes: number): Promise<string> {
   })
 }
 
-// ── School prefix hook ────────────────────────────────────────
-function useSchoolPrefix() {
-  const { user } = useAuth()
-  return useQuery({
-    queryKey: ['school-prefix', user?.schoolId],
-    enabled: !!user?.schoolId,
-    staleTime: Infinity,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('school_profile')
-        .select('short_name')
-        .eq('id', user!.schoolId)
-        .single()
-      return (data?.short_name as string | null) ?? 'STU'
-    },
-  })
-}
 
 // ── Zod schemas ───────────────────────────────────────────────
 export const guardianSchema = z.object({
@@ -245,7 +228,7 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
   const { success: ok, error: err } = useToast()
   const year                   = new Date().getFullYear()
   const { data: nextSeq }      = useNextAdmissionNumber(year)
-  const { data: prefix = 'STU' } = useSchoolPrefix()
+  const prefix                 = 'STU'
   const { data: classes = [] } = useClasses()
   const registerMutation        = useRegisterStudent()
 
@@ -319,12 +302,13 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
       religion:        n(values.religion),
       medicalNotes:    n(values.medicalNotes),
       photoUrl,
-      admissionNumber: values.admissionNumber,
-      classId:         values.classId,
-      streamId:        n(values.streamId),
-      studentType:     (values.studentType as 'day' | 'boarder') || null,
-      previousSchool:  n(values.previousSchool),
-      enrolledAt:      values.enrolledAt,
+      admissionNumber:  values.admissionNumber,
+      classId:          values.classId,
+      streamId:         n(values.streamId),
+      academicYearId:   classes.find(c => c.id === values.classId)?.academicYearId ?? null,
+      studentType:      (values.studentType as 'day' | 'boarder') || null,
+      previousSchool:   n(values.previousSchool),
+      enrolledAt:       values.enrolledAt,
       guardians: values.guardians.map(g => ({
         fullName:        g.guardianName,
         relationship:    g.relationship,

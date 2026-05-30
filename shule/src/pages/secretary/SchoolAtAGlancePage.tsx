@@ -17,11 +17,11 @@ const C = {
 }
 
 const tooltipStyle = {
-  background: '#fff',
-  border: '1px solid #e2e8f0',
+  background: 'var(--surface)',
+  border: '1px solid var(--border)',
   borderRadius: 8,
   fontSize: 12,
-  color: '#0f172a',
+  color: 'var(--txt)',
 }
 
 async function downloadPdf(year: number, term: number) {

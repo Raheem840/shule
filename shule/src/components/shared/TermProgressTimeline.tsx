@@ -120,6 +120,25 @@ export function TermProgressTimeline() {
     )
   }
 
+  // Term dates not configured — show a clear warning instead of a flat zero bar
+  if (tp.currentTerm === 'Term dates not configured') {
+    return (
+      <div style={{
+        minHeight: 120, borderRadius: 14, background: 'var(--surface)',
+        border: '1px solid var(--border)', marginBottom: 24,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: 6,
+      }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--warning)' }}>
+          Term dates not set
+        </span>
+        <span style={{ fontSize: 12, color: 'var(--txt3)' }}>
+          Open Academic Year and add term start/end dates to see progress.
+        </span>
+      </div>
+    )
+  }
+
   const pct = Math.min(100, Math.max(0, tp.percentElapsed))
 
   // Map each event to its X position (% of term elapsed when event occurs)

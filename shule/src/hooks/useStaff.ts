@@ -230,23 +230,27 @@ export function useRegisterStaff() {
       const { data: newStaff, error: staffErr } = await supabase
         .from('staff')
         .insert({
-          school_id:           user!.schoolId,
-          staff_number:        input.staffNumber,
-          first_name:          input.firstName,
-          last_name:           input.lastName,
-          phone:               input.phone,
-          email:               input.email,
-          national_id:         input.nationalId,
-          photo_url:           input.photoUrl,
-          role:                input.role,
-          department_id:       input.departmentId,
-          employment_type:     input.employmentType,
-          join_date:           input.joinDate,
-          subjects:            input.subjects,
-          classes:             input.classes,
-          qualification_level: input.qualificationLevel,
-          is_active:           true,
-          // DB NEEDS: date_of_birth, gender, qualification_title, institution, graduation_year
+          school_id:            user!.schoolId,
+          staff_number:         input.staffNumber,
+          first_name:           input.firstName,
+          last_name:            input.lastName,
+          date_of_birth:        input.dateOfBirth,
+          gender:               input.gender,
+          phone:                input.phone,
+          email:                input.email,
+          national_id:          input.nationalId,
+          photo_url:            input.photoUrl,
+          role:                 input.role,
+          department_id:        input.departmentId,
+          employment_type:      input.employmentType,
+          join_date:            input.joinDate,
+          subjects:             input.subjects,
+          classes:              input.classes,
+          qualification_level:  input.qualificationLevel,
+          qualification_title:  input.qualificationTitle,
+          institution:          input.institution,
+          graduation_year:      input.graduationYear,
+          is_active:            true,
         })
         .select('id')
         .single()
@@ -260,7 +264,7 @@ export function useRegisterStaff() {
             input.documents.map(d => ({
               school_id:     user!.schoolId,
               staff_id:      newStaff.id,
-              document_type: d.documentType,
+              doc_type:      d.documentType,
               file_name:     d.fileName,
               file_url:      d.fileUrl,
               uploaded_by:   user!.id,

@@ -204,12 +204,13 @@ export type RegisterStudentInput = {
   photoUrl:      string | null
   medicalNotes:  string | null
   // Step 2 — Academic placement
-  admissionNumber: string
-  classId:         string
-  streamId:        string | null
-  studentType:     Student['studentType']
-  previousSchool:  string | null
-  enrolledAt:      string
+  admissionNumber:  string
+  classId:          string
+  streamId:         string | null
+  academicYearId:   string | null
+  studentType:      Student['studentType']
+  previousSchool:   string | null
+  enrolledAt:       string
   // Step 3 — Guardians
   guardians: GuardianInput[]
 }
@@ -232,22 +233,24 @@ export function useRegisterStudent() {
       const { data: newStudent, error: studentErr } = await supabase
         .from('students')
         .insert({
-          school_id:        user!.schoolId,
-          admission_number: input.admissionNumber,
-          first_name:       input.firstName,
-          last_name:        input.lastName,
-          dob:              input.dob,
-          gender:           input.gender,
-          class_id:         input.classId,
-          stream_id:        input.streamId,
-          photo_url:        input.photoUrl,
-          medical_notes:    input.medicalNotes,
-          enrolled_at:      input.enrolledAt,
-          status:           'active',
-          nationality:      input.nationality,
-          religion:         input.religion,
-          student_type:     input.studentType,
-          previous_school:  input.previousSchool,
+          school_id:         user!.schoolId,
+          admission_number:  input.admissionNumber,
+          first_name:        input.firstName,
+          last_name:         input.lastName,
+          dob:               input.dob,
+          gender:            input.gender,
+          class_id:          input.classId,
+          stream_id:         input.streamId,
+          academic_year_id:  input.academicYearId,
+          photo_url:         input.photoUrl,
+          medical_notes:     input.medicalNotes,
+          enrolled_at:       input.enrolledAt,
+          status:            'active',
+          nationality:       input.nationality,
+          religion:          input.religion,
+          student_type:      input.studentType,
+          previous_school:   input.previousSchool,
+          created_by:        user!.id,
         })
         .select('id')
         .single()

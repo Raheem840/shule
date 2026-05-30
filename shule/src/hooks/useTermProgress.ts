@@ -88,13 +88,44 @@ export function useTermProgress() {
         }
       }
 
-      const termInfo = detectActiveTerm(yearData as unknown as Record<string, string | null>)
+      const row = yearData as unknown as Record<string, string | null>
+      const termInfo = detectActiveTerm(row)
+
       if (!termInfo) {
-        const today = new Date()
+        // Term dates may not be set, or today falls between terms.
+        // Fall back to the academic year's overall start_date/end_date so the
+        // bar shows real progress rather than a flat invisible line.
+        const yearStart = row['start_date']
+        const yearEnd   = row['end_date']
+
+        if (yearStart && yearEnd) {
+          const today2   = new Date()
+          const tStart2  = new Date(yearStart)
+          const tEnd2    = new Date(yearEnd)
+          const elapsed2 = Math.max(0, diffDays(tStart2, today2))
+          const total2   = Math.max(1,  diffDays(tStart2, tEnd2))
+          const pct2     = Math.min(100, Math.round((elapsed2 / total2) * 100))
+          const daysRem2 = Math.max(0, diffDays(today2, tEnd2))
+          const totW2    = weeksBetween(tStart2, tEnd2)
+          const curW2    = Math.min(totW2, Math.floor(elapsed2 / 7) + 1)
+          return {
+            termStart:      yearStart,
+            termEnd:        yearEnd,
+            currentTerm:    (row['name'] as string | null) ?? 'Academic Year',
+            percentElapsed: pct2,
+            weekNumber:     curW2,
+            totalWeeks:     totW2,
+            daysRemaining:  daysRem2,
+            events:         [],
+          }
+        }
+
+        // Truly no dates at all — show a neutral placeholder
+        const today2 = new Date().toISOString().slice(0, 10)
         return {
-          termStart:      today.toISOString().slice(0, 10),
-          termEnd:        today.toISOString().slice(0, 10),
-          currentTerm:    'Term 2',
+          termStart:      today2,
+          termEnd:        today2,
+          currentTerm:    'Term dates not configured',
           percentElapsed: 0,
           weekNumber:     1,
           totalWeeks:     13,

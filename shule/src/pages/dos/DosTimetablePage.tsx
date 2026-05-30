@@ -328,7 +328,7 @@ export function DosTimetablePage() {
           </select>
         </div>
 
-        {streams.length > 0 && (
+        {selectedClass && streams.length > 0 && (
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt2)', display: 'block', marginBottom: 4 }}>Stream</label>
             <select
