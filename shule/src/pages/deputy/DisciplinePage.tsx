@@ -1,4 +1,5 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   useDisciplineRecords, useAddDisciplineRecord,
@@ -100,6 +101,7 @@ function RecordModal({ initial, onClose }: { initial: DisciplineRecord|null; onC
   const isEdit    = !!initial
   const isMobile  = useIsMobile()
   const { data: classes=[] } = useClasses()
+  const arEl = useMemo(()=>document.querySelector('.ar') as HTMLElement ?? document.body, [])
 
   const [student,      setStudent]      = useState<{id:string;name:string;classId:string|null}|null>(
     initial ? { id:initial.studentId, name:initial.studentName??initial.studentId, classId:initial.classId??null } : null
@@ -111,7 +113,11 @@ function RecordModal({ initial, onClose }: { initial: DisciplineRecord|null; onC
   const [notes,        setNotes]        = useState(initial?.notes??'')
   const [err,          setErr]          = useState('')
 
+  // Trap body scroll while modal is open
+  useEffect(()=>{ document.body.style.overflow='hidden'; return ()=>{ document.body.style.overflow='' } },[])
+
   const isPending = addMut.isPending || updateMut.isPending
+  const m = NATURE_META[nature]
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -127,157 +133,280 @@ function RecordModal({ initial, onClose }: { initial: DisciplineRecord|null; onC
     } catch(ex:any){ setErr(ex.message??'Failed to save') }
   }
 
-  const selectedNatureMeta = NATURE_META[nature]
+  const modal = (
+    /* ── Scrim ── */
+    <div
+      style={{
+        position:'fixed', inset:0, zIndex:500,
+        background:'rgba(0,0,0,.55)',
+        backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)',
+        display:'flex',
+        alignItems: isMobile ? 'flex-end' : 'center',
+        justifyContent:'center',
+        padding: isMobile ? 0 : 20,
+        animation:'discModalIn .22s ease both',
+      }}
+      onClick={e=>e.target===e.currentTarget&&onClose()}
+    >
+      <style>{`
+        @keyframes discModalIn{from{opacity:0}to{opacity:1}}
+        @keyframes discSheetUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+        @keyframes discCenterIn{from{opacity:0;transform:scale(.94) translateY(10px)}to{opacity:1;transform:none}}
+      `}</style>
 
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.52)', backdropFilter:'blur(5px)', WebkitBackdropFilter:'blur(5px)', display:'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent:'center', zIndex:300, padding: isMobile ? 0 : 20 }}
-      onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
+      {/* ── Card shell — overflow:hidden clips all children at border-radius ── */}
+      <div style={{
+        width:'100%', maxWidth:560,
+        maxHeight: isMobile ? '94dvh' : '90dvh',
+        borderRadius: isMobile ? '28px 28px 0 0' : 24,
+        overflow:'hidden',
+        display:'flex', flexDirection:'column',
+        boxShadow: isMobile
+          ? `0 -16px 64px rgba(0,0,0,.28), 0 -2px 0 ${m.color}20`
+          : `0 28px 80px rgba(0,0,0,.28), 0 0 0 .5px ${m.color}18`,
+        background:'var(--surface)',
+        animation: isMobile ? 'discSheetUp .3s cubic-bezier(.32,.72,0,1) both' : 'discCenterIn .28s cubic-bezier(.32,.72,0,1) both',
+      }}>
 
-      <form onSubmit={e=>{void submit(e)}} style={{ width:'100%', maxWidth:540, maxHeight: isMobile ? '92dvh' : '88vh', overflowY:'auto', background:'var(--surface)', padding:'28px 24px 32px', borderRadius: isMobile ? '24px 24px 0 0' : 20, boxShadow: isMobile ? '0 -8px 48px rgba(0,0,0,.2)' : '0 20px 60px rgba(0,0,0,.2)', display:'flex', flexDirection:'column', gap:20 }}>
+        {/* ── Gradient accent header ── */}
+        <div style={{
+          padding: isMobile ? '10px 22px 18px' : '22px 24px 18px',
+          background:`linear-gradient(150deg,${m.color}18 0%,${m.color}08 60%,transparent 100%)`,
+          borderBottom:`.5px solid ${m.color}1e`,
+          flexShrink:0, position:'relative', overflow:'hidden',
+        }}>
+          {/* Ambient glow */}
+          <div style={{ position:'absolute', top:-40, right:-40, width:160, height:160, borderRadius:'50%', filter:'blur(50px)', background:`${m.color}28`, pointerEvents:'none' }}/>
 
-        {/* Handle bar — mobile only */}
-        {isMobile && <div style={{ width:36, height:4, borderRadius:2, background:'var(--border)', margin:'-8px auto 0', flexShrink:0 }}/>}
-
-        {/* Header */}
-        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <div style={{ width:44, height:44, borderRadius:14, background:`linear-gradient(145deg,${selectedNatureMeta.color},${selectedNatureMeta.color}99)`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 16px ${selectedNatureMeta.color}36`, flexShrink:0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d={selectedNatureMeta.icon}/></svg>
-          </div>
-          <div>
-            <div style={{ fontWeight:900, fontSize:17, color:'var(--txt)', fontFamily:'var(--font2)', letterSpacing:-.3 }}>
-              {isEdit ? 'Edit Record' : 'Add Discipline Record'}
-            </div>
-            <div style={{ fontSize:12, color:'var(--txt3)', marginTop:1 }}>
-              {isEdit ? `Editing ${initial?.studentName ?? 'record'}` : 'Fill in the details below'}
-            </div>
-          </div>
-          <button type="button" onClick={onClose} style={{ marginLeft:'auto', width:32, height:32, borderRadius:10, border:'none', background:'var(--surface2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--txt3)', flexShrink:0 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-
-        {/* Student */}
-        <div>
-          <Lbl required>Student</Lbl>
-          {isEdit ? (
-            <div className="sui-input" style={{ color:'var(--txt2)', cursor:'default', opacity:.8 }}>{initial?.studentName??initial?.studentId}</div>
-          ) : (
-            <StudentTypeahead value={student} onChange={s=>{ setStudent(s); if(s?.classId) setClassId(s.classId) }}/>
+          {/* Handle bar — mobile only */}
+          {isMobile && (
+            <div style={{ width:40, height:4, borderRadius:2, background:`${m.color}40`, margin:'0 auto 16px', position:'relative', zIndex:1 }}/>
           )}
-        </div>
 
-        {/* Nature selector — pill buttons */}
-        <div>
-          <Lbl required>Nature of Incident</Lbl>
-          <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
-            {NATURES.map(n=>{
-              const m = NATURE_META[n]
-              const active = nature===n
-              return (
-                <button key={n} type="button" onClick={()=>setNature(n)} style={{
-                  padding:'6px 13px', borderRadius:99, border:`.5px solid ${active?m.color:'var(--border)'}`,
-                  background: active ? m.bg : 'var(--surface2)',
-                  color: active ? m.color : 'var(--txt3)',
-                  fontSize:12.5, fontWeight: active ? 700 : 600,
-                  cursor:'pointer', transition:'all .14s',
-                  WebkitTapHighlightColor:'transparent',
-                }}>
-                  {m.label}
-                </button>
-              )
-            })}
+          {/* Header row */}
+          <div style={{ display:'flex', alignItems:'center', gap:14, position:'relative', zIndex:1 }}>
+            <div style={{
+              width:50, height:50, borderRadius:17, flexShrink:0,
+              background:`linear-gradient(145deg,${m.color},${m.color}bb)`,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              boxShadow:`0 6px 24px ${m.color}4a`,
+            }}>
+              <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1"><path d={m.icon}/></svg>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:19, color:'var(--txt)', letterSpacing:-.4, lineHeight:1.1 }}>
+                {isEdit ? 'Edit Record' : 'Log Incident'}
+              </div>
+              <div style={{ fontSize:12, color:'var(--txt3)', marginTop:3 }}>
+                {isEdit ? `Editing ${initial?.studentName ?? 'record'}` : 'Complete the incident report below'}
+              </div>
+            </div>
+            <button
+              type="button" onClick={onClose}
+              style={{ width:34, height:34, borderRadius:11, border:'none', background:`${m.color}14`, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:m.color, flexShrink:0, transition:'background .13s' }}
+              onMouseEnter={e=>(e.currentTarget.style.background=`${m.color}26`)}
+              onMouseLeave={e=>(e.currentTarget.style.background=`${m.color}14`)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
         </div>
 
-        {/* Date + class */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        {/* ── Scrollable body — safe from overflow clipping since outer card clips ── */}
+        <form
+          id="disc-record-form"
+          onSubmit={e=>{void submit(e)}}
+          style={{
+            flex:1, overflowY:'auto', padding:'20px 24px',
+            display:'flex', flexDirection:'column', gap:18,
+            WebkitOverflowScrolling:'touch',
+          }}
+        >
+          {/* Student */}
           <div>
-            <Lbl required>Incident Date</Lbl>
-            <input type="date" className="sui-input" value={incidentDate} onChange={e=>setIncidentDate(e.target.value)} style={{ width:'100%' }}/>
+            <Lbl required>Student</Lbl>
+            {isEdit ? (
+              <div className="sui-input" style={{ color:'var(--txt2)', cursor:'default', opacity:.75 }}>{initial?.studentName??initial?.studentId}</div>
+            ) : (
+              <StudentTypeahead value={student} onChange={s=>{ setStudent(s); if(s?.classId) setClassId(s.classId) }}/>
+            )}
           </div>
-          {!isEdit && (
+
+          {/* Nature pills */}
+          <div>
+            <Lbl required>Nature of Incident</Lbl>
+            <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
+              {NATURES.map(n=>{
+                const nm=NATURE_META[n], active=nature===n
+                return (
+                  <button key={n} type="button" onClick={()=>setNature(n)} style={{
+                    padding:'7px 14px', borderRadius:99,
+                    border:`.5px solid ${active?nm.color:'var(--border)'}`,
+                    background: active ? nm.bg : 'var(--surface2)',
+                    color: active ? nm.color : 'var(--txt3)',
+                    fontSize:13, fontWeight: active ? 800 : 600,
+                    cursor:'pointer', transition:'all .15s cubic-bezier(.34,1.56,.64,1)',
+                    transform: active ? 'scale(1.03)' : 'scale(1)',
+                    WebkitTapHighlightColor:'transparent',
+                  }}>
+                    {nm.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Date + class */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             <div>
-              <Lbl>Class</Lbl>
-              <select className="sui-input" value={classId} onChange={e=>setClassId(e.target.value)} style={{ width:'100%' }}>
-                <option value="">Auto from student</option>
-                {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <Lbl required>Incident Date</Lbl>
+              <input type="date" className="sui-input" value={incidentDate} onChange={e=>setIncidentDate(e.target.value)} style={{ width:'100%' }}/>
+            </div>
+            {!isEdit && (
+              <div>
+                <Lbl>Class</Lbl>
+                <select className="sui-input" value={classId} onChange={e=>setClassId(e.target.value)} style={{ width:'100%' }}>
+                  <option value="">Auto from student</option>
+                  {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Resolution */}
+          <div>
+            <Lbl required>Resolution / Action Taken</Lbl>
+            <textarea
+              className="sui-input"
+              value={resolution} onChange={e=>setResolution(e.target.value)}
+              rows={3}
+              placeholder="E.g. Parent notified, detention issued, counselling referral…"
+              style={{ width:'100%', resize:'vertical', minHeight:80 }}
+            />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <Lbl>Additional Notes</Lbl>
+            <textarea
+              className="sui-input"
+              value={notes} onChange={e=>setNotes(e.target.value)}
+              rows={2}
+              placeholder="Optional context or follow-up notes…"
+              style={{ width:'100%', resize:'vertical' }}
+            />
+          </div>
+        </form>
+
+        {/* ── Fixed footer ── */}
+        <div style={{
+          padding:`14px 24px calc(14px + env(safe-area-inset-bottom, 0px))`,
+          borderTop:'.5px solid var(--border)',
+          background:'var(--surface)',
+          flexShrink:0, display:'flex', flexDirection:'column', gap:10,
+        }}>
+          {err && (
+            <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', borderRadius:11, background:'rgba(244,63,94,.07)', border:'.5px solid rgba(244,63,94,.2)', color:'var(--danger)', fontSize:12.5, fontWeight:600 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {err}
             </div>
           )}
-        </div>
-
-        {/* Resolution */}
-        <div>
-          <Lbl required>Resolution / Action Taken</Lbl>
-          <textarea className="sui-input" value={resolution} onChange={e=>setResolution(e.target.value)} rows={3} placeholder="E.g. Parent notified, detention issued, counselling referral…" style={{ width:'100%', resize:'vertical' }}/>
-        </div>
-
-        {/* Notes */}
-        <div>
-          <Lbl>Additional Notes</Lbl>
-          <textarea className="sui-input" value={notes} onChange={e=>setNotes(e.target.value)} rows={2} placeholder="Optional context or follow-up notes…" style={{ width:'100%', resize:'vertical' }}/>
-        </div>
-
-        {err && (
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', borderRadius:10, background:'rgba(244,63,94,.08)', border:'.5px solid rgba(244,63,94,.22)', color:'var(--danger)', fontSize:12.5, fontWeight:600 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            {err}
+          <div style={{ display:'flex', gap:10 }}>
+            <button
+              type="button" form="disc-record-form" onClick={onClose}
+              style={{ flex:1, padding:'11px 0', background:'var(--surface2)', color:'var(--txt2)', border:'.5px solid var(--border)', borderRadius:13, fontWeight:600, fontSize:14, cursor:'pointer', transition:'background .13s' }}
+              onMouseEnter={e=>(e.currentTarget.style.background='var(--border)')}
+              onMouseLeave={e=>(e.currentTarget.style.background='var(--surface2)')}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit" form="disc-record-form"
+              onClick={e=>{void submit(e as any)}}
+              disabled={isPending}
+              style={{
+                flex:2, padding:'11px 0',
+                background:isPending?'var(--border)':`linear-gradient(145deg,${m.color},${m.color}cc)`,
+                color:'#fff', border:'none', borderRadius:13, fontWeight:800, fontSize:14,
+                cursor:isPending?'default':'pointer', transition:'all .18s',
+                boxShadow:isPending?'none':`0 4px 18px ${m.color}42`,
+              }}
+            >
+              {isPending ? 'Saving…' : isEdit ? 'Update Record' : 'Save Record'}
+            </button>
           </div>
-        )}
-
-        {/* Actions */}
-        <div style={{ display:'flex', gap:10, justifyContent:'flex-end', paddingTop:4 }}>
-          <button type="button" onClick={onClose} style={{ padding:'10px 20px', background:'var(--surface2)', color:'var(--txt2)', border:'.5px solid var(--border)', borderRadius:12, fontWeight:600, fontSize:13.5, cursor:'pointer', transition:'all .14s' }}
-            onMouseEnter={e=>(e.currentTarget.style.background='var(--border)')}
-            onMouseLeave={e=>(e.currentTarget.style.background='var(--surface2)')}>
-            Cancel
-          </button>
-          <button type="submit" disabled={isPending} style={{ padding:'10px 24px', background:isPending?'var(--border)':'linear-gradient(145deg,var(--brand),var(--brand-dark))', color:'#fff', border:'none', borderRadius:12, fontWeight:700, fontSize:13.5, cursor:isPending?'default':'pointer', transition:'all .18s', boxShadow:isPending?'none':'0 4px 14px rgba(13,148,136,.4)' }}>
-            {isPending ? 'Saving…' : isEdit ? 'Update Record' : 'Save Record'}
-          </button>
         </div>
-      </form>
+      </div>
     </div>
   )
+
+  return createPortal(modal, arEl)
 }
 
 // ─── Delete modal ─────────────────────────────────────────────────────────────────
 function DeleteModal({ record, onClose }: { record:DisciplineRecord; onClose:()=>void }) {
   const deleteMut = useDeleteDisciplineRecord()
   const isMobile  = useIsMobile()
+  const arEl = useMemo(()=>document.querySelector('.ar') as HTMLElement ?? document.body, [])
   const [err, setErr] = useState('')
+
+  useEffect(()=>{ document.body.style.overflow='hidden'; return ()=>{ document.body.style.overflow='' } },[])
 
   async function confirm() {
     try { await deleteMut.mutateAsync(record.id); onClose() }
     catch(ex:any){ setErr(ex.message??'Failed to delete') }
   }
 
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.52)', backdropFilter:'blur(5px)', WebkitBackdropFilter:'blur(5px)', display:'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent:'center', zIndex:300, padding: isMobile ? 0 : 20 }}
-      onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
-      <div style={{ width:'100%', maxWidth:440, background:'var(--surface)', padding:'28px 24px 32px', borderRadius: isMobile ? '24px 24px 0 0' : 20, boxShadow: isMobile ? '0 -8px 48px rgba(0,0,0,.2)' : '0 20px 60px rgba(0,0,0,.2)' }}>
-        {isMobile && <div style={{ width:36, height:4, borderRadius:2, background:'var(--border)', margin:'-8px auto 20px' }}/>}
-        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
-          <div style={{ width:44, height:44, borderRadius:14, background:'rgba(244,63,94,.1)', border:'.5px solid rgba(244,63,94,.25)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-          </div>
-          <div>
-            <div style={{ fontWeight:900, fontSize:16, color:'var(--txt)', fontFamily:'var(--font2)' }}>Delete Record?</div>
-            <div style={{ fontSize:12, color:'var(--txt3)', marginTop:1 }}>This action cannot be undone</div>
+  return createPortal(
+    <div
+      style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)', display:'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent:'center', zIndex:500, padding: isMobile ? 0 : 20 }}
+      onClick={e=>e.target===e.currentTarget&&onClose()}
+    >
+      <div style={{
+        width:'100%', maxWidth:440,
+        borderRadius: isMobile ? '28px 28px 0 0' : 22,
+        overflow:'hidden',
+        boxShadow: isMobile ? '0 -12px 56px rgba(0,0,0,.26)' : '0 24px 72px rgba(0,0,0,.26)',
+        background:'var(--surface)',
+        animation: isMobile ? 'discSheetUp .3s cubic-bezier(.32,.72,0,1) both' : 'discCenterIn .28s cubic-bezier(.32,.72,0,1) both',
+      }}>
+        {/* Header */}
+        <div style={{ padding: isMobile ? '12px 22px 18px' : '24px 24px 18px', background:'linear-gradient(150deg,rgba(244,63,94,.1) 0%,rgba(244,63,94,.04) 100%)', borderBottom:'.5px solid rgba(244,63,94,.15)', position:'relative', overflow:'hidden' }}>
+          <div style={{ position:'absolute', top:-30, right:-30, width:120, height:120, borderRadius:'50%', filter:'blur(40px)', background:'rgba(244,63,94,.2)', pointerEvents:'none' }}/>
+          {isMobile && <div style={{ width:40, height:4, borderRadius:2, background:'rgba(244,63,94,.3)', margin:'0 auto 16px', position:'relative', zIndex:1 }}/>}
+          <div style={{ display:'flex', alignItems:'center', gap:13, position:'relative', zIndex:1 }}>
+            <div style={{ width:50, height:50, borderRadius:17, background:'linear-gradient(145deg,#f43f5e,#e11d48)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 6px 24px rgba(244,63,94,.44)', flexShrink:0 }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+            </div>
+            <div>
+              <div style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:18, color:'var(--txt)', letterSpacing:-.3 }}>Delete Record?</div>
+              <div style={{ fontSize:12, color:'var(--txt3)', marginTop:2 }}>This cannot be undone</div>
+            </div>
           </div>
         </div>
-        <p style={{ fontSize:13.5, color:'var(--txt2)', lineHeight:1.6, marginBottom:20 }}>
-          Permanently delete the discipline record for <strong style={{ color:'var(--txt)' }}>{record.studentName??record.studentId}</strong> on {new Date(record.incidentDate).toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'})}.
-        </p>
-        {err && <div style={{ color:'var(--danger)', fontSize:12, marginBottom:12 }}>{err}</div>}
-        <div style={{ display:'flex', gap:10 }}>
-          <button onClick={onClose} style={{ flex:1, padding:'11px 0', background:'var(--surface2)', border:'.5px solid var(--border)', borderRadius:12, fontWeight:600, fontSize:13.5, cursor:'pointer', color:'var(--txt2)' }}>Cancel</button>
-          <button disabled={deleteMut.isPending} onClick={()=>{void confirm()}} style={{ flex:1, padding:'11px 0', background:'linear-gradient(145deg,#f43f5e,#e11d48)', color:'#fff', border:'none', borderRadius:12, fontWeight:700, fontSize:13.5, cursor:'pointer', boxShadow:'0 4px 14px rgba(244,63,94,.4)' }}>
-            {deleteMut.isPending ? 'Deleting…' : 'Delete'}
+        {/* Body */}
+        <div style={{ padding:'20px 24px' }}>
+          <p style={{ fontSize:14, color:'var(--txt2)', lineHeight:1.65, margin:0 }}>
+            Permanently delete the discipline record for{' '}
+            <strong style={{ color:'var(--txt)', fontWeight:800 }}>{record.studentName??record.studentId}</strong>{' '}
+            logged on {new Date(record.incidentDate).toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'})}.
+          </p>
+          {err && <div style={{ color:'var(--danger)', fontSize:12, marginTop:12, padding:'8px 12px', background:'rgba(244,63,94,.07)', borderRadius:8, border:'.5px solid rgba(244,63,94,.2)' }}>{err}</div>}
+        </div>
+        {/* Footer */}
+        <div style={{ padding:`0 24px calc(18px + env(safe-area-inset-bottom, 0px))`, display:'flex', gap:10 }}>
+          <button onClick={onClose} style={{ flex:1, padding:'12px 0', background:'var(--surface2)', border:'.5px solid var(--border)', borderRadius:13, fontWeight:600, fontSize:14, cursor:'pointer', color:'var(--txt2)', transition:'background .13s' }}
+            onMouseEnter={e=>(e.currentTarget.style.background='var(--border)')}
+            onMouseLeave={e=>(e.currentTarget.style.background='var(--surface2)')}>
+            Cancel
+          </button>
+          <button disabled={deleteMut.isPending} onClick={()=>{void confirm()}} style={{ flex:1.4, padding:'12px 0', background:'linear-gradient(145deg,#f43f5e,#e11d48)', color:'#fff', border:'none', borderRadius:13, fontWeight:800, fontSize:14, cursor:'pointer', boxShadow:'0 4px 18px rgba(244,63,94,.42)', transition:'opacity .13s', opacity:deleteMut.isPending?.6:1 }}>
+            {deleteMut.isPending ? 'Deleting…' : 'Delete Record'}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    arEl
   )
 }
 

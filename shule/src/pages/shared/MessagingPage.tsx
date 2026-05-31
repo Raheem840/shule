@@ -54,10 +54,14 @@ const TPLS=[
 
 // ─── CSS ─────────────────────────────────────────────────────────────────────────
 const CSS=`
-.mg-glass{background:rgba(255,255,255,.82);backdrop-filter:blur(32px) saturate(200%);-webkit-backdrop-filter:blur(32px) saturate(200%)}
-.ar[data-theme=dark] .mg-glass{background:rgba(6,12,26,.84)}
-.mg-bar{background:rgba(255,255,255,.92);backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%)}
-.ar[data-theme=dark] .mg-bar{background:rgba(7,14,28,.92)}
+.mg-glass{background:rgba(255,255,255,.84);backdrop-filter:blur(32px) saturate(200%);-webkit-backdrop-filter:blur(32px) saturate(200%)}
+.ar[data-theme=dark] .mg-glass{background:rgba(7,14,30,.88);border-bottom-color:rgba(255,255,255,.06)!important}
+.mg-bar{background:rgba(255,255,255,.93);backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%)}
+.ar[data-theme=dark] .mg-bar{background:rgba(7,14,30,.94)}
+.mg-sidebar-desk{background:rgba(255,255,255,.72);backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%)}
+.ar[data-theme=dark] .mg-sidebar-desk{background:rgba(6,12,26,.82)}
+.mg-contacts-mob{background:rgba(255,255,255,.9);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%)}
+.ar[data-theme=dark] .mg-contacts-mob{background:rgba(6,12,26,.9)}
 .mg-feed{background-color:var(--bg);background-image:radial-gradient(rgba(13,148,136,.028) 1.5px,transparent 1.5px),radial-gradient(rgba(139,92,246,.018) 1px,transparent 1px);background-size:30px 30px,15px 15px;background-position:0 0,15px 15px}
 .ar[data-theme=dark] .mg-feed{background-color:#060c18}
 .mg-row{display:flex;align-items:center;gap:13px;padding:10px 16px;min-height:72px;cursor:pointer;-webkit-tap-highlight-color:transparent;border-bottom:.5px solid rgba(0,0,0,.05);transition:background .1s}
@@ -448,35 +452,48 @@ export function MessagingPage(){
     const panel=(
       <>
         <style>{CSS}</style>
-        {/* Fixed overlay: below mob-topbar(top:56px+safe), above mob-nav(z:40<50) */}
+        {/*
+          Positioned exactly between mob-topbar bottom and mob-nav top.
+          mob-topbar: height = calc(56px + safe-area-inset-top), position:sticky z:35
+          mob-nav:    height = calc(64px + safe-area-inset-bottom), position:fixed z:50
+          This panel: position:fixed z:36 — above topbar content, below nav
+        */}
         <div style={{
           position:'fixed',
           top:'calc(56px + env(safe-area-inset-top,0px))',
-          left:0,right:0,
+          left:0, right:0,
           bottom:'calc(64px + env(safe-area-inset-bottom,0px))',
-          zIndex:40,
+          zIndex:36,
           overflow:'hidden',
-          background:'var(--surface)',
+          /* Gradient canvas the glass panels sit on */
+          background:'var(--bg)',
+          backgroundImage:'radial-gradient(rgba(13,148,136,.07) 1.5px,transparent 1.5px),radial-gradient(rgba(139,92,246,.045) 1px,transparent 1px)',
+          backgroundSize:'28px 28px,14px 14px',
+          backgroundPosition:'0 0,14px 14px',
         }}>
-          <Orb w={260} h={260} t={-50} r={-50} color="radial-gradient(circle,rgba(13,148,136,.15) 0%,transparent 70%)" anim="mgOrbA 14s ease-in-out infinite"/>
-          <Orb w={220} h={220} b={-40} l={-40} color="radial-gradient(circle,rgba(139,92,246,.12) 0%,transparent 70%)" anim="mgOrbB 16s ease-in-out infinite"/>
+          {/* Ambient orbs visible behind semi-transparent panels */}
+          <Orb w={280} h={280} t={-60} r={-60} color="radial-gradient(circle,rgba(13,148,136,.22) 0%,transparent 70%)" anim="mgOrbA 14s ease-in-out infinite"/>
+          <Orb w={240} h={240} b={-50} l={-50} color="radial-gradient(circle,rgba(139,92,246,.18) 0%,transparent 70%)" anim="mgOrbB 16s ease-in-out infinite"/>
 
-          {/* Contacts panel */}
-          <div style={{
-            position:'absolute',inset:0,
-            background:'var(--surface)',
+          {/* Contacts panel — slides LEFT to reveal chat */}
+          <div className="mg-contacts-mob" style={{
+            position:'absolute', inset:0,
             transform:active!==null?'translateX(-100%)':'translateX(0)',
-            transition:'transform .3s ease-out',
+            transition:'transform .38s cubic-bezier(.32,.72,0,1)',
+            willChange:'transform',
           }}>
             <ContactList contacts={filtered} loading={isLoading} totalUnread={totalUnread} search={search} onSearch={setSearch} active={active} onSelect={setActive}/>
           </div>
 
-          {/* Chat panel */}
+          {/* Chat / announcements panel — slides in from RIGHT */}
           <div style={{
-            position:'absolute',inset:0,
-            background:'var(--surface)',
+            position:'absolute', inset:0,
+            background:'var(--bg)',
             transform:active!==null?'translateX(0)':'translateX(100%)',
-            transition:'transform .3s ease-out',
+            transition:'transform .38s cubic-bezier(.32,.72,0,1)',
+            willChange:'transform',
+            /* Cast a shadow on the contact list when open */
+            boxShadow:active!==null?'-8px 0 32px rgba(0,0,0,.14)':'none',
           }}>
             {active==='announcements'
               ?<AnnsPanel onBack={()=>setActive(null)} mob/>
@@ -494,35 +511,62 @@ export function MessagingPage(){
   return(
     <>
       <style>{CSS}</style>
-      <div style={{display:'flex',height:'calc(100vh - 56px - 2.8rem)',borderRadius:18,overflow:'hidden',border:'.5px solid rgba(255,255,255,.55)',boxShadow:'0 8px 48px rgba(0,0,0,.09),0 2px 12px rgba(0,0,0,.05)',position:'relative',background:'var(--bg)'}}>
-        <Orb w={380} h={380} t={-80} r={-80} color="radial-gradient(circle,rgba(13,148,136,.13) 0%,transparent 70%)" anim="mgOrbA 14s ease-in-out infinite"/>
-        <Orb w={340} h={340} b={-70} l={-60} color="radial-gradient(circle,rgba(139,92,246,.11) 0%,transparent 70%)" anim="mgOrbB 16s ease-in-out infinite"/>
-        <div style={{width:320,flexShrink:0,display:'flex',flexDirection:'column',background:'var(--surface)',borderRight:'.5px solid var(--border)',boxShadow:'2px 0 18px rgba(0,0,0,.04)',position:'relative',zIndex:1}}>
+      {/*
+        height uses 100dvh so mobile-browser chrome (URL bar) is excluded.
+        On desktop dvh === vh; on Android Chrome it handles the retractable bar.
+        Subtract: topbar(56px) + page-padding-top(1.4rem) + page-padding-bottom(1.4rem).
+      */}
+      <div style={{
+        display:'flex',
+        height:'calc(100dvh - 56px - 2.8rem)',
+        borderRadius:18, overflow:'hidden',
+        border:'.5px solid var(--border)',
+        boxShadow:'0 8px 48px rgba(0,0,0,.09),0 2px 12px rgba(0,0,0,.05)',
+        position:'relative',
+        background:'var(--bg)',
+        backgroundImage:'radial-gradient(rgba(13,148,136,.025) 1.5px,transparent 1.5px)',
+        backgroundSize:'28px 28px',
+      }}>
+        <Orb w={400} h={400} t={-100} r={-80} color="radial-gradient(circle,rgba(13,148,136,.16) 0%,transparent 70%)" anim="mgOrbA 14s ease-in-out infinite"/>
+        <Orb w={360} h={360} b={-80} l={-60} color="radial-gradient(circle,rgba(139,92,246,.13) 0%,transparent 70%)" anim="mgOrbB 16s ease-in-out infinite"/>
+
+        {/* Sidebar — glass so orbs bleed through */}
+        <div className="mg-sidebar-desk" style={{
+          width:320, flexShrink:0, display:'flex', flexDirection:'column',
+          borderRight:'.5px solid rgba(0,0,0,.07)',
+          boxShadow:'2px 0 24px rgba(0,0,0,.04)',
+          position:'relative', zIndex:1,
+        }}>
           <ContactList contacts={filtered} loading={isLoading} totalUnread={totalUnread} search={search} onSearch={setSearch} active={active} onSelect={setActive}/>
         </div>
+
+        {/* Chat area */}
         <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,position:'relative',zIndex:1,overflow:'hidden'}}>
           {active===null?(
-            <div className="mg-feed" style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:22}}>
-              <div style={{position:'relative'}}>
-                <div style={{width:88,height:88,borderRadius:28,background:'linear-gradient(145deg,rgba(13,148,136,.1),rgba(139,92,246,.07))',border:'1px solid rgba(13,148,136,.14)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 12px 48px rgba(13,148,136,.1)'}}>
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1.2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            <div className="mg-feed" style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24}}>
+              {/* Decorative rings */}
+              <div style={{position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <div style={{position:'absolute',width:120,height:120,borderRadius:'50%',border:'1px solid rgba(13,148,136,.1)',animation:'mgOrbA 6s ease-in-out infinite'}}/>
+                <div style={{position:'absolute',width:96,height:96,borderRadius:'50%',border:'1px solid rgba(13,148,136,.15)',animation:'mgOrbA 8s ease-in-out infinite reverse'}}/>
+                <div style={{width:80,height:80,borderRadius:26,background:'linear-gradient(145deg,rgba(13,148,136,.12),rgba(139,92,246,.08))',border:'1px solid rgba(13,148,136,.16)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 12px 48px rgba(13,148,136,.12)',backdropFilter:'blur(16px)'}}>
+                  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1.3"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
                 </div>
-                <div style={{position:'absolute',top:-5,right:-5,width:22,height:22,borderRadius:'50%',background:'linear-gradient(145deg,#8b5cf6,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 3px 10px rgba(139,92,246,.5)'}}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <div style={{position:'absolute',top:-4,right:-4,width:24,height:24,borderRadius:'50%',background:'linear-gradient(145deg,#8b5cf6,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 12px rgba(139,92,246,.55)'}}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </div>
               </div>
               <div style={{textAlign:'center'}}>
-                <div style={{fontSize:19,fontWeight:800,color:'var(--txt)',fontFamily:'var(--font2)',letterSpacing:-.4,marginBottom:7}}>Select a conversation</div>
-                <div style={{fontSize:13.5,color:'var(--txt3)',lineHeight:1.7}}>Choose a contact for direct messages<br/>or open Announcements to broadcast</div>
+                <div style={{fontSize:20,fontWeight:900,color:'var(--txt)',fontFamily:'var(--font2)',letterSpacing:-.5,marginBottom:8}}>Select a conversation</div>
+                <div style={{fontSize:13.5,color:'var(--txt3)',lineHeight:1.75}}>Choose a contact to send a direct message<br/>or open Announcements to broadcast to all staff</div>
               </div>
               {contacts.length>0&&(
-                <div style={{display:'flex',gap:10}}>
+                <div style={{display:'flex',gap:10,marginTop:4}}>
                   {contacts.slice(0,5).map(c=>{
                     const[cc,cc2]=pal(c.name)
                     return(
-                      <button key={c.id} onClick={()=>setActive(c)} style={{width:44,height:44,borderRadius:'50%',border:'none',cursor:'pointer',background:`linear-gradient(145deg,${cc},${cc2})`,color:'#fff',fontSize:13,fontWeight:900,fontFamily:'var(--font2)',boxShadow:`0 3px 12px ${cc}40`,transition:'transform .18s cubic-bezier(.34,1.56,.64,1)',WebkitTapHighlightColor:'transparent'}}
-                        onMouseEnter={e=>(e.currentTarget.style.transform='scale(1.14)')}
-                        onMouseLeave={e=>(e.currentTarget.style.transform='none')}>
+                      <button key={c.id} onClick={()=>setActive(c)} title={c.name} style={{width:46,height:46,borderRadius:'50%',border:'none',cursor:'pointer',background:`linear-gradient(145deg,${cc},${cc2})`,color:'#fff',fontSize:13,fontWeight:900,fontFamily:'var(--font2)',boxShadow:`0 4px 14px ${cc}44`,transition:'transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .18s',WebkitTapHighlightColor:'transparent'}}
+                        onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.16) translateY(-2px)';e.currentTarget.style.boxShadow=`0 8px 24px ${cc}55`}}
+                        onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow=`0 4px 14px ${cc}44`}}>
                         {ini(c.name)}
                       </button>
                     )
