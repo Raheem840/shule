@@ -438,6 +438,16 @@ export function MessagingPage(){
   const [search,setSearch]=useState('')
   const isMobile=useIsMobile()
 
+  // Desktop: cancel .page padding so the container fills shell-main edge-to-edge.
+  // Without this, shell-main's --bg shows as a gray strip below the container.
+  useEffect(()=>{
+    if(isMobile) return
+    const page=document.querySelector('.shell-main > .page') as HTMLElement|null
+    if(!page) return
+    page.style.cssText='padding:0!important;height:100%;display:flex;flex-direction:column;'
+    return ()=>{ page.style.cssText='' }
+  },[isMobile])
+
   const filtered=search.trim()
     ?contacts.filter(c=>c.name.toLowerCase().includes(search.toLowerCase())||c.role.includes(search.toLowerCase()))
     :contacts
@@ -516,11 +526,9 @@ export function MessagingPage(){
       */}
       <div style={{
         display:'flex',
-        /* height: fill the page content area exactly.
-           shell-main is flex:1 — its children can use % height by making
-           the page div a flex column that fills it. We subtract the .page
-           padding (1.4rem top + 1.4rem bottom = 2.8rem) and topbar (56px). */
-        height:'calc(100dvh - 56px - 2.8rem)',
+        // useEffect above removes .page padding and sets it to flex-column,
+        // so this container just needs flex:1 to fill the remaining height.
+        flex:1,
         minHeight:400,
         borderRadius:18, overflow:'hidden',
         border:'.5px solid var(--border)',
