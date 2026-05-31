@@ -26,7 +26,14 @@ type TeacherRow = { id: string; name: string; subjects: string[]; classes: strin
 type ModalTarget = { classId: string; streamId: string | null; day: number; period: number }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const DAYS: [number, string][] = [[1,'Mon'],[2,'Tue'],[3,'Wed'],[4,'Thu'],[5,'Fri']]
+const DAYS: [number, string][] = [[1,'Mon'],[2,'Tue'],[3,'Wed'],[4,'Thu'],[5,'Fri'],[6,'Sat'],[7,'Sun']]
+
+// JS getDay(): 0=Sun,1=Mon…6=Sat  →  our schema: 1=Mon…6=Sat,7=Sun
+function jsToSchoolDay(d: number): number | null {
+  if (d === 0) return 7
+  if (d >= 1 && d <= 6) return d
+  return null
+}
 
 const EVENT_META: Record<EventType, { color: string; bg: string; icon: string; label: string }> = {
   class:    { color: '#64748b', bg: 'var(--surface2)',             icon: '📚', label: 'Class'    },
@@ -288,7 +295,7 @@ function AssignModal({ target, term, year, onClose, onSaved }: {
       await createSlot.mutateAsync({
         classId: target.classId, streamId: target.streamId,
         subjectId, teacherId,
-        dayOfWeek: target.day as 1|2|3|4|5,
+        dayOfWeek: target.day as 1|2|3|4|5|6|7,
         periodNumber: target.period,
         startTime: startTime || null, endTime: endTime || null, term, year,
       })
@@ -493,8 +500,7 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
     return keys
   }, [slots])
 
-  const today  = new Date().getDay()
-  const todayCol = today >= 1 && today <= 5 ? today : null
+  const todayCol = jsToSchoolDay(new Date().getDay())
   const classPeriods = periodDefs.filter(d => d.type === 'class')
   const publishedCount = slots.filter(s => s.isPublished).length
   const totalClassSlots = classPeriods.length * 5
@@ -504,7 +510,7 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
     setDragActive(false)
     if (!over || !selectedClass) return
     const parts = (over.id as string).split('-')
-    const newDay = parseInt(parts[1]) as 1|2|3|4|5
+    const newDay = parseInt(parts[1]) as 1|2|3|4|5|6|7
     const newPeriod = parseInt(parts[2])
     const slot = active.data.current?.slot as TimetableSlot | undefined
     if (!slot) return
@@ -796,8 +802,7 @@ function MiniCard({ cls, slots, periodDefs, onCellClick, onEdit }: {
   const total    = classPeriods.length * 5
   const pct      = total > 0 ? Math.round((filled / total) * 100) : 0
   const pubCount = slots.filter(s => s.isPublished).length
-  const today    = new Date().getDay()
-  const todayCol = today >= 1 && today <= 5 ? today : null
+  const todayCol = jsToSchoolDay(new Date().getDay())
 
   return (
     <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,.05)', display: 'flex', flexDirection: 'column', transition: 'box-shadow .15s, transform .15s' }}
@@ -1052,8 +1057,7 @@ function SchoolView({ term, year, periodDefs }: {
   }, [cellMap])
 
   const totalConflicts = conflictSet.size
-  const today   = new Date().getDay()
-  const todayCol = today >= 1 && today <= 5 ? today : null
+  const todayCol = jsToSchoolDay(new Date().getDay())
 
   // When a class filter is active → show full-size single-class grid
   if (filterClassId) {

@@ -47,7 +47,7 @@ export function useTimetableSlots(params: {
         streamId:     r.stream_id,
         subjectId:    r.subject_id,
         teacherId:    r.teacher_id,
-        dayOfWeek:    r.day_of_week as 1 | 2 | 3 | 4 | 5,
+        dayOfWeek:    r.day_of_week as 1 | 2 | 3 | 4 | 5 | 6 | 7,
         periodNumber: r.period_number,
         startTime:    r.start_time,
         endTime:      r.end_time,
@@ -136,7 +136,7 @@ export function useTeacherTimetable(params: {
         streamId:     r.stream_id,
         subjectId:    r.subject_id,
         teacherId:    r.teacher_id,
-        dayOfWeek:    r.day_of_week as 1 | 2 | 3 | 4 | 5,
+        dayOfWeek:    r.day_of_week as 1 | 2 | 3 | 4 | 5 | 6 | 7,
         periodNumber: r.period_number,
         startTime:    r.start_time,
         endTime:      r.end_time,
@@ -252,7 +252,7 @@ export function useCreateTimetableSlot() {
       streamId: string | null
       subjectId: string
       teacherId: string
-      dayOfWeek: 1 | 2 | 3 | 4 | 5
+      dayOfWeek: 1 | 2 | 3 | 4 | 5 | 6 | 7
       periodNumber: number
       startTime?: string | null
       endTime?: string | null

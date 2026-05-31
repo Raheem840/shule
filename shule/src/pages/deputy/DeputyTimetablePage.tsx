@@ -9,7 +9,13 @@ import type { TimetableSlot } from '../../types/week9'
 type EventType = 'class' | 'break' | 'lunch' | 'assembly' | 'prayer' | 'preps' | 'custom'
 type PeriodDef = { num: number; type: EventType; label: string; startTime: string; endTime: string }
 
-const DAYS: [number, string][] = [[1,'Mon'],[2,'Tue'],[3,'Wed'],[4,'Thu'],[5,'Fri']]
+const DAYS: [number, string][] = [[1,'Mon'],[2,'Tue'],[3,'Wed'],[4,'Thu'],[5,'Fri'],[6,'Sat'],[7,'Sun']]
+
+function jsToSchoolDay(d: number): number | null {
+  if (d === 0) return 7
+  if (d >= 1 && d <= 6) return d
+  return null
+}
 
 const EVENT_META: Record<EventType, { color: string; bg: string; icon: string }> = {
   class:    { color: '#64748b', bg: 'var(--surface2)',      icon: '📚' },
@@ -120,8 +126,7 @@ export function DeputyTimetablePage() {
     return s
   }, [cellMap])
 
-  const today    = new Date().getDay()
-  const todayCol = today >= 1 && today <= 5 ? today : null
+  const todayCol = jsToSchoolDay(new Date().getDay())
   const totalConflicts = conflictSet.size
   const publishedCount = allSlots.filter(s => s.isPublished).length
 

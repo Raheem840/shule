@@ -4,8 +4,14 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 
 const DAYS: [number, string, string][] = [
   [1,'Mon','Monday'], [2,'Tue','Tuesday'], [3,'Wed','Wednesday'],
-  [4,'Thu','Thursday'], [5,'Fri','Friday'],
+  [4,'Thu','Thursday'], [5,'Fri','Friday'], [6,'Sat','Saturday'], [7,'Sun','Sunday'],
 ]
+
+function jsToSchoolDay(d: number): number | null {
+  if (d === 0) return 7
+  if (d >= 1 && d <= 6) return d
+  return null
+}
 
 const SUBJ_PALETTE: [string, string][] = [
   ['#6366f1','rgba(99,102,241,.14)'],  ['#0ea5e9','rgba(14,165,233,.14)'],
@@ -24,15 +30,11 @@ export function TeacherTimetablePage() {
   const isMobile = useIsMobile()
   const [term,      setTerm]      = useState('Term 1')
   const [year,      setYear]      = useState(new Date().getFullYear())
-  const [mobileDay, setMobileDay] = useState<number>(() => {
-    const d = new Date().getDay()
-    return d >= 1 && d <= 5 ? d : 1
-  })
+  const [mobileDay, setMobileDay] = useState<number>(() => jsToSchoolDay(new Date().getDay()) ?? 1)
 
   const { data: slots = [], isLoading } = useTeacherTimetable({ term, year })
 
-  const today    = new Date().getDay()
-  const todayCol = today >= 1 && today <= 5 ? today : null
+  const todayCol = jsToSchoolDay(new Date().getDay())
 
   // Derive period range from slot data
   const periodNums = useMemo(() => {

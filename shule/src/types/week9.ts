@@ -54,7 +54,7 @@ export type TimetablePeriod = {
   classId: string
   subjectId: string
   teacherId: string
-  dayOfWeek: 1 | 2 | 3 | 4 | 5   // 1=Mon … 5=Fri
+  dayOfWeek: 1 | 2 | 3 | 4 | 5 | 6 | 7   // 1=Mon … 5=Fri
   periodNumber: number
   startTime: string               // HH:MM
   endTime: string
@@ -278,7 +278,7 @@ export type TimetableSlot = {
   streamId: string | null
   subjectId: string
   teacherId: string
-  dayOfWeek: 1 | 2 | 3 | 4 | 5
+  dayOfWeek: 1 | 2 | 3 | 4 | 5 | 6 | 7
   periodNumber: number
   startTime: string | null
   endTime: string | null
