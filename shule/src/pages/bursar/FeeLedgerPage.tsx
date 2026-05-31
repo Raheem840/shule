@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -264,15 +264,22 @@ export function FeeLedgerPage() {
   })
   const [showAdd,    setShowAdd]    = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [above60,    setAbove60]    = useState(false)
 
   const { data: classes } = useClasses()
   const { data: streams } = useStreams(filters.classId ?? null)
   const { data: rows, isLoading, error } = useFeePayments(filters)
   const updatePayment = useUpdatePayment()
 
+  const allRows = useMemo(() => {
+    const r = rows ?? []
+    if (above60) return r.filter(row => row.amountDue > 0 && row.amountPaid / row.amountDue >= 0.6)
+    return r
+  }, [rows, above60])
+
   const parentRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
-    count:           (rows ?? []).length,
+    count:           allRows.length,
     getScrollElement: () => parentRef.current,
     estimateSize:    () => 52,
     overscan:        10,
@@ -426,8 +433,6 @@ export function FeeLedgerPage() {
   }
   const tdStyle = { padding: '0.65rem 0.85rem', verticalAlign: 'middle' as const }
 
-  const allRows = rows ?? []
-
   return (
     <div style={{ padding: '1.5rem 2rem', maxWidth: 1400, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
       <PageHeader
@@ -510,6 +515,24 @@ export function FeeLedgerPage() {
           aria-label="Search students"
           style={{ flex: 1, minWidth: 180, padding: '0.35rem 0.85rem', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', background: 'var(--surface)', color: 'var(--txt)', fontSize: 13, outline: 'none' }}
         />
+
+        {/* ≥60% paid filter pill */}
+        <button
+          onClick={() => setAbove60(v => !v)}
+          style={{
+            padding: '0.3rem 0.9rem', border: 'none', borderRadius: 20, cursor: 'pointer',
+            fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 11, whiteSpace: 'nowrap',
+            background: above60
+              ? 'linear-gradient(135deg,#10b981,#059669)'
+              : 'linear-gradient(135deg,rgba(16,185,129,.12),rgba(5,150,105,.08))',
+            color:  above60 ? '#fff' : 'var(--success)',
+            border: above60 ? 'none' : '1.5px solid rgba(16,185,129,.35)',
+            boxShadow: above60 ? '0 2px 12px rgba(16,185,129,.35)' : 'none',
+            transition: 'all .18s cubic-bezier(.34,1.56,.64,1)',
+          }}
+        >
+          ≥ 60% Paid
+        </button>
 
         <span style={{ fontSize: 12, color: 'var(--txt3)', whiteSpace: 'nowrap' }}>
           {allRows.length} record{allRows.length !== 1 ? 's' : ''}

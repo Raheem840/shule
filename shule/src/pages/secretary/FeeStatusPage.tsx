@@ -21,6 +21,7 @@ type StudentFeeStatus = {
   className:       string
   streamName:      string
   status:          FeeStatus
+  pct60:           boolean
 }
 
 function useStudentFeeStatus(classId: string, streamId: string) {
@@ -77,6 +78,7 @@ function useStudentFeeStatus(classId: string, streamId: string) {
           else if (a.paid > 0)              status = 'partial'
           else                              status = 'unpaid'
         }
+        const pct60 = a ? a.due > 0 && a.paid / a.due >= 0.6 : false
         return {
           studentId:       r.id as string,
           admissionNumber: r.admission_number as string,
@@ -87,6 +89,7 @@ function useStudentFeeStatus(classId: string, streamId: string) {
           className:       classMap.get(r.class_id as string) ?? '—',
           streamName:      streamMap.get(r.stream_id as string) ?? '—',
           status,
+          pct60,
         }
       })
     },
@@ -105,6 +108,7 @@ export function FeeStatusPage() {
   const [streamId,   setStreamId]   = useState('')
   const [statusFilter, setStatus]   = useState<FeeStatus | ''>('')
   const [search,     setSearch]     = useState('')
+  const [above60,    setAbove60]    = useState(false)
 
   const { data: classes = [] } = useClasses()
   const { data: streams = [] } = useStreams(classId || null)
@@ -113,6 +117,7 @@ export function FeeStatusPage() {
   const rows = useMemo(() => {
     let r = data
     if (statusFilter) r = r.filter(x => x.status === statusFilter)
+    if (above60)      r = r.filter(x => x.pct60)
     if (search.trim()) {
       const q = search.toLowerCase()
       r = r.filter(x =>
@@ -122,7 +127,7 @@ export function FeeStatusPage() {
       )
     }
     return r
-  }, [data, statusFilter, search])
+  }, [data, statusFilter, above60, search])
 
   const counts = useMemo(() => ({
     paid:    data.filter(x => x.status === 'paid').length,
@@ -161,6 +166,24 @@ export function FeeStatusPage() {
             </button>
           )
         })}
+
+        {/* ≥60% paid filter */}
+        <button
+          onClick={() => setAbove60(v => !v)}
+          style={{
+            padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
+            fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 12,
+            background: above60
+              ? 'linear-gradient(135deg,#10b981,#059669)'
+              : 'var(--surface)',
+            color:  above60 ? '#fff' : 'var(--success)',
+            border: above60 ? '1.5px solid transparent' : '1.5px solid rgba(16,185,129,.4)',
+            boxShadow: above60 ? '0 2px 12px rgba(16,185,129,.30)' : 'none',
+            transition: 'all .18s cubic-bezier(.34,1.56,.64,1)',
+          }}
+        >
+          ≥ 60% Paid
+        </button>
       </div>
 
       {/* Filters */}
