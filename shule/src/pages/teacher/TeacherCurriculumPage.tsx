@@ -2,55 +2,22 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
-import { PageHeader } from '../../components/ui/PageHeader'
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
-import { useClasses } from '../../hooks/useClasses'
-import { useSubjects } from '../../hooks/useClasses'
+import { useClasses, useSubjects } from '../../hooks/useClasses'
 import type { CurriculumTopic } from '../../types/week9'
 
 function useMyTopics() {
   const { user } = useAuth()
   return useQuery({
     queryKey: ['my-curriculum', user?.schoolId, user?.id],
-    enabled:  !!user,
+    enabled: !!user,
     queryFn: async (): Promise<CurriculumTopic[]> => {
-      // curriculum_plan has no teacher_id column. Fetch all topics for the school
-      // and filter client-side to subjects this teacher is assigned to.
-      const { data: staffRow } = await supabase
-        .from('staff')
-        .select('id, subjects')
-        .eq('auth_user_id', user!.id)
-        .maybeSingle()
-
+      const { data: staffRow } = await supabase.from('staff').select('id, subjects').eq('auth_user_id', user!.id).maybeSingle()
       if (!staffRow) return []
       const mySubjects = new Set<string>(((staffRow as any).subjects ?? []) as string[])
-
-      const { data, error } = await supabase
-        .from('curriculum_plan')
-        .select('id, school_id, subject_id, class_id, topic, term, year, expected_date, covered, covered_at, covered_by')
-        .eq('school_id', user!.schoolId)
-        .order('expected_date', { ascending: true, nullsFirst: false })
-
+      const { data, error } = await supabase.from('curriculum_plan').select('id, school_id, subject_id, class_id, topic, term, year, expected_date, covered, covered_at, covered_by').eq('school_id', user!.schoolId).order('expected_date', { ascending: true, nullsFirst: false })
       if (error) throw new Error(error.message)
-
-      return (data ?? [])
-        .filter((r: any) => mySubjects.size === 0 || mySubjects.has(r.subject_id as string))
-        .map((r: any, idx: number): CurriculumTopic => ({
-          id:            r.id,
-          schoolId:      r.school_id,
-          subjectId:     r.subject_id,
-          classId:       r.class_id,
-          topicName:     r.topic,
-          ncdcCode:      null,
-          term:          r.term,
-          year:          r.year,
-          plannedDate:   r.expected_date,
-          coveredAt:     r.covered_at,
-          coveredBy:     r.covered_by,
-          teacherId:     null,
-          sequenceOrder: idx + 1,
-        }))
+      return (data ?? []).filter((r: any) => mySubjects.size === 0 || mySubjects.has(r.subject_id as string)).map((r: any, idx: number): CurriculumTopic => ({ id: r.id, schoolId: r.school_id, subjectId: r.subject_id, classId: r.class_id, topicName: r.topic, ncdcCode: null, term: r.term, year: r.year, plannedDate: r.expected_date, coveredAt: r.covered_at, coveredBy: r.covered_by, teacherId: null, sequenceOrder: idx + 1 }))
     },
     staleTime: 2 * 60_000,
   })
@@ -62,30 +29,11 @@ function useMarkTopicCovered() {
   return useMutation({
     mutationFn: async (topicId: string) => {
       if (!user) throw new Error('Not authenticated')
-      const { error } = await supabase
-        .from('curriculum_plan')
-        .update({ covered_at: new Date().toISOString(), covered_by: user.id })
-        .eq('id', topicId)
-        .eq('school_id', user.schoolId)
+      const { error } = await supabase.from('curriculum_plan').update({ covered_at: new Date().toISOString(), covered_by: user.id }).eq('id', topicId).eq('school_id', user.schoolId)
       if (error) throw new Error(error.message)
-
-      // Notify DoS — find DoS staff user for this school
-      const { data: dosStaff } = await supabase
-        .from('staff')
-        .select('auth_user_id')
-        .eq('school_id', user.schoolId)
-        .eq('role', 'dos')
-        .maybeSingle()
-
+      const { data: dosStaff } = await supabase.from('staff').select('auth_user_id').eq('school_id', user.schoolId).eq('role', 'dos').maybeSingle()
       if ((dosStaff as any)?.auth_user_id) {
-        await supabase.from('notifications').insert({
-          school_id: user.schoolId,
-          user_id:   (dosStaff as any).auth_user_id,
-          type:      'general',
-          body:      'A teacher has marked a curriculum topic as covered.',
-          link:      '/dos/curriculum',
-          read_at:   null,
-        })
+        await supabase.from('notifications').insert({ school_id: user.schoolId, user_id: (dosStaff as any).auth_user_id, type: 'general', body: 'A teacher has marked a curriculum topic as covered.', link: '/dos/curriculum', read_at: null })
       }
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['my-curriculum', user?.schoolId, user?.id] }),
@@ -93,9 +41,9 @@ function useMarkTopicCovered() {
 }
 
 export function TeacherCurriculumPage() {
-  const { data = [], isLoading }    = useMyTopics()
-  const { data: classes = [] }      = useClasses()
-  const { data: subjects = [] }     = useSubjects()
+  const { data = [], isLoading } = useMyTopics()
+  const { data: classes = [] }   = useClasses()
+  const { data: subjects = [] }  = useSubjects()
   const { success: ok, error: err } = useToast()
   const markCovered = useMarkTopicCovered()
 
@@ -108,117 +56,122 @@ export function TeacherCurriculumPage() {
   if (classFilter)   filtered = filtered.filter(t => t.classId === classFilter)
   if (subjectFilter) filtered = filtered.filter(t => t.subjectId === subjectFilter)
 
-  const covered  = filtered.filter(t => t.coveredAt != null).length
-  const pct      = filtered.length > 0 ? Math.round((covered / filtered.length) * 100) : 0
+  const covered = filtered.filter(t => t.coveredAt != null).length
+  const pct     = filtered.length > 0 ? Math.round((covered / filtered.length) * 100) : 0
 
-  // Only show subjects / classes that appear in this teacher's topics
   const topicSubjectIds = new Set(data.map(t => t.subjectId))
   const topicClassIds   = new Set(data.map(t => t.classId))
   const mySubjects      = subjects.filter(s => topicSubjectIds.has(s.id))
   const myClasses       = classes.filter(c => topicClassIds.has(c.id))
 
   async function handleMark(topicId: string) {
-    try {
-      await markCovered.mutateAsync(topicId)
-      ok('Topic marked as covered — DoS has been notified.')
-    } catch (e: any) { err(e.message) }
-  }
-
-  const selectStyle = {
-    padding: '0.35rem 0.85rem', border: '1.5px solid var(--border)',
-    borderRadius: 'var(--r)', background: 'var(--surface)',
-    color: 'var(--txt)', fontSize: 13, outline: 'none',
+    try { await markCovered.mutateAsync(topicId); ok('Topic marked as covered — DoS notified.') }
+    catch (e: any) { err(e.message) }
   }
 
   return (
-    <div className="sui-page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <PageHeader
-        title="Curriculum Plan"
-        subtitle="Track topics you've covered in class."
-      />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
 
-      {/* Filter bar */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select style={selectStyle} value={termFilter} onChange={e => setTermFilter(e.target.value)}>
-          <option value="">All Terms</option>
-          <option value="1">Term 1</option>
-          <option value="2">Term 2</option>
-          <option value="3">Term 3</option>
-        </select>
-        <select style={selectStyle} value={subjectFilter} onChange={e => setSubjectFilter(e.target.value)}>
-          <option value="">All Subjects</option>
-          {mySubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <select style={selectStyle} value={classFilter} onChange={e => setClassFilter(e.target.value)}>
-          <option value="">All Classes</option>
-          {myClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+      {/* Header */}
+      <div style={{ position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle,rgba(13,148,136,.18),transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, position: 'relative' }}>
+          <div style={{ width: 46, height: 46, borderRadius: 15, background: 'linear-gradient(145deg,#0d9488,#0f766e)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 18px rgba(13,148,136,.45)', flexShrink: 0 }}>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          </div>
+          <div>
+            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>Curriculum Plan</h1>
+            <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>Track topics you've covered in class.</p>
+          </div>
+        </div>
       </div>
 
-      {isLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><LoadingSpinner size="md" /></div>}
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', alignItems: 'flex-end' }}>
+        {[
+          { label: 'Term', val: termFilter, set: setTermFilter, opts: [['','All Terms'],['1','Term 1'],['2','Term 2'],['3','Term 3']] as [string,string][] },
+          { label: 'Subject', val: subjectFilter, set: setSubjectFilter, opts: [['','All Subjects'],...mySubjects.map(s => [s.id, s.name])] as [string,string][] },
+          { label: 'Class', val: classFilter, set: setClassFilter, opts: [['','All Classes'],...myClasses.map(c => [c.id, c.name])] as [string,string][] },
+        ].map(({ label, val, set, opts }) => (
+          <div key={label} style={{ flex: '1 1 130px', minWidth: 120 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>{label}</div>
+            <select value={val} onChange={e => set(e.target.value)} className="sui-input" style={{ width: '100%' }}>
+              {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
 
+      {/* Coverage progress */}
       {!isLoading && filtered.length > 0 && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>Coverage</span>
-            <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--brand)', fontFamily: 'var(--font3)' }}>{pct}%</span>
+        <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '18px 20px', boxShadow: '0 1px 8px rgba(0,0,0,.04)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: 'var(--txt)' }}>Curriculum Coverage</div>
+            <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--font3)', color: pct >= 70 ? 'var(--success)' : pct >= 40 ? 'var(--warning)' : 'var(--danger)', letterSpacing: -.5 }}>{pct}%</div>
           </div>
-          <div style={{ height: 8, borderRadius: 4, background: 'var(--surface2)', overflow: 'hidden' }}>
-            <div style={{ width: `${pct}%`, height: '100%', background: 'var(--brand)', borderRadius: 4, transition: 'width 0.4s' }} />
+          <div style={{ height: 8, borderRadius: 99, background: 'var(--surface2)', overflow: 'hidden' }}>
+            <div style={{ width: `${pct}%`, height: '100%', background: pct >= 70 ? 'var(--success)' : pct >= 40 ? 'var(--warning)' : 'var(--danger)', borderRadius: 99, transition: 'width .5s cubic-bezier(.4,0,.2,1)' }} />
           </div>
-          <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 6 }}>{covered} of {filtered.length} topics covered</div>
+          <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 8 }}>{covered} of {filtered.length} topics covered</div>
         </div>
       )}
 
-      {!isLoading && (
-        <div className="mob-cards" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                {['#', 'Topic', 'NCDC Code', 'Term', 'Planned Date', 'Status', 'Action'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No curriculum topics match the filters.</td></tr>
-              ) : filtered.map(t => (
-                <tr key={t.id} style={{ borderBottom: '1px solid var(--border)', background: t.coveredAt ? 'var(--bg)' : 'var(--surface)' }}>
-                  <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt3)' }}>{t.sequenceOrder}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, color: t.coveredAt ? 'var(--txt3)' : 'var(--txt)', textDecoration: t.coveredAt ? 'line-through' : 'none' }}>
-                    {t.topicName}
-                  </td>
-                  <td style={{ padding: '10px 14px', fontSize: 11, fontFamily: 'var(--font3)', color: 'var(--txt3)' }}>{t.ncdcCode ?? '—'}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--txt2)' }}>{t.term}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--txt3)' }}>
-                    {t.plannedDate ? new Date(t.plannedDate).toLocaleDateString('en-UG') : '—'}
-                  </td>
-                  <td style={{ padding: '10px 14px' }}>
-                    {t.coveredAt ? (
-                      <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'var(--success-bg)', color: 'var(--success)' }}>
-                        Covered {new Date(t.coveredAt).toLocaleDateString('en-UG')}
-                      </span>
-                    ) : (
-                      <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'var(--surface2)', color: 'var(--txt3)' }}>Pending</span>
-                    )}
-                  </td>
-                  <td style={{ padding: '10px 14px' }}>
-                    {!t.coveredAt && (
-                      <button
-                        className="sui-btn-primary"
-                        style={{ fontSize: 11, padding: '4px 12px' }}
-                        disabled={markCovered.isPending}
-                        onClick={() => handleMark(t.id)}
-                      >
-                        Mark Covered
-                      </button>
-                    )}
-                  </td>
+      {isLoading && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{[1,2,3,4].map(i => <div key={i} className="shule-skeleton" style={{ height: 52, borderRadius: 10 }} />)}</div>}
+
+      {!isLoading && filtered.length === 0 && (
+        <div style={{ padding: '52px 24px', textAlign: 'center', background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)' }}>
+          <div style={{ width: 56, height: 56, borderRadius: 18, background: 'rgba(13,148,136,.08)', border: '.5px solid rgba(13,148,136,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1.8"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--txt)', marginBottom: 6 }}>No topics found</div>
+          <div style={{ fontSize: 13, color: 'var(--txt3)' }}>No curriculum topics match the current filters.</div>
+        </div>
+      )}
+
+      {!isLoading && filtered.length > 0 && (
+        <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+          <div className="hscroll">
+            <table style={{ borderCollapse: 'collapse', minWidth: 700, width: '100%' }}>
+              <thead>
+                <tr>
+                  {['#', 'Topic', 'Term', 'Planned Date', 'Status', 'Action'].map(h => (
+                    <th key={h} style={{ padding: '11px 14px', background: 'var(--surface2)', fontWeight: 700, fontSize: 10.5, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, borderBottom: '.5px solid var(--border)', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map(t => (
+                  <tr key={t.id} style={{ borderBottom: '.5px solid var(--border)', background: t.coveredAt ? 'rgba(16,185,129,.02)' : 'transparent', transition: 'background .12s' }}>
+                    <td style={{ padding: '11px 14px', fontSize: 11.5, fontFamily: 'var(--font3)', color: 'var(--txt3)', width: 40 }}>{t.sequenceOrder}</td>
+                    <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: t.coveredAt ? 'var(--txt3)' : 'var(--txt)', textDecoration: t.coveredAt ? 'line-through' : 'none', maxWidth: 300 }}>{t.topicName}</td>
+                    <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--txt2)', whiteSpace: 'nowrap' }}>Term {t.term}</td>
+                    <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font3)', whiteSpace: 'nowrap' }}>
+                      {t.plannedDate ? new Date(t.plannedDate).toLocaleDateString('en-UG') : '—'}
+                    </td>
+                    <td style={{ padding: '11px 14px' }}>
+                      {t.coveredAt ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: 'rgba(16,185,129,.1)', color: 'var(--success)', border: '.5px solid rgba(16,185,129,.25)', whiteSpace: 'nowrap' }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                          {new Date(t.coveredAt).toLocaleDateString('en-UG')}
+                        </span>
+                      ) : (
+                        <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: 'var(--surface2)', color: 'var(--txt3)', border: '.5px solid var(--border)' }}>Pending</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '11px 14px' }}>
+                      {!t.coveredAt && (
+                        <button disabled={markCovered.isPending} onClick={() => { void handleMark(t.id) }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 13px', borderRadius: 9, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', boxShadow: '0 2px 8px rgba(13,148,136,.35)', whiteSpace: 'nowrap' }}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><polyline points="20 6 9 17 4 12"/></svg>
+                          Mark Covered
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

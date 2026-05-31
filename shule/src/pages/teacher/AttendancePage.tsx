@@ -3,39 +3,35 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useStudents } from '../../hooks/useStudents'
 import { useAttendance, useClassTermAttendance, useSaveAttendance } from '../../hooks/useAttendance'
-import { PageHeader } from '../../components/ui/PageHeader'
-import { Button } from '../../components/ui/Button'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
 import { Avatar } from '../../components/shared/Avatar'
 import type { AttendanceStatus, Student } from '../../types/app'
 
-// ── Status colours ─────────────────────────────────────────────
 const STATUS_CFG: Record<AttendanceStatus, { label: string; color: string; bg: string; border: string }> = {
-  present: { label: 'Present', color: '#065f46',        bg: 'var(--success-bg)',  border: 'var(--success)' },
-  absent:  { label: 'Absent',  color: 'var(--danger)',  bg: 'var(--danger-bg)',   border: 'var(--danger)'  },
-  late:    { label: 'Late',    color: '#92400e',        bg: 'var(--warning-bg)',  border: 'var(--warning)' },
-  excused: { label: 'Excused', color: '#1e40af',        bg: 'var(--info-bg)',     border: 'var(--info)'    },
+  present: { label: 'Present', color: '#065f46',        bg: 'rgba(16,185,129,.12)',  border: 'var(--success)' },
+  absent:  { label: 'Absent',  color: 'var(--danger)',  bg: 'rgba(244,63,94,.12)',   border: 'var(--danger)'  },
+  late:    { label: 'Late',    color: '#92400e',        bg: 'rgba(245,158,11,.12)',  border: 'var(--warning)' },
+  excused: { label: 'Excused', color: '#1e40af',        bg: 'rgba(14,165,233,.12)',  border: 'var(--info)'    },
 }
 
 const STATUSES: AttendanceStatus[] = ['present', 'absent', 'late', 'excused']
 
-// ── Status toggle ─────────────────────────────────────────────
 function StatusToggle({ value, onChange }: { value: AttendanceStatus; onChange: (s: AttendanceStatus) => void }) {
   return (
-    <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
       {STATUSES.map(s => {
         const active = value === s
         const cfg    = STATUS_CFG[s]
         return (
           <button key={s} type="button" onClick={() => onChange(s)}
             style={{
-              padding: '3px 10px', borderRadius: 6,
+              padding: '4px 11px', borderRadius: 7,
               fontSize: 11, fontWeight: 800, fontFamily: 'var(--font2)',
               cursor: 'pointer', transition: 'all 0.12s',
-              border:      `1.5px solid ${active ? cfg.border : 'var(--border)'}`,
-              background:  active ? cfg.bg : 'transparent',
-              color:       active ? cfg.color : 'var(--txt3)',
+              border:     `.5px solid ${active ? cfg.border : 'var(--border)'}`,
+              background: active ? cfg.bg : 'transparent',
+              color:      active ? cfg.color : 'var(--txt3)',
               whiteSpace: 'nowrap',
             }}>
             {cfg.label}
@@ -46,7 +42,6 @@ function StatusToggle({ value, onChange }: { value: AttendanceStatus; onChange: 
   )
 }
 
-// ── Attendance row (inside virtualiser) ───────────────────────
 const ROW_HEIGHT = 60
 
 function AttendanceRow({
@@ -59,7 +54,7 @@ function AttendanceRow({
 }) {
   return (
     <tr style={{ ...style, display: 'table' }}>
-      <td style={{ padding: '0.65rem 1rem', borderBottom: '1px solid var(--border)', verticalAlign: 'middle', width: '45%' }}>
+      <td style={{ padding: '0.65rem 1rem', borderBottom: '.5px solid var(--border)', verticalAlign: 'middle', width: '45%' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Avatar
             photoPath={student.photoUrl}
@@ -77,14 +72,13 @@ function AttendanceRow({
           </div>
         </div>
       </td>
-      <td style={{ padding: '0.65rem 1rem', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }}>
+      <td style={{ padding: '0.65rem 1rem', borderBottom: '.5px solid var(--border)', verticalAlign: 'middle' }}>
         <StatusToggle value={status} onChange={s => onStatusChange(student.id, s)} />
       </td>
     </tr>
   )
 }
 
-// ── AttendancePage ─────────────────────────────────────────────
 export function AttendancePage() {
   const today = new Date().toISOString().slice(0, 10)
 
@@ -106,9 +100,6 @@ export function AttendancePage() {
   const { data: termRates = [] }               = useClassTermAttendance(classId || null)
   const saveMutation                           = useSaveAttendance()
 
-  // Stable string key derived from Map content — React Query returns a new Map
-  // reference on every refetch even when data is unchanged. Using the key as the
-  // dependency means the effect only re-runs when data actually changes.
   const attendanceKey = useMemo(() => {
     if (!attendanceMap) return ''
     return Array.from(attendanceMap.entries())
@@ -117,9 +108,6 @@ export function AttendancePage() {
       .join('|')
   }, [attendanceMap])
 
-  // Derive a stable key from students. `students` from useQuery defaults to a
-  // fresh [] each render when data is undefined, which would re-fire the effect
-  // every render and trigger an infinite setMarks loop.
   const studentsKey = students.map(s => s.id).join('|')
 
   useEffect(() => {
@@ -167,7 +155,6 @@ export function AttendancePage() {
     )
   }
 
-  // Virtualiser
   const parentRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
     count:            students.length,
@@ -184,98 +171,92 @@ export function AttendancePage() {
   })
 
   return (
-    <div style={{ padding: '1.4rem 1.5rem' }}>
-      <PageHeader
-        title="Attendance"
-        subtitle="Mark and track daily student attendance"
-        action={
-          hasClass && studentCount > 0 ? (
-            <Button
-              variant="primary"
-              loading={saveMutation.isPending}
-              onClick={handleSave}
-              leftIcon={
-                saved ? (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                ) : (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                )
-              }
-            >
-              {saved ? 'Saved' : 'Save Attendance'}
-            </Button>
-          ) : null
-        }
-      />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* ── Premium page header ──────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle,rgba(13,148,136,.18),transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+        <div style={{ width: 46, height: 46, borderRadius: 15, background: 'linear-gradient(145deg,#0d9488,#0f766e)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 18px rgba(13,148,136,.45)', flexShrink: 0 }}>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>Attendance</h1>
+          <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>Mark and track daily student attendance</p>
+        </div>
+        {hasClass && studentCount > 0 && (
+          <button
+            onClick={handleSave}
+            disabled={saveMutation.isPending}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 11, border: 'none', background: saved ? 'linear-gradient(145deg,#10b981,#059669)' : 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', boxShadow: saved ? '0 4px 14px rgba(16,185,129,.4)' : '0 4px 14px rgba(13,148,136,.4)', transition: 'all .18s', flexShrink: 0 }}
+          >
+            {saved ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            )}
+            {saveMutation.isPending ? 'Saving…' : saved ? 'Saved' : 'Save Attendance'}
+          </button>
+        )}
+      </div>
 
-      {/* ── Controls ──────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.25rem', padding: '1rem 1.25rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)' }}>
-        {/* Date */}
+      {/* ── Filter bar ──────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', alignItems: 'flex-end' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font2)' }}>Date</label>
+          <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '.5px', fontFamily: 'var(--font2)' }}>Date</label>
           <input type="date" value={date} max={today}
             onChange={e => { setDate(e.target.value); setSaved(false) }}
-            style={{ padding: '0.48rem 0.75rem', fontSize: 12.5, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', color: 'var(--txt)', fontFamily: 'var(--font1)', width: 160 }} />
+            style={{ padding: '8px 12px', fontSize: 12.5, background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10, color: 'var(--txt)', fontFamily: 'var(--font1)', width: 160 }} />
         </div>
-
-        {/* Class */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font2)' }}>Class</label>
+          <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '.5px', fontFamily: 'var(--font2)' }}>Class</label>
           <div style={{ position: 'relative' }}>
             <select value={classId} onChange={e => handleClassChange(e.target.value)}
-              style={{ padding: '0.48rem 1.8rem 0.48rem 0.75rem', fontSize: 12.5, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', color: 'var(--txt)', fontFamily: 'var(--font2)', appearance: 'none', width: 130 }}>
+              style={{ padding: '8px 32px 8px 12px', fontSize: 12.5, background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10, color: 'var(--txt)', fontFamily: 'var(--font2)', appearance: 'none', width: 140 }}>
               <option value="">All classes</option>
               {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
           </div>
         </div>
-
-        {/* Stream */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font2)' }}>Stream</label>
+          <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '.5px', fontFamily: 'var(--font2)' }}>Stream</label>
           <div style={{ position: 'relative' }}>
             <select value={streamId} onChange={e => { setStreamId(e.target.value); setSaved(false) }}
               disabled={!classId}
-              style={{ padding: '0.48rem 1.8rem 0.48rem 0.75rem', fontSize: 12.5, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', color: classId ? 'var(--txt)' : 'var(--txt3)', fontFamily: 'var(--font2)', appearance: 'none', width: 130, opacity: classId ? 1 : 0.5, cursor: classId ? 'default' : 'not-allowed' }}>
+              style={{ padding: '8px 32px 8px 12px', fontSize: 12.5, background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10, color: classId ? 'var(--txt)' : 'var(--txt3)', fontFamily: 'var(--font2)', appearance: 'none', width: 140, opacity: classId ? 1 : 0.5, cursor: classId ? 'default' : 'not-allowed' }}>
               <option value="">All streams</option>
               {streams.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
           </div>
         </div>
-
-        <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font2)', alignSelf: 'center' }}>
+        <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font2)', alignSelf: 'center', fontStyle: 'italic' }}>
           {dateLabel}
         </div>
       </div>
 
-      {/* ── Empty prompt ──────────────────────────────────── */}
+      {/* ── Empty prompt ──────────────────────────────── */}
       {!hasClass && (
-        <div style={{ padding: '4rem', textAlign: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)' }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--brand-light)', border: '1.5px solid rgba(13,148,136,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+        <div style={{ padding: '60px 24px', textAlign: 'center', background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)' }}>
+          <div style={{ width: 60, height: 60, borderRadius: 18, background: 'linear-gradient(145deg,rgba(13,148,136,.12),rgba(13,148,136,.04))', border: '.5px solid rgba(13,148,136,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
-          <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, color: 'var(--txt)', marginBottom: 6 }}>
-            Select a class to take attendance
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--txt3)' }}>
-            Choose a date, class, and stream from the controls above.
-          </div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)', marginBottom: 8 }}>Select a class to take attendance</div>
+          <div style={{ fontSize: 13, color: 'var(--txt3)', maxWidth: 320, margin: '0 auto' }}>Choose a date, class, and stream from the controls above.</div>
         </div>
       )}
 
-      {/* ── Summary cards ─────────────────────────────────── */}
+      {/* ── Summary KPI cards ─────────────────────────── */}
       {hasClass && studentCount > 0 && (
-        <div className="sui-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
           {STATUSES.map(s => {
             const cfg   = STATUS_CFG[s]
             const count = summary[s]
             return (
-              <div key={s} style={{ padding: '0.9rem 1.1rem', background: 'var(--surface)', border: `1px solid ${count > 0 ? cfg.border : 'var(--border)'}`, borderRadius: 'var(--r-lg)' }}>
-                <div style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--txt3)', fontFamily: 'var(--font2)', marginBottom: 4 }}>{cfg.label}</div>
-                <div style={{ fontSize: 28, fontWeight: 900, fontFamily: 'var(--font2)', color: count > 0 ? cfg.color : 'var(--txt3)', lineHeight: 1 }}>{count}</div>
-                <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 3 }}>
+              <div key={s} style={{ flex: '1 1 130px', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '16px 18px', boxShadow: '0 2px 12px rgba(0,0,0,.05)', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: -14, right: -14, width: 64, height: 64, borderRadius: '50%', background: count > 0 ? cfg.bg : 'transparent', filter: 'blur(20px)', pointerEvents: 'none' }} />
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8, marginBottom: 3 }}>{cfg.label}</div>
+                <div style={{ fontSize: 26, fontWeight: 900, fontFamily: 'var(--font2)', color: count > 0 ? cfg.color : 'var(--txt3)', letterSpacing: -1 }}>{count}</div>
+                <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 2 }}>
                   {studentCount > 0 ? `${Math.round((count / studentCount) * 100)}%` : '—'}
                 </div>
               </div>
@@ -284,33 +265,30 @@ export function AttendancePage() {
         </div>
       )}
 
-      {/* ── Student list ──────────────────────────────────── */}
+      {/* ── Student list ──────────────────────────────── */}
       {hasClass && (
         studentsLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18 }}>
             <LoadingSpinner />
           </div>
         ) : studentCount === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', color: 'var(--txt3)', fontSize: 13 }}>
+          <div style={{ padding: '60px 24px', textAlign: 'center', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, color: 'var(--txt3)', fontSize: 13 }}>
             No students found in the selected class / stream.
           </div>
         ) : (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden', marginBottom: '1.25rem' }}>
-            {/* Sticky header */}
+          <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 900, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--txt3)', padding: '0.55rem 1rem', borderBottom: '1px solid var(--border)', background: 'var(--surface2)', fontFamily: 'var(--font2)', width: '45%' }}>
+                  <th style={{ textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: .7, padding: '11px 14px', borderBottom: '.5px solid var(--border)', background: 'var(--surface2)', width: '45%' }}>
                     Student ({studentCount})
                   </th>
-                  <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 900, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--txt3)', padding: '0.55rem 1rem', borderBottom: '1px solid var(--border)', background: 'var(--surface2)', fontFamily: 'var(--font2)' }}>
+                  <th style={{ textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: .7, padding: '11px 14px', borderBottom: '.5px solid var(--border)', background: 'var(--surface2)' }}>
                     Status
                   </th>
                 </tr>
               </thead>
             </table>
-
-            {/* Virtualised rows */}
             <div ref={parentRef} style={{ height: Math.min(studentCount * ROW_HEIGHT, 520), overflowY: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                 <colgroup>
@@ -340,8 +318,7 @@ export function AttendancePage() {
                 </tbody>
               </table>
             </div>
-
-            <div style={{ padding: '0.55rem 1rem', borderTop: '1px solid var(--border)', background: 'var(--surface2)', fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font2)', display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ padding: '10px 14px', borderTop: '.5px solid var(--border)', background: 'var(--surface2)', fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font2)', display: 'flex', justifyContent: 'space-between' }}>
               <span>{studentCount} students</span>
               <span>{date === today ? 'Today' : new Date(date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             </div>
@@ -349,10 +326,10 @@ export function AttendancePage() {
         )
       )}
 
-      {/* ── Below 80% warning panel ────────────────────────── */}
+      {/* ── Below 80% alert ───────────────────────────── */}
       {hasClass && belowThreshold.length > 0 && (
-        <div style={{ padding: '1rem 1.25rem', background: 'var(--warning-bg)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 'var(--r-lg)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.6rem' }}>
+        <div style={{ padding: '14px 18px', background: 'rgba(245,158,11,.08)', border: '.5px solid rgba(245,158,11,.3)', borderRadius: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#92400e" strokeWidth="2">
               <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
               <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -361,12 +338,12 @@ export function AttendancePage() {
               {belowThreshold.length} student{belowThreshold.length !== 1 ? 's' : ''} below 80% attendance this year
             </span>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {belowThreshold.map(r => {
               const student = students.find(s => s.id === r.studentId)
               if (!student) return null
               return (
-                <span key={r.studentId} style={{ padding: '3px 10px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 20, fontSize: 11.5, fontWeight: 700, color: '#92400e', fontFamily: 'var(--font2)' }}>
+                <span key={r.studentId} style={{ padding: '3px 10px', background: 'rgba(245,158,11,.1)', border: '.5px solid rgba(245,158,11,.35)', borderRadius: 20, fontSize: 11.5, fontWeight: 700, color: '#92400e', fontFamily: 'var(--font2)' }}>
                   {student.firstName} {student.lastName} — {r.rate}%
                 </span>
               )

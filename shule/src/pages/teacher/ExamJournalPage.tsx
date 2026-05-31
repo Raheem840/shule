@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -6,17 +7,10 @@ import { z } from 'zod'
 import { useExamJournals, useCreateJournal, useNextCALabel } from '../../hooks/useExamJournal'
 import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
 import { useAuth } from '../../store/AuthContext'
-import { Badge } from '../../components/ui/Badge'
-import { Button } from '../../components/ui/Button'
-import { Modal, ModalCancelButton } from '../../components/ui/Modal'
-import { Input } from '../../components/ui/Input'
-import { Select } from '../../components/ui/Select'
-import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import type { AssessmentType, ExamJournal } from '../../types/app'
 import type { JournalFilters } from '../../hooks/useExamJournal'
 
-// ── Constants ──────────────────────────────────────────────────
 const ASSESSMENT_OPTIONS: { value: AssessmentType; label: string }[] = [
   { value: 'aoi',               label: 'Activity of Integration' },
   { value: 'dit',               label: 'DIT Assignment' },
@@ -37,7 +31,6 @@ const TERM_OPTIONS = [
 
 const CURRENT_YEAR = new Date().getFullYear()
 
-// ── Zod schema ─────────────────────────────────────────────────
 export const journalSchema = z.object({
   assessmentType:  z.enum(['aoi','dit','ca','beginning_of_term','mid_term','end_of_term','practical','class_test','assignment']),
   subjectId:       z.string().min(1, 'Subject is required'),
@@ -48,14 +41,11 @@ export const journalSchema = z.object({
   totalMarks:      z.coerce.number().min(1, 'Total marks is required').max(100, 'Total marks cannot exceed 100').optional(),
   passMark:        z.coerce.number().min(0).optional(),
   notes:           z.string().nullable().optional(),
-  // AOI
   learningArea:     z.string().nullable().optional(),
   competency:       z.string().nullable().optional(),
   integrationTheme: z.string().nullable().optional(),
-  // DIT
   tradeArea:        z.string().nullable().optional(),
   ditModuleCode:    z.string().nullable().optional(),
-  // CA
   caComponent: z.enum(['oral','written','project','portfolio']).nullable().optional(),
   caWeighting: z.coerce.number().min(0).max(100).nullable().optional(),
 }).superRefine((data, ctx) => {
@@ -68,43 +58,76 @@ export const journalSchema = z.object({
 
 type JournalFormValues = z.infer<typeof journalSchema>
 
-// ── Status badge ───────────────────────────────────────────────
-function StatusBadge({ status }: { status: ExamJournal['status'] }) {
-  return status === 'published'
-    ? <Badge variant="green" dot>Published</Badge>
-    : <Badge variant="muted" dot>Draft</Badge>
-}
-
-// ── Assessment type badge ──────────────────────────────────────
-const TYPE_VARIANT: Record<AssessmentType, 'teal'|'violet'|'amber'|'blue'|'green'|'red'|'muted'> = {
-  aoi:               'violet',
-  dit:               'amber',
-  ca:                'teal',
-  beginning_of_term: 'blue',
-  mid_term:          'blue',
-  end_of_term:       'red',
-  practical:         'green',
-  class_test:        'muted',
-  assignment:        'muted',
+const TYPE_COLORS: Record<AssessmentType, { bg: string; color: string }> = {
+  aoi:               { bg: 'rgba(139,92,246,.12)', color: '#7c3aed' },
+  dit:               { bg: 'rgba(245,158,11,.12)', color: '#b45309' },
+  ca:                { bg: 'rgba(13,148,136,.12)', color: '#0f766e' },
+  beginning_of_term: { bg: 'rgba(14,165,233,.12)', color: '#0369a1' },
+  mid_term:          { bg: 'rgba(14,165,233,.12)', color: '#0369a1' },
+  end_of_term:       { bg: 'rgba(244,63,94,.12)',  color: '#be123c' },
+  practical:         { bg: 'rgba(16,185,129,.12)', color: '#065f46' },
+  class_test:        { bg: 'rgba(148,163,184,.12)', color: '#475569' },
+  assignment:        { bg: 'rgba(148,163,184,.12)', color: '#475569' },
 }
 
 const TYPE_LABELS: Record<AssessmentType, string> = {
-  aoi:               'AOI',
-  dit:               'DIT',
-  ca:                'CA',
-  beginning_of_term: 'BOT',
-  mid_term:          'Mid-Term',
-  end_of_term:       'End of Term',
-  practical:         'Practical',
-  class_test:        'Class Test',
-  assignment:        'Assignment',
+  aoi: 'AOI', dit: 'DIT', ca: 'CA', beginning_of_term: 'BOT',
+  mid_term: 'Mid-Term', end_of_term: 'End of Term', practical: 'Practical',
+  class_test: 'Class Test', assignment: 'Assignment',
 }
 
-function TypeBadge({ type }: { type: AssessmentType }) {
-  return <Badge variant={TYPE_VARIANT[type]}>{TYPE_LABELS[type]}</Badge>
+function TypeChip({ type }: { type: AssessmentType }) {
+  const c = TYPE_COLORS[type]
+  return (
+    <span style={{ padding: '3px 9px', borderRadius: 6, fontSize: 10.5, fontWeight: 800, background: c.bg, color: c.color, whiteSpace: 'nowrap', letterSpacing: .3 }}>
+      {TYPE_LABELS[type]}
+    </span>
+  )
 }
 
-// ── Create Journal Modal ───────────────────────────────────────
+function StatusDot({ status }: { status: ExamJournal['status'] }) {
+  const published = status === 'published'
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 6, fontSize: 10.5, fontWeight: 700, background: published ? 'rgba(16,185,129,.12)' : 'rgba(148,163,184,.1)', color: published ? '#065f46' : 'var(--txt3)' }}>
+      <span style={{ width: 5, height: 5, borderRadius: '50%', background: published ? '#10b981' : '#94a3b8', flexShrink: 0 }} />
+      {published ? 'Published' : 'Draft'}
+    </span>
+  )
+}
+
+const selectCls: React.CSSProperties = {
+  width: '100%', padding: '9px 32px 9px 12px', fontSize: 13,
+  background: 'var(--surface2)', border: '.5px solid var(--border)',
+  borderRadius: 10, color: 'var(--txt)', appearance: 'none', outline: 'none',
+}
+
+const inputCls: React.CSSProperties = {
+  width: '100%', padding: '9px 12px', fontSize: 13,
+  background: 'var(--surface2)', border: '.5px solid var(--border)',
+  borderRadius: 10, color: 'var(--txt)', outline: 'none', boxSizing: 'border-box',
+}
+
+function FieldWrap({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <label style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: .6, fontFamily: 'var(--font2)' }}>{label}</label>
+      <div style={{ position: 'relative' }}>{children}</div>
+      {error && <span style={{ fontSize: 11, color: 'var(--danger)' }}>{error}</span>}
+    </div>
+  )
+}
+
+function SelectWrap({ label, value, onChange, options, disabled, error }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; disabled?: boolean; error?: string }) {
+  return (
+    <FieldWrap label={label} error={error}>
+      <select value={value} onChange={e => onChange(e.target.value)} disabled={disabled} style={{ ...selectCls, opacity: disabled ? .5 : 1 }}>
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
+    </FieldWrap>
+  )
+}
+
 function CreateJournalModal({ onClose }: { onClose: () => void }) {
   const { user: _user }   = useAuth()
   const create     = useCreateJournal()
@@ -165,168 +188,172 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
     onClose()
   })
 
-  return (
-    <Modal open onClose={onClose} title="Create Journal Entry" size="lg"
-      footer={
-        <>
-          <ModalCancelButton onClose={onClose} />
-          <Button variant="primary" loading={create.isPending} onClick={onSubmit}>
-            Create Journal
-          </Button>
-        </>
-      }
-    >
-      <form style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* Assessment type */}
-        <Controller name="assessmentType" control={control} render={({ field }) => (
-          <Select label="Assessment Type" value={field.value} onChange={field.onChange}
-            error={errors.assessmentType?.message}
-            options={ASSESSMENT_OPTIONS}
-          />
-        )} />
-
-        {isCA && caLabel && (
-          <div style={{
-            background: 'var(--brand-light)', border: '1px solid rgba(13,148,136,0.2)',
-            borderRadius: 8, padding: '8px 12px',
-            fontSize: 12, color: 'var(--brand)', fontWeight: 700,
-          }}>
-            This will be labelled <strong>{caLabel}</strong> (next CA for this subject this term)
+  const modal = (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.52)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}>
+      <div style={{ width: '100%', maxWidth: 580, maxHeight: '90dvh', overflowY: 'auto', background: 'var(--surface)', padding: '24px', borderRadius: 22, boxShadow: '0 24px 80px rgba(0,0,0,.28)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(145deg,#0d9488,#0f766e)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </div>
-        )}
-
-        {/* Core fields */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Controller name="subjectId" control={control} render={({ field }) => (
-            <Select label="Subject ★" value={field.value ?? ''} onChange={field.onChange}
-              error={errors.subjectId?.message}
-              options={subjects.map(s => ({ value: s.id, label: s.name }))}
-              placeholder="Select subject"
-            />
-          )} />
-          <Controller name="classId" control={control} render={({ field }) => (
-            <Select label="Class ★" value={field.value ?? ''} onChange={field.onChange}
-              error={errors.classId?.message}
-              options={classes.map(c => ({ value: c.id, label: c.name }))}
-              placeholder="Select class"
-            />
-          )} />
-          <Controller name="streamId" control={control} render={({ field }) => (
-            <Select label="Stream" value={field.value ?? ''} onChange={v => field.onChange(v || null)}
-              options={[{ value: '', label: 'All streams' }, ...streams.map(s => ({ value: s.id, label: s.name }))]}
-              disabled={!classId}
-            />
-          )} />
-          <Controller name="term" control={control} render={({ field }) => (
-            <Select label="Term ★" value={field.value ?? ''} onChange={field.onChange}
-              error={errors.term?.message}
-              options={TERM_OPTIONS}
-              placeholder="Select term"
-            />
-          )} />
+          <div style={{ flex: 1 }}>
+            <h2 style={{ margin: 0, fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 17, color: 'var(--txt)', letterSpacing: -.3 }}>Create Journal Entry</h2>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--txt3)' }}>New assessment record</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', padding: 4, borderRadius: 6 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-          <Input label="Date ★" type="date" {...register('date')} error={errors.date?.message} />
-          {!isCA && (
-            <>
-              <Input label="Total Marks ★" type="number" step="0.5"
-                {...register('totalMarks')} error={errors.totalMarks?.message} />
-              <Input label="Pass Mark" type="number" step="0.5"
-                {...register('passMark')} error={errors.passMark?.message} />
-            </>
+        <form style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Controller name="assessmentType" control={control} render={({ field }) => (
+            <SelectWrap label="Assessment Type" value={field.value} onChange={field.onChange}
+              error={errors.assessmentType?.message}
+              options={ASSESSMENT_OPTIONS}
+            />
+          )} />
+
+          {isCA && caLabel && (
+            <div style={{ background: 'rgba(13,148,136,.08)', border: '.5px solid rgba(13,148,136,.25)', borderRadius: 10, padding: '8px 12px', fontSize: 12, color: 'var(--brand)', fontWeight: 700 }}>
+              This will be labelled <strong>{caLabel}</strong> (next CA for this subject this term)
+            </div>
           )}
-        </div>
 
-        {/* AOI conditional fields */}
-        {isAOI && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px', background: 'var(--surface2)', borderRadius: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: 1 }}>Activity of Integration</div>
-            <Input label="Learning Area" {...register('learningArea')} placeholder="e.g. Sciences" />
-            <Input label="Competency" {...register('competency')} placeholder="e.g. Critical thinking" />
-            <Input label="Integration Theme" {...register('integrationTheme')} placeholder="e.g. Environmental sustainability" />
-          </div>
-        )}
-
-        {/* DIT conditional fields */}
-        {isDIT && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px', background: 'var(--surface2)', borderRadius: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: 1 }}>DIT Assignment</div>
-            <Input label="Trade / Vocational Area" {...register('tradeArea')} placeholder="e.g. Carpentry" />
-            <Input label="DIT Module Code" {...register('ditModuleCode')} placeholder="e.g. CRP-001" />
-          </div>
-        )}
-
-        {/* CA conditional fields */}
-        {isCA && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '10px 12px', background: 'var(--surface2)', borderRadius: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: 1, gridColumn: '1/-1' }}>Continuous Assessment</div>
-            <Controller name="caComponent" control={control} render={({ field }) => (
-              <Select label="Component" value={field.value ?? ''} onChange={v => field.onChange(v || null)}
-                options={[
-                  { value: '', label: 'Select component' },
-                  { value: 'oral',      label: 'Oral' },
-                  { value: 'written',   label: 'Written' },
-                  { value: 'project',   label: 'Project' },
-                  { value: 'portfolio', label: 'Portfolio' },
-                ]}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Controller name="subjectId" control={control} render={({ field }) => (
+              <SelectWrap label="Subject ★" value={field.value ?? ''} onChange={field.onChange}
+                error={errors.subjectId?.message}
+                options={[{ value: '', label: 'Select subject' }, ...subjects.map(s => ({ value: s.id, label: s.name }))]}
               />
             )} />
-            <Input label="Weighting %" type="number" min="0" max="100" {...register('caWeighting')} />
+            <Controller name="classId" control={control} render={({ field }) => (
+              <SelectWrap label="Class ★" value={field.value ?? ''} onChange={field.onChange}
+                error={errors.classId?.message}
+                options={[{ value: '', label: 'Select class' }, ...classes.map(c => ({ value: c.id, label: c.name }))]}
+              />
+            )} />
+            <Controller name="streamId" control={control} render={({ field }) => (
+              <SelectWrap label="Stream" value={field.value ?? ''} onChange={v => field.onChange(v || null)}
+                options={[{ value: '', label: 'All streams' }, ...streams.map(s => ({ value: s.id, label: s.name }))]}
+                disabled={!classId}
+              />
+            )} />
+            <Controller name="term" control={control} render={({ field }) => (
+              <SelectWrap label="Term ★" value={field.value ?? ''} onChange={field.onChange}
+                error={errors.term?.message}
+                options={[{ value: '', label: 'Select term' }, ...TERM_OPTIONS]}
+              />
+            )} />
           </div>
-        )}
 
-        <Input label="Teacher Notes" {...register('notes')} placeholder="Optional notes about this assessment" />
-
-        {create.isError && (
-          <div style={{ color: 'var(--danger)', fontSize: 12, padding: '8px 12px', background: 'var(--danger-bg)', borderRadius: 8 }}>
-            {(create.error as Error).message}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <FieldWrap label="Date ★" error={errors.date?.message}>
+              <input type="date" {...register('date')} style={inputCls} />
+            </FieldWrap>
+            {!isCA && (
+              <>
+                <FieldWrap label="Total Marks ★" error={errors.totalMarks?.message}>
+                  <input type="number" step="0.5" {...register('totalMarks')} style={inputCls} />
+                </FieldWrap>
+                <FieldWrap label="Pass Mark">
+                  <input type="number" step="0.5" {...register('passMark')} style={inputCls} />
+                </FieldWrap>
+              </>
+            )}
           </div>
-        )}
-      </form>
-    </Modal>
+
+          {isAOI && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 14px', background: 'var(--surface2)', borderRadius: 12, border: '.5px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8 }}>Activity of Integration</div>
+              <FieldWrap label="Learning Area"><input {...register('learningArea')} style={inputCls} placeholder="e.g. Sciences" /></FieldWrap>
+              <FieldWrap label="Competency"><input {...register('competency')} style={inputCls} placeholder="e.g. Critical thinking" /></FieldWrap>
+              <FieldWrap label="Integration Theme"><input {...register('integrationTheme')} style={inputCls} placeholder="e.g. Environmental sustainability" /></FieldWrap>
+            </div>
+          )}
+
+          {isDIT && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 14px', background: 'var(--surface2)', borderRadius: 12, border: '.5px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8 }}>DIT Assignment</div>
+              <FieldWrap label="Trade / Vocational Area"><input {...register('tradeArea')} style={inputCls} placeholder="e.g. Carpentry" /></FieldWrap>
+              <FieldWrap label="DIT Module Code"><input {...register('ditModuleCode')} style={inputCls} placeholder="e.g. CRP-001" /></FieldWrap>
+            </div>
+          )}
+
+          {isCA && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '12px 14px', background: 'var(--surface2)', borderRadius: 12, border: '.5px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8, gridColumn: '1/-1' }}>Continuous Assessment</div>
+              <Controller name="caComponent" control={control} render={({ field }) => (
+                <SelectWrap label="Component" value={field.value ?? ''} onChange={v => field.onChange(v || null)}
+                  options={[
+                    { value: '', label: 'Select component' },
+                    { value: 'oral', label: 'Oral' },
+                    { value: 'written', label: 'Written' },
+                    { value: 'project', label: 'Project' },
+                    { value: 'portfolio', label: 'Portfolio' },
+                  ]}
+                />
+              )} />
+              <FieldWrap label="Weighting %">
+                <input type="number" min="0" max="100" {...register('caWeighting')} style={inputCls} />
+              </FieldWrap>
+            </div>
+          )}
+
+          <FieldWrap label="Teacher Notes">
+            <input {...register('notes')} style={inputCls} placeholder="Optional notes about this assessment" />
+          </FieldWrap>
+
+          {create.isError && (
+            <div style={{ color: 'var(--danger)', fontSize: 12, padding: '8px 12px', background: 'rgba(244,63,94,.08)', borderRadius: 10 }}>
+              {(create.error as Error).message}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
+            <button type="button" onClick={onClose} style={{ padding: '9px 18px', borderRadius: 10, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              Cancel
+            </button>
+            <button type="button" onClick={() => void onSubmit()} disabled={create.isPending}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 14px rgba(13,148,136,.35)' }}>
+              {create.isPending ? 'Creating…' : 'Create Journal'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   )
+
+  return createPortal(modal, document.querySelector('.ar') ?? document.body)
 }
 
-// ── Filters bar ────────────────────────────────────────────────
-function FiltersBar({ filters, onChange }: {
-  filters:  JournalFilters
-  onChange: (f: JournalFilters) => void
-}) {
+function FiltersBar({ filters, onChange }: { filters: JournalFilters; onChange: (f: JournalFilters) => void }) {
   const { data: subjects = [] } = useSubjects()
   const { data: classes  = [] } = useClasses()
 
+  const sel: React.CSSProperties = { padding: '8px 32px 8px 12px', fontSize: 12.5, background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10, color: 'var(--txt)', appearance: 'none', outline: 'none' }
+
   return (
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-      <Select
-        value={filters.subjectId ?? ''}
-        onChange={e => onChange({ ...filters, subjectId: e.target.value || undefined })}
-        options={[{ value: '', label: 'All Subjects' }, ...subjects.map(s => ({ value: s.id, label: s.name }))]}
-        style={{ minWidth: 150 }}
-      />
-      <Select
-        value={filters.classId ?? ''}
-        onChange={e => onChange({ ...filters, classId: e.target.value || undefined })}
-        options={[{ value: '', label: 'All Classes' }, ...classes.map(c => ({ value: c.id, label: c.name }))]}
-        style={{ minWidth: 120 }}
-      />
-      <Select
-        value={filters.term ?? ''}
-        onChange={e => onChange({ ...filters, term: e.target.value || undefined })}
-        options={[{ value: '', label: 'All Terms' }, ...TERM_OPTIONS]}
-        style={{ minWidth: 110 }}
-      />
-      <Select
-        value={filters.assessmentType ?? ''}
-        onChange={e => onChange({ ...filters, assessmentType: (e.target.value as AssessmentType) || undefined })}
-        options={[{ value: '', label: 'All Types' }, ...ASSESSMENT_OPTIONS]}
-        style={{ minWidth: 160 }}
-      />
+    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', alignItems: 'flex-end' }}>
+      {[
+        { label: 'Subject', value: filters.subjectId ?? '', opts: [{ value: '', label: 'All Subjects' }, ...subjects.map(s => ({ value: s.id, label: s.name }))], key: 'subjectId' },
+        { label: 'Class',   value: filters.classId   ?? '', opts: [{ value: '', label: 'All Classes'  }, ...classes.map(c => ({ value: c.id, label: c.name }))],  key: 'classId'   },
+        { label: 'Term',    value: filters.term       ?? '', opts: [{ value: '', label: 'All Terms'    }, ...TERM_OPTIONS],                                         key: 'term'      },
+        { label: 'Type',    value: filters.assessmentType ?? '', opts: [{ value: '', label: 'All Types' }, ...ASSESSMENT_OPTIONS],                                  key: 'assessmentType' },
+      ].map(f => (
+        <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: .5, fontFamily: 'var(--font2)' }}>{f.label}</label>
+          <div style={{ position: 'relative' }}>
+            <select style={sel} value={f.value}
+              onChange={e => onChange({ ...filters, [f.key]: e.target.value || undefined })}>
+              {f.opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
 
-// ── Main Page ──────────────────────────────────────────────────
 export function ExamJournalPage() {
   const navigate   = useNavigate()
   const [creating, setCreating] = useState(false)
@@ -335,116 +362,90 @@ export function ExamJournalPage() {
   const { data: journals = [], isLoading } = useExamJournals(filters)
   const { data: subjects = [] } = useSubjects()
   const { data: classes  = [] } = useClasses()
-  const { data: streams  = [] } = useStreams()   // no classId → all school streams
+  const { data: streams  = [] } = useStreams()
 
   const subjectMap = new Map(subjects.map(s => [s.id, s.name]))
   const classMap   = new Map(classes.map(c => [c.id, c.name]))
   const streamMap  = new Map(streams.map(s => [s.id, s.name]))
 
   return (
-    <div style={{ padding: 24 }}>
-      <PageHeader
-        title="Exam Journal"
-        subtitle="Create and manage assessment entries, then enter marks."
-        action={
-          <Button variant="primary" icon={
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          } onClick={() => setCreating(true)}>
-            Create Journal Entry
-          </Button>
-        }
-      />
-
-      <div style={{ marginBottom: 16 }}>
-        <FiltersBar filters={filters} onChange={setFilters} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle,rgba(13,148,136,.18),transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+        <div style={{ width: 46, height: 46, borderRadius: 15, background: 'linear-gradient(145deg,#0d9488,#0f766e)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 18px rgba(13,148,136,.45)', flexShrink: 0 }}>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>Exam Journal</h1>
+          <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>Create and manage assessment entries, then enter marks</p>
+        </div>
+        <button
+          onClick={() => setCreating(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 11, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(13,148,136,.4)', flexShrink: 0 }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Create Journal Entry
+        </button>
       </div>
+
+      <FiltersBar filters={filters} onChange={setFilters} />
 
       {isLoading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
           <LoadingSpinner size={28} />
         </div>
       ) : journals.length === 0 ? (
-        <div style={{
-          textAlign: 'center', padding: '64px 24px',
-          color: 'var(--txt3)', fontFamily: 'var(--font2)',
-        }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>No journal entries yet</div>
-          <div style={{ fontSize: 13, marginTop: 4 }}>Create your first assessment entry to get started.</div>
+        <div style={{ padding: '60px 24px', textAlign: 'center', background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)' }}>
+          <div style={{ width: 60, height: 60, borderRadius: 18, background: 'linear-gradient(145deg,rgba(13,148,136,.12),rgba(13,148,136,.04))', border: '.5px solid rgba(13,148,136,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)', marginBottom: 8 }}>No journal entries yet</div>
+          <div style={{ fontSize: 13, color: 'var(--txt3)', maxWidth: 320, margin: '0 auto' }}>Create your first assessment entry to start entering marks.</div>
         </div>
       ) : (
-        <div className="mob-cards" style={{
-          background: 'var(--surface)',
-          borderRadius: 14,
-          border: '1px solid var(--border)',
-          overflow: 'hidden',
-        }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                {['Type', 'Subject', 'Class', 'Stream', 'Term', 'Date', 'Marks', 'Status', ''].map(h => (
-                  <th key={h} style={{
-                    padding: '10px 14px', textAlign: 'left',
-                    fontSize: 11, fontWeight: 700, color: 'var(--txt3)',
-                    textTransform: 'uppercase', letterSpacing: 0.5,
-                    fontFamily: 'var(--font2)',
-                    whiteSpace: 'nowrap',
-                  }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {journals.map((j, i) => (
-                <tr
-                  key={j.id}
-                  onClick={() => navigate(`/teacher/exams/${j.id}/marks`)}
-                  className="sui-tr"
-                  style={{
-                    borderBottom: i < journals.length - 1 ? '1px solid var(--border)' : 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <td style={{ padding: '12px 14px' }}>
-                    <TypeBadge type={j.assessmentType} />
-                  </td>
-                  <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--txt)', fontSize: 13 }}>
-                    {subjectMap.get(j.subjectId) ?? j.subjectId}
-                    {j.caLabel && (
-                      <span style={{ marginLeft: 6, color: 'var(--brand)', fontSize: 11, fontWeight: 800 }}>
-                        {j.caLabel}
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ padding: '12px 14px', color: 'var(--txt2)', fontSize: 13 }}>
-                    {classMap.get(j.classId) ?? j.classId}
-                  </td>
-                  <td style={{ padding: '12px 14px', color: 'var(--txt3)', fontSize: 12 }}>
-                    {j.streamId ? (streamMap.get(j.streamId) ?? '—') : <span style={{ color: 'var(--txt3)' }}>All</span>}
-                  </td>
-                  <td style={{ padding: '12px 14px', color: 'var(--txt2)', fontSize: 13 }}>
-                    Term {j.term}
-                  </td>
-                  <td style={{ padding: '12px 14px', color: 'var(--txt2)', fontSize: 13, fontFamily: 'var(--mono)' }}>
-                    {j.dateGiven ? new Date(j.dateGiven).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
-                  </td>
-                  <td style={{ padding: '12px 14px', color: 'var(--txt2)', fontSize: 13, fontFamily: 'var(--mono)' }}>
-                    {j.totalMarks}
-                    {j.passMark && <span style={{ color: 'var(--txt3)' }}> / pass {j.passMark}</span>}
-                  </td>
-                  <td style={{ padding: '12px 14px' }}>
-                    <StatusBadge status={j.status} />
-                  </td>
-                  <td style={{ padding: '12px 14px' }}>
-                    <Button size="sm" variant="ghost" onClick={e => { e.stopPropagation(); navigate(`/teacher/exams/${j.id}/marks`) }}>
-                      Enter Marks →
-                    </Button>
-                  </td>
+        <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+          <div className="hscroll">
+            <table style={{ borderCollapse: 'collapse', minWidth: 700, width: '100%' }}>
+              <thead>
+                <tr>
+                  {['Type', 'Subject', 'Class', 'Stream', 'Term', 'Date', 'Marks', 'Status', ''].map(h => (
+                    <th key={h} style={{ padding: '11px 14px', background: 'var(--surface2)', fontWeight: 700, fontSize: 11, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: .7, borderBottom: '.5px solid var(--border)', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {journals.map((j, i) => (
+                  <tr key={j.id} onClick={() => navigate(`/teacher/exams/${j.id}/marks`)}
+                    style={{ borderBottom: i < journals.length - 1 ? '.5px solid var(--border)' : 'none', cursor: 'pointer', transition: 'background .1s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}
+                  >
+                    <td style={{ padding: '12px 14px' }}><TypeChip type={j.assessmentType} /></td>
+                    <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--txt)', fontSize: 13 }}>
+                      {subjectMap.get(j.subjectId) ?? j.subjectId}
+                      {j.caLabel && <span style={{ marginLeft: 6, color: 'var(--brand)', fontSize: 11, fontWeight: 800 }}>{j.caLabel}</span>}
+                    </td>
+                    <td style={{ padding: '12px 14px', color: 'var(--txt2)', fontSize: 13 }}>{classMap.get(j.classId) ?? j.classId}</td>
+                    <td style={{ padding: '12px 14px', color: 'var(--txt3)', fontSize: 12 }}>{j.streamId ? (streamMap.get(j.streamId) ?? '—') : 'All'}</td>
+                    <td style={{ padding: '12px 14px', color: 'var(--txt2)', fontSize: 13 }}>T{j.term}</td>
+                    <td style={{ padding: '12px 14px', color: 'var(--txt2)', fontSize: 13, fontFamily: 'var(--font3)' }}>
+                      {j.dateGiven ? new Date(j.dateGiven).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}
+                    </td>
+                    <td style={{ padding: '12px 14px', color: 'var(--txt2)', fontSize: 13, fontFamily: 'var(--font3)' }}>
+                      {j.totalMarks}{j.passMark && <span style={{ color: 'var(--txt3)', fontSize: 11 }}> /p{j.passMark}</span>}
+                    </td>
+                    <td style={{ padding: '12px 14px' }}><StatusDot status={j.status} /></td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <button onClick={e => { e.stopPropagation(); navigate(`/teacher/exams/${j.id}/marks`) }}
+                        style={{ padding: '5px 12px', borderRadius: 8, border: '.5px solid var(--border)', background: 'transparent', color: 'var(--brand)', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        Marks →
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
