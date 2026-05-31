@@ -2066,3 +2066,379 @@ html, body, #root {
   /* Sidebar on mobile gets top padding for the close button */
   .sb .sbtop { padding-top: 0.5rem; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   PREMIUM MOBILE REDESIGN
+   Goal: native iOS app feel — generous breathing room, clear hierarchy,
+   large touch targets, premium typography, polished interactions.
+   All rules are mobile-only overrides that never affect desktop.
+═══════════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  /* ── 1. LAYOUT & PAGE BREATHING ROOM ──────────────────────────────────────── */
+
+  /* More horizontal padding, tighter vertical to save screen real estate */
+  .page {
+    padding: 1rem 1.05rem !important;
+    padding-bottom: calc(1rem + 76px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Reduce section gap so pages feel compact but not cramped */
+  .stagger-sections { gap: 20px !important; }
+  .stagger-cards    { gap: 11px !important; }
+
+  /* ── 2. TOPBAR — tighter left padding, larger title ─────────────────────── */
+
+  .mob-topbar {
+    padding-left:  8px !important;
+    padding-right: 8px !important;
+    gap: 2px !important;
+  }
+
+  /* ── 3. KPI CARDS — bigger numbers, more padding, rounder corners ─────────── */
+
+  .sui-kpi-v2 {
+    padding: 1.1rem 1.15rem 1rem !important;
+    border-radius: 20px !important;
+    /* Lift shadow for card feel */
+    box-shadow: 0 2px 14px rgba(0,0,0,.07), 0 0 0 .5px var(--border) !important;
+    border: none !important;
+  }
+  .ar[data-theme="dark"] .sui-kpi-v2 {
+    box-shadow: 0 2px 20px rgba(0,0,0,.22), 0 0 0 .5px rgba(255,255,255,.07) !important;
+  }
+
+  .sui-kpi-num {
+    font-size: 32px !important;
+    letter-spacing: -1px !important;
+  }
+  .sui-kpi-label {
+    font-size: 11.5px !important;
+    letter-spacing: 0.55px !important;
+    margin-bottom: 6px !important;
+  }
+  .sui-kpi-sub { font-size: 12px !important; margin-top: 5px !important; }
+
+  .sui-kpi-icon {
+    width: 36px !important; height: 36px !important;
+    border-radius: 11px !important;
+    margin-bottom: 14px !important;
+  }
+
+  /* Grid: auto-fit so 1-wide cards on narrow screens don't squeeze */
+  .sui-kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+    gap: 11px !important;
+  }
+
+  /* ── 4. SECTION HEADERS — larger, bolder hierarchy ──────────────────────── */
+
+  .sui-section-head {
+    margin-bottom: 14px !important;
+    padding-bottom: 9px !important;
+  }
+  .sui-section-title {
+    font-size: 17px !important;
+    letter-spacing: -0.25px !important;
+  }
+
+  /* ── 5. HERO BAND — compact, no wasted height ────────────────────────────── */
+
+  .sui-hero-band {
+    padding: 1rem 1.1rem !important;
+    border-radius: 20px !important;
+    margin-bottom: 20px !important;
+  }
+  .sui-hero-band h1,
+  .sui-hero-band [style*="font-size: 23"],
+  .sui-hero-band [style*="font-size:23"] {
+    font-size: 20px !important;
+  }
+
+  /* ── 6. GLASS CARDS & PANELS — bigger radius, better shadows ─────────────── */
+
+  .sui-glass-card {
+    border-radius: 20px !important;
+    padding: 1rem 1.1rem !important;
+    box-shadow: 0 2px 14px rgba(0,0,0,.06), 0 0 0 .5px var(--border) !important;
+    border: none !important;
+  }
+  .ar[data-theme="dark"] .sui-glass-card {
+    box-shadow: 0 2px 18px rgba(0,0,0,.2), 0 0 0 .5px rgba(255,255,255,.07) !important;
+  }
+
+  .sui-glass-panel {
+    border-radius: 20px !important;
+    overflow: hidden !important;
+  }
+  .sui-glass-panel-header {
+    padding: 14px 16px 12px !important;
+  }
+
+  /* ── 7. TAB PILLS — horizontally scrollable, larger tap targets ──────────── */
+
+  .sui-tab-list-pill {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    flex-wrap: nowrap !important;
+    padding: 3px 4px !important;
+    gap: 4px !important;
+    /* Fade right edge so user knows there's more */
+    -webkit-mask-image: linear-gradient(to right, black 88%, transparent 100%) !important;
+    mask-image:         linear-gradient(to right, black 88%, transparent 100%) !important;
+  }
+  .sui-tab-list-pill::-webkit-scrollbar { display: none; }
+
+  .sui-tab-pill {
+    flex-shrink: 0 !important;
+    padding: 8px 18px !important;
+    font-size: 13.5px !important;
+    border-radius: 11px !important;
+    white-space: nowrap !important;
+  }
+
+  /* ── 8. FORM INPUTS — 46px min-height (iOS HIG touch target) ─────────────── */
+
+  .sui-input {
+    min-height: 46px !important;
+    font-size: 15px !important;
+    border-radius: 13px !important;
+    padding: 0 14px !important;
+  }
+  select.sui-input {
+    height: 46px !important;
+    padding-right: 36px !important;
+  }
+  textarea.sui-input {
+    min-height: 84px !important;
+    padding: 12px 14px !important;
+  }
+
+  /* ── 9. MOB-CARDS — more readable, better touch targets ─────────────────── */
+
+  .mob-cards tbody { gap: 11px !important; }
+
+  .mob-cards tr {
+    border-radius: 20px !important;
+    box-shadow: 0 2px 12px rgba(0,0,0,.07), 0 0 0 .5px var(--border) !important;
+    border: none !important;
+  }
+  .ar[data-theme="dark"] .mob-cards tr {
+    box-shadow: 0 2px 16px rgba(0,0,0,.2), 0 0 0 .5px rgba(255,255,255,.07) !important;
+  }
+
+  /* Primary cell — card title row */
+  .mob-cards td:first-child {
+    min-height: 50px !important;
+    font-size: 14.5px !important;
+    font-weight: 700 !important;
+    padding: 12px 16px !important;
+    letter-spacing: -0.1px !important;
+  }
+
+  /* Secondary data cells */
+  .mob-cards td:not(:first-child) {
+    min-height: 44px !important;
+    font-size: 13px !important;
+    padding: 10px 14px !important;
+    line-height: 1.45 !important;
+  }
+
+  /* ── 10. BOTTOM NAV — premium active indicator pill at top ───────────────── */
+
+  /* Top-edge pill indicator on active tab (like iOS tab bar) */
+  .mob-tab.active::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 28px; height: 3px;
+    border-radius: 0 0 4px 4px;
+    background: var(--brand);
+    animation: mobPillIn 0.26s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  .ar[data-theme="dark"] .mob-tab.active::before {
+    background: var(--brand-dark);
+    box-shadow: 0 1px 8px rgba(13,217,196,.5);
+  }
+
+  /* Active icon background: slightly larger pill wrapping icon */
+  .mob-tab.active .mob-tab-icon-wrap {
+    background: rgba(13,148,136,.1) !important;
+    transform: scale(1.05) translateY(-1px) !important;
+  }
+
+  /* Label becomes slightly larger and bolder when active */
+  .mob-tab.active .mob-tab-label {
+    font-size: 10.5px !important;
+    font-weight: 800 !important;
+    color: var(--brand) !important;
+  }
+
+  /* Inactive tabs: slightly dimmer to create contrast with active */
+  .mob-tab:not(.active) { color: var(--txt3) !important; opacity: .78 !important; }
+  .mob-tab:not(.active):active { opacity: 1 !important; }
+
+  /* ── 11. MOB-TOPBAR — replace emoji theme icons with SVG via CSS vars ──── */
+
+  /* Icon buttons in topbar: slightly larger active feedback */
+  .mob-icon-btn:active {
+    transform: scale(0.84) !important;
+    background: rgba(0,0,0,.06) !important;
+  }
+  .ar[data-theme="dark"] .mob-icon-btn:active {
+    background: rgba(255,255,255,.08) !important;
+  }
+
+  /* ── 12. DASHBOARD PANELS — two-column panels stack on mobile ────────────── */
+
+  /* Any inline grid with px-wide column gets stacked */
+  [style*="gridTemplateColumns"][style*="420px"],
+  [style*="grid-template-columns"][style*="420px"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── 13. CARDS INSIDE DASHBOARDS — generic full-surface card ─────────────── */
+
+  /* Remove excessive border radiuses on surface wrappers */
+  [style*="borderRadius: 14"],
+  [style*="border-radius: 14"] {
+    border-radius: 18px !important;
+  }
+
+  /* ── 14. BUTTONS — full-width on narrow screens, 46px touch targets ──────── */
+
+  /* Ensure button rows wrap gracefully */
+  .sui-page-actions {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  /* Primary buttons: minimum height */
+  .sui-btn-primary,
+  button[style*="linear-gradient"] {
+    min-height: 46px !important;
+  }
+
+  /* ── 15. PAGE HEADER (PageHeader component) ──────────────────────────────── */
+
+  /* Reduce title size on mobile; stack actions below title */
+  .page-header-root {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+  .page-header-actions {
+    width: 100% !important;
+    justify-content: flex-end !important;
+  }
+
+  /* ── 16. TERM TIMELINE — compact but not tiny ────────────────────────────── */
+  .tl-shell { height: 156px !important; }
+
+  /* ── 17. DRAWER SIDEBAR — rounded right corners on mobile ──────────────────  */
+  .sb {
+    border-radius: 0 24px 24px 0 !important;
+  }
+  .sb.sb-open {
+    box-shadow: 20px 0 80px rgba(0,0,0,.28) !important;
+  }
+
+  /* School pill in drawer more compact */
+  .sb .school-pill {
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    margin: 4px 8px 4px !important;
+  }
+
+  /* Nav items in drawer: larger tap targets */
+  .sb .ni {
+    min-height: 46px !important;
+    border-radius: 11px !important;
+    padding: 0 12px !important;
+    font-size: 13.5px !important;
+  }
+
+  /* User pill at drawer bottom */
+  .sb .upill {
+    margin: 8px !important;
+    padding: 10px 12px !important;
+    border-radius: 14px !important;
+  }
+
+  /* ── 18. OFFLINE BANNER — doesn't obscure content ─────────────────────────── */
+  .offline-banner { border-radius: 0 !important; font-size: 12px !important; }
+
+  /* ── 19. BADGE/CHIP components — larger text ────────────────────────────── */
+  .badge, [class^="badge-"] {
+    font-size: 11.5px !important;
+    padding: 3px 9px !important;
+  }
+
+  /* ── 20. TABLE-SCROLL — better edge fade + scrollbar ─────────────────────── */
+  .table-scroll {
+    border-radius: 18px !important;
+    -webkit-mask-image: linear-gradient(to right, black 82%, transparent 100%) !important;
+    mask-image:         linear-gradient(to right, black 82%, transparent 100%) !important;
+  }
+
+  /* ── 21. MODAL BOTTOM SHEETS — taller, safe-area aware ──────────────────── */
+  .sui-modal-dialog {
+    border-radius: 28px 28px 0 0 !important;
+    max-height: 94dvh !important;
+    padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
+  }
+  .sui-modal-dialog::before {
+    width: 40px !important; height: 4px !important;
+    background: rgba(0,0,0,.14) !important;
+    margin-bottom: 20px !important;
+  }
+  .ar[data-theme="dark"] .sui-modal-dialog::before {
+    background: rgba(255,255,255,.16) !important;
+  }
+
+  /* ── 22. PORTAL MODALS (discipline, messaging) ──────────────────────────── */
+  /* Ensure portalled modals also respect safe area properly */
+  [style*="zIndex: 500"],
+  [style*="z-index: 500"] { -webkit-overflow-scrolling: touch; }
+
+}
+
+/* ─── Extra-small phones (≤ 390px — iPhone SE, older Androids) ─────────────── */
+@media (max-width: 390px) {
+
+  .page {
+    padding: 0.875rem 0.9rem !important;
+    padding-bottom: calc(0.875rem + 76px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Stack KPI to 1 column on very narrow screens */
+  .sui-kpi-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 9px !important;
+  }
+  .sui-kpi-num    { font-size: 28px !important; }
+  .sui-kpi-label  { font-size: 11px !important; }
+  .sui-kpi-v2     { padding: 0.9rem 1rem !important; }
+
+  .mob-tab-label  { font-size: 9.5px !important; }
+  .mob-tab-icon-wrap { width: 40px !important; }
+
+  .mob-cards td:first-child    { font-size: 13.5px !important; }
+  .mob-cards td:not(:first-child) { font-size: 12px !important; }
+
+  .sui-section-title { font-size: 16px !important; }
+}
+
+/* ─── Mob-nav active indicator keyframe ──────────────────────────────────────── */
+@keyframes mobPillIn {
+  from { transform: translateX(-50%) scaleX(0); opacity: 0; }
+  to   { transform: translateX(-50%) scaleX(1); opacity: 1; }
+}
+
+/* ─── Smooth scroll on all mobile scrollable containers ─────────────────────── */
+@media (max-width: 768px) {
+  * { -webkit-overflow-scrolling: touch; }
+}

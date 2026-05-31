@@ -210,13 +210,14 @@ export function AppShell() {
 
           {/* School logo / badge */}
           {schoolSettings?.logoUrl ? (
-            <img src={schoolSettings.logoUrl} alt="" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'contain', flexShrink: 0 }} />
+            <img src={schoolSettings.logoUrl} alt="" style={{ width: 30, height: 30, borderRadius: 9, objectFit: 'contain', flexShrink: 0, boxShadow: '0 1px 6px rgba(0,0,0,.12)' }} />
           ) : (
             <div style={{
-              width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-              background: `linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%)`,
+              width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+              background: `linear-gradient(145deg, var(--brand) 0%, var(--brand-dark) 100%)`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 12, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)',
+              fontSize: 13, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)',
+              boxShadow: '0 2px 8px rgba(13,148,136,.36)',
             }}>
               {(schoolSettings?.shortName || schoolSettings?.schoolName || 'S')[0]?.toUpperCase()}
             </div>
@@ -233,14 +234,29 @@ export function AppShell() {
             {pageTitle}
           </div>
 
-          {/* Theme toggle */}
+          {/* Theme toggle — SVG sun/moon */}
           <button
             className="mob-icon-btn"
             onClick={toggleTheme}
             aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-            style={{ fontSize: 16 }}
           >
-            {theme === 'dark' ? '🌙' : '☀️'}
+            {theme === 'dark' ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+            )}
           </button>
 
           {/* Notification bell */}
