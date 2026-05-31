@@ -167,11 +167,15 @@ export type DosClassPerformance = {
 export type TeacherPerfRow = {
   staffId: string
   name: string
-  subjects: string[]
+  subjects: string[]      // subject IDs from journals (used for perf stats)
+  subjectIds: string[]    // subject IDs from staff.subjects (for assignment)
   classes: string[]
   passRate: number
   assessmentsThisTerm: number
   curriculumCoverage: number   // 0–100 %
+  phone: string | null
+  email: string | null
+  staffNumber: string | null
 }
 
 // ── SYSTEM KPI TYPES ──────────────────────────────────────────────────────

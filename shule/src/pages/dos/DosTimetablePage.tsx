@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   DndContext, DragOverlay, useDraggable, useDroppable,
   type DragEndEvent,
 } from '@dnd-kit/core'
+import { useQuery } from '@tanstack/react-query'
 import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
 import {
   useTimetableSlots,
@@ -17,36 +18,80 @@ import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import type { TimetableSlot } from '../../types/week9'
 
-const DAYS: [number, string][] = [[1,'Mon'],[2,'Tue'],[3,'Wed'],[4,'Thu'],[5,'Fri']]
-const PERIODS = [1,2,3,4,5,6,7,8]
+// ─── Types ────────────────────────────────────────────────────────────────────
+type EventType = 'class' | 'break' | 'lunch' | 'assembly' | 'prayer' | 'preps' | 'custom'
+type PeriodDef = { num: number; type: EventType; label: string; startTime: string; endTime: string }
+type ViewMode = 'overview' | 'school' | 'builder'
+type TeacherRow = { id: string; name: string; subjects: string[]; classes: string[] }
+type ModalTarget = { classId: string; streamId: string | null; day: number; period: number }
 
-const SUBJECT_PALETTE: [string, string][] = [
-  ['#6366f1','rgba(99,102,241,.13)'],
-  ['#0ea5e9','rgba(14,165,233,.13)'],
-  ['#10b981','rgba(16,185,129,.13)'],
-  ['#f59e0b','rgba(245,158,11,.13)'],
-  ['#f43f5e','rgba(244,63,94,.13)'],
-  ['#8b5cf6','rgba(139,92,246,.13)'],
-  ['#ec4899','rgba(236,72,153,.13)'],
-  ['#0d9488','rgba(13,148,136,.13)'],
+// ─── Constants ────────────────────────────────────────────────────────────────
+const DAYS: [number, string][] = [[1,'Mon'],[2,'Tue'],[3,'Wed'],[4,'Thu'],[5,'Fri']]
+
+const EVENT_META: Record<EventType, { color: string; bg: string; icon: string; label: string }> = {
+  class:    { color: '#64748b', bg: 'var(--surface2)',             icon: '📚', label: 'Class'    },
+  break:    { color: '#f59e0b', bg: 'rgba(245,158,11,.13)',        icon: '☕', label: 'Break'    },
+  lunch:    { color: '#0ea5e9', bg: 'rgba(14,165,233,.13)',        icon: '🍽', label: 'Lunch'    },
+  assembly: { color: '#8b5cf6', bg: 'rgba(139,92,246,.13)',        icon: '🎓', label: 'Assembly' },
+  prayer:   { color: '#10b981', bg: 'rgba(16,185,129,.13)',        icon: '🙏', label: 'Prayer'   },
+  preps:    { color: '#f43f5e', bg: 'rgba(244,63,94,.13)',         icon: '📖', label: 'Preps'    },
+  custom:   { color: '#0d9488', bg: 'rgba(13,148,136,.13)',        icon: '⭐', label: 'Custom'   },
+}
+
+const DEFAULT_PERIODS: PeriodDef[] = [
+  { num:1,  type:'assembly', label:'Assembly',  startTime:'07:00', endTime:'07:30' },
+  { num:2,  type:'class',    label:'Period 1',  startTime:'07:30', endTime:'08:10' },
+  { num:3,  type:'class',    label:'Period 2',  startTime:'08:10', endTime:'08:50' },
+  { num:4,  type:'class',    label:'Period 3',  startTime:'08:50', endTime:'09:30' },
+  { num:5,  type:'break',    label:'Break',     startTime:'09:30', endTime:'10:00' },
+  { num:6,  type:'class',    label:'Period 4',  startTime:'10:00', endTime:'10:40' },
+  { num:7,  type:'class',    label:'Period 5',  startTime:'10:40', endTime:'11:20' },
+  { num:8,  type:'lunch',    label:'Lunch',     startTime:'11:20', endTime:'13:00' },
+  { num:9,  type:'class',    label:'Period 6',  startTime:'13:00', endTime:'13:40' },
+  { num:10, type:'class',    label:'Period 7',  startTime:'13:40', endTime:'14:20' },
+  { num:11, type:'preps',    label:'Preps',     startTime:'16:00', endTime:'18:00' },
 ]
 
-function slotColor(id: string): [string, string] {
+const CLASS_PALETTE: [string, string][] = [
+  ['#6366f1','rgba(99,102,241,.15)'],  ['#0ea5e9','rgba(14,165,233,.15)'],
+  ['#10b981','rgba(16,185,129,.15)'],  ['#f59e0b','rgba(245,158,11,.15)'],
+  ['#f43f5e','rgba(244,63,94,.15)'],   ['#8b5cf6','rgba(139,92,246,.15)'],
+  ['#ec4899','rgba(236,72,153,.15)'],  ['#0d9488','rgba(13,148,136,.15)'],
+  ['#84cc16','rgba(132,204,22,.15)'],  ['#f97316','rgba(249,115,22,.15)'],
+]
+
+function classColor(id: string): [string, string] {
   let h = 0
   for (let i = 0; i < id.length; i++) h = id.charCodeAt(i) + ((h << 5) - h)
-  return SUBJECT_PALETTE[Math.abs(h) % SUBJECT_PALETTE.length]
+  return CLASS_PALETTE[Math.abs(h) % CLASS_PALETTE.length]
 }
 
-function initials(name: string) {
-  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+const SUBJ_PALETTE: [string, string][] = [
+  ['#6366f1','rgba(99,102,241,.14)'],  ['#0ea5e9','rgba(14,165,233,.14)'],
+  ['#10b981','rgba(16,185,129,.14)'],  ['#f59e0b','rgba(245,158,11,.14)'],
+  ['#f43f5e','rgba(244,63,94,.14)'],   ['#8b5cf6','rgba(139,92,246,.14)'],
+  ['#ec4899','rgba(236,72,153,.14)'],  ['#0d9488','rgba(13,148,136,.14)'],
+]
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function subjectColor(id: string): [string, string] {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = id.charCodeAt(i) + ((h << 5) - h)
+  return SUBJ_PALETTE[Math.abs(h) % SUBJ_PALETTE.length]
 }
 
-type TeacherRow = {
-  id: string; name: string; firstName: string; lastName: string
-  subjects: string[]; classes: string[]
+function ini(n: string) { return n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() }
+
+function cfgKey(sid: string) { return `shule:period-cfg:${sid}` }
+function loadCfg(sid: string): PeriodDef[] {
+  try { const r = localStorage.getItem(cfgKey(sid)); if (r) return JSON.parse(r) as PeriodDef[] } catch { /**/ }
+  return DEFAULT_PERIODS
+}
+function saveCfg(sid: string, defs: PeriodDef[]) {
+  localStorage.setItem(cfgKey(sid), JSON.stringify(defs))
 }
 
-// ─── Fetch teachers with their subject assignments ────────────────────────────────
+// ─── Teachers hook ─────────────────────────────────────────────────────────────
 function useTeachersForTimetable() {
   const { user } = useAuth()
   return useQuery({
@@ -56,292 +101,267 @@ function useTeachersForTimetable() {
       const { data, error } = await supabase
         .from('staff')
         .select('id, first_name, last_name, subjects, classes')
-        .eq('school_id', user!.schoolId)
-        .eq('is_active', true)
-        .in('role', ['teacher', 'class_teacher'])
-        .order('last_name')
+        .eq('school_id', user!.schoolId).eq('is_active', true)
+        .in('role', ['teacher', 'class_teacher']).order('last_name')
       if (error) throw error
       return (data ?? []).map((r: any) => ({
-        id:        r.id as string,
-        firstName: r.first_name as string,
-        lastName:  r.last_name as string,
-        name:      `${r.first_name} ${r.last_name}`,
-        subjects:  (r.subjects as string[]) ?? [],
-        classes:   (r.classes as string[]) ?? [],
+        id: r.id, name: `${r.first_name} ${r.last_name}`,
+        subjects: (r.subjects as string[]) ?? [],
+        classes:  (r.classes  as string[]) ?? [],
       }))
     },
     staleTime: 5 * 60_000,
   })
 }
 
-// ─── Draggable slot chip ───────────────────────────────────────────────────────────
-function SlotChip({ slot, onDelete }: { slot: TimetableSlot; onDelete: () => void }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: slot.id, data: { slot } })
-  const [color, bg] = slotColor(slot.subjectId)
-  return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      style={{
-        background: bg,
-        border: `.5px solid ${color}40`,
-        borderRadius: 10, padding: '6px 8px',
-        cursor: isDragging ? 'grabbing' : 'grab',
-        opacity: isDragging ? 0.35 : 1,
-        position: 'relative', userSelect: 'none', WebkitUserSelect: 'none',
-        transition: 'opacity .15s',
-      }}
-    >
-      <div style={{ fontWeight: 700, fontSize: 11.5, color, marginBottom: 2, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 14 }}>
-        {slot.subjectName ?? '—'}
-      </div>
-      <div style={{ fontSize: 10, color: 'var(--txt3)', display: 'flex', alignItems: 'center', gap: 4 }}>
-        <div style={{ width: 14, height: 14, borderRadius: '50%', background: `${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7.5, fontWeight: 900, color, flexShrink: 0, fontFamily: 'var(--font2)' }}>
-          {initials(slot.teacherName ?? '?')}
-        </div>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {slot.teacherName?.split(' ')[0] ?? '—'}
-        </span>
-      </div>
-      {slot.startTime && (
-        <div style={{ fontSize: 9, color: 'var(--txt3)', marginTop: 1, fontFamily: 'var(--font3)' }}>
-          {slot.startTime}–{slot.endTime}
-        </div>
-      )}
-      <button
-        onClick={e => { e.stopPropagation(); onDelete() }}
-        style={{
-          position: 'absolute', top: 4, right: 4, width: 16, height: 16,
-          borderRadius: 5, border: 'none', background: 'rgba(0,0,0,.1)',
-          cursor: 'pointer', fontSize: 8, color: 'var(--txt3)', padding: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          lineHeight: 1, WebkitTapHighlightColor: 'transparent',
-        }}
-      >✕</button>
-    </div>
-  )
-}
-
-// ─── Droppable grid cell ───────────────────────────────────────────────────────────
-function TimetableCell({
-  day, period, slot, conflict, onClickEmpty, onDelete,
-}: {
-  day: number; period: number
-  slot: TimetableSlot | undefined; conflict: boolean
-  onClickEmpty: () => void; onDelete: () => void
+// ═══════════════════════════════════════════════════════════════════════════════
+// PERIOD CONFIG PANEL  (slide-out drawer)
+// ═══════════════════════════════════════════════════════════════════════════════
+function PeriodConfigPanel({ defs, onChange, onClose }: {
+  defs: PeriodDef[]
+  onChange: (d: PeriodDef[]) => void
+  onClose: () => void
 }) {
-  const { isOver, setNodeRef } = useDroppable({ id: `cell-${day}-${period}`, data: { day, period } })
-  return (
-    <td
-      ref={setNodeRef}
-      style={{
-        padding: 5, width: '18%', height: 76,
-        background: conflict ? 'rgba(244,63,94,.05)' : isOver ? 'rgba(13,148,136,.07)' : 'transparent',
-        border: conflict ? '.5px solid rgba(244,63,94,.28)' : '.5px solid var(--border)',
-        verticalAlign: 'top', transition: 'background .14s',
-      }}
-    >
-      {slot ? (
-        <SlotChip slot={slot} onDelete={onDelete} />
-      ) : (
-        <div
-          onClick={onClickEmpty}
-          className="timetable-empty-cell"
-          style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-        >
-          <div style={{ width: 22, height: 22, borderRadius: 7, background: 'transparent', border: '.5px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity .14s' }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={e => (e.currentTarget.style.opacity = '0')}
-          >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
+  const [local, setLocal] = useState<PeriodDef[]>(() => defs.map(d => ({ ...d })))
+
+  function upd(i: number, patch: Partial<PeriodDef>) {
+    setLocal(prev => prev.map((d, j) => j === i ? { ...d, ...patch } : d))
+  }
+
+  function addPeriod() {
+    const maxNum = local.reduce((m, d) => Math.max(m, d.num), 0)
+    setLocal(prev => [...prev, { num: maxNum + 1, type: 'class', label: `Period ${maxNum + 1}`, startTime: '', endTime: '' }])
+  }
+
+  function remove(i: number) {
+    setLocal(prev => prev.filter((_, j) => j !== i).map((d, j) => ({ ...d, num: j + 1 })))
+  }
+
+  function save() { onChange(local); onClose() }
+  function reset() { setLocal(DEFAULT_PERIODS.map(d => ({ ...d }))) }
+
+  const portal = document.querySelector('.ar') as HTMLElement ?? document.body
+
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 600, display: 'flex', alignItems: 'stretch' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      {/* Backdrop */}
+      <div style={{ flex: 1, background: 'rgba(0,0,0,.45)', backdropFilter: 'blur(6px)' }} onClick={onClose} />
+      {/* Drawer */}
+      <div style={{
+        width: '100%', maxWidth: 480, height: '100%', background: 'var(--surface)',
+        boxShadow: '-20px 0 60px rgba(0,0,0,.2)', display: 'flex', flexDirection: 'column',
+        animation: 'slideInRight .22s cubic-bezier(.16,1,.3,1)',
+      }}>
+        {/* Drawer header */}
+        <div style={{ padding: '22px 24px 18px', borderBottom: '.5px solid var(--border)', flexShrink: 0, background: 'linear-gradient(135deg,rgba(13,148,136,.06),transparent)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 13, background: 'linear-gradient(145deg,#0d9488,#0f766e)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(13,148,136,.4)', flexShrink: 0 }}>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
+                <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M12 2v2M12 20v2M2 12h2M20 12h2"/>
+              </svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 17, color: 'var(--txt)', letterSpacing: -.3 }}>Configure Periods</div>
+              <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 1 }}>Set times & event types for each period</div>
+            </div>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: 'var(--surface2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
         </div>
-      )}
-    </td>
+
+        {/* Period list */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {local.map((def, i) => {
+            const meta = EVENT_META[def.type]
+            return (
+              <div key={i} style={{ background: 'var(--surface2)', border: `.5px solid ${def.type !== 'class' ? meta.color + '30' : 'var(--border)'}`, borderRadius: 14, padding: '14px 14px 12px', position: 'relative', transition: 'border-color .15s' }}>
+                {/* Row top: type selector + label */}
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 9, background: meta.bg, border: `.5px solid ${meta.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+                    {meta.icon}
+                  </div>
+                  <select value={def.type}
+                    onChange={e => {
+                      const t = e.target.value as EventType
+                      const autoLabel = t !== 'class' && t !== 'custom' ? EVENT_META[t].label : def.label
+                      upd(i, { type: t, label: autoLabel })
+                    }}
+                    style={{ flex: '0 0 120px', fontSize: 12, fontWeight: 700, color: meta.color, background: meta.bg, border: `.5px solid ${meta.color}30`, borderRadius: 8, padding: '5px 8px', cursor: 'pointer', outline: 'none' }}
+                  >
+                    {(Object.keys(EVENT_META) as EventType[]).map(t => (
+                      <option key={t} value={t}>{EVENT_META[t].label}</option>
+                    ))}
+                  </select>
+                  <input value={def.label} onChange={e => upd(i, { label: e.target.value })}
+                    placeholder="Period label…"
+                    style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--txt)', background: 'transparent', border: 'none', outline: 'none', padding: 0 }}
+                  />
+                  <button onClick={() => remove(i)} style={{ width: 24, height: 24, borderRadius: 7, border: 'none', background: 'rgba(244,63,94,.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)', flexShrink: 0, fontSize: 10 }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+                  </button>
+                </div>
+                {/* Time row */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 4 }}>Start</div>
+                    <input type="time" value={def.startTime} onChange={e => upd(i, { startTime: e.target.value })}
+                      style={{ width: '100%', fontSize: 12, fontWeight: 600, color: 'var(--txt)', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 8, padding: '6px 10px', outline: 'none', fontFamily: 'var(--font3)' }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 4 }}>End</div>
+                    <input type="time" value={def.endTime} onChange={e => upd(i, { endTime: e.target.value })}
+                      style={{ width: '100%', fontSize: 12, fontWeight: 600, color: 'var(--txt)', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 8, padding: '6px 10px', outline: 'none', fontFamily: 'var(--font3)' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
+          <button onClick={addPeriod} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px', borderRadius: 12, border: '1.5px dashed var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--txt3)', fontSize: 13, fontWeight: 600, transition: 'all .14s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--txt3)' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Period
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '16px 20px', borderTop: '.5px solid var(--border)', display: 'flex', gap: 10, flexShrink: 0 }}>
+          <button onClick={reset} style={{ padding: '10px 16px', borderRadius: 10, border: '.5px solid var(--border)', background: 'var(--surface2)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--txt3)' }}>
+            Reset Defaults
+          </button>
+          <button onClick={save} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(13,148,136,.4)' }}>
+            Save Configuration
+          </button>
+        </div>
+      </div>
+    </div>,
+    portal
   )
 }
 
-// ─── Field label ──────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// ASSIGN SLOT MODAL
+// ═══════════════════════════════════════════════════════════════════════════════
 const Lbl = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
   <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: .7 }}>
     {children}{required && <span style={{ color: 'var(--danger)', marginLeft: 2 }}>*</span>}
   </label>
 )
 
-// ─── Assign slot modal ─────────────────────────────────────────────────────────────
-function AssignModal({
-  classId, streamId, term, year, day, period, onClose, onSaved,
-}: {
-  classId: string; streamId: string | null; term: string; year: number
-  day: number; period: number; onClose: () => void; onSaved: () => void
+function AssignModal({ target, term, year, onClose, onSaved }: {
+  target: ModalTarget; term: string; year: number
+  onClose: () => void; onSaved: () => void
 }) {
   const { data: allSubjects = [] } = useSubjects()
   const { data: teachers = [] }    = useTeachersForTimetable()
   const createSlot     = useCreateTimetableSlot()
   const checkCollision = useCheckCollision()
-
   const [teacherId, setTeacherId] = useState('')
   const [subjectId, setSubjectId] = useState('')
   const [startTime, setStartTime] = useState('')
   const [endTime,   setEndTime]   = useState('')
-  const [error,     setError]     = useState('')
+  const [err,       setErr]       = useState('')
 
-  const dayName         = DAYS.find(d => d[0] === day)?.[1] ?? ''
+  const dayLabel        = DAYS.find(d => d[0] === target.day)?.[1] ?? ''
   const selectedTeacher = teachers.find(t => t.id === teacherId)
-
-  // Filter subjects to only those assigned to the selected teacher
   const filteredSubjects = selectedTeacher && selectedTeacher.subjects.length > 0
     ? allSubjects.filter(s => selectedTeacher.subjects.includes(s.id))
     : allSubjects
+  const noSubjects = !!selectedTeacher && selectedTeacher.subjects.length === 0
 
-  const noSubjectsAssigned = !!selectedTeacher && selectedTeacher.subjects.length === 0
-
-  function handleTeacherChange(id: string) {
-    setTeacherId(id)
-    setSubjectId('')
-    setError('')
-  }
-
-  async function handleSave() {
-    if (!teacherId || !subjectId) { setError('Please select a teacher and subject.'); return }
-    setError('')
+  async function save() {
+    if (!teacherId || !subjectId) { setErr('Select a teacher and subject'); return }
+    setErr('')
     try {
       const { classConflict, teacherConflict } = await checkCollision.mutateAsync({
-        classId, streamId, teacherId, dayOfWeek: day, periodNumber: period, term, year,
+        classId: target.classId, streamId: target.streamId,
+        teacherId, dayOfWeek: target.day, periodNumber: target.period, term, year,
       })
-      if (classConflict)   { setError('This class already has a slot at this period.'); return }
-      if (teacherConflict) { setError(`${selectedTeacher?.name ?? 'This teacher'} is already booked for period ${period} on ${dayName}.`); return }
-
+      if (classConflict)   { setErr('This class already has a slot at this period.'); return }
+      if (teacherConflict) { setErr(`${selectedTeacher?.name ?? 'Teacher'} is double-booked at period ${target.period} on ${dayLabel}.`); return }
       await createSlot.mutateAsync({
-        classId, streamId, subjectId, teacherId,
-        dayOfWeek: day as 1|2|3|4|5, periodNumber: period,
+        classId: target.classId, streamId: target.streamId,
+        subjectId, teacherId,
+        dayOfWeek: target.day as 1|2|3|4|5,
+        periodNumber: target.period,
         startTime: startTime || null, endTime: endTime || null, term, year,
       })
       onSaved()
-    } catch (ex: any) {
-      setError(ex.message ?? 'Failed to save slot')
-    }
+    } catch (ex: any) { setErr(ex.message ?? 'Failed to save') }
   }
 
-  const isPending    = createSlot.isPending || checkCollision.isPending
-  const canSave      = !!teacherId && !!subjectId && !isPending
+  const busy = createSlot.isPending || checkCollision.isPending
+  const portal = document.querySelector('.ar') as HTMLElement ?? document.body
 
-  return (
+  return createPortal(
     <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.52)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 300 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.52)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}
+      onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{
-        width: '100%', maxWidth: 520, maxHeight: '92dvh', overflowY: 'auto',
-        background: 'var(--surface)', padding: '28px 24px 32px',
-        borderRadius: '24px 24px 0 0', boxShadow: '0 -8px 48px rgba(0,0,0,.18)',
-        display: 'flex', flexDirection: 'column', gap: 20,
-      }}>
-
-        {/* Handle bar */}
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '-8px auto 0', flexShrink: 0 }} />
+      <div style={{ width: '100%', maxWidth: 520, maxHeight: '90dvh', overflowY: 'auto', background: 'var(--surface)', padding: '24px 24px 28px', borderRadius: 22, boxShadow: '0 24px 80px rgba(0,0,0,.28)', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 14, background: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(139,92,246,.38)', flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2">
-              <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
-            </svg>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 14, background: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(139,92,246,.4)', flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 900, fontSize: 17, color: 'var(--txt)', fontFamily: 'var(--font2)', letterSpacing: -.3 }}>
-              Assign Period
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 1 }}>
-              {dayName} · Period {period}
-            </div>
+            <div style={{ fontWeight: 900, fontSize: 17, color: 'var(--txt)', fontFamily: 'var(--font2)', letterSpacing: -.3 }}>Assign Period</div>
+            <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 1 }}>{dayLabel} · Period {target.period}</div>
           </div>
-          <button
-            type="button" onClick={onClose}
-            style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: 'var(--surface2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)', flexShrink: 0 }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: 'var(--surface2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
 
-        {/* ── Step 1: Teacher picker ── */}
+        {/* Teacher picker */}
         <div>
-          <Lbl required>Select Teacher</Lbl>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto', paddingRight: 2 }}>
-            {teachers.length === 0 && (
-              <div style={{ fontSize: 13, color: 'var(--txt3)', padding: '14px 12px', background: 'var(--surface2)', borderRadius: 12, textAlign: 'center' }}>
-                No teachers found.
-              </div>
-            )}
+          <Lbl required>Teacher</Lbl>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto', paddingRight: 2 }}>
+            {teachers.length === 0 && <div style={{ fontSize: 13, color: 'var(--txt3)', padding: '12px', background: 'var(--surface2)', borderRadius: 10, textAlign: 'center' }}>No teachers found.</div>}
             {teachers.map(t => {
-              const active      = teacherId === t.id
-              const [color, bg] = slotColor(t.id)
+              const active = teacherId === t.id
+              const [col, bg] = subjectColor(t.id)
               return (
-                <div
-                  key={t.id}
-                  onClick={() => handleTeacherChange(t.id)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                    borderRadius: 12, border: `.5px solid ${active ? color : 'var(--border)'}`,
-                    background: active ? bg : 'var(--surface2)',
-                    cursor: 'pointer', transition: 'all .14s', WebkitTapHighlightColor: 'transparent',
-                  }}
+                <div key={t.id} onClick={() => { setTeacherId(t.id); setSubjectId(''); setErr('') }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: `.5px solid ${active ? col : 'var(--border)'}`, background: active ? bg : 'var(--surface2)', cursor: 'pointer', transition: 'all .14s', WebkitTapHighlightColor: 'transparent' }}
                 >
-                  <div style={{ width: 36, height: 36, borderRadius: 12, background: active ? `${color}25` : 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: active ? color : 'var(--txt3)', flexShrink: 0, fontFamily: 'var(--font2)', letterSpacing: -.3 }}>
-                    {initials(t.name)}
-                  </div>
+                  <div style={{ width: 34, height: 34, borderRadius: 11, background: active ? `${col}22` : 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, color: active ? col : 'var(--txt3)', flexShrink: 0, fontFamily: 'var(--font2)', letterSpacing: -.3 }}>{ini(t.name)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--txt)', lineHeight: 1.2 }}>{t.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>
-                      {t.subjects.length > 0 ? `${t.subjects.length} subject${t.subjects.length !== 1 ? 's' : ''}` : 'No subjects assigned'}
-                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>{t.subjects.length > 0 ? `${t.subjects.length} subject${t.subjects.length !== 1 ? 's' : ''}` : 'No subjects assigned'}</div>
                   </div>
-                  {active && (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                  )}
+                  {active && <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
                 </div>
               )
             })}
           </div>
         </div>
 
-        {/* ── Step 2: Subject chips ── */}
+        {/* Subject chips */}
         {teacherId && (
           <div>
             <Lbl required>Subject</Lbl>
-            {noSubjectsAssigned ? (
+            {noSubjects ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(245,158,11,.08)', border: '.5px solid rgba(245,158,11,.25)', color: 'var(--warning)', fontSize: 12.5, fontWeight: 600 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                </svg>
-                No subjects assigned to this teacher. Update via Staff Management.
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                No subjects assigned to this teacher.
               </div>
             ) : (
               <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                 {filteredSubjects.map(s => {
-                  const [color, bg] = slotColor(s.id)
-                  const active      = subjectId === s.id
+                  const [col, bg] = subjectColor(s.id)
+                  const active = subjectId === s.id
                   return (
-                    <button
-                      key={s.id} type="button" onClick={() => setSubjectId(s.id)}
-                      style={{
-                        padding: '7px 15px', borderRadius: 99,
-                        border: `.5px solid ${active ? color : 'var(--border)'}`,
-                        background: active ? bg : 'var(--surface2)',
-                        color: active ? color : 'var(--txt3)',
-                        fontSize: 13, fontWeight: active ? 700 : 600,
-                        cursor: 'pointer', transition: 'all .14s', WebkitTapHighlightColor: 'transparent',
-                      }}
-                    >
-                      {s.name}
-                    </button>
+                    <button key={s.id} type="button" onClick={() => setSubjectId(s.id)}
+                      style={{ padding: '7px 15px', borderRadius: 99, border: `.5px solid ${active ? col : 'var(--border)'}`, background: active ? bg : 'var(--surface2)', color: active ? col : 'var(--txt3)', fontSize: 13, fontWeight: active ? 700 : 600, cursor: 'pointer', transition: 'all .14s', WebkitTapHighlightColor: 'transparent' }}
+                    >{s.name}</button>
                   )
                 })}
               </div>
@@ -349,88 +369,116 @@ function AssignModal({
           </div>
         )}
 
-        {/* ── Step 3: Optional time range ── */}
+        {/* Optional times */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <Lbl>Start Time</Lbl>
-            <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="sui-input" style={{ width: '100%' }} />
-          </div>
-          <div>
-            <Lbl>End Time</Lbl>
-            <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="sui-input" style={{ width: '100%' }} />
-          </div>
+          <div><Lbl>Start Time</Lbl><input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="sui-input" style={{ width: '100%' }} /></div>
+          <div><Lbl>End Time</Lbl><input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="sui-input" style={{ width: '100%' }} /></div>
         </div>
 
-        {/* Error */}
-        {error && (
+        {err && (
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(244,63,94,.08)', border: '.5px solid rgba(244,63,94,.22)', color: 'var(--danger)', fontSize: 12.5, fontWeight: 600 }}>
-            <svg width="14" height="14" style={{ flexShrink: 0, marginTop: 1 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            {error}
+            <svg width="14" height="14" style={{ flexShrink: 0, marginTop: 1 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            {err}
           </div>
         )}
 
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-          <button
-            type="button" onClick={onClose}
-            style={{ flex: 1, padding: '11px 0', background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 12, fontWeight: 600, fontSize: 13.5, cursor: 'pointer', color: 'var(--txt2)' }}
-          >
-            Cancel
-          </button>
-          <button
-            type="button" disabled={!canSave} onClick={() => { void handleSave() }}
-            style={{
-              flex: 2, padding: '11px 0',
-              background: canSave ? 'linear-gradient(145deg,#8b5cf6,#7c3aed)' : 'var(--border)',
-              color: canSave ? '#fff' : 'var(--txt3)',
-              border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13.5,
-              cursor: canSave ? 'pointer' : 'default', transition: 'all .18s',
-              boxShadow: canSave ? '0 4px 14px rgba(139,92,246,.4)' : 'none',
-            }}
-          >
-            {isPending ? 'Checking…' : 'Assign Slot'}
-          </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '11px 0', background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 12, fontWeight: 600, fontSize: 13.5, cursor: 'pointer', color: 'var(--txt2)' }}>Cancel</button>
+          <button disabled={!teacherId || !subjectId || busy} onClick={() => { void save() }}
+            style={{ flex: 2, padding: '11px 0', background: teacherId && subjectId && !busy ? 'linear-gradient(145deg,#8b5cf6,#7c3aed)' : 'var(--border)', color: teacherId && subjectId && !busy ? '#fff' : 'var(--txt3)', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13.5, cursor: teacherId && subjectId && !busy ? 'pointer' : 'default', transition: 'all .18s', boxShadow: teacherId && subjectId && !busy ? '0 4px 14px rgba(139,92,246,.4)' : 'none' }}
+          >{busy ? 'Checking…' : 'Assign Slot'}</button>
         </div>
       </div>
+    </div>,
+    portal
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DRAGGABLE SLOT CHIP  (builder view)
+// ═══════════════════════════════════════════════════════════════════════════════
+function SlotChip({ slot, onDelete }: { slot: TimetableSlot; onDelete: () => void }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: slot.id, data: { slot } })
+  const [color, bg] = subjectColor(slot.subjectId)
+  return (
+    <div ref={setNodeRef} {...listeners} {...attributes}
+      style={{ background: bg, border: `.5px solid ${color}40`, borderRadius: 10, padding: '6px 8px', cursor: isDragging ? 'grabbing' : 'grab', opacity: isDragging ? 0.3 : 1, position: 'relative', userSelect: 'none', WebkitUserSelect: 'none', transition: 'opacity .15s', height: '100%', boxSizing: 'border-box' }}
+    >
+      <div style={{ fontWeight: 700, fontSize: 11.5, color, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 14, marginBottom: 2 }}>{slot.subjectName ?? '—'}</div>
+      <div style={{ fontSize: 10, color: 'var(--txt3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ width: 14, height: 14, borderRadius: '50%', background: `${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7.5, fontWeight: 900, color, flexShrink: 0 }}>{ini(slot.teacherName ?? '?')}</div>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.teacherName?.split(' ')[0] ?? '—'}</span>
+      </div>
+      {slot.startTime && <div style={{ fontSize: 9, color: 'var(--txt3)', marginTop: 1, fontFamily: 'var(--font3)' }}>{slot.startTime}–{slot.endTime}</div>}
+      <button onClick={e => { e.stopPropagation(); onDelete() }}
+        style={{ position: 'absolute', top: 3, right: 3, width: 16, height: 16, borderRadius: 5, border: 'none', background: 'rgba(0,0,0,.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)', padding: 0, lineHeight: 1 }}
+      >✕</button>
     </div>
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════════
-// DOS TIMETABLE PAGE
-// ═══════════════════════════════════════════════════════════════════════════════════
-export function DosTimetablePage() {
+// ═══════════════════════════════════════════════════════════════════════════════
+// DROPPABLE CELL  (builder view)
+// ═══════════════════════════════════════════════════════════════════════════════
+function TimetableCell({ day, period, slot, conflict, onClickEmpty, onDelete }: {
+  day: number; period: number; slot?: TimetableSlot; conflict: boolean
+  onClickEmpty: () => void; onDelete: () => void
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: `cell-${day}-${period}`, data: { day, period } })
+  return (
+    <td ref={setNodeRef} style={{ padding: 4, width: '18%', height: 80, verticalAlign: 'top', transition: 'background .14s',
+      background: conflict ? 'rgba(244,63,94,.05)' : isOver ? 'rgba(13,148,136,.08)' : 'transparent',
+      border: conflict ? '.5px solid rgba(244,63,94,.28)' : '.5px solid var(--border)',
+    }}>
+      {slot ? (
+        <SlotChip slot={slot} onDelete={onDelete} />
+      ) : (
+        <div onClick={onClickEmpty} className="timetable-empty-cell"
+          style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+        >
+          <div style={{ width: 22, height: 22, borderRadius: 7, border: '.5px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity .14s' }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '0')}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </div>
+        </div>
+      )}
+    </td>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BUILDER VIEW  (single class deep-dive)
+// ═══════════════════════════════════════════════════════════════════════════════
+function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
+  term: string; year: number; periodDefs: PeriodDef[]
+  onAssign: (t: ModalTarget) => void
+  initialClassId?: string | null
+}) {
   const isMobile = useIsMobile()
   const { data: classes = [] } = useClasses()
-
-  const [selectedClass,  setSelectedClass]  = useState<string | null>(null)
+  const [selectedClass,  setSelectedClass]  = useState<string | null>(initialClassId ?? null)
   const [selectedStream, setSelectedStream] = useState<string | null>(null)
-  const [term,  setTerm]  = useState('Term 1')
-  const [year,  setYear]  = useState(new Date().getFullYear())
-  const [published, setPublished] = useState(false)
-  const [dragActive, setDragActive] = useState(false)
-  const [assignModal, setAssignModal] = useState<{ day: number; period: number } | null>(null)
+  const [mobileDay,      setMobileDay]      = useState<number>(1)
+  const [dragActive,     setDragActive]     = useState(false)
+  const [published,      setPublished]      = useState(false)
 
   const { data: streams = [] } = useStreams(selectedClass)
-
-  const { data: slots = [], isLoading } = useTimetableSlots({
-    classId: selectedClass, streamId: selectedStream, term, year,
-  })
-
+  const { data: slots = [], isLoading } = useTimetableSlots({ classId: selectedClass, streamId: selectedStream, term, year })
   const deleteSlot = useDeleteTimetableSlot()
   const createSlot = useCreateTimetableSlot()
   const publishMut = usePublishTimetable()
 
-  // day-period → slot lookup
+  // Reset stream/published when class changes
+  useEffect(() => { setSelectedStream(null); setPublished(false) }, [selectedClass])
+
   const slotMap = useMemo(() => {
     const m = new Map<string, TimetableSlot>()
     for (const s of slots) m.set(`${s.dayOfWeek}-${s.periodNumber}`, s)
     return m
   }, [slots])
 
-  // Detect teacher-double-booked conflicts (same teacher, same day-period, multiple slots)
   const conflictKeys = useMemo(() => {
     const counts = new Map<string, number>()
     for (const s of slots) {
@@ -439,26 +487,26 @@ export function DosTimetablePage() {
     }
     const keys = new Set<string>()
     for (const s of slots) {
-      if ((counts.get(`${s.teacherId}-${s.dayOfWeek}-${s.periodNumber}`) ?? 0) > 1) {
+      if ((counts.get(`${s.teacherId}-${s.dayOfWeek}-${s.periodNumber}`) ?? 0) > 1)
         keys.add(`${s.dayOfWeek}-${s.periodNumber}`)
-      }
     }
     return keys
   }, [slots])
 
-  const selectedClassName = classes.find(c => c.id === selectedClass)?.name ?? ''
-  const publishedCount    = slots.filter(s => s.isPublished).length
-  const today             = new Date().getDay() // 1=Mon…5=Fri
-  const todayCol          = today >= 1 && today <= 5 ? today : null
+  const today  = new Date().getDay()
+  const todayCol = today >= 1 && today <= 5 ? today : null
+  const classPeriods = periodDefs.filter(d => d.type === 'class')
+  const publishedCount = slots.filter(s => s.isPublished).length
+  const totalClassSlots = classPeriods.length * 5
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     setDragActive(false)
     if (!over || !selectedClass) return
-    const parts     = (over.id as string).split('-')
-    const newDay    = parseInt(parts[1]) as 1|2|3|4|5
+    const parts = (over.id as string).split('-')
+    const newDay = parseInt(parts[1]) as 1|2|3|4|5
     const newPeriod = parseInt(parts[2])
-    const slot      = active.data.current?.slot as TimetableSlot | undefined
+    const slot = active.data.current?.slot as TimetableSlot | undefined
     if (!slot) return
     if (slot.dayOfWeek === newDay && slot.periodNumber === newPeriod) return
     if (slotMap.has(`${newDay}-${newPeriod}`)) return
@@ -470,210 +518,226 @@ export function DosTimetablePage() {
         dayOfWeek: newDay, periodNumber: newPeriod,
         startTime: slot.startTime, endTime: slot.endTime, term, year,
       })
-    } catch { /* silent */ }
+    } catch { /**/ }
   }
 
-  async function handlePublish() {
-    if (!selectedClass) return
-    await publishMut.mutateAsync({ classId: selectedClass, term, year })
-    setPublished(true)
-  }
+  const selectedClassName = classes.find(c => c.id === selectedClass)?.name ?? ''
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-      {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 14, background: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(139,92,246,.4)', flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2">
-              <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
-            </svg>
-          </div>
-          <div>
-            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: isMobile ? 18 : 22, color: 'var(--txt)', margin: 0, letterSpacing: -.3 }}>
-              Timetable Builder
-            </h1>
-            <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: 0 }}>
-              Click a cell to assign · Drag slots to rearrange
-            </p>
-          </div>
-        </div>
-
-        {selectedClass && (
-          <button
-            onClick={() => { void handlePublish() }}
-            disabled={publishMut.isPending || published || slots.length === 0}
-            style={{
-              padding: '10px 22px', borderRadius: 12, border: published ? '.5px solid rgba(16,185,129,.3)' : 'none',
-              background: published ? 'rgba(16,185,129,.12)' : slots.length === 0 ? 'var(--surface2)' : 'linear-gradient(145deg,#10b981,#059669)',
-              color: published ? 'var(--success)' : slots.length === 0 ? 'var(--txt3)' : '#fff',
-              fontWeight: 700, fontSize: 13.5, cursor: published || slots.length === 0 ? 'default' : 'pointer',
-              display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
-              boxShadow: published || slots.length === 0 ? 'none' : '0 4px 14px rgba(16,185,129,.4)',
-            }}
-          >
-            {published ? (
-              <>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                Published
-              </>
-            ) : publishMut.isPending ? 'Publishing…' : (
-              <>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M3 15v4a2 2 0 002 2h14a2 2 0 002-2v-4M17 8l-5-5-5 5M12 3v12"/>
-                </svg>
-                Publish Timetable
-              </>
-            )}
-          </button>
-        )}
+  // ── Class + stream selector ────────────────────────────────────────────────
+  const ClassPicker = (
+    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 16px', alignItems: 'flex-end' }}>
+      <div style={{ flex: '1 1 160px', minWidth: 140 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Class</div>
+        <select value={selectedClass ?? ''} onChange={e => setSelectedClass(e.target.value || null)} className="sui-input" style={{ width: '100%' }}>
+          <option value="">Select class…</option>
+          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
       </div>
-
-      {/* ── Filters row ── */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 16, padding: '16px 20px', boxShadow: '0 1px 8px rgba(0,0,0,.04)', alignItems: 'flex-end' }}>
-        <div style={{ flex: '1 1 160px', minWidth: 150 }}>
-          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: .7 }}>Class</label>
-          <select
-            value={selectedClass ?? ''}
-            onChange={e => { setSelectedClass(e.target.value || null); setSelectedStream(null); setPublished(false) }}
-            className="sui-input" style={{ width: '100%' }}
-          >
-            <option value="">Select class…</option>
-            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+      {selectedClass && streams.length > 0 && (
+        <div style={{ flex: '1 1 130px', minWidth: 120 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Stream</div>
+          <select value={selectedStream ?? ''} onChange={e => setSelectedStream(e.target.value || null)} className="sui-input" style={{ width: '100%' }}>
+            <option value="">All streams</option>
+            {streams.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
-
-        {selectedClass && streams.length > 0 && (
-          <div style={{ flex: '1 1 140px', minWidth: 130 }}>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: .7 }}>Stream</label>
-            <select value={selectedStream ?? ''} onChange={e => setSelectedStream(e.target.value || null)} className="sui-input" style={{ width: '100%' }}>
-              <option value="">All streams</option>
-              {streams.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-        )}
-
-        <div style={{ flex: '0 0 120px', minWidth: 110 }}>
-          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: .7 }}>Term</label>
-          <select value={term} onChange={e => setTerm(e.target.value)} className="sui-input" style={{ width: '100%' }}>
-            {['Term 1','Term 2','Term 3'].map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-
-        <div style={{ flex: '0 0 92px', minWidth: 82 }}>
-          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: .7 }}>Year</label>
-          <input type="number" value={year} onChange={e => setYear(parseInt(e.target.value))} className="sui-input" style={{ width: '100%' }} />
-        </div>
-
-        {selectedClass && slots.length > 0 && (
-          <div style={{ padding: '7px 14px', borderRadius: 99, flexShrink: 0, whiteSpace: 'nowrap',
+      )}
+      {selectedClass && slots.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto', flexShrink: 0 }}>
+          <span style={{ padding: '5px 12px', borderRadius: 99, fontSize: 11.5, fontWeight: 700,
             background: publishedCount === slots.length ? 'rgba(16,185,129,.1)' : 'rgba(139,92,246,.1)',
             color: publishedCount === slots.length ? 'var(--success)' : '#8b5cf6',
-            border: publishedCount === slots.length ? '.5px solid rgba(16,185,129,.25)' : '.5px solid rgba(139,92,246,.25)',
-            fontSize: 12, fontWeight: 700,
+            border: `.5px solid ${publishedCount === slots.length ? 'rgba(16,185,129,.25)' : 'rgba(139,92,246,.25)'}`,
           }}>
-            {slots.length} slot{slots.length !== 1 ? 's' : ''} · {publishedCount} published
-          </div>
+            {slots.length}/{totalClassSlots} slots
+          </span>
+          <button disabled={publishMut.isPending || published || slots.length === 0}
+            onClick={() => { void publishMut.mutateAsync({ classId: selectedClass!, term, year }).then(() => setPublished(true)) }}
+            style={{ padding: '8px 16px', borderRadius: 10, border: published ? '.5px solid rgba(16,185,129,.3)' : 'none', background: published ? 'rgba(16,185,129,.1)' : slots.length === 0 ? 'var(--surface2)' : 'linear-gradient(145deg,#10b981,#059669)', color: published ? 'var(--success)' : slots.length === 0 ? 'var(--txt3)' : '#fff', fontWeight: 700, fontSize: 12.5, cursor: published || slots.length === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, boxShadow: published || slots.length === 0 ? 'none' : '0 3px 10px rgba(16,185,129,.4)' }}
+          >
+            {published ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>Published</> : publishMut.isPending ? 'Publishing…' : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 15v4a2 2 0 002 2h14a2 2 0 002-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Publish</>}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+
+  // ── Empty state ──────────────────────────────────────────────────────────
+  if (!selectedClass) return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {ClassPicker}
+      <div style={{ padding: '60px 24px', textAlign: 'center', background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)' }}>
+        <div style={{ width: 60, height: 60, borderRadius: 18, background: 'linear-gradient(145deg,rgba(139,92,246,.15),rgba(139,92,246,.05))', border: '.5px solid rgba(139,92,246,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)', marginBottom: 8 }}>Select a class to build its timetable</div>
+        <div style={{ fontSize: 13, color: 'var(--txt3)', maxWidth: 340, margin: '0 auto' }}>Switch to Overview mode to see and edit all classes at once.</div>
+      </div>
+    </div>
+  )
+
+  // ── Mobile day-tab view ───────────────────────────────────────────────────
+  if (isMobile) {
+    const daySlots = slots.filter(s => s.dayOfWeek === mobileDay)
+    const daySlotMap = new Map(daySlots.map(s => [s.periodNumber, s]))
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {ClassPicker}
+        {isLoading ? <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><div className="shule-skeleton" style={{ width: 200, height: 20, borderRadius: 10 }} /></div> : (
+          <>
+            {/* Day tabs */}
+            <div style={{ display: 'flex', gap: 6, background: 'var(--surface)', padding: '10px 14px', borderRadius: 14, border: '.5px solid var(--border)', overflowX: 'auto' }}>
+              {DAYS.map(([d, label]) => (
+                <button key={d} onClick={() => setMobileDay(d)}
+                  style={{ flex: '0 0 auto', padding: '8px 16px', borderRadius: 10, border: 'none', background: mobileDay === d ? 'linear-gradient(145deg,#8b5cf6,#7c3aed)' : 'var(--surface2)', color: mobileDay === d ? '#fff' : 'var(--txt3)', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all .15s', boxShadow: mobileDay === d ? '0 3px 10px rgba(139,92,246,.4)' : 'none', position: 'relative' }}
+                >
+                  {label}
+                  {d === todayCol && <div style={{ position: 'absolute', bottom: 3, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: '50%', background: mobileDay === d ? 'rgba(255,255,255,.8)' : '#8b5cf6' }} />}
+                </button>
+              ))}
+            </div>
+
+            {/* Period cards */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {periodDefs.map(def => {
+                const isEvent = def.type !== 'class'
+                const meta = EVENT_META[def.type]
+                const slot = daySlotMap.get(def.num)
+                const isConflict = conflictKeys.has(`${mobileDay}-${def.num}`)
+
+                if (isEvent) return (
+                  <div key={def.num} style={{ padding: '10px 16px', borderRadius: 12, background: meta.bg, border: `.5px solid ${meta.color}30`, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>{meta.icon}</span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: meta.color }}>{def.label}</div>
+                      {def.startTime && <div style={{ fontSize: 11, color: meta.color, opacity: .7, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</div>}
+                    </div>
+                  </div>
+                )
+
+                return (
+                  <div key={def.num} onClick={() => !slot && onAssign({ classId: selectedClass!, streamId: selectedStream, day: mobileDay, period: def.num })}
+                    style={{ padding: '12px 14px', borderRadius: 12, border: `.5px solid ${isConflict ? 'rgba(244,63,94,.4)' : slot ? 'var(--border)' : '.5px dashed var(--border)'}`, background: isConflict ? 'rgba(244,63,94,.04)' : 'var(--surface)', cursor: slot ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'background .14s' }}
+                  >
+                    <div style={{ width: 36, height: 36, borderRadius: 11, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--txt3)', fontFamily: 'var(--font2)' }}>P{def.num}</span>
+                    </div>
+                    {slot ? (
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {(() => { const [c] = subjectColor(slot.subjectId); return <><div style={{ fontSize: 13.5, fontWeight: 700, color: c, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.subjectName}</div><div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2 }}>{slot.teacherName}</div></> })()}
+                      </div>
+                    ) : (
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, color: 'var(--txt3)', fontWeight: 500 }}>{def.label}</div>
+                        {def.startTime && <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</div>}
+                      </div>
+                    )}
+                    {!slot && (
+                      <div style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(139,92,246,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      </div>
+                    )}
+                    {slot && (
+                      <button onClick={e => { e.stopPropagation(); void deleteSlot.mutateAsync(slot.id) }}
+                        style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'rgba(244,63,94,.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)', flexShrink: 0 }}
+                      ><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            {conflictKeys.size > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, background: 'rgba(244,63,94,.08)', border: '.5px solid rgba(244,63,94,.22)', color: 'var(--danger)', fontSize: 12, fontWeight: 700 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                {conflictKeys.size} teacher conflict{conflictKeys.size !== 1 ? 's' : ''} — check all days
+              </div>
+            )}
+          </>
         )}
       </div>
+    )
+  }
 
-      {/* ── Empty state ── */}
-      {!selectedClass && (
-        <div style={{ padding: '52px 24px', textAlign: 'center', background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)' }}>
-          <div style={{ width: 56, height: 56, borderRadius: 18, background: 'linear-gradient(145deg,rgba(139,92,246,.15),rgba(139,92,246,.05))', border: '.5px solid rgba(139,92,246,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.8">
-              <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
-            </svg>
-          </div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)', marginBottom: 8 }}>Select a class to start</div>
-          <div style={{ fontSize: 13, color: 'var(--txt3)', maxWidth: 340, margin: '0 auto' }}>
-            Choose a class above to build or review its timetable for the selected term.
-          </div>
-        </div>
-      )}
-
-      {selectedClass && isLoading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {[1,2,3].map(i => <div key={i} className="shule-skeleton" style={{ height: 76, borderRadius: 12 }} />)}
-        </div>
-      )}
-
-      {/* ── Timetable grid ── */}
-      {selectedClass && !isLoading && (
-        <DndContext
-          onDragStart={() => setDragActive(true)}
-          onDragEnd={event => { void handleDragEnd(event) }}
-          onDragCancel={() => setDragActive(false)}
-        >
-          <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+  // ── Desktop DnD grid ─────────────────────────────────────────────────────
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {ClassPicker}
+      {isLoading && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{[1,2,3].map(i => <div key={i} className="shule-skeleton" style={{ height: 80, borderRadius: 10 }} />)}</div>}
+      {!isLoading && (
+        <DndContext onDragStart={() => setDragActive(true)} onDragEnd={e => { void handleDragEnd(e) }} onDragCancel={() => setDragActive(false)}>
+          <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 2px 20px rgba(0,0,0,.06)' }}>
             {/* Grid header bar */}
-            <div style={{ padding: '14px 20px 12px', borderBottom: '.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ padding: '14px 20px 12px', borderBottom: '.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, background: 'linear-gradient(135deg,rgba(139,92,246,.04),transparent)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>{selectedClassName}</span>
-                {selectedStream && (
-                  <span style={{ padding: '2px 10px', borderRadius: 99, background: 'rgba(139,92,246,.1)', color: '#8b5cf6', fontSize: 11, fontWeight: 700, border: '.5px solid rgba(139,92,246,.2)' }}>
-                    {streams.find(s => s.id === selectedStream)?.name}
-                  </span>
-                )}
-                <span style={{ padding: '2px 10px', borderRadius: 99, background: 'var(--surface2)', color: 'var(--txt3)', fontSize: 11, fontWeight: 600, border: '.5px solid var(--border)' }}>
-                  {term} · {year}
-                </span>
+                {selectedStream && <span style={{ padding: '2px 10px', borderRadius: 99, background: 'rgba(139,92,246,.1)', color: '#8b5cf6', fontSize: 11, fontWeight: 700, border: '.5px solid rgba(139,92,246,.2)' }}>{streams.find(s => s.id === selectedStream)?.name}</span>}
+                <span style={{ padding: '2px 10px', borderRadius: 99, background: 'var(--surface2)', color: 'var(--txt3)', fontSize: 11, fontWeight: 600, border: '.5px solid var(--border)' }}>{term} · {year}</span>
               </div>
               {conflictKeys.size > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 99, background: 'rgba(244,63,94,.08)', border: '.5px solid rgba(244,63,94,.22)', color: 'var(--danger)', fontSize: 11.5, fontWeight: 700 }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                  </svg>
-                  {conflictKeys.size} teacher conflict{conflictKeys.size !== 1 ? 's' : ''}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                  {conflictKeys.size} conflict{conflictKeys.size !== 1 ? 's' : ''}
                 </div>
               )}
             </div>
 
             <div className="hscroll">
-              <table style={{ borderCollapse: 'collapse', minWidth: 580, width: '100%' }}>
+              <table style={{ borderCollapse: 'collapse', minWidth: 600, width: '100%' }}>
                 <thead>
                   <tr>
-                    <th style={{ padding: '12px 12px', background: 'var(--surface2)', fontWeight: 800, fontSize: 10, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8, borderBottom: '.5px solid var(--border)', width: 56, textAlign: 'center' }}>
-                      P
-                    </th>
+                    <th style={{ padding: '10px 12px', background: 'var(--surface2)', fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8, borderBottom: '.5px solid var(--border)', width: 110, textAlign: 'left' }}>Period</th>
                     {DAYS.map(([d, label]) => (
-                      <th key={d} style={{
-                        padding: '12px 8px',
-                        background: d === todayCol ? 'rgba(139,92,246,.07)' : 'var(--surface2)',
-                        fontWeight: 800, fontSize: 11,
-                        color: d === todayCol ? '#8b5cf6' : 'var(--txt2)',
-                        textTransform: 'uppercase', letterSpacing: .8,
-                        borderBottom: '.5px solid var(--border)', textAlign: 'center',
-                        position: 'relative',
-                      }}>
+                      <th key={d} style={{ padding: '10px 8px', background: d === todayCol ? 'rgba(139,92,246,.07)' : 'var(--surface2)', fontWeight: 800, fontSize: 11, color: d === todayCol ? '#8b5cf6' : 'var(--txt2)', textTransform: 'uppercase', letterSpacing: .8, borderBottom: '.5px solid var(--border)', textAlign: 'center', position: 'relative' }}>
                         {label}
-                        {d === todayCol && <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 20, height: 2.5, borderRadius: 2, background: '#8b5cf6' }} />}
+                        {d === todayCol && <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 18, height: 2.5, borderRadius: 2, background: '#8b5cf6' }} />}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {PERIODS.map(period => (
-                    <tr key={period}>
-                      <td style={{ padding: '8px', fontWeight: 800, fontSize: 12, color: 'var(--txt3)', textAlign: 'center', background: 'var(--surface2)', borderRight: '.5px solid var(--border)', borderBottom: '.5px solid var(--border)', width: 52 }}>
-                        {period}
-                      </td>
-                      {DAYS.map(([day]) => {
-                        const key      = `${day}-${period}`
-                        const slot     = slotMap.get(key)
-                        const isConflict = conflictKeys.has(key)
-                        return (
-                          <TimetableCell
-                            key={key} day={day} period={period}
-                            slot={slot} conflict={isConflict}
-                            onClickEmpty={() => setAssignModal({ day, period })}
-                            onDelete={() => slot && void deleteSlot.mutateAsync(slot.id)}
-                          />
-                        )
-                      })}
-                    </tr>
-                  ))}
+                  {periodDefs.map(def => {
+                    const isEvent = def.type !== 'class'
+                    const meta    = EVENT_META[def.type]
+
+                    if (isEvent) return (
+                      <tr key={def.num}>
+                        <td colSpan={6} style={{ padding: '9px 14px', background: meta.bg, border: `.5px solid ${meta.color}20` }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                            <div>
+                              <span style={{ fontSize: 12.5, fontWeight: 800, color: meta.color }}>{def.label}</span>
+                              {def.startTime && <span style={{ fontSize: 11, color: meta.color, opacity: .65, marginLeft: 8, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</span>}
+                            </div>
+                            <div style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: 6, background: `${meta.color}18`, color: meta.color, fontSize: 10, fontWeight: 700, border: `.5px solid ${meta.color}25` }}>
+                              {meta.label.toUpperCase()}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+
+                    return (
+                      <tr key={def.num}>
+                        <td style={{ padding: '6px 12px', background: 'var(--surface2)', borderRight: '.5px solid var(--border)', borderBottom: '.5px solid var(--border)', width: 110 }}>
+                          <div style={{ fontWeight: 800, fontSize: 11.5, color: 'var(--txt2)' }}>{def.label}</div>
+                          {def.startTime && <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 1, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</div>}
+                        </td>
+                        {DAYS.map(([day]) => {
+                          const key  = `${day}-${def.num}`
+                          const slot = slotMap.get(key)
+                          return (
+                            <TimetableCell
+                              key={key} day={day} period={def.num}
+                              slot={slot} conflict={conflictKeys.has(key)}
+                              onClickEmpty={() => onAssign({ classId: selectedClass!, streamId: selectedStream, day, period: def.num })}
+                              onDelete={() => slot && void deleteSlot.mutateAsync(slot.id)}
+                            />
+                          )
+                        })}
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -681,7 +745,7 @@ export function DosTimetablePage() {
 
           <DragOverlay>
             {dragActive && (
-              <div style={{ background: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', color: '#fff', borderRadius: 10, padding: '8px 14px', fontSize: 12, fontWeight: 700, boxShadow: '0 6px 20px rgba(139,92,246,.5)', cursor: 'grabbing' }}>
+              <div style={{ background: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', color: '#fff', borderRadius: 10, padding: '8px 16px', fontSize: 12.5, fontWeight: 700, boxShadow: '0 6px 24px rgba(139,92,246,.5)', cursor: 'grabbing', userSelect: 'none' }}>
                 Moving slot…
               </div>
             )}
@@ -689,34 +753,721 @@ export function DosTimetablePage() {
         </DndContext>
       )}
 
-      {/* ── Legend ── */}
-      {selectedClass && !isLoading && (
+      {/* Legend */}
+      {!isLoading && (
         <div style={{ display: 'flex', gap: 18, fontSize: 11.5, color: 'var(--txt3)', flexWrap: 'wrap' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 12, height: 12, borderRadius: 4, background: 'rgba(99,102,241,.15)', border: '.5px solid rgba(99,102,241,.3)' }} />
-            Assigned (drag to move)
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 3, background: 'rgba(99,102,241,.15)', border: '.5px solid rgba(99,102,241,.3)' }} />
+            Assigned · drag to move
           </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 12, height: 12, borderRadius: 4, background: 'rgba(244,63,94,.08)', border: '.5px solid rgba(244,63,94,.25)' }} />
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 3, background: 'rgba(244,63,94,.08)', border: '.5px solid rgba(244,63,94,.25)' }} />
             Teacher conflict
           </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 12, height: 12, borderRadius: 4, background: 'rgba(139,92,246,.07)', border: '.5px dashed rgba(139,92,246,.2)' }} />
-            Empty — click to assign
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 3, border: '.5px dashed var(--border)' }} />
+            Empty · click to assign
           </span>
         </div>
       )}
+    </div>
+  )
+}
 
-      {/* Assign Modal */}
-      {assignModal && selectedClass && (
-        <AssignModal
-          classId={selectedClass} streamId={selectedStream}
-          term={term} year={year}
-          day={assignModal.day} period={assignModal.period}
-          onClose={() => setAssignModal(null)}
-          onSaved={() => setAssignModal(null)}
+// ═══════════════════════════════════════════════════════════════════════════════
+// MINI TIMETABLE CARD  (overview mode)
+// ═══════════════════════════════════════════════════════════════════════════════
+function MiniCard({ cls, slots, periodDefs, onCellClick, onEdit }: {
+  cls: { id: string; name: string; level: string | null }
+  slots: TimetableSlot[]
+  periodDefs: PeriodDef[]
+  onCellClick: (day: number, period: number) => void
+  onEdit: () => void
+}) {
+  const isMobile = useIsMobile()
+  const slotMap = useMemo(() => {
+    const m = new Map<string, TimetableSlot>()
+    for (const s of slots) m.set(`${s.dayOfWeek}-${s.periodNumber}`, s)
+    return m
+  }, [slots])
+
+  const classPeriods = periodDefs.filter(d => d.type === 'class')
+  const filled   = slots.length
+  const total    = classPeriods.length * 5
+  const pct      = total > 0 ? Math.round((filled / total) * 100) : 0
+  const pubCount = slots.filter(s => s.isPublished).length
+  const today    = new Date().getDay()
+  const todayCol = today >= 1 && today <= 5 ? today : null
+
+  return (
+    <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,.05)', display: 'flex', flexDirection: 'column', transition: 'box-shadow .15s, transform .15s' }}
+      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 28px rgba(0,0,0,.1)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+      onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,.05)'; e.currentTarget.style.transform = 'none' }}
+    >
+      {/* Card header */}
+      <div style={{ padding: '14px 16px 12px', background: 'linear-gradient(135deg,rgba(139,92,246,.06),rgba(13,148,136,.03))', borderBottom: '.5px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 11, background: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 3px 10px rgba(139,92,246,.35)' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 15, color: 'var(--txt)', letterSpacing: -.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cls.name}</div>
+            {cls.level && <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>{cls.level}</div>}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: pct >= 80 ? 'var(--success)' : pct >= 40 ? 'var(--warning)' : 'var(--danger)', fontFamily: 'var(--font3)' }}>{pct}%</span>
+            {pubCount > 0 && <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--success)', padding: '1px 7px', borderRadius: 99, background: 'rgba(16,185,129,.1)', border: '.5px solid rgba(16,185,129,.2)' }}>✓ {pubCount} pub</span>}
+          </div>
+        </div>
+        {/* Progress bar */}
+        <div style={{ height: 5, borderRadius: 99, background: 'var(--surface2)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${pct}%`, borderRadius: 99, background: pct >= 80 ? 'var(--success)' : pct >= 40 ? 'var(--warning)' : 'var(--danger)', transition: 'width .5s cubic-bezier(.4,0,.2,1)' }} />
+        </div>
+      </div>
+
+      {/* Mini grid (desktop only — too tiny on mobile) */}
+      {!isMobile && (
+        <div style={{ padding: '8px 10px 6px', flex: 1 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <thead>
+              <tr>
+                <th style={{ width: 58, padding: '3px 5px', fontSize: 9, fontWeight: 700, color: 'var(--txt3)', textAlign: 'left' }}></th>
+                {DAYS.map(([d, label]) => (
+                  <th key={d} style={{ padding: '3px 2px', fontSize: 9.5, fontWeight: 700, color: d === todayCol ? '#8b5cf6' : 'var(--txt3)', textAlign: 'center', textTransform: 'uppercase', letterSpacing: .4 }}>{label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {periodDefs.map(def => {
+                const isEvent = def.type !== 'class'
+                const meta    = EVENT_META[def.type]
+
+                if (isEvent) return (
+                  <tr key={def.num}>
+                    <td colSpan={6} style={{ padding: '1px 2px' }}>
+                      <div style={{ height: 20, borderRadius: 5, background: meta.bg, border: `.5px solid ${meta.color}25`, display: 'flex', alignItems: 'center', paddingLeft: 6 }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: meta.color }}>{meta.icon} {def.label}</span>
+                      </div>
+                    </td>
+                  </tr>
+                )
+
+                return (
+                  <tr key={def.num}>
+                    <td style={{ padding: '2px 4px 2px 2px', fontSize: 9, fontWeight: 600, color: 'var(--txt3)' }}>
+                      {def.startTime ? <span style={{ fontFamily: 'var(--font3)', fontSize: 8 }}>{def.startTime}</span> : <span>{def.label}</span>}
+                    </td>
+                    {DAYS.map(([day]) => {
+                      const slot = slotMap.get(`${day}-${def.num}`)
+                      if (!slot) return (
+                        <td key={day} style={{ padding: '2px', textAlign: 'center' }}>
+                          <div onClick={() => onCellClick(day, def.num)}
+                            style={{ width: '100%', height: 26, borderRadius: 5, border: '.5px dashed var(--border)', cursor: 'pointer', transition: 'background .12s' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(139,92,246,.08)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          />
+                        </td>
+                      )
+                      const [col, bg] = subjectColor(slot.subjectId)
+                      return (
+                        <td key={day} style={{ padding: '2px', textAlign: 'center' }}>
+                          <div title={`${slot.subjectName} — ${slot.teacherName}`}
+                            style={{ width: '100%', height: 26, borderRadius: 5, background: bg, border: `.5px solid ${col}30`, cursor: 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: col }} />
+                          </div>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Mobile: just show filled count */}
+      {isMobile && (
+        <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12.5, color: 'var(--txt3)' }}>{filled}/{total} periods filled</span>
+        </div>
+      )}
+
+      {/* Edit button */}
+      <div style={{ padding: '10px 14px 14px', marginTop: 'auto' }}>
+        <button onClick={onEdit}
+          style={{ width: '100%', padding: '9px 0', borderRadius: 10, border: '.5px solid rgba(139,92,246,.3)', background: 'rgba(139,92,246,.06)', color: '#8b5cf6', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all .14s' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,.12)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(139,92,246,.06)' }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Edit Timetable
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// OVERVIEW VIEW  (eagle-eye)
+// ═══════════════════════════════════════════════════════════════════════════════
+function OverviewView({ term, year, periodDefs, onAssign, onEditClass }: {
+  term: string; year: number; periodDefs: PeriodDef[]
+  onAssign: (t: ModalTarget) => void
+  onEditClass: (classId: string) => void
+}) {
+  const { data: classes = [] } = useClasses()
+  const [filterLevel, setFilterLevel] = useState<string>('')
+
+  const { data: allSlots = [], isLoading } = useTimetableSlots({ term, year })
+
+  const levels = useMemo(() => {
+    const s = new Set<string>()
+    for (const c of classes) if (c.level) s.add(c.level)
+    return [...s].sort()
+  }, [classes])
+
+  const slotsByClass = useMemo(() => {
+    const m = new Map<string, TimetableSlot[]>()
+    for (const s of allSlots) {
+      if (!m.has(s.classId)) m.set(s.classId, [])
+      m.get(s.classId)!.push(s)
+    }
+    return m
+  }, [allSlots])
+
+  const filtered = useMemo(() =>
+    filterLevel ? classes.filter(c => c.level === filterLevel) : classes,
+    [classes, filterLevel]
+  )
+
+  const totalFilled  = allSlots.length
+  const classPeriods = periodDefs.filter(d => d.type === 'class').length
+  const totalSlots   = classes.length * classPeriods * 5
+  const overallPct   = totalSlots > 0 ? Math.round((totalFilled / totalSlots) * 100) : 0
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Overview KPI bar */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 140px', padding: '14px 18px', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, boxShadow: '0 1px 6px rgba(0,0,0,.04)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 6 }}>Classes</div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--txt)', fontFamily: 'var(--font2)', letterSpacing: -1 }}>{classes.length}</div>
+        </div>
+        <div style={{ flex: '1 1 140px', padding: '14px 18px', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, boxShadow: '0 1px 6px rgba(0,0,0,.04)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 6 }}>Slots Filled</div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: overallPct >= 80 ? 'var(--success)' : overallPct >= 40 ? 'var(--warning)' : 'var(--danger)', fontFamily: 'var(--font2)', letterSpacing: -1 }}>{totalFilled}<span style={{ fontSize: 14, color: 'var(--txt3)', fontWeight: 600 }}>/{totalSlots}</span></div>
+        </div>
+        <div style={{ flex: '1 1 140px', padding: '14px 18px', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, boxShadow: '0 1px 6px rgba(0,0,0,.04)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 6 }}>Coverage</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+            <div style={{ fontSize: 26, fontWeight: 900, color: overallPct >= 80 ? 'var(--success)' : overallPct >= 40 ? 'var(--warning)' : 'var(--danger)', fontFamily: 'var(--font2)', letterSpacing: -1 }}>{overallPct}%</div>
+          </div>
+          <div style={{ height: 4, borderRadius: 99, background: 'var(--surface2)', marginTop: 6, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${overallPct}%`, background: overallPct >= 80 ? 'var(--success)' : overallPct >= 40 ? 'var(--warning)' : 'var(--danger)', borderRadius: 99, transition: 'width .6s' }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Level filter */}
+      {levels.length > 1 && (
+        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5 }}>Filter:</span>
+          {['', ...levels].map(lv => (
+            <button key={lv || 'all'} onClick={() => setFilterLevel(lv)}
+              style={{ padding: '5px 14px', borderRadius: 99, fontSize: 12, fontWeight: 700, border: filterLevel === lv ? '.5px solid var(--brand)' : '.5px solid var(--border)', background: filterLevel === lv ? 'rgba(13,148,136,.1)' : 'var(--surface)', color: filterLevel === lv ? 'var(--brand)' : 'var(--txt3)', cursor: 'pointer', transition: 'all .14s' }}
+            >{lv || 'All Levels'}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Cards grid */}
+      {isLoading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 16 }}>
+          {[1,2,3,4,5,6].map(i => <div key={i} className="shule-skeleton" style={{ height: 340, borderRadius: 18 }} />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ padding: '52px 24px', textAlign: 'center', background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)' }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--txt3)' }}>No classes found{filterLevel ? ` for ${filterLevel}` : ''}.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(380px,1fr))', gap: 18 }}>
+          {filtered.map(cls => (
+            <MiniCard
+              key={cls.id}
+              cls={cls}
+              slots={slotsByClass.get(cls.id) ?? []}
+              periodDefs={periodDefs}
+              onCellClick={(day, period) => onAssign({ classId: cls.id, streamId: null, day, period })}
+              onEdit={() => onEditClass(cls.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCHOOL-WIDE TIMETABLE  (all classes merged — read/filter view)
+// ═══════════════════════════════════════════════════════════════════════════════
+function SchoolView({ term, year, periodDefs }: {
+  term: string; year: number; periodDefs: PeriodDef[]
+}) {
+  const isMobile = useIsMobile()
+  const { data: classes = [] } = useClasses()
+  const [filterClassId, setFilterClassId] = useState('')
+  const [mobileDay, setMobileDay] = useState(1)
+
+  const { data: allSlots = [], isLoading } = useTimetableSlots({ term, year })
+
+  const classNameMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of classes) m.set(c.id, c.name)
+    return m
+  }, [classes])
+
+  // day×period → slots[]
+  const cellMap = useMemo(() => {
+    const m = new Map<string, TimetableSlot[]>()
+    for (const s of allSlots) {
+      const key = `${s.dayOfWeek}-${s.periodNumber}`
+      if (!m.has(key)) m.set(key, [])
+      m.get(key)!.push(s)
+    }
+    return m
+  }, [allSlots])
+
+  // teacher conflict keys: "day-period-teacherId"
+  const conflictSet = useMemo(() => {
+    const s = new Set<string>()
+    for (const [key, slots] of cellMap) {
+      const seen = new Map<string, number>()
+      for (const sl of slots) seen.set(sl.teacherId, (seen.get(sl.teacherId) ?? 0) + 1)
+      for (const [tid, cnt] of seen) if (cnt > 1) s.add(`${key}-${tid}`)
+    }
+    return s
+  }, [cellMap])
+
+  const totalConflicts = conflictSet.size
+  const today   = new Date().getDay()
+  const todayCol = today >= 1 && today <= 5 ? today : null
+
+  // When a class filter is active → show full-size single-class grid
+  if (filterClassId) {
+    const classSlots = allSlots.filter(s => s.classId === filterClassId)
+    const slotMap = new Map(classSlots.map(s => [`${s.dayOfWeek}-${s.periodNumber}`, s]))
+    const className = classNameMap.get(filterClassId) ?? ''
+    const filled = classSlots.length
+    const classPeriods = periodDefs.filter(d => d.type === 'class').length
+    const pct = classPeriods * 5 > 0 ? Math.round((filled / (classPeriods * 5)) * 100) : 0
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Back to all classes */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => setFilterClassId('')}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, border: '.5px solid var(--border)', background: 'var(--surface2)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--txt3)' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            All Classes
+          </button>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 17, color: 'var(--txt)', letterSpacing: -.2 }}>{className}</div>
+          <div style={{ padding: '3px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700, background: pct >= 80 ? 'rgba(16,185,129,.1)' : 'rgba(245,158,11,.1)', color: pct >= 80 ? 'var(--success)' : 'var(--warning)', border: `.5px solid ${pct >= 80 ? 'rgba(16,185,129,.25)' : 'rgba(245,158,11,.25)'}` }}>
+            {pct}% filled
+          </div>
+        </div>
+        {/* Full class grid */}
+        <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 2px 20px rgba(0,0,0,.06)' }}>
+          <div className="hscroll">
+            <table style={{ borderCollapse: 'collapse', minWidth: 600, width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '12px 14px', background: 'var(--surface2)', fontWeight: 800, fontSize: 10, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8, borderBottom: '.5px solid var(--border)', width: 130, textAlign: 'left' }}>Period</th>
+                  {DAYS.map(([d, label]) => (
+                    <th key={d} style={{ padding: '12px 8px', background: d === todayCol ? 'rgba(13,148,136,.06)' : 'var(--surface2)', fontWeight: 800, fontSize: 11, color: d === todayCol ? 'var(--brand)' : 'var(--txt2)', textTransform: 'uppercase', letterSpacing: .8, borderBottom: '.5px solid var(--border)', textAlign: 'center', position: 'relative' }}>
+                      {label}
+                      {d === todayCol && <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 18, height: 2.5, borderRadius: 2, background: 'var(--brand)' }} />}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {periodDefs.map(def => {
+                  const isEvent = def.type !== 'class'
+                  const meta = EVENT_META[def.type]
+                  if (isEvent) return (
+                    <tr key={def.num}>
+                      <td colSpan={6} style={{ padding: '10px 16px', background: meta.bg, border: `.5px solid ${meta.color}20` }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 17 }}>{meta.icon}</span>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: meta.color }}>{def.label}</span>
+                          {def.startTime && <span style={{ fontSize: 11, color: meta.color, opacity: .65, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</span>}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                  return (
+                    <tr key={def.num}>
+                      <td style={{ padding: '8px 14px', background: 'var(--surface2)', borderRight: '.5px solid var(--border)', borderBottom: '.5px solid var(--border)', verticalAlign: 'top' }}>
+                        <div style={{ fontWeight: 800, fontSize: 12, color: 'var(--txt2)' }}>{def.label}</div>
+                        {def.startTime && <div style={{ fontSize: 10.5, color: 'var(--txt3)', marginTop: 2, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</div>}
+                      </td>
+                      {DAYS.map(([day]) => {
+                        const slot = slotMap.get(`${day}-${def.num}`)
+                        const [col, bg] = slot ? subjectColor(slot.subjectId) : ['var(--txt3)', 'transparent']
+                        return (
+                          <td key={day} style={{ padding: 5, width: '18%', height: 80, verticalAlign: 'top', border: '.5px solid var(--border)', background: day === todayCol ? 'rgba(13,148,136,.015)' : 'transparent' }}>
+                            {slot ? (
+                              <div style={{ background: bg, border: `.5px solid ${col}35`, borderRadius: 10, padding: '7px 9px', height: '100%', boxSizing: 'border-box' }}>
+                                <div style={{ fontWeight: 700, fontSize: 12, color: col, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.subjectName ?? '—'}</div>
+                                <div style={{ fontSize: 11, color: 'var(--txt3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <div style={{ width: 14, height: 14, borderRadius: '50%', background: `${col}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7.5, fontWeight: 900, color: col, flexShrink: 0 }}>{ini(slot.teacherName ?? '?')}</div>
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.teacherName?.split(' ')[0] ?? '—'}</span>
+                                </div>
+                                {slot.startTime && <div style={{ fontSize: 9.5, color: 'var(--txt3)', marginTop: 2, fontFamily: 'var(--font3)' }}>{slot.startTime}–{slot.endTime}</div>}
+                              </div>
+                            ) : (
+                              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span style={{ color: 'var(--border)', fontSize: 16 }}>—</span>
+                              </div>
+                            )}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Full school merged view ──────────────────────────────────────────────────
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Controls row */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 220px', maxWidth: 300 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Filter to one class</div>
+          <select value={filterClassId} onChange={e => setFilterClassId(e.target.value)} className="sui-input" style={{ width: '100%' }}>
+            <option value="">All {classes.length} classes</option>
+            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        {totalConflicts > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, background: 'rgba(244,63,94,.08)', border: '.5px solid rgba(244,63,94,.22)', color: 'var(--danger)', fontSize: 12.5, fontWeight: 700, flexShrink: 0 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+            {totalConflicts} teacher conflict{totalConflicts !== 1 ? 's' : ''}
+          </div>
+        )}
+      </div>
+
+      {/* Mobile: day tabs + period list */}
+      {isMobile && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', background: 'var(--surface)', padding: '10px 12px', borderRadius: 12, border: '.5px solid var(--border)' }}>
+            {DAYS.map(([d, label]) => (
+              <button key={d} onClick={() => setMobileDay(d)}
+                style={{ flex: '0 0 auto', padding: '7px 14px', borderRadius: 9, border: 'none', background: mobileDay === d ? 'linear-gradient(145deg,#0d9488,#0f766e)' : 'var(--surface2)', color: mobileDay === d ? '#fff' : 'var(--txt3)', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all .15s' }}
+              >{label}</button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {periodDefs.map(def => {
+              const isEvent = def.type !== 'class'
+              const meta = EVENT_META[def.type]
+              const slots = cellMap.get(`${mobileDay}-${def.num}`) ?? []
+              if (isEvent) return (
+                <div key={def.num} style={{ padding: '10px 14px', borderRadius: 12, background: meta.bg, border: `.5px solid ${meta.color}30`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>{meta.icon}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: meta.color }}>{def.label}</span>
+                  {def.startTime && <span style={{ fontSize: 11, color: meta.color, opacity: .7, fontFamily: 'var(--font3)', marginLeft: 4 }}>{def.startTime}–{def.endTime}</span>}
+                </div>
+              )
+              return (
+                <div key={def.num} style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+                  <div style={{ padding: '7px 14px', background: 'var(--surface2)', borderBottom: '.5px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--txt2)' }}>{def.label}</span>
+                    {def.startTime && <span style={{ fontSize: 10.5, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</span>}
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--txt3)' }}>{slots.length} class{slots.length !== 1 ? 'es' : ''}</span>
+                  </div>
+                  {slots.length > 0 ? (
+                    <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      {slots.map(s => {
+                        const [col, bg] = classColor(s.classId)
+                        return (
+                          <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 9, background: bg, border: `.5px solid ${col}30` }}>
+                            <div style={{ width: 34, height: 24, borderRadius: 6, background: `${col}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 900, color: col, flexShrink: 0, letterSpacing: -.2 }}>{(classNameMap.get(s.classId) ?? '?').slice(0, 4)}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.subjectName ?? '—'}</div>
+                              <div style={{ fontSize: 11, color: 'var(--txt3)' }}>{s.teacherName?.split(' ')[0] ?? '—'}</div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '10px 14px', color: 'var(--txt3)', fontSize: 12 }}>No classes this period</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Desktop: merged grid */}
+      {!isMobile && (
+        <>
+          {isLoading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {[1,2,3,4,5].map(i => <div key={i} className="shule-skeleton" style={{ height: 80, borderRadius: 10 }} />)}
+            </div>
+          ) : (
+            <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 2px 20px rgba(0,0,0,.06)' }}>
+              <div className="hscroll">
+                <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 800 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '12px 16px', background: 'var(--surface2)', fontWeight: 800, fontSize: 10, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8, borderBottom: '.5px solid var(--border)', width: 130, textAlign: 'left' }}>Period</th>
+                      {DAYS.map(([d, label]) => (
+                        <th key={d} style={{ padding: '12px 8px', background: d === todayCol ? 'rgba(13,148,136,.05)' : 'var(--surface2)', fontWeight: 800, fontSize: 11, color: d === todayCol ? 'var(--brand)' : 'var(--txt2)', textTransform: 'uppercase', letterSpacing: .8, borderBottom: '.5px solid var(--border)', textAlign: 'center', position: 'relative' }}>
+                          {label}
+                          {d === todayCol && <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 20, height: 2.5, borderRadius: 2, background: 'var(--brand)' }} />}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {periodDefs.map(def => {
+                      const isEvent = def.type !== 'class'
+                      const meta = EVENT_META[def.type]
+                      if (isEvent) return (
+                        <tr key={def.num}>
+                          <td colSpan={6} style={{ padding: '10px 16px', background: meta.bg, border: `.5px solid ${meta.color}18` }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: 18 }}>{meta.icon}</span>
+                              <span style={{ fontSize: 13, fontWeight: 800, color: meta.color }}>{def.label}</span>
+                              {def.startTime && <span style={{ fontSize: 11, color: meta.color, opacity: .6, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</span>}
+                              <div style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: 6, background: `${meta.color}15`, color: meta.color, fontSize: 10, fontWeight: 700 }}>{meta.label.toUpperCase()}</div>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                      return (
+                        <tr key={def.num}>
+                          <td style={{ padding: '8px 14px', background: 'var(--surface2)', borderRight: '.5px solid var(--border)', borderBottom: '.5px solid var(--border)', verticalAlign: 'top', minWidth: 120 }}>
+                            <div style={{ fontWeight: 800, fontSize: 12, color: 'var(--txt2)' }}>{def.label}</div>
+                            {def.startTime && <div style={{ fontSize: 10.5, color: 'var(--txt3)', marginTop: 2, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</div>}
+                          </td>
+                          {DAYS.map(([day]) => {
+                            const slots = cellMap.get(`${day}-${def.num}`) ?? []
+                            const hasConflict = slots.some(s => conflictSet.has(`${day}-${def.num}-${s.teacherId}`))
+                            return (
+                              <td key={day} style={{ padding: 5, verticalAlign: 'top', border: '.5px solid var(--border)', background: hasConflict ? 'rgba(244,63,94,.02)' : day === todayCol ? 'rgba(13,148,136,.01)' : 'transparent', minWidth: 150 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                  {slots.map(s => {
+                                    const [col, bg] = classColor(s.classId)
+                                    const isConflict = conflictSet.has(`${day}-${def.num}-${s.teacherId}`)
+                                    const cName = classNameMap.get(s.classId) ?? '?'
+                                    return (
+                                      <div key={s.id}
+                                        title={`${cName}: ${s.subjectName ?? '—'} — ${s.teacherName ?? '—'}`}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 7px', borderRadius: 8, background: bg, border: `.5px solid ${isConflict ? 'rgba(244,63,94,.6)' : col + '30'}`, boxShadow: isConflict ? '0 0 0 1.5px rgba(244,63,94,.3)' : 'none', transition: 'opacity .15s' }}
+                                      >
+                                        <div style={{ flexShrink: 0, width: 28, height: 22, borderRadius: 5, background: `${col}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, color: col, letterSpacing: -.2 }}>
+                                          {cName.replace(/\s+/g,'').slice(0,4)}
+                                        </div>
+                                        <div style={{ minWidth: 0, flex: 1 }}>
+                                          <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.subjectName ?? '—'}</div>
+                                          <div style={{ fontSize: 9.5, color: 'var(--txt3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.teacherName?.split(' ')[0] ?? '—'}</div>
+                                        </div>
+                                        {isConflict && <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--danger)', flexShrink: 0 }} />}
+                                      </div>
+                                    )
+                                  })}
+                                  {slots.length === 0 && <div style={{ height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: 'var(--border)', fontSize: 14 }}>—</span></div>}
+                                </div>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {/* Class colour legend */}
+          {!isLoading && classes.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5, flexShrink: 0 }}>Jump to class:</span>
+              {classes.map(c => {
+                const [col, bg] = classColor(c.id)
+                return (
+                  <button key={c.id} onClick={() => setFilterClassId(c.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 11px', borderRadius: 99, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', transition: 'all .14s', border: `.5px solid ${col}50`, background: bg, color: col }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = '.75')}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                  >
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: col }} />{c.name}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DOS TIMETABLE PAGE
+// ═══════════════════════════════════════════════════════════════════════════════
+export function DosTimetablePage() {
+  const { user } = useAuth()
+  const isMobile = useIsMobile()
+
+  const [view,            setView]            = useState<ViewMode>('overview')
+  const [term,            setTerm]            = useState('Term 1')
+  const [year,            setYear]            = useState(new Date().getFullYear())
+  const [showConfigPanel, setShowConfigPanel] = useState(false)
+  const [assignTarget,    setAssignTarget]    = useState<ModalTarget | null>(null)
+  const [builderClass,    setBuilderClass]    = useState<string | null>(null)
+
+  const [periodDefs, setPeriodDefs] = useState<PeriodDef[]>(() =>
+    user?.schoolId ? loadCfg(user.schoolId) : DEFAULT_PERIODS
+  )
+
+  useEffect(() => {
+    if (user?.schoolId) setPeriodDefs(loadCfg(user.schoolId))
+  }, [user?.schoolId])
+
+  function handleConfigSave(defs: PeriodDef[]) {
+    if (user?.schoolId) saveCfg(user.schoolId, defs)
+    setPeriodDefs(defs)
+  }
+
+  function handleEditClass(classId: string) {
+    setBuilderClass(classId)
+    setView('builder')
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* ── Page header ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+          <div style={{ width: 46, height: 46, borderRadius: 15, background: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 18px rgba(139,92,246,.45)', flexShrink: 0 }}>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          </div>
+          <div>
+            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: isMobile ? 19 : 23, color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>Timetable Builder</h1>
+            <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: 0, marginTop: 2 }}>
+              {view === 'overview' ? 'Eagle-eye view — all classes at once' : 'Single class builder — drag slots to rearrange'}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+          <button onClick={() => setShowConfigPanel(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 11, border: '.5px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--txt2)', boxShadow: '0 1px 4px rgba(0,0,0,.05)', transition: 'all .14s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--txt2)' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+            {!isMobile && 'Configure Periods'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Filters + view toggle row ── */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 16, padding: '14px 18px', boxShadow: '0 1px 8px rgba(0,0,0,.04)' }}>
+        {/* Term */}
+        <div style={{ flex: '0 0 110px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Term</div>
+          <select value={term} onChange={e => setTerm(e.target.value)} className="sui-input" style={{ width: '100%' }}>
+            {['Term 1','Term 2','Term 3'].map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        {/* Year */}
+        <div style={{ flex: '0 0 88px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Year</div>
+          <input type="number" value={year} onChange={e => setYear(parseInt(e.target.value))} className="sui-input" style={{ width: '100%' }} />
+        </div>
+
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* View toggle */}
+        <div style={{ display: 'flex', background: 'var(--surface2)', borderRadius: 12, padding: 3, border: '.5px solid var(--border)', gap: 2 }}>
+          {([
+            ['overview', 'Overview',  'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z'],
+            ['school',   'School',    'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'],
+            ['builder',  'Builder',   'M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18'],
+          ] as [ViewMode, string, string][]).map(([v, label, path]) => (
+            <button key={v} onClick={() => setView(v)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: 'none', background: view === v ? 'var(--surface)' : 'transparent', color: view === v ? 'var(--txt)' : 'var(--txt3)', fontSize: 12.5, fontWeight: view === v ? 700 : 600, cursor: 'pointer', transition: 'all .15s', boxShadow: view === v ? '0 1px 6px rgba(0,0,0,.08)' : 'none', whiteSpace: 'nowrap' }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><path d={path}/></svg>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Content ── */}
+      {view === 'school' && (
+        <SchoolView term={term} year={year} periodDefs={periodDefs} />
+      )}
+      {view === 'overview' ? (
+        <OverviewView
+          term={term} year={year} periodDefs={periodDefs}
+          onAssign={setAssignTarget}
+          onEditClass={handleEditClass}
+        />
+      ) : view === 'builder' ? (
+        <BuilderView
+          term={term} year={year} periodDefs={periodDefs}
+          onAssign={setAssignTarget}
+          initialClassId={builderClass}
+        />
+      ) : null}
+
+      {/* Period config panel */}
+      {showConfigPanel && (
+        <PeriodConfigPanel
+          defs={periodDefs}
+          onChange={handleConfigSave}
+          onClose={() => setShowConfigPanel(false)}
         />
       )}
+
+      {/* Assign modal */}
+      {assignTarget && (
+        <AssignModal
+          target={assignTarget} term={term} year={year}
+          onClose={() => setAssignTarget(null)}
+          onSaved={() => setAssignTarget(null)}
+        />
+      )}
+
+      {/* CSS keyframes */}
+      <style>{`
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to   { transform: translateX(0);    opacity: 1; }
+        }
+        .timetable-empty-cell:hover > div { opacity: 1 !important; }
+      `}</style>
     </div>
   )
 }

@@ -267,7 +267,7 @@ export function useDosTeacherPerformance() {
       const [staffRes, journalsRes, resultsRes, topicsRes] = await Promise.all([
         supabase
           .from('staff')
-          .select('id, first_name, last_name, subjects, classes')
+          .select('id, first_name, last_name, subjects, classes, phone, email, staff_number')
           .eq('school_id', sid)
           .in('role', ['teacher', 'class_teacher'])
           .eq('is_active', true),
@@ -321,10 +321,14 @@ export function useDosTeacherPerformance() {
           staffId:             teacher.id,
           name:                `${teacher.first_name} ${teacher.last_name}`,
           subjects:            uniqueSubjects,
+          subjectIds:          (teacher.subjects ?? []) as string[],
           classes:             uniqueClasses,
           passRate,
           assessmentsThisTerm: tJournals.length,
           curriculumCoverage:  coverage,
+          phone:               (teacher.phone as string)        ?? null,
+          email:               (teacher.email as string)        ?? null,
+          staffNumber:         (teacher.staff_number as string) ?? null,
         }
       })
     },
@@ -466,6 +470,29 @@ export function useAssignClassTeacher() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['dos-teacher-perf', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['streams'] })
+    },
+  })
+}
+
+// ── useAssignTeacherSubjects ─────────────────────────────────────────────────
+// DoS updates the subjects array on a staff member.
+export function useAssignTeacherSubjects() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ staffId, subjectIds }: { staffId: string; subjectIds: string[] }) => {
+      const { error } = await supabase
+        .from('staff')
+        .update({ subjects: subjectIds })
+        .eq('id', staffId)
+        .eq('school_id', user!.schoolId)
+      if (error) throw error
+      return staffId
+    },
+    onSuccess: staffId => {
+      void qc.invalidateQueries({ queryKey: ['dos-teacher-perf', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['teachers-for-timetable', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['staff-by-id', staffId] })
     },
   })
 }

@@ -96,6 +96,78 @@ export function useSubjects(level?: string) {
   })
 }
 
+// ── useAddSubject ──────────────────────────────────────────────
+export function useAddSubject() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { name: string; curriculumCode?: string; level?: string; departmentId?: string | null }) => {
+      const { data, error } = await supabase
+        .from('subjects')
+        .insert({
+          school_id:       user!.schoolId,
+          name:            input.name,
+          curriculum_code: input.curriculumCode || null,
+          level:           input.level || null,
+          department_id:   input.departmentId ?? null,
+          is_active:       true,
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['subjects'] })
+    },
+  })
+}
+
+// ── useUpdateSubject ───────────────────────────────────────────
+export function useUpdateSubject() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string; name?: string; curriculumCode?: string; level?: string; departmentId?: string | null }) => {
+      const patch: Record<string, unknown> = {}
+      if (input.name !== undefined)           patch.name            = input.name
+      if (input.curriculumCode !== undefined) patch.curriculum_code = input.curriculumCode || null
+      if (input.level !== undefined)          patch.level           = input.level || null
+      if (input.departmentId !== undefined)   patch.department_id   = input.departmentId
+      const { error } = await supabase
+        .from('subjects')
+        .update(patch)
+        .eq('id', input.id)
+        .eq('school_id', user!.schoolId)
+      if (error) throw error
+      return input.id
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['subjects'] })
+    },
+  })
+}
+
+// ── useToggleSubjectActive ─────────────────────────────────────
+export function useToggleSubjectActive() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const { error } = await supabase
+        .from('subjects')
+        .update({ is_active: isActive })
+        .eq('id', id)
+        .eq('school_id', user!.schoolId)
+      if (error) throw error
+      return id
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['subjects'] })
+    },
+  })
+}
+
 // ── useDepartments ─────────────────────────────────────────────
 // Used in staff registration and subject management.
 export function useDepartments() {

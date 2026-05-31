@@ -1,392 +1,463 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
-import { useDosTeacherPerformance, useAssignClassTeacher } from '../../hooks/useDos'
-import { useClasses, useStreams } from '../../hooks/useClasses'
+import { useDosTeacherPerformance, useAssignClassTeacher, useAssignTeacherSubjects } from '../../hooks/useDos'
+import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
+import { useToast } from '../../components/ui/Toast'
 import type { TeacherPerfRow } from '../../types/week9'
 
-// ─── RATE BAR ─────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const PALETTE = [
+  ['#0d9488','rgba(13,148,136,.18)'],['#8b5cf6','rgba(139,92,246,.18)'],
+  ['#0ea5e9','rgba(14,165,233,.18)'],['#f59e0b','rgba(245,158,11,.18)'],
+  ['#f43f5e','rgba(244,63,94,.18)'], ['#10b981','rgba(16,185,129,.18)'],
+] as const
+function pal(s: string) { const i=((s.charCodeAt(0)||65)+(s.charCodeAt(1)||65))%PALETTE.length; return PALETTE[i] }
+function ini(n: string) { return n.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase() }
+
+// ─── Rate bar ─────────────────────────────────────────────────────────────────
 function RateBar({ value }: { value: number }) {
-  const color = value >= 70 ? 'var(--success)' : value >= 50 ? 'var(--warning)' : 'var(--danger)'
+  const c = value>=70?'var(--success)':value>=50?'var(--warning)':'var(--danger)'
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ width: 80, height: 6, borderRadius: 3, background: 'var(--surface2)', overflow: 'hidden' }}>
-        <div style={{ width: `${value}%`, height: '100%', borderRadius: 3, background: color }} />
+    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+      <div style={{ width:80, height:6, borderRadius:3, background:'var(--surface2)', overflow:'hidden' }}>
+        <div style={{ width:`${value}%`, height:'100%', borderRadius:3, background:c, transition:'width .4s' }}/>
       </div>
-      <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font3)', color }}>{value}%</span>
+      <span style={{ fontSize:12, fontWeight:700, fontFamily:'var(--font3)', color:c }}>{value}%</span>
     </div>
   )
 }
 
-// ─── ASSIGN CLASS TEACHER MODAL ────────────────────────────────────────────
-function AssignModal({
-  teacher,
-  onClose,
-}: {
-  teacher: TeacherPerfRow
-  onClose: () => void
-}) {
-  const { data: allClasses = [] } = useClasses()
-  const { data: allStreams = [] } = useStreams(null)
-  const assignMut = useAssignClassTeacher()
-  const [selectedClassId, setSelectedClassId] = useState('')
-  const [streamId, setStreamId]               = useState('')
-  const [err,      setErr]                    = useState('')
-  const [success,  setSuccess]                = useState(false)
+// ─── Modal shell (premium, centered, portal) ──────────────────────────────────
+function Modal({ onClose, children, maxWidth=560 }: { onClose:()=>void; children:React.ReactNode; maxWidth?:number }) {
+  const arEl = useMemo(()=>document.querySelector('.ar') as HTMLElement??document.body,[])
+  useEffect(()=>{ document.body.style.overflow='hidden'; return ()=>{ document.body.style.overflow='' } },[])
+  return createPortal(
+    <div
+      style={{ position:'fixed', inset:0, zIndex:500, background:'rgba(0,0,0,.52)', backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)', display:'flex', alignItems:'center', justifyContent:'center', padding:20, animation:'fadeUp .18s ease both' }}
+      onClick={e=>e.target===e.currentTarget&&onClose()}
+    >
+      <div style={{ width:'100%', maxWidth, maxHeight:'90dvh', borderRadius:24, overflow:'hidden', display:'flex', flexDirection:'column', boxShadow:'0 24px 80px rgba(0,0,0,.24)', background:'var(--surface)', animation:'discCenterIn .26s cubic-bezier(.32,.72,0,1) both' }}>
+        {children}
+      </div>
+    </div>,
+    arEl
+  )
+}
 
-  const classMap = Object.fromEntries(allClasses.map(c => [c.id, c.name]))
-  const streamsForClass = selectedClassId
-    ? allStreams.filter(s => s.classId === selectedClassId && (!s.classTeacherId || s.classTeacherId === teacher.staffId))
+// ─── Assign class teacher modal ───────────────────────────────────────────────
+function AssignClassTeacherModal({ teacher, onClose }: { teacher: TeacherPerfRow; onClose:()=>void }) {
+  const { data: allClasses=[] } = useClasses()
+  const { data: allStreams=[] } = useStreams(null)
+  const assignMut = useAssignClassTeacher()
+  const { success: ok, error: err } = useToast()
+  const [classId, setClassId] = useState('')
+  const [streamId, setStreamId] = useState('')
+  const [done, setDone] = useState(false)
+
+  const streamsForClass = classId
+    ? allStreams.filter(s => s.classId===classId && (!s.classTeacherId || s.classTeacherId===teacher.staffId))
     : []
 
   async function confirm() {
-    if (!streamId) { setErr('Select a stream first'); return }
-    const stream = allStreams.find(s => s.id === streamId)
+    if (!streamId) return
+    const stream = allStreams.find(s=>s.id===streamId)
     if (!stream) return
-    setErr('')
     try {
-      await assignMut.mutateAsync({
-        streamId,
-        classId:   stream.classId,
-        teacherId: teacher.staffId,
-      })
-      setSuccess(true)
-    } catch (ex: any) {
-      setErr(ex.message ?? 'Failed to assign')
-    }
+      await assignMut.mutateAsync({ streamId, classId: stream.classId, teacherId: teacher.staffId })
+      ok(`${teacher.name} assigned as class teacher`)
+      setDone(true)
+    } catch(e:any){ err(e?.message??'Failed to assign') }
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-    }}>
-      <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 28,
-        maxWidth: 420, width: '100%', boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
-      }}>
-        <h2 style={{ fontSize: 17, fontWeight: 800, color: 'var(--txt)', margin: '0 0 16px' }}>
-          Assign as Class Teacher
-        </h2>
-        {success ? (
-          <div style={{ color: 'var(--success)', fontSize: 14, marginBottom: 16 }}>
-            {teacher.name} has been assigned as class teacher.
+    <Modal onClose={onClose} maxWidth={440}>
+      {/* Header */}
+      <div style={{ padding:'20px 24px 16px', background:'linear-gradient(135deg,rgba(13,148,136,.1),transparent)', borderBottom:'.5px solid var(--border)', flexShrink:0 }}>
+        <div style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:17, color:'var(--txt)' }}>Assign as Class Teacher</div>
+        <div style={{ fontSize:12, color:'var(--txt3)', marginTop:3 }}>Assigning <strong style={{color:'var(--txt)'}}>{teacher.name}</strong> to a class stream</div>
+      </div>
+      {/* Body */}
+      <div style={{ flex:1, overflowY:'auto', padding:'20px 24px', display:'flex', flexDirection:'column', gap:16 }}>
+        {done ? (
+          <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px', borderRadius:14, background:'rgba(16,185,129,.08)', border:'.5px solid rgba(16,185,129,.25)' }}>
+            <div style={{ width:36, height:36, borderRadius:'50%', background:'rgba(16,185,129,.15)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div style={{ fontSize:13, fontWeight:700, color:'var(--txt)' }}>{teacher.name} has been assigned.</div>
           </div>
         ) : (
           <>
-            <p style={{ fontSize: 13, color: 'var(--txt2)', marginBottom: 16 }}>
-              Assigning <strong>{teacher.name}</strong> as class teacher for a stream.
-            </p>
-
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 4 }}>
-              Select Class
-            </label>
-            <select
-              className="sui-input"
-              value={selectedClassId}
-              onChange={e => { setSelectedClassId(e.target.value); setStreamId('') }}
-              style={{ width: '100%', marginBottom: 12 }}
-            >
-              <option value="">Choose class…</option>
-              {allClasses.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-
-            {selectedClassId && (
-              <>
-                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 4 }}>
-                  Select Stream
-                </label>
-                {streamsForClass.length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'var(--txt3)', marginBottom: 12 }}>
-                    No available streams for this class.
-                  </div>
-                ) : (
-                  <select
-                    className="sui-input"
-                    value={streamId}
-                    onChange={e => setStreamId(e.target.value)}
-                    style={{ width: '100%', marginBottom: 12 }}
-                  >
-                    <option value="">Choose stream…</option>
-                    {streamsForClass.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                )}
-              </>
+            <div>
+              <label style={{ fontSize:11, fontWeight:700, color:'var(--txt3)', textTransform:'uppercase', letterSpacing:.6, display:'block', marginBottom:6 }}>Class</label>
+              <select className="sui-input" value={classId} onChange={e=>{ setClassId(e.target.value); setStreamId('') }} style={{ width:'100%' }}>
+                <option value="">Choose class…</option>
+                {allClasses.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            {classId && (
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'var(--txt3)', textTransform:'uppercase', letterSpacing:.6, display:'block', marginBottom:6 }}>Stream</label>
+                {streamsForClass.length===0
+                  ? <div style={{ fontSize:12, color:'var(--txt3)', padding:'10px 14px', background:'var(--surface2)', borderRadius:10 }}>No available streams for this class.</div>
+                  : <select className="sui-input" value={streamId} onChange={e=>setStreamId(e.target.value)} style={{ width:'100%' }}>
+                      <option value="">Choose stream…</option>
+                      {streamsForClass.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>}
+              </div>
             )}
-
-            {err && <div style={{ color: 'var(--danger)', fontSize: 12, marginBottom: 8 }}>{err}</div>}
           </>
         )}
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button className="sui-btn-outline" onClick={onClose}>{success ? 'Close' : 'Cancel'}</button>
-          {!success && (
-            <button
-              disabled={assignMut.isPending || !streamId}
-              onClick={() => { void confirm() }}
-              style={{
-                padding: '8px 20px', background: 'var(--brand)', color: '#fff',
-                border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13,
-                cursor: streamId ? 'pointer' : 'default', opacity: streamId ? 1 : 0.5,
-              }}
-            >
-              {assignMut.isPending ? 'Assigning…' : 'Confirm'}
-            </button>
-          )}
-        </div>
       </div>
-    </div>
+      {/* Footer */}
+      <div style={{ padding:'14px 24px 18px', borderTop:'.5px solid var(--border)', flexShrink:0, display:'flex', gap:10 }}>
+        <button onClick={onClose} style={{ flex:1, height:44, borderRadius:12, background:'var(--surface2)', border:'.5px solid var(--border)', fontWeight:600, fontSize:13.5, cursor:'pointer', color:'var(--txt2)', transition:'background .13s' }}
+          onMouseEnter={e=>(e.currentTarget.style.background='var(--border)')}
+          onMouseLeave={e=>(e.currentTarget.style.background='var(--surface2)')}
+        >{done?'Close':'Cancel'}</button>
+        {!done && (
+          <button onClick={()=>{void confirm()}} disabled={!streamId||assignMut.isPending}
+            style={{ flex:2, height:44, borderRadius:12, background:streamId?'linear-gradient(145deg,var(--brand),var(--brand-dark))':'var(--border)', color:streamId?'#fff':'var(--txt3)', border:'none', fontWeight:800, fontSize:13.5, cursor:streamId?'pointer':'default', boxShadow:streamId?'0 4px 14px rgba(13,148,136,.38)':'none', transition:'all .18s' }}
+          >{assignMut.isPending?'Assigning…':'Confirm Assignment'}</button>
+        )}
+      </div>
+    </Modal>
   )
 }
 
-// ─── TEACHER DETAIL MODAL ─────────────────────────────────────────────────
-function TeacherDetailModal({
-  teacher,
-  onClose,
-}: {
-  teacher: TeacherPerfRow
-  onClose: () => void
-}) {
-  const [tab, setTab] = useState<'performance' | 'contact'>('performance')
-  const [showAssign, setShowAssign] = useState(false)
-  const { data: allClasses = [] } = useClasses()
-  const classMap = Object.fromEntries(allClasses.map(c => [c.id, c.name]))
+// ─── Manage subjects modal ────────────────────────────────────────────────────
+function ManageSubjectsModal({ teacher, onClose }: { teacher: TeacherPerfRow; onClose:()=>void }) {
+  const { data: allSubjects=[] } = useSubjects()
+  const assignMut = useAssignTeacherSubjects()
+  const { success: ok, error: err } = useToast()
+  const [selected, setSelected] = useState<Set<string>>(new Set(teacher.subjectIds))
+
+  function toggle(id: string) {
+    setSelected(prev => { const n=new Set(prev); n.has(id)?n.delete(id):n.add(id); return n })
+  }
+
+  async function save() {
+    try {
+      await assignMut.mutateAsync({ staffId: teacher.staffId, subjectIds: [...selected] })
+      ok(`Subjects updated for ${teacher.name}`)
+      onClose()
+    } catch(e:any){ err(e?.message??'Failed to update') }
+  }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-    }}>
-      <div style={{
-        background: 'var(--surface)', borderRadius: 20, padding: 28,
-        maxWidth: 540, width: '95vw', maxHeight: '90vh', overflow: 'auto',
-        boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
-      }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-          <div>
-            <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--txt)', margin: 0 }}>{teacher.name}</h2>
-            <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>
-              {teacher.subjects.length} subject{teacher.subjects.length !== 1 ? 's' : ''} · {teacher.assessmentsThisTerm} assessment{teacher.assessmentsThisTerm !== 1 ? 's' : ''} this term
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              onClick={() => setShowAssign(true)}
-              style={{
-                padding: '6px 14px', background: 'var(--brand)', color: '#fff',
-                border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer',
-              }}
+    <Modal onClose={onClose} maxWidth={480}>
+      <div style={{ padding:'20px 24px 16px', background:'linear-gradient(135deg,rgba(139,92,246,.1),transparent)', borderBottom:'.5px solid var(--border)', flexShrink:0 }}>
+        <div style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:17, color:'var(--txt)' }}>Manage Subjects</div>
+        <div style={{ fontSize:12, color:'var(--txt3)', marginTop:3 }}>Select subjects assigned to <strong style={{color:'var(--txt)'}}>{teacher.name}</strong></div>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', padding:'16px 24px', display:'flex', flexDirection:'column', gap:8 }}>
+        {allSubjects.filter(s=>s.isActive).map(s => {
+          const on = selected.has(s.id)
+          return (
+            <div key={s.id} onClick={()=>toggle(s.id)}
+              style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', borderRadius:12, border:`.5px solid ${on?'rgba(139,92,246,.4)':'var(--border)'}`, background:on?'rgba(139,92,246,.06)':'var(--surface2)', cursor:'pointer', transition:'all .13s' }}
             >
-              Assign as Class Teacher
-            </button>
-            <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--txt3)' }}>✕</button>
-          </div>
-        </div>
-
-        {/* Tab nav */}
-        <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid var(--border)', marginBottom: 20 }}>
-          {(['performance', 'contact'] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              style={{
-                padding: '6px 16px', border: 'none', background: 'none',
-                cursor: 'pointer', fontWeight: 700, fontSize: 12,
-                color: tab === t ? 'var(--brand)' : 'var(--txt2)',
-                borderBottom: tab === t ? '2px solid var(--brand)' : '2px solid transparent',
-                marginBottom: -2, textTransform: 'capitalize',
-              }}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-
-        {/* Performance tab */}
-        {tab === 'performance' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 120, background: 'var(--surface2)', borderRadius: 10, padding: '14px 16px' }}>
-                <div style={{ fontSize: 11, color: 'var(--txt3)', fontWeight: 700, marginBottom: 4 }}>Pass Rate</div>
-                <RateBar value={teacher.passRate} />
+              <div style={{ width:20, height:20, borderRadius:6, border:`.5px solid ${on?'#8b5cf6':'var(--border)'}`, background:on?'#8b5cf6':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .13s' }}>
+                {on && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
               </div>
-              <div style={{ flex: 1, minWidth: 120, background: 'var(--surface2)', borderRadius: 10, padding: '14px 16px' }}>
-                <div style={{ fontSize: 11, color: 'var(--txt3)', fontWeight: 700, marginBottom: 4 }}>Curriculum Coverage</div>
-                <RateBar value={teacher.curriculumCoverage} />
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13.5, fontWeight:700, color:'var(--txt)' }}>{s.name}</div>
+                {s.curriculumCode && <div style={{ fontSize:11, color:'var(--txt3)', fontFamily:'var(--font3)' }}>{s.curriculumCode}</div>}
               </div>
-              <div style={{ flex: 1, minWidth: 120, background: 'var(--surface2)', borderRadius: 10, padding: '14px 16px' }}>
-                <div style={{ fontSize: 11, color: 'var(--txt3)', fontWeight: 700, marginBottom: 4 }}>Assessments</div>
-                <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--txt)' }}>
-                  {teacher.assessmentsThisTerm}
-                </div>
-              </div>
-            </div>
-            <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '14px 16px' }}>
-              <div style={{ fontSize: 11, color: 'var(--txt3)', fontWeight: 700, marginBottom: 8 }}>Classes Assigned</div>
-              {teacher.classes.length > 0 ? (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {teacher.classes.map((cId, i) => (
-                    <span key={i} style={{
-                      padding: '2px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-                      background: 'var(--brand-light)', color: 'var(--brand)',
-                    }}>
-                      {classMap[cId] ?? cId.slice(0, 8)}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <span style={{ fontSize: 12, color: 'var(--txt3)' }}>No classes assigned</span>
+              {s.level && (
+                <span style={{ padding:'2px 8px', borderRadius:99, fontSize:10, fontWeight:700, background:s.level==='A-Level'?'rgba(139,92,246,.1)':'rgba(14,165,233,.1)', color:s.level==='A-Level'?'#8b5cf6':'#0ea5e9' }}>{s.level}</span>
               )}
             </div>
-          </div>
-        )}
-
-        {/* Contact tab */}
-        {tab === 'contact' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '14px 16px' }}>
-              <div style={{ fontSize: 11, color: 'var(--txt3)', fontWeight: 700, marginBottom: 4 }}>Staff ID</div>
-              <div style={{ fontFamily: 'var(--font3)', fontSize: 13, color: 'var(--txt)' }}>
-                {teacher.staffId.slice(0, 16)}…
-              </div>
-            </div>
-            <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '14px 16px' }}>
-              <div style={{ fontSize: 11, color: 'var(--txt3)', fontWeight: 700, marginBottom: 4 }}>Subjects</div>
-              <div style={{ fontSize: 13, color: 'var(--txt)' }}>
-                {teacher.subjects.length > 0
-                  ? teacher.subjects.join(', ')
-                  : 'No subjects listed'}
-              </div>
-            </div>
-          </div>
+          )
+        })}
+        {allSubjects.filter(s=>s.isActive).length===0 && (
+          <div style={{ padding:24, textAlign:'center', color:'var(--txt3)', fontSize:13 }}>No active subjects found.</div>
         )}
       </div>
-
-      {showAssign && (
-        <AssignModal teacher={teacher} onClose={() => setShowAssign(false)} />
-      )}
-    </div>
+      <div style={{ padding:'14px 24px 18px', borderTop:'.5px solid var(--border)', flexShrink:0, display:'flex', gap:10, alignItems:'center' }}>
+        <span style={{ fontSize:12, color:'var(--txt3)', flex:1 }}>{selected.size} subject{selected.size!==1?'s':''} selected</span>
+        <button onClick={onClose} style={{ height:44, padding:'0 18px', borderRadius:12, background:'var(--surface2)', border:'.5px solid var(--border)', fontWeight:600, fontSize:13.5, cursor:'pointer', color:'var(--txt2)' }}>Cancel</button>
+        <button onClick={save} disabled={assignMut.isPending}
+          style={{ height:44, padding:'0 24px', borderRadius:12, background:'linear-gradient(145deg,#8b5cf6,#7c3aed)', color:'#fff', border:'none', fontWeight:800, fontSize:13.5, cursor:'pointer', boxShadow:'0 4px 14px rgba(139,92,246,.38)', transition:'all .18s' }}
+        >{assignMut.isPending?'Saving…':'Save Subjects'}</button>
+      </div>
+    </Modal>
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// DOS TEACHERS PAGE
-// ═══════════════════════════════════════════════════════════════════════════
+// ─── Teacher detail modal ──────────────────────────────────────────────────────
+function TeacherDetailModal({ teacher, onClose }: { teacher: TeacherPerfRow; onClose:()=>void }) {
+  const [tab, setTab] = useState<'performance'|'contact'|'subjects'>('performance')
+  const [showAssign, setShowAssign] = useState(false)
+  const [showManageSubj, setShowManageSubj] = useState(false)
+  const { data: allClasses=[] } = useClasses()
+  const classMap = Object.fromEntries(allClasses.map(c=>[c.id,c.name]))
+  const { data: allSubjects=[] } = useSubjects()
+  const subjectNameMap = Object.fromEntries(allSubjects.map(s=>[s.id,s.name]))
+  const [col] = pal(teacher.name)
+
+  return (
+    <>
+      <Modal onClose={onClose} maxWidth={560}>
+        {/* Header */}
+        <div style={{ padding:'22px 24px 0', flexShrink:0, background:`linear-gradient(135deg,${col}10,transparent)` }}>
+          <div style={{ display:'flex', alignItems:'flex-start', gap:14, marginBottom:20 }}>
+            <div style={{ width:52, height:52, borderRadius:16, background:`linear-gradient(135deg,${col}cc,${col}88)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:900, color:'#fff', fontFamily:'var(--font2)', flexShrink:0, boxShadow:`0 4px 16px ${col}40` }}>
+              {ini(teacher.name)}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:18, color:'var(--txt)', letterSpacing:-.3 }}>{teacher.name}</div>
+              <div style={{ fontSize:12, color:'var(--txt3)', marginTop:3 }}>
+                {teacher.assessmentsThisTerm} assessments · {teacher.subjectIds.length} subject{teacher.subjectIds.length!==1?'s':''}
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={()=>setShowAssign(true)}
+                style={{ padding:'7px 14px', background:'linear-gradient(145deg,var(--brand),var(--brand-dark))', color:'#fff', border:'none', borderRadius:10, fontWeight:700, fontSize:11.5, cursor:'pointer', boxShadow:'0 3px 10px rgba(13,148,136,.35)', whiteSpace:'nowrap' }}
+              >Assign Class</button>
+              <button onClick={onClose}
+                style={{ width:32, height:32, border:'none', background:'var(--surface2)', borderRadius:9, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--txt3)', flexShrink:0 }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div style={{ display:'flex', gap:0, borderBottom:'.5px solid var(--border)' }}>
+            {(['performance','contact','subjects'] as const).map(t=>(
+              <button key={t} onClick={()=>setTab(t)}
+                style={{ padding:'9px 18px', border:'none', background:'none', cursor:'pointer', fontWeight:700, fontSize:12.5, color:tab===t?'var(--brand)':'var(--txt3)', borderBottom:tab===t?'2px solid var(--brand)':'2px solid transparent', marginBottom:-1, transition:'all .14s', textTransform:'capitalize' }}
+              >{t}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex:1, overflowY:'auto', padding:'20px 24px', display:'flex', flexDirection:'column', gap:14 }}>
+
+          {/* Performance tab */}
+          {tab==='performance' && (
+            <>
+              <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+                {[
+                  { label:'Pass Rate', node:<RateBar value={teacher.passRate}/> },
+                  { label:'Curriculum Coverage', node:<RateBar value={teacher.curriculumCoverage}/> },
+                  { label:'Assessments This Term', node:<div style={{ fontSize:28, fontWeight:900, fontFamily:'var(--font2)', color:'var(--txt)', lineHeight:1 }}>{teacher.assessmentsThisTerm}</div> },
+                ].map(({ label, node }) => (
+                  <div key={label} style={{ flex:'1 1 140px', background:'var(--surface2)', borderRadius:14, padding:'14px 16px', border:'.5px solid var(--border)' }}>
+                    <div style={{ fontSize:10.5, color:'var(--txt3)', fontWeight:800, textTransform:'uppercase', letterSpacing:.8, marginBottom:10 }}>{label}</div>
+                    {node}
+                  </div>
+                ))}
+              </div>
+              <div style={{ background:'var(--surface2)', borderRadius:14, padding:'14px 16px', border:'.5px solid var(--border)' }}>
+                <div style={{ fontSize:10.5, color:'var(--txt3)', fontWeight:800, textTransform:'uppercase', letterSpacing:.8, marginBottom:10 }}>Classes Assigned</div>
+                {teacher.classes.length>0 ? (
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                    {teacher.classes.map((cId,i)=>(
+                      <span key={i} style={{ padding:'3px 10px', borderRadius:99, fontSize:11.5, fontWeight:700, background:'rgba(13,148,136,.08)', color:'var(--brand)', border:'.5px solid rgba(13,148,136,.2)' }}>
+                        {classMap[cId]??cId.slice(0,8)}
+                      </span>
+                    ))}
+                  </div>
+                ) : <span style={{ fontSize:13, color:'var(--txt3)' }}>No classes assigned yet</span>}
+              </div>
+            </>
+          )}
+
+          {/* Contact tab */}
+          {tab==='contact' && (
+            <>
+              {[
+                { label:'Staff Number', value: teacher.staffNumber, icon:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 7a4 4 0 100 8 4 4 0 000-8z' },
+                { label:'Phone',        value: teacher.phone,       icon:'M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .82h3a2 2 0 012 1.72c.13.96.4 1.9.71 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.31 1.85.58 2.81.71A2 2 0 0122 16.92z' },
+                { label:'Email',        value: teacher.email,       icon:'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6' },
+              ].map(({ label, value, icon }) => (
+                <div key={label} style={{ background:'var(--surface2)', borderRadius:14, padding:'14px 16px', border:'.5px solid var(--border)', display:'flex', alignItems:'center', gap:12 }}>
+                  <div style={{ width:36, height:36, borderRadius:11, background:`${col}18`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth="2" strokeLinecap="round"><path d={icon}/></svg>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:10.5, color:'var(--txt3)', fontWeight:800, textTransform:'uppercase', letterSpacing:.8, marginBottom:3 }}>{label}</div>
+                    <div style={{ fontSize:13.5, fontWeight:700, color:value?'var(--txt)':'var(--txt3)' }}>{value??'—'}</div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* Subjects tab */}
+          {tab==='subjects' && (
+            <>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:'var(--txt)' }}>
+                  {teacher.subjectIds.length} subject{teacher.subjectIds.length!==1?'s':''} assigned
+                </div>
+                <button onClick={()=>setShowManageSubj(true)}
+                  style={{ padding:'6px 14px', border:'none', borderRadius:9, background:'linear-gradient(145deg,#8b5cf6,#7c3aed)', color:'#fff', fontWeight:700, fontSize:12, cursor:'pointer', boxShadow:'0 3px 10px rgba(139,92,246,.35)' }}
+                >Manage Subjects</button>
+              </div>
+              {teacher.subjectIds.length>0 ? (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {teacher.subjectIds.map(id=>{
+                    const name = subjectNameMap[id]??id
+                    return (
+                      <div key={id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', borderRadius:12, background:'var(--surface2)', border:'.5px solid var(--border)' }}>
+                        <div style={{ width:8, height:8, borderRadius:'50%', background:'#8b5cf6', flexShrink:0 }}/>
+                        <span style={{ fontSize:13.5, fontWeight:700, color:'var(--txt)' }}>{name}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div style={{ padding:'32px 24px', textAlign:'center' }}>
+                  <div style={{ fontSize:14, fontWeight:800, color:'var(--txt)', marginBottom:6, fontFamily:'var(--font2)' }}>No subjects assigned</div>
+                  <div style={{ fontSize:13, color:'var(--txt3)', marginBottom:14 }}>Assign subjects so this teacher can appear in the timetable builder.</div>
+                  <button onClick={()=>setShowManageSubj(true)}
+                    style={{ padding:'8px 20px', border:'none', borderRadius:10, background:'linear-gradient(145deg,#8b5cf6,#7c3aed)', color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer', boxShadow:'0 3px 12px rgba(139,92,246,.4)' }}
+                  >Assign Subjects Now</button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </Modal>
+
+      {showAssign     && <AssignClassTeacherModal teacher={teacher} onClose={()=>setShowAssign(false)}/>}
+      {showManageSubj && <ManageSubjectsModal teacher={teacher} onClose={()=>setShowManageSubj(false)}/>}
+    </>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ═══════════════════════════════════════════════════════════════════════════════
+const ROLE_META: Record<string, { color: string; bg: string }> = {
+  passRate:  { color: '#10b981', bg: 'rgba(16,185,129,.1)' },
+  coverage:  { color: '#0ea5e9', bg: 'rgba(14,165,233,.1)' },
+  name:      { color: '#8b5cf6', bg: 'rgba(139,92,246,.1)' },
+}
+
 export function DosTeachersPage() {
-  const { data = [], isLoading, isError } = useDosTeacherPerformance()
+  const { data=[], isLoading, isError } = useDosTeacherPerformance()
   const [search,   setSearch]   = useState('')
-  const [sort,     setSort]     = useState<'name' | 'passRate' | 'coverage'>('passRate')
-  const [selected, setSelected] = useState<TeacherPerfRow | null>(null)
+  const [sort,     setSort]     = useState<'passRate'|'coverage'|'name'>('passRate')
+  const [selected, setSelected] = useState<TeacherPerfRow|null>(null)
 
   const rows = useMemo(() => {
     let r = data
     if (search.trim()) {
       const q = search.toLowerCase()
-      r = r.filter(t => t.name.toLowerCase().includes(q))
+      r = r.filter(t=>t.name.toLowerCase().includes(q))
     }
-    return [...r].sort((a, b) => {
-      if (sort === 'passRate') return b.passRate - a.passRate
-      if (sort === 'coverage') return b.curriculumCoverage - a.curriculumCoverage
+    return [...r].sort((a,b)=>{
+      if (sort==='passRate') return b.passRate-a.passRate
+      if (sort==='coverage') return b.curriculumCoverage-a.curriculumCoverage
       return a.name.localeCompare(b.name)
     })
   }, [data, search, sort])
 
   const parentRef = useRef<HTMLDivElement>(null)
-  const virtualiser = useVirtualizer({
-    count:            rows.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize:     () => 52,
-    overscan:         8,
-  })
+  const virtualiser = useVirtualizer({ count:rows.length, getScrollElement:()=>parentRef.current, estimateSize:()=>64, overscan:8 })
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <PageHeader
-        title="Teachers"
-        subtitle="Teacher performance — pass rates and curriculum coverage. Click a row for details."
-      />
+    <div className="sui-page-enter" style={{ display:'flex', flexDirection:'column', gap:22 }}>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <input className="sui-input" placeholder="Search teacher…" value={search}
-          onChange={e => setSearch(e.target.value)} style={{ minWidth: 200 }} />
-        <select className="sui-input" value={sort} onChange={e => setSort(e.target.value as typeof sort)}>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+        <div style={{ width:42, height:42, borderRadius:13, background:'linear-gradient(145deg,#0d9488,#0f766e)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 14px rgba(13,148,136,.36)' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+        <div>
+          <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:20, color:'var(--txt)', margin:0, letterSpacing:-.3 }}>Teachers</h1>
+          <div style={{ fontSize:12, color:'var(--txt3)', marginTop:2 }}>Pass rates, curriculum coverage, and subject management.</div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+        <div style={{ position:'relative', flex:1, minWidth:200 }}>
+          <svg style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', opacity:.4 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt)" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input className="sui-input" placeholder="Search teacher…" value={search} onChange={e=>setSearch(e.target.value)} style={{ paddingLeft:36, width:'100%' }}/>
+        </div>
+        <select className="sui-input" value={sort} onChange={e=>setSort(e.target.value as typeof sort)} style={{ minWidth:200 }}>
           <option value="passRate">Sort by Pass Rate</option>
           <option value="coverage">Sort by Curriculum Coverage</option>
           <option value="name">Sort by Name</option>
         </select>
       </div>
 
-      {isLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><LoadingSpinner size="md" /></div>}
-      {isError   && <div style={{ color: 'var(--danger)', padding: 16 }}>Failed to load teacher data.</div>}
+      {isLoading && <div style={{ display:'flex', justifyContent:'center', padding:40 }}><LoadingSpinner size="md"/></div>}
+      {isError   && <div style={{ color:'var(--danger)', padding:16 }}>Failed to load teacher data.</div>}
 
       {!isLoading && !isError && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                {['Teacher', 'Journals', 'Pass Rate', 'Coverage', 'Action'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-          </table>
-          <div ref={parentRef} style={{ maxHeight: 520, overflowY: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No teacher data available.</td></tr>
-                ) : (
-                  <>
-                    <tr style={{ height: virtualiser.getVirtualItems()[0]?.start ?? 0 }}><td colSpan={5} /></tr>
-                    {virtualiser.getVirtualItems().map(vi => {
-                      const t = rows[vi.index]
-                      return (
-                        <tr
-                          key={t.staffId}
-                          style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-                          onClick={() => setSelected(t)}
-                          className="sui-tr"
-                        >
-                          <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>{t.name}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--txt2)', fontFamily: 'var(--font3)' }}>{t.assessmentsThisTerm}</td>
-                          <td style={{ padding: '10px 14px' }}><RateBar value={t.passRate} /></td>
-                          <td style={{ padding: '10px 14px' }}><RateBar value={t.curriculumCoverage} /></td>
-                          <td style={{ padding: '10px 14px' }}>
-                            <button
-                              onClick={e => { e.stopPropagation(); setSelected(t) }}
-                              style={{
-                                padding: '4px 10px', fontSize: 11, border: '1px solid var(--border)',
-                                borderRadius: 6, background: 'var(--surface2)', cursor: 'pointer', color: 'var(--txt2)',
-                              }}
-                            >
-                              View
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                    <tr style={{ height: virtualiser.getTotalSize() - (virtualiser.getVirtualItems().at(-1)?.end ?? 0) }}><td colSpan={5} /></tr>
-                  </>
-                )}
-              </tbody>
-            </table>
+        <div style={{ background:'var(--surface)', border:'.5px solid var(--border)', borderRadius:20, overflow:'hidden', boxShadow:'0 2px 16px rgba(0,0,0,.06)' }}>
+          {/* Table header */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 100px 130px 130px 80px', gap:12, padding:'10px 20px', background:'var(--surface2)', borderBottom:'.5px solid var(--border)' }}>
+            {['Teacher','Assessments','Pass Rate','Coverage',''].map(h=>(
+              <div key={h} style={{ fontSize:10.5, fontWeight:800, color:'var(--txt3)', textTransform:'uppercase', letterSpacing:.8, fontFamily:'var(--font2)' }}>{h}</div>
+            ))}
           </div>
-          {rows.length > 0 && (
-            <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--txt3)' }}>
-              {rows.length} teacher{rows.length !== 1 ? 's' : ''}
+
+          {/* Virtualised rows */}
+          {rows.length===0 ? (
+            <div style={{ padding:'40px 24px', textAlign:'center', color:'var(--txt3)', fontSize:13 }}>No teacher data available.</div>
+          ) : (
+            <div ref={parentRef} style={{ maxHeight:520, overflowY:'auto' }}>
+              <div style={{ height:virtualiser.getTotalSize(), position:'relative' }}>
+                {virtualiser.getVirtualItems().map(vi=>{
+                  const t = rows[vi.index]
+                  const [col, colBg] = pal(t.name)
+                  return (
+                    <div key={t.staffId}
+                      style={{ position:'absolute', top:0, left:0, width:'100%', transform:`translateY(${vi.start}px)`, height:64 }}
+                    >
+                      <div
+                        onClick={()=>setSelected(t)}
+                        className="sui-tr"
+                        style={{ display:'grid', gridTemplateColumns:'1fr 100px 130px 130px 80px', gap:12, padding:'0 20px', height:'100%', alignItems:'center', cursor:'pointer', borderBottom:'.5px solid var(--border)', transition:'background .1s' }}
+                      >
+                        <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
+                          <div style={{ width:38, height:38, borderRadius:12, background:`linear-gradient(135deg,${col}cc,${col}88)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:900, color:'#fff', fontFamily:'var(--font2)', flexShrink:0, boxShadow:`0 3px 10px ${col}30` }}>
+                            {ini(t.name)}
+                          </div>
+                          <div style={{ minWidth:0 }}>
+                            <div style={{ fontSize:14, fontWeight:700, color:'var(--txt)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.name}</div>
+                            <div style={{ fontSize:11, color:'var(--txt3)', marginTop:1 }}>
+                              {t.subjectIds.length} subject{t.subjectIds.length!==1?'s':''}
+                              {t.phone && ` · ${t.phone}`}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ fontSize:13, fontFamily:'var(--font3)', fontWeight:700, color:'var(--txt2)' }}>{t.assessmentsThisTerm}</div>
+                        <div><RateBar value={t.passRate}/></div>
+                        <div><RateBar value={t.curriculumCoverage}/></div>
+                        <div style={{ display:'flex', justifyContent:'flex-end' }}>
+                          <button onClick={e=>{e.stopPropagation();setSelected(t)}}
+                            style={{ padding:'5px 14px', fontSize:11.5, border:'.5px solid var(--border)', borderRadius:9, background:'var(--surface2)', cursor:'pointer', color:'var(--brand)', fontWeight:700, transition:'all .13s' }}
+                            onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.background='rgba(13,148,136,.08)';(e.currentTarget as HTMLButtonElement).style.borderColor='rgba(13,148,136,.3)'}}
+                            onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.background='var(--surface2)';(e.currentTarget as HTMLButtonElement).style.borderColor='var(--border)'}}
+                          >View</button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {rows.length>0 && (
+            <div style={{ padding:'10px 20px', borderTop:'.5px solid var(--border)', background:'var(--surface2)', fontSize:11.5, color:'var(--txt3)', fontWeight:700 }}>
+              {rows.length} teacher{rows.length!==1?'s':''}
             </div>
           )}
         </div>
       )}
 
-      {selected && (
-        <TeacherDetailModal teacher={selected} onClose={() => setSelected(null)} />
-      )}
+      {selected && <TeacherDetailModal teacher={selected} onClose={()=>setSelected(null)}/>}
     </div>
   )
 }
