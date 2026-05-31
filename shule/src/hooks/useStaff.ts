@@ -283,3 +283,25 @@ export function useRegisterStaff() {
     },
   })
 }
+
+// ── useSetStaffActive ───────────────────────────────────────────
+// Deactivate (isActive: false) or reactivate (isActive: true) a staff member.
+export function useSetStaffActive() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const { error } = await supabase
+        .from('staff')
+        .update({ is_active: isActive })
+        .eq('id', id)
+        .eq('school_id', user!.schoolId)
+      if (error) throw error
+      return id
+    },
+    onSuccess: id => {
+      qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['staff-by-id', id] })
+    },
+  })
+}

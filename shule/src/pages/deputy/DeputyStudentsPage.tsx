@@ -1,7 +1,8 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useStudents } from '../../hooks/useStudents'
+import { useStudents, useSetStudentStatus } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
+import { useToast } from '../../components/ui/Toast'
 
 // Deputy sees student names, class, stream, status — zero financial data.
 
@@ -92,6 +93,78 @@ function Pill({ label, active, color, onClick }: { label: string; active: boolea
   )
 }
 
+// ─── Action menu ────────────────────────────────────────────────────────────────
+type StudentAction = 'suspend' | 'expel' | 'reinstate'
+
+const ACTION_OPTS: Record<Status, { action: StudentAction; label: string; icon: string; color: string; hoverBg: string }[]> = {
+  active:    [
+    { action: 'suspend',   label: 'Suspend',   icon: 'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01', color: '#f59e0b', hoverBg: 'rgba(245,158,11,.08)' },
+    { action: 'expel',     label: 'Expel',     icon: 'M12 22a10 10 0 100-20 10 10 0 000 20zM15 9l-6 6M9 9l6 6', color: '#f43f5e', hoverBg: 'rgba(244,63,94,.08)' },
+  ],
+  suspended: [
+    { action: 'reinstate', label: 'Reinstate', icon: 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3', color: '#10b981', hoverBg: 'rgba(16,185,129,.08)' },
+    { action: 'expel',     label: 'Expel',     icon: 'M12 22a10 10 0 100-20 10 10 0 000 20zM15 9l-6 6M9 9l6 6', color: '#f43f5e', hoverBg: 'rgba(244,63,94,.08)' },
+  ],
+  expelled:  [
+    { action: 'reinstate', label: 'Reinstate', icon: 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3', color: '#10b981', hoverBg: 'rgba(16,185,129,.08)' },
+  ],
+}
+
+function ActionMenu({ studentId, studentName, status, onClose }: {
+  studentId: string; studentName: string; status: Status; onClose: () => void
+}) {
+  const setStatus = useSetStudentStatus()
+  const { success: toastOk, error: toastErr } = useToast()
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [onClose])
+
+  const opts = ACTION_OPTS[status] ?? []
+
+  async function doAction(action: StudentAction) {
+    const newStatus: Status = action === 'reinstate' ? 'active' : action === 'suspend' ? 'suspended' : 'expelled'
+    try {
+      await setStatus.mutateAsync({ id: studentId, status: newStatus })
+      toastOk(`${studentName} is now ${newStatus}`)
+    } catch (e: any) { toastErr(e?.message ?? 'Action failed') }
+    onClose()
+  }
+
+  return (
+    <div ref={ref} style={{
+      position: 'absolute', right: 0, top: 'calc(100% + 6px)',
+      background: 'var(--surface)', border: '.5px solid var(--border)',
+      borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,.16)', zIndex: 200,
+      minWidth: 160, overflow: 'hidden',
+      animation: 'fadeUp .16s ease both',
+    }}>
+      <div style={{ padding: '8px 12px 6px', borderBottom: '.5px solid var(--border)' }}>
+        <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8 }}>Actions</div>
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--txt)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{studentName}</div>
+      </div>
+      {opts.map(opt => (
+        <button key={opt.action} disabled={setStatus.isPending}
+          onClick={() => { void doAction(opt.action) }}
+          style={{
+            width: '100%', padding: '10px 14px', border: 'none', background: 'none',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+            fontSize: 13, fontWeight: 700, color: opt.color, transition: 'background .1s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = opt.hoverBg)}
+          onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d={opt.icon}/></svg>
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ─── Student row (virtualised) ────────────────────────────────────────────────
 function StudentRow({ s, className, streamName, hovered, onEnter, onLeave }: {
   s: ReturnType<typeof useStudents>['data'][number]
@@ -101,9 +174,10 @@ function StudentRow({ s, className, streamName, hovered, onEnter, onLeave }: {
   onEnter: () => void
   onLeave: () => void
 }) {
-  const [col, colBg] = pal(`${s.firstName}${s.lastName}`)
+  const [col] = pal(`${s.firstName}${s.lastName}`)
   const status = (s.status ?? 'active') as Status
   const type = s.studentType === 'boarder' ? 'Boarder' : s.studentType === 'day' ? 'Day' : null
+  const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <div
@@ -111,14 +185,13 @@ function StudentRow({ s, className, streamName, hovered, onEnter, onLeave }: {
       onMouseLeave={onLeave}
       style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 150px 120px 110px',
+        gridTemplateColumns: '1fr 150px 120px 110px 44px',
         alignItems: 'center',
-        gap: 16,
+        gap: 12,
         padding: '11px 20px',
         borderBottom: '.5px solid var(--border)',
         background: hovered ? 'var(--surface2)' : 'transparent',
         transition: 'background .1s',
-        cursor: 'default',
       }}
     >
       {/* Identity */}
@@ -155,35 +228,52 @@ function StudentRow({ s, className, streamName, hovered, onEnter, onLeave }: {
       {/* Class */}
       <div>
         {className ? (
-          <span style={{
-            display: 'inline-block', padding: '3px 10px', borderRadius: 8,
-            background: 'rgba(13,148,136,.08)', border: '1px solid rgba(13,148,136,.15)',
-            fontSize: 11, fontWeight: 800, color: 'var(--brand)', fontFamily: 'var(--font2)',
-          }}>
+          <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 8, background: 'rgba(13,148,136,.08)', border: '1px solid rgba(13,148,136,.15)', fontSize: 11, fontWeight: 800, color: 'var(--brand)', fontFamily: 'var(--font2)' }}>
             {className}
           </span>
-        ) : (
-          <span style={{ fontSize: 12, color: 'var(--txt3)' }}>—</span>
-        )}
+        ) : <span style={{ fontSize: 12, color: 'var(--txt3)' }}>—</span>}
       </div>
 
       {/* Stream */}
       <div>
         {streamName ? (
-          <span style={{
-            display: 'inline-block', padding: '3px 10px', borderRadius: 8,
-            background: 'rgba(139,92,246,.07)', border: '1px solid rgba(139,92,246,.15)',
-            fontSize: 11, fontWeight: 700, color: '#8b5cf6', fontFamily: 'var(--font2)',
-          }}>
+          <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 8, background: 'rgba(139,92,246,.07)', border: '1px solid rgba(139,92,246,.15)', fontSize: 11, fontWeight: 700, color: '#8b5cf6', fontFamily: 'var(--font2)' }}>
             {streamName}
           </span>
-        ) : (
-          <span style={{ fontSize: 12, color: 'var(--txt3)' }}>—</span>
-        )}
+        ) : <span style={{ fontSize: 12, color: 'var(--txt3)' }}>—</span>}
       </div>
 
       {/* Status */}
       <StatusDot status={status}/>
+
+      {/* Action trigger */}
+      <div style={{ position: 'relative', opacity: hovered || menuOpen ? 1 : 0, transition: 'opacity .15s' }}>
+        <button
+          onClick={e => { e.stopPropagation(); setMenuOpen(v => !v) }}
+          style={{
+            width: 32, height: 32, borderRadius: 8, border: '.5px solid var(--border)',
+            background: menuOpen ? 'var(--surface2)' : 'transparent',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--txt3)', transition: 'all .13s',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--txt)' }}
+          onMouseLeave={e => { if (!menuOpen) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--txt3)' } }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="5" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
+        {menuOpen && (
+          <ActionMenu
+            studentId={s.id}
+            studentName={`${s.firstName} ${s.lastName}`}
+            status={status}
+            onClose={() => setMenuOpen(false)}
+          />
+        )}
+      </div>
     </div>
   )
 }
@@ -199,6 +289,8 @@ export function DeputyStudentsPage() {
   const [hoveredId,    setHoveredId]    = useState<string | null>(null)
 
   const { data: classes  = [] }                             = useClasses()
+  // Only fetch streams for the selected class — passing null returns ALL streams
+  // across all classes which causes duplicates (e.g. "East" from S1, S2, S3, S4).
   const { data: streams  = [] }                             = useStreams(classId || null)
   const { data: students = [], isLoading, isFetching }      = useStudents(
     { classId: classId || undefined, streamId: streamId || undefined },
@@ -312,7 +404,9 @@ export function DeputyStudentsPage() {
             <option value="">All Classes</option>
             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          {streams.length > 0 && (
+          {/* Only render when a class is selected — avoids duplicate stream names
+               that arise from multiple classes having streams with the same name */}
+          {classId && streams.length > 0 && (
             <select className="sui-input" value={streamId} onChange={e => setStreamId(e.target.value)} style={{ minWidth: 140 }}>
               <option value="">All Streams</option>
               {streams.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -359,12 +453,12 @@ export function DeputyStudentsPage() {
           {/* Sticky table header */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 150px 120px 110px',
-            gap: 16, padding: '10px 20px',
+            gridTemplateColumns: '1fr 150px 120px 110px 44px',
+            gap: 12, padding: '10px 20px',
             background: 'var(--surface2)',
             borderBottom: '.5px solid var(--border)',
           }}>
-            {['Student', 'Class', 'Stream', 'Status'].map(h => (
+            {['Student', 'Class', 'Stream', 'Status', ''].map(h => (
               <div key={h} style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8, fontFamily: 'var(--font2)' }}>
                 {h}
               </div>

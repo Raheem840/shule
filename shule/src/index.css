@@ -919,7 +919,35 @@ html, body, #root {
   box-shadow: 0 0 0 3px rgba(244,63,94,0.12) !important;
 }
 
-/* ── SELECT ─────────────────────────────────────────── */
+/* ── SELECT — global premium treatment ─────────────────────────────────────
+   Applied to every <select className="sui-input"> AND <select className="sui-select">
+   across the app without touching individual components.
+   Removes the OS-native arrow; custom SVG chevron added via background-image.
+   Light + dark chevron variants keep it readable on all surfaces.
+─────────────────────────────────────────────────────────────────────────── */
+select.sui-input,
+select.sui-select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 38px !important;
+  cursor: pointer;
+  /* Custom chevron — slate-400 (#94a3b8) for light mode */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 11px center !important;
+  background-size: 14px 14px !important;
+}
+/* Dark mode: slightly brighter chevron */
+.ar[data-theme="dark"] select.sui-input,
+.ar[data-theme="dark"] select.sui-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
+}
+/* Hover: subtly lift the border color */
+select.sui-input:hover:not(:disabled):not(:focus),
+select.sui-select:hover:not(:disabled):not(:focus) {
+  border-color: var(--brand-dark);
+}
+/* Focus: brand ring (same as text inputs) */
 .sui-select {
   transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
   cursor: pointer;

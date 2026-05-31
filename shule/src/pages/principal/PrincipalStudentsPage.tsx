@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useStudents } from '../../hooks/useStudents'
+import { useStudents, useSetStudentStatus } from '../../hooks/useStudents'
 import { useClasses } from '../../hooks/useClasses'
+import { useToast } from '../../components/ui/Toast'
 import type { Student } from '../../types/app'
 
 // ─── Types & constants ────────────────────────────────────────────────────────
@@ -107,6 +108,82 @@ function FilterPill({
   )
 }
 
+// ─── Action menu ──────────────────────────────────────────────────────────────
+const STATUS_ACTIONS: Record<StudentStatus, { action: StudentStatus | 'active'; label: string; icon: string; color: string; hoverBg: string }[]> = {
+  active:    [
+    { action: 'suspended', label: 'Suspend',   icon: 'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01', color: '#f59e0b', hoverBg: 'rgba(245,158,11,.07)' },
+    { action: 'expelled',  label: 'Expel',     icon: 'M12 22a10 10 0 100-20 10 10 0 000 20zM15 9l-6 6M9 9l6 6',                                              color: '#f43f5e', hoverBg: 'rgba(244,63,94,.07)'  },
+  ],
+  suspended: [
+    { action: 'active',    label: 'Reinstate', icon: 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3',                                                 color: '#10b981', hoverBg: 'rgba(16,185,129,.07)' },
+    { action: 'expelled',  label: 'Expel',     icon: 'M12 22a10 10 0 100-20 10 10 0 000 20zM15 9l-6 6M9 9l6 6',                                              color: '#f43f5e', hoverBg: 'rgba(244,63,94,.07)'  },
+  ],
+  expelled:  [
+    { action: 'active',    label: 'Reinstate', icon: 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3',                                                 color: '#10b981', hoverBg: 'rgba(16,185,129,.07)' },
+  ],
+}
+
+function StudentActionMenu({ student, onClose, onView }: {
+  student: Student; onClose: () => void; onView: () => void
+}) {
+  const setStatus = useSetStudentStatus()
+  const { success: ok, error: err } = useToast()
+  const ref = useRef<HTMLDivElement>(null)
+  const status = (student.status ?? 'active') as StudentStatus
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [onClose])
+
+  const opts = STATUS_ACTIONS[status] ?? []
+
+  async function doStatus(newStatus: StudentStatus | 'active') {
+    try {
+      await setStatus.mutateAsync({ id: student.id, status: newStatus as Student['status'] })
+      ok(`${student.firstName} is now ${newStatus}`)
+    } catch (e: any) { err(e?.message ?? 'Action failed') }
+    onClose()
+  }
+
+  return (
+    <div ref={ref} style={{
+      position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 200,
+      background: 'var(--surface)', border: '.5px solid var(--border)',
+      borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,.16)',
+      minWidth: 168, overflow: 'hidden',
+      animation: 'fadeUp .16s ease both',
+    }}>
+      <div style={{ padding: '8px 14px 6px', borderBottom: '.5px solid var(--border)' }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8 }}>Actions</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt)', marginTop: 2 }}>{student.firstName} {student.lastName}</div>
+      </div>
+      {/* View profile */}
+      <button onClick={() => { onClose(); onView() }}
+        style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 700, color: 'var(--brand)', transition: 'background .1s' }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(13,148,136,.07)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        View Profile
+      </button>
+      {/* Divider */}
+      {opts.length > 0 && <div style={{ height: '.5px', background: 'var(--border)', margin: '2px 0' }}/>}
+      {opts.map(o => (
+        <button key={o.action} disabled={setStatus.isPending} onClick={() => { void doStatus(o.action) }}
+          style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 700, color: o.color, transition: 'background .1s' }}
+          onMouseEnter={e => (e.currentTarget.style.background = o.hoverBg)}
+          onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d={o.icon}/></svg>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function StudentRow({ s, className, onView, hovered, onEnter, onLeave }: {
   s: Student
   className: string
@@ -119,6 +196,7 @@ function StudentRow({ s, className, onView, hovered, onEnter, onLeave }: {
   const inits = initials(s.firstName, s.lastName)
   const status = (s.status ?? 'active') as StudentStatus
   const type = s.studentType === 'boarder' ? 'Boarder' : s.studentType === 'day' ? 'Day' : null
+  const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <div
@@ -126,7 +204,7 @@ function StudentRow({ s, className, onView, hovered, onEnter, onLeave }: {
       onMouseLeave={onLeave}
       style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 160px 130px auto',
+        gridTemplateColumns: '1fr 160px 130px 44px',
         alignItems: 'center',
         gap: 16,
         padding: '12px 20px',
@@ -200,34 +278,29 @@ function StudentRow({ s, className, onView, hovered, onEnter, onLeave }: {
       {/* ── Status ── */}
       <StatusPing status={status} />
 
-      {/* ── Action ── */}
-      <div style={{
-        opacity: hovered ? 1 : 0,
-        transition: 'opacity 0.18s',
-      }}>
+      {/* ── Action menu ── */}
+      <div style={{ position: 'relative', opacity: hovered || menuOpen ? 1 : 0, transition: 'opacity .18s' }} onClick={e => e.stopPropagation()}>
         <button
-          onClick={e => { e.stopPropagation(); onView() }}
+          onClick={e => { e.stopPropagation(); setMenuOpen(v => !v) }}
           style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            padding: '7px 14px', borderRadius: 9,
-            background: 'transparent', border: '1px solid var(--border)',
-            color: 'var(--brand)', fontWeight: 700, fontSize: 12,
-            cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
+            width: 32, height: 32, borderRadius: 8,
+            border: '.5px solid var(--border)',
+            background: menuOpen ? 'var(--surface2)' : 'transparent',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--txt3)', transition: 'all .13s',
           }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(13,148,136,0.08)'
-            ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(13,148,136,0.3)'
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-            ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'
-          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--txt)' }}
+          onMouseLeave={e => { if (!menuOpen) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--txt3)' } }}
         >
-          View profile
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="5" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/>
           </svg>
         </button>
+        {menuOpen && (
+          <StudentActionMenu student={s} onClose={() => setMenuOpen(false)} onView={onView} />
+        )}
       </div>
     </div>
   )
@@ -437,7 +510,7 @@ export function PrincipalStudentsPage() {
           }}>
             {/* ── Column headers ── */}
             <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 160px 130px auto',
+              display: 'grid', gridTemplateColumns: '1fr 160px 130px 44px',
               gap: 16, padding: '10px 20px',
               background: 'var(--surface2)',
               borderBottom: '1px solid var(--border)',

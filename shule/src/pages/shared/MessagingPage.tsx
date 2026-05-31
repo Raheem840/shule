@@ -465,35 +465,33 @@ export function MessagingPage(){
           bottom:'calc(64px + env(safe-area-inset-bottom,0px))',
           zIndex:36,
           overflow:'hidden',
-          /* Gradient canvas the glass panels sit on */
-          background:'var(--bg)',
-          backgroundImage:'radial-gradient(rgba(13,148,136,.07) 1.5px,transparent 1.5px),radial-gradient(rgba(139,92,246,.045) 1px,transparent 1px)',
-          backgroundSize:'28px 28px,14px 14px',
-          backgroundPosition:'0 0,14px 14px',
+          /* Solid surface — no gap/stripe should show between slide panels */
+          background:'var(--surface)',
         }}>
           {/* Ambient orbs visible behind semi-transparent panels */}
           <Orb w={280} h={280} t={-60} r={-60} color="radial-gradient(circle,rgba(13,148,136,.22) 0%,transparent 70%)" anim="mgOrbA 14s ease-in-out infinite"/>
           <Orb w={240} h={240} b={-50} l={-50} color="radial-gradient(circle,rgba(139,92,246,.18) 0%,transparent 70%)" anim="mgOrbB 16s ease-in-out infinite"/>
 
-          {/* Contacts panel — slides LEFT to reveal chat */}
+          {/* Contacts panel — always rendered at translateX(0); chat overlays it */}
           <div className="mg-contacts-mob" style={{
             position:'absolute', inset:0,
-            transform:active!==null?'translateX(-100%)':'translateX(0)',
-            transition:'transform .38s cubic-bezier(.32,.72,0,1)',
-            willChange:'transform',
+            /* No transform/transition — it stays still, chat slides over it */
           }}>
             <ContactList contacts={filtered} loading={isLoading} totalUnread={totalUnread} search={search} onSearch={setSearch} active={active} onSelect={setActive}/>
           </div>
 
-          {/* Chat / announcements panel — slides in from RIGHT */}
+          {/* Chat panel — slides in from RIGHT over the contact list (WhatsApp pattern) */}
           <div style={{
             position:'absolute', inset:0,
             background:'var(--bg)',
             transform:active!==null?'translateX(0)':'translateX(100%)',
-            transition:'transform .38s cubic-bezier(.32,.72,0,1)',
+            /* 0.24s feels instant, not sluggish; spring easing for iOS feel */
+            transition:active!==null
+              ?'transform .24s cubic-bezier(.32,.72,0,1)'
+              :'transform .22s cubic-bezier(.4,0,.6,1)',
             willChange:'transform',
-            /* Cast a shadow on the contact list when open */
-            boxShadow:active!==null?'-8px 0 32px rgba(0,0,0,.14)':'none',
+            /* Left-edge shadow gives depth: chat is "above" contact list */
+            boxShadow:active!==null?'-6px 0 24px rgba(0,0,0,.16)':'none',
           }}>
             {active==='announcements'
               ?<AnnsPanel onBack={()=>setActive(null)} mob/>
@@ -518,7 +516,12 @@ export function MessagingPage(){
       */}
       <div style={{
         display:'flex',
+        /* height: fill the page content area exactly.
+           shell-main is flex:1 — its children can use % height by making
+           the page div a flex column that fills it. We subtract the .page
+           padding (1.4rem top + 1.4rem bottom = 2.8rem) and topbar (56px). */
         height:'calc(100dvh - 56px - 2.8rem)',
+        minHeight:400,
         borderRadius:18, overflow:'hidden',
         border:'.5px solid var(--border)',
         boxShadow:'0 8px 48px rgba(0,0,0,.09),0 2px 12px rgba(0,0,0,.05)',

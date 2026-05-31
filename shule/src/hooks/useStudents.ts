@@ -347,3 +347,26 @@ export function useDeleteStudent() {
     },
   })
 }
+
+// ── useSetStudentStatus ─────────────────────────────────────────
+// Change a student's status: active | suspended | expelled.
+// Preferred over full useUpdateStudent for this single-field action.
+export function useSetStudentStatus() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: Student['status'] }) => {
+      const { error } = await supabase
+        .from('students')
+        .update({ status })
+        .eq('id', id)
+        .eq('school_id', user!.schoolId)
+      if (error) throw error
+      return id
+    },
+    onSuccess: id => {
+      qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['student', id] })
+    },
+  })
+}

@@ -1,9 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useStaff } from '../../hooks/useStaff'
+import { useStaff, useSetStaffActive } from '../../hooks/useStaff'
+import type { Staff } from '../../types/app'
 import { Avatar } from '../../components/shared/Avatar'
 import { ROLE_LABEL } from '../../config/roleNav'
+import { useToast } from '../../components/ui/Toast'
 import type { UserRole } from '../../store/AuthContext'
 
 const ROLE_OPTS: UserRole[] = [
@@ -51,6 +53,136 @@ function FilterPill({
     >
       {label}
     </button>
+  )
+}
+
+// ─── Staff row ────────────────────────────────────────────────────────────────
+function StaffRow({ s, roleMeta, top, onView }: {
+  s: Staff; roleMeta: { color: string; bg: string }; top: number; onView: () => void
+}) {
+  const [hovered,  setHovered]  = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  return (
+    <div
+      style={{
+        position: 'absolute', top: 0, left: 0, width: '100%',
+        transform: `translateY(${top}px)`,
+        height: 56, display: 'flex', alignItems: 'center',
+        borderBottom: '1px solid var(--border)',
+        padding: '0 14px',
+        background: hovered ? 'var(--surface2)' : 'transparent',
+        transition: 'background .1s',
+        cursor: 'pointer',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={onView}
+      className="sui-tr"
+    >
+      <div style={{ flex: 2, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        <Avatar name={`${s.firstName} ${s.lastName}`} photoPath={s.photoUrl} bucket="staff-photos" size="sm"/>
+        <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {s.firstName} {s.lastName}
+        </span>
+      </div>
+      <div style={{ flex: 1 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 800, background: roleMeta.bg, color: roleMeta.color, textTransform: 'uppercase', letterSpacing: .5 }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: roleMeta.color, display: 'inline-block' }}/>
+          {ROLE_LABEL[s.role as UserRole] ?? s.role}
+        </span>
+      </div>
+      <div style={{ flex: 1, fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>{s.staffNumber ?? '—'}</div>
+      <div style={{ flex: 1, fontSize: 12, color: 'var(--txt2)', textTransform: 'capitalize' }}>{s.employmentType?.replace('_', ' ') ?? '—'}</div>
+      <div style={{ flex: 1 }}>
+        <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, background: s.isActive ? 'rgba(16,185,129,.12)' : 'rgba(148,163,184,.12)', color: s.isActive ? '#10b981' : '#94a3b8' }}>
+          {s.isActive ? 'Active' : 'Inactive'}
+        </span>
+      </div>
+      {/* Action trigger */}
+      <div style={{ flex: .4, display: 'flex', justifyContent: 'center', position: 'relative' }} onClick={e => e.stopPropagation()}>
+        <button
+          onClick={e => { e.stopPropagation(); setMenuOpen(v => !v) }}
+          style={{
+            width: 30, height: 30, borderRadius: 8, border: '.5px solid var(--border)',
+            background: menuOpen ? 'var(--surface2)' : 'transparent',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--txt3)', opacity: hovered || menuOpen ? 1 : 0, transition: 'all .13s',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface2)' }}
+          onMouseLeave={e => { if (!menuOpen) (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="5" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
+        {menuOpen && (
+          <StaffActionMenu
+            staffId={s.id} staffName={`${s.firstName} ${s.lastName}`}
+            isActive={s.isActive} onClose={() => setMenuOpen(false)} onView={onView}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Staff action menu ────────────────────────────────────────────────────────
+function StaffActionMenu({ staffId, staffName, isActive, onClose, onView }: {
+  staffId: string; staffName: string; isActive: boolean; onClose: () => void; onView: () => void
+}) {
+  const setActive = useSetStaffActive()
+  const { success: ok, error: err } = useToast()
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [onClose])
+
+  async function toggle() {
+    try {
+      await setActive.mutateAsync({ id: staffId, isActive: !isActive })
+      ok(`${staffName} is now ${!isActive ? 'active' : 'deactivated'}`)
+    } catch (e: any) { err(e?.message ?? 'Action failed') }
+    onClose()
+  }
+
+  return (
+    <div ref={ref} style={{
+      position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 200,
+      background: 'var(--surface)', border: '.5px solid var(--border)',
+      borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,.16)',
+      minWidth: 168, overflow: 'hidden',
+      animation: 'fadeUp .16s ease both',
+    }}>
+      <div style={{ padding: '8px 14px 6px', borderBottom: '.5px solid var(--border)' }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8 }}>Actions</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt)', marginTop: 2 }}>{staffName}</div>
+      </div>
+      <button onClick={() => { onClose(); onView() }}
+        style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 700, color: 'var(--brand)', transition: 'background .1s' }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(13,148,136,.07)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        View Profile
+      </button>
+      <div style={{ height: '.5px', background: 'var(--border)', margin: '2px 0' }}/>
+      <button disabled={setActive.isPending} onClick={() => { void toggle() }}
+        style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 700, transition: 'background .1s', color: isActive ? '#f59e0b' : '#10b981' }}
+        onMouseEnter={e => (e.currentTarget.style.background = isActive ? 'rgba(245,158,11,.07)' : 'rgba(16,185,129,.07)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+          <path d={isActive ? 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' : 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3'}/>
+        </svg>
+        {isActive ? 'Deactivate' : 'Reactivate'}
+      </button>
+    </div>
   )
 }
 
@@ -196,6 +328,7 @@ export function PrincipalStaffPage() {
               { label: 'Staff #',     flex: 1 },
               { label: 'Employment',  flex: 1 },
               { label: 'Status',      flex: 1 },
+              { label: '',            flex: 0.4 },
             ].map(({ label, flex }) => (
               <div key={label} style={{
                 flex, fontSize: 10, fontWeight: 800,
@@ -211,51 +344,12 @@ export function PrincipalStaffPage() {
                 const s = filtered[vRow.index]
                 const roleMeta = ROLE_META[s.role] ?? { color: 'var(--brand)', bg: 'var(--brand-light)' }
                 return (
-                  <div
+                  <StaffRow
                     key={s.id}
-                    style={{
-                      position: 'absolute', top: 0, left: 0, width: '100%',
-                      transform: `translateY(${vRow.start}px)`,
-                      height: 56, display: 'flex', alignItems: 'center',
-                      borderBottom: '1px solid var(--border)',
-                      cursor: 'pointer', padding: '0 14px',
-                    }}
-                    onClick={() => navigate(`/principal/staff/${s.id}`)}
-                    className="sui-tr"
-                  >
-                    <div style={{ flex: 2, display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Avatar name={`${s.firstName} ${s.lastName}`} photoPath={s.photoUrl} bucket="staff-photos" size="sm" />
-                      <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--txt)' }}>
-                        {s.firstName} {s.lastName}
-                      </span>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 5,
-                        padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 800,
-                        background: roleMeta.bg, color: roleMeta.color,
-                        textTransform: 'uppercase', letterSpacing: 0.5,
-                      }}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: roleMeta.color, display: 'inline-block' }} />
-                        {ROLE_LABEL[s.role as UserRole] ?? s.role}
-                      </span>
-                    </div>
-                    <div style={{ flex: 1, fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>
-                      {s.staffNumber ?? '—'}
-                    </div>
-                    <div style={{ flex: 1, fontSize: 12, color: 'var(--txt2)', textTransform: 'capitalize' }}>
-                      {s.employmentType?.replace('_', ' ') ?? '—'}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <span style={{
-                        padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
-                        background: s.isActive ? 'rgba(16,185,129,0.12)' : 'rgba(148,163,184,0.12)',
-                        color: s.isActive ? '#10b981' : '#94a3b8',
-                      }}>
-                        {s.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </div>
+                    s={s} roleMeta={roleMeta}
+                    top={vRow.start}
+                    onView={() => navigate(`/principal/staff/${s.id}`)}
+                  />
                 )
               })}
             </div>
