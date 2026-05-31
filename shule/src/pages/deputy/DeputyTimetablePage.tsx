@@ -259,7 +259,7 @@ export function DeputyTimetablePage() {
             </div>
           </div>
 
-          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <div className="hscroll">
             <table style={{ borderCollapse: 'collapse', minWidth: 580, width: '100%' }}>
               <thead>
                 <tr>

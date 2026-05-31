@@ -1653,6 +1653,58 @@ html, body, #root {
 .sui-feed-slide:nth-child(4) { animation-delay: 0.19s; }
 .sui-feed-slide:nth-child(5) { animation-delay: 0.24s; }
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   HORIZONTAL SCROLL CONTAINERS
+   .table-scroll — for wide tables (timetables, reports, multi-col grids)
+   .hscroll      — same behaviour, usable on non-table elements
+   Applied globally (works on desktop AND mobile).
+   Mobile block further below overrides scrollbar to hidden + adds touch mask.
+══════════════════════════════════════════════════════════════════════════════ */
+.table-scroll, .hscroll {
+  overflow-x: auto;
+  /* Blocking vertical overflow makes the browser route wheel events to
+     horizontal scroll in Chrome, Safari, and Edge (the dominant engines).
+     Tables inside are never taller than their parent, so nothing is clipped. */
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;    /* prevents swipe from triggering back/forward */
+  -webkit-overflow-scrolling: touch;
+  border-radius: 14px;
+  position: relative;
+}
+
+/* Desktop: thin, premium scrollbar that mouse users can grab */
+.table-scroll::-webkit-scrollbar,
+.hscroll::-webkit-scrollbar {
+  height: 5px;
+}
+.table-scroll::-webkit-scrollbar-track,
+.hscroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.table-scroll::-webkit-scrollbar-thumb,
+.hscroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+  transition: background 0.18s;
+}
+.table-scroll::-webkit-scrollbar-thumb:hover,
+.hscroll::-webkit-scrollbar-thumb:hover {
+  background: var(--txt3);
+}
+/* Firefox */
+.table-scroll, .hscroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* The table inside must never be squeezed narrower than its natural width */
+.table-scroll table,
+.hscroll table {
+  min-width: max-content;
+  width: 100%;
+}
+
 /* ── Accessibility: respect reduced-motion ──────────── */
 @media (prefers-reduced-motion: reduce) {
   .stagger-cards > *,
@@ -1989,25 +2041,28 @@ html, body, #root {
     border-right: none !important;
   }
 
-  /* ── Scroll mode (virtualizers, timetables, grids) ── */
-  .table-scroll {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    /* Fade-out right edge hints at scrollable content */
-    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%) !important;
-    mask-image: linear-gradient(to right, black 85%, transparent 100%) !important;
-    border-radius: 14px;
-    scrollbar-width: none;
+  /* ── Scroll mode (mobile overrides) ── */
+  .table-scroll, .hscroll {
+    /* On mobile: hide the scrollbar — touch handles it */
+    scrollbar-width: none !important;
+    /* Right-edge fade hints there's more content */
+    -webkit-mask-image: linear-gradient(to right, black 84%, transparent 100%) !important;
+    mask-image:         linear-gradient(to right, black 84%, transparent 100%) !important;
+    border-radius: 16px !important;
   }
-  .table-scroll::-webkit-scrollbar { display: none; }
-  .table-scroll table {
+  .table-scroll::-webkit-scrollbar,
+  .hscroll::-webkit-scrollbar { display: none !important; height: 0 !important; }
+
+  /* Restore table display properties that mob-cards might override */
+  .table-scroll table, .hscroll table {
     display: table !important;
     min-width: max-content !important;
   }
-  .table-scroll thead { display: table-header-group !important; }
-  .table-scroll tbody { display: table-row-group !important; flex-direction: unset !important; gap: 0 !important; }
-  .table-scroll tr { display: table-row !important; grid-template-columns: unset !important; box-shadow: none !important; border-radius: 0 !important; border: none !important; }
-  .table-scroll td, .table-scroll th { display: table-cell !important; min-height: unset !important; padding: 8px 10px !important; font-size: 12px !important; }
+  .table-scroll thead, .hscroll thead { display: table-header-group !important; }
+  .table-scroll tbody, .hscroll tbody { display: table-row-group !important; flex-direction: unset !important; gap: 0 !important; }
+  .table-scroll tr, .hscroll tr { display: table-row !important; grid-template-columns: unset !important; box-shadow: none !important; border-radius: 0 !important; border: none !important; }
+  .table-scroll td, .table-scroll th,
+  .hscroll td,    .hscroll th  { display: table-cell !important; min-height: unset !important; padding: 9px 11px !important; font-size: 12.5px !important; }
 
   /* ── sui-table-wrap (legacy) → same as table-scroll ── */
   .sui-table-wrap {

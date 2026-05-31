@@ -584,7 +584,7 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
           </div>
         ) : (
           /* Non-virtual — simple DOM table for ≤ 50 rows */
-          <div style={{ overflowX: 'auto' }}>
+          <div className="hscroll">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>

@@ -136,6 +136,25 @@ export function AppShell() {
   // Close drawer whenever route changes
   useEffect(() => { setDrawer(false) }, [location.pathname])
 
+  // Route mouse-wheel vertical delta → horizontal scroll on .table-scroll / .hscroll elements.
+  // Works in every browser regardless of overflow-y setting.
+  useEffect(() => {
+    function onWheel(e: WheelEvent) {
+      // Only act when the pointer is over a horizontal-scroll container
+      const el = (e.target as Element | null)?.closest<HTMLElement>('.table-scroll, .hscroll')
+      if (!el) return
+      // Skip if the content doesn't actually overflow horizontally
+      if (el.scrollWidth <= el.clientWidth + 1) return
+      // Skip if the user is already scrolling primarily horizontally (trackpad 2-finger)
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return
+      e.preventDefault()
+      // Multiply by a small factor so it feels natural (not too fast/slow)
+      el.scrollLeft += e.deltaY * 0.8
+    }
+    window.addEventListener('wheel', onWheel, { passive: false })
+    return () => window.removeEventListener('wheel', onWheel)
+  }, [])
+
   // Lock body scroll when drawer is open on mobile
   useEffect(() => {
     if (isMobile && drawerOpen) {
