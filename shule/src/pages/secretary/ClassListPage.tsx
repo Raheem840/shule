@@ -1,14 +1,33 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useClasses, useStreams, useCreateStream, useMoveStudent } from '../../hooks/useClasses'
 import { useStaff } from '../../hooks/useStaff'
 import { useStudents } from '../../hooks/useStudents'
-import { Badge } from '../../components/ui/Badge'
-import { PageHeader } from '../../components/ui/PageHeader'
-import { Button } from '../../components/ui/Button'
-import { Modal } from '../../components/ui/Modal'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
 import type { Stream } from '../../types/app'
+
+const portal = () => document.querySelector('.ar') as HTMLElement ?? document.body
+const PBtn = ({ children, onClick, disabled, loading, primary, type = 'button' }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; loading?: boolean; primary?: boolean; type?: 'button'|'submit' }) => (
+  <button type={type} onClick={onClick} disabled={disabled || loading}
+    style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 18px', borderRadius:10, border: primary ? 'none' : '.5px solid var(--border)', background: primary ? 'linear-gradient(145deg,#0ea5e9,#0284c7)' : 'var(--surface2)', color: primary ? '#fff' : 'var(--txt2)', fontWeight:700, fontSize:13, cursor: disabled||loading ? 'default' : 'pointer', opacity: disabled ? .5 : 1, boxShadow: primary ? '0 3px 10px rgba(14,165,233,.4)' : 'none', transition:'all .15s' }}>
+    {loading ? 'Working…' : children}
+  </button>
+)
+function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return createPortal(
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.52)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:500, padding:20 }} onClick={e => e.target===e.currentTarget && onClose()}>
+      <div style={{ width:'100%', maxWidth:440, maxHeight:'88dvh', overflowY:'auto', background:'var(--surface)', borderRadius:20, boxShadow:'0 24px 80px rgba(0,0,0,.28)', padding:'22px 24px 24px' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+          <div style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:16, color:'var(--txt)' }}>{title}</div>
+          <button onClick={onClose} style={{ width:30, height:30, borderRadius:9, border:'none', background:'var(--surface2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--txt3)' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        {children}
+      </div>
+    </div>,
+    portal()
+  )
+}
 
 // ── Level label helper ────────────────────────────────────────
 function levelLabel(level: string | null): string {
@@ -59,7 +78,7 @@ function AddStreamModal({
   }
 
   return (
-    <Modal open onClose={onClose} title="Add Stream" size="sm">
+    <ModalShell title="Add Stream" onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
@@ -168,23 +187,12 @@ function AddStreamModal({
 
           {/* Actions */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', paddingTop: 4 }}>
-            <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
-            <Button
-              variant="primary" type="submit"
-              loading={createStream.isPending}
-              disabled={!name.trim()}
-              icon={
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 5v14M5 12h14"/>
-                </svg>
-              }
-            >
-              Add Stream
-            </Button>
+            <PBtn type="button" onClick={onClose}>Cancel</PBtn>
+            <PBtn primary type="submit" loading={createStream.isPending} disabled={!name.trim()}>Add Stream</PBtn>
           </div>
         </div>
       </form>
-    </Modal>
+    </ModalShell>
   )
 }
 
@@ -218,7 +226,7 @@ function MoveStudentModal({
   }
 
   return (
-    <Modal open onClose={onClose} title={`Move Student from ${fromStream?.name ?? '—'}`} size="sm">
+    <ModalShell title={`Move Student from ${fromStream?.name ?? '—'}`} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
         {/* Student list */}
@@ -302,18 +310,11 @@ function MoveStudentModal({
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button
-            variant="primary"
-            disabled={!selectedStudentId || !targetStreamId}
-            loading={moveStudent.isPending}
-            onClick={handleMove}
-          >
-            Move Student
-          </Button>
+          <PBtn onClick={onClose}>Cancel</PBtn>
+          <PBtn primary disabled={!selectedStudentId || !targetStreamId} loading={moveStudent.isPending} onClick={handleMove}>Move Student</PBtn>
         </div>
       </div>
-    </Modal>
+    </ModalShell>
   )
 }
 
@@ -365,7 +366,7 @@ function StreamRow({
             </span>
           </div>
         ) : (
-          <Badge variant="amber">No teacher assigned</Badge>
+          <span style={{ padding: '3px 9px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: 'rgba(245,158,11,.1)', color: 'var(--warning)', border: '.5px solid rgba(245,158,11,.25)' }}>No teacher assigned</span>
         )}
 
         <button
@@ -520,16 +521,22 @@ export function ClassListPage() {
   })
 
   return (
-    <div>
-      <PageHeader
-        title="Class List"
-        subtitle={`${classes.length} class${classes.length !== 1 ? 'es' : ''} · ${new Date().getFullYear()}`}
-      />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+      <div style={{ position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle,rgba(14,165,233,.18),transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, position: 'relative' }}>
+          <div style={{ width: 46, height: 46, borderRadius: 15, background: 'linear-gradient(145deg,#0ea5e9,#0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 18px rgba(14,165,233,.45)', flexShrink: 0 }}>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <div>
+            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>Class List</h1>
+            <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>{classes.length} class{classes.length !== 1 ? 'es' : ''} · {new Date().getFullYear()}</p>
+          </div>
+        </div>
+      </div>
 
       {isLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
-          <LoadingSpinner />
-        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{[1,2,3].map(i => <div key={i} className="shule-skeleton" style={{ height: 80, borderRadius: 14 }} />)}</div>
       ) : classes.length === 0 ? (
         <div style={{ padding: '4rem', textAlign: 'center' }}>
           <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>

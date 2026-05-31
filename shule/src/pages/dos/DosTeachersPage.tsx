@@ -457,7 +457,7 @@ export function DosTeachersPage() {
         </div>
       )}
 
-      {selected && <TeacherDetailModal teacher={selected} onClose={()=>setSelected(null)}/>}
+      {selected && <TeacherDetailModal teacher={data.find(t=>t.staffId===selected.staffId)??selected} onClose={()=>setSelected(null)}/>}
     </div>
   )
 }
