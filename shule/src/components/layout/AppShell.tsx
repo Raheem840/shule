@@ -511,36 +511,54 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
         ))}
       </div>
 
-      {/* User pill at bottom */}
+      {/* User identity + sign-out at bottom */}
       <div className="sbbot">
-        {PROFILE_ROLES.has(user.role) ? (
-          <div
-            className="upill"
-            onClick={() => navigate('/profile')}
-            title="View your profile"
-            style={{ cursor: 'pointer' }}
+        {/* User pill — navigates to profile for staff roles */}
+        <div
+          className="upill"
+          onClick={() => PROFILE_ROLES.has(user.role) ? navigate('/profile') : undefined}
+          title={PROFILE_ROLES.has(user.role) ? 'View your profile' : user.name}
+          style={{ cursor: PROFILE_ROLES.has(user.role) ? 'pointer' : 'default' }}
+        >
+          <div className="uava" style={{ background: avatar.bg, color: avatar.color }}>
+            {initials(user.name)}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div className="u-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>{user.name}</div>
+            <div className="u-role">{roleLabel}</div>
+          </div>
+          <div className="u-dot" />
+        </div>
+
+        {/* Premium sign-out button — sidebar only, never in topbar */}
+        <button
+          className="sb-signout-btn"
+          onClick={onSignOut}
+          aria-label="Sign out"
+        >
+          {/* Log-out icon (door with arrow exiting) */}
+          <svg
+            className="sb-so-icon"
+            viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           >
-            <div className="uava" style={{ background: avatar.bg, color: avatar.color }}>
-              {initials(user.name)}
-            </div>
-            <div>
-              <div className="u-name">{user.name}</div>
-              <div className="u-role">{roleLabel}</div>
-            </div>
-            <div className="u-dot" />
-          </div>
-        ) : (
-          <div className="upill" onClick={onSignOut} title="Click to sign out">
-            <div className="uava" style={{ background: avatar.bg, color: avatar.color }}>
-              {initials(user.name)}
-            </div>
-            <div>
-              <div className="u-name">{user.name}</div>
-              <div className="u-role">{roleLabel}</div>
-            </div>
-            <div className="u-dot" />
-          </div>
-        )}
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+
+          <span>Sign out</span>
+
+          {/* Arrow appears on hover */}
+          <svg
+            className="sb-so-arrow"
+            width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+          >
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </button>
       </div>
     </nav>
   )

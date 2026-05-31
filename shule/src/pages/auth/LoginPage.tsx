@@ -53,11 +53,6 @@ const CSS = `
   50%    { border-radius:70% 30% 60% 40%/50% 30% 70% 50%; }
 }
 
-/* ── floating cards ── */
-@keyframes lpFloat1 { 0%,100%{ transform:translateY(0) rotate(-2deg); } 50%{ transform:translateY(-14px) rotate(1deg); } }
-@keyframes lpFloat2 { 0%,100%{ transform:translateY(0) rotate(2deg);  } 50%{ transform:translateY(-10px) rotate(-1deg); } }
-@keyframes lpFloat3 { 0%,100%{ transform:translateY(0) rotate(-1deg); } 50%{ transform:translateY(-18px) rotate(2deg); } }
-
 /* ── stagger-in on mount ── */
 @keyframes lpIn { from{ opacity:0; transform:translateY(20px); } to{ opacity:1; transform:none; } }
 
@@ -104,22 +99,6 @@ const CSS = `
 @keyframes lpShimmer{ 0%{background-position:-200% center} 100%{background-position:200% center} }
 @keyframes lpSpin { to{ transform:rotate(360deg); } }
 `
-
-// ── Floating educational card — dark glass ────────────────────────────────────
-function FloatCard({ style, children }: { style?: React.CSSProperties; children: React.ReactNode }) {
-  return (
-    <div style={{
-      background:'rgba(15,23,42,.72)', backdropFilter:'blur(24px) saturate(160%)',
-      WebkitBackdropFilter:'blur(24px) saturate(160%)',
-      border:'1px solid rgba(255,255,255,.1)',
-      borderRadius:20, padding:'14px 18px',
-      boxShadow:'0 8px 32px rgba(0,0,0,.32), 0 0 0 .5px rgba(255,255,255,.06) inset',
-      ...style,
-    }}>
-      {children}
-    </div>
-  )
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PAGE
@@ -289,60 +268,6 @@ export function LoginPage() {
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* ── Floating UI cards — depth & life ── */}
-          <div style={{ position:'absolute', inset:0, pointerEvents:'none', zIndex:1 }}>
-            {/* Attendance snapshot card */}
-            <FloatCard style={{ position:'absolute', top:'18%', right:-12, width:195, animation:'lpFloat1 7s ease-in-out infinite' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-                <div style={{ width:28, height:28, borderRadius:8, background:'rgba(16,185,129,.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.2" strokeLinecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3"/></svg>
-                </div>
-                <span style={{ fontSize:11, fontWeight:800, color:'#e2e8f0' }}>Today's Attendance</span>
-              </div>
-              <div style={{ display:'flex', gap:6 }}>
-                {[['94%','Present','#10b981'],['4%','Late','#f59e0b'],['2%','Absent','#f43f5e']].map(([v,l,c])=>(
-                  <div key={l} style={{ flex:1, textAlign:'center', padding:'5px 0', borderRadius:8, background:`${c}0d` }}>
-                    <div style={{ fontSize:13, fontWeight:900, color:c as string, fontFamily:'Space Grotesk,sans-serif' }}>{v}</div>
-                    <div style={{ fontSize:9.5, color:'#64748b', fontWeight:600, marginTop:1 }}>{l}</div>
-                  </div>
-                ))}
-              </div>
-            </FloatCard>
-
-            {/* Report card status card */}
-            <FloatCard style={{ position:'absolute', bottom:'22%', right:8, width:180, animation:'lpFloat2 9s ease-in-out 1.5s infinite' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-                <div style={{ width:26, height:26, borderRadius:8, background:'rgba(139,92,246,.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2.2" strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6"/></svg>
-                </div>
-                <span style={{ fontSize:11, fontWeight:800, color:'#e2e8f0' }}>Report Cards</span>
-              </div>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <div>
-                  <div style={{ fontSize:22, fontWeight:900, color:'#a78bfa', fontFamily:'Space Grotesk,sans-serif' }}>12</div>
-                  <div style={{ fontSize:10, color:'#475569', fontWeight:600 }}>Ready for release</div>
-                </div>
-                <div style={{ width:42, height:42, borderRadius:'50%', background:'conic-gradient(#8b5cf6 0deg 302deg,rgba(255,255,255,.1) 302deg)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <div style={{ width:30, height:30, borderRadius:'50%', background:'rgba(15,23,42,.8)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:900, color:'#a78bfa' }}>84%</div>
-                </div>
-              </div>
-            </FloatCard>
-
-            {/* Fee collection chip */}
-            <FloatCard style={{ position:'absolute', top:'55%', left:-8, width:165, animation:'lpFloat3 11s ease-in-out 3s infinite' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                <div style={{ width:34, height:34, borderRadius:10, background:'rgba(245,158,11,.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-                </div>
-                <div>
-                  <div style={{ fontSize:11, fontWeight:800, color:'#e2e8f0' }}>Fee Collection</div>
-                  <div style={{ fontSize:18, fontWeight:900, color:'#fbbf24', fontFamily:'Space Grotesk,sans-serif', lineHeight:1.1 }}>UGX 4.2M</div>
-                  <div style={{ fontSize:9.5, color:'#475569', fontWeight:600 }}>This term</div>
-                </div>
-              </div>
-            </FloatCard>
           </div>
 
           {/* ── Footer: region chips ── */}
