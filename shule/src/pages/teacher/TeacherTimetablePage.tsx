@@ -44,7 +44,7 @@ export function TeacherTimetablePage() {
       )}
 
       {!isLoading && slots.length > 0 && (
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll">
           <table style={{ borderCollapse: 'collapse', minWidth: 700,
             background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
             <thead>

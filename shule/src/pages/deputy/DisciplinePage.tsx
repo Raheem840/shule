@@ -6,99 +6,78 @@ import {
 } from '../../hooks/useDeputy'
 import { useStudents } from '../../hooks/useStudents'
 import { useClasses } from '../../hooks/useClasses'
-import { PageHeader } from '../../components/ui/PageHeader'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import type { DisciplineRecord, DisciplineNature } from '../../types/week9'
 
-const NATURE_OPTS: DisciplineNature[] = ['lateness', 'absenteeism', 'misconduct', 'violence', 'other']
-const NATURE_COLOR: Record<DisciplineNature, string> = {
-  lateness:    'var(--warning)',
-  absenteeism: 'var(--info)',
-  misconduct:  'var(--danger)',
-  violence:    'var(--danger)',
-  other:       'var(--txt3)',
+const NATURES: DisciplineNature[] = ['lateness','absenteeism','misconduct','violence','other']
+
+const NATURE_META: Record<DisciplineNature,{label:string;color:string;bg:string;icon:string}> = {
+  lateness:    { label:'Lateness',    color:'#f59e0b', bg:'rgba(245,158,11,.1)',   icon:'M12 6v6l4 2M12 22a10 10 0 100-20 10 10 0 000 20z' },
+  absenteeism: { label:'Absenteeism', color:'#0ea5e9', bg:'rgba(14,165,233,.1)',   icon:'M12 22a10 10 0 100-20 10 10 0 000 20zM12 8v4M12 16h.01' },
+  misconduct:  { label:'Misconduct',  color:'#f43f5e', bg:'rgba(244,63,94,.1)',    icon:'M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z' },
+  violence:    { label:'Violence',    color:'#ef4444', bg:'rgba(239,68,68,.1)',    icon:'M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z' },
+  other:       { label:'Other',       color:'#94a3b8', bg:'rgba(148,163,184,.1)', icon:'M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
 }
 
+// ─── Nature badge ────────────────────────────────────────────────────────────────
 function NatureBadge({ nature }: { nature: DisciplineNature }) {
-  const color = NATURE_COLOR[nature]
+  const m = NATURE_META[nature]
   return (
-    <span style={{
-      padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
-      background: `${color}20`, color, textTransform: 'capitalize',
-    }}>
-      {nature}
+    <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 9px', borderRadius:99, fontSize:10.5, fontWeight:700, background:m.bg, color:m.color, whiteSpace:'nowrap' }}>
+      {m.label}
     </span>
   )
 }
 
-// ─── STUDENT TYPEAHEAD ────────────────────────────────────────────────────
-function StudentTypeahead({
-  value,
-  onChange,
-}: {
-  value: { id: string; name: string } | null
-  onChange: (s: { id: string; name: string; classId: string | null } | null) => void
+// ─── Student typeahead ────────────────────────────────────────────────────────────
+function StudentTypeahead({ value, onChange }: {
+  value: { id:string; name:string } | null
+  onChange: (s:{ id:string; name:string; classId:string|null }|null)=>void
 }) {
-  const { data: allStudents = [] } = useStudents()
+  const { data: allStudents=[] } = useStudents()
   const [query, setQuery] = useState(value?.name ?? '')
-  const [open, setOpen] = useState(false)
+  const [open,  setOpen]  = useState(false)
 
-  const matches = useMemo(() => {
-    if (!query.trim()) return []
+  const matches = useMemo(()=>{
+    if(!query.trim()) return []
     const q = query.toLowerCase()
-    return allStudents.filter(s =>
-      `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
+    return allStudents.filter(s=>
+      `${s.firstName} ${s.lastName}`.toLowerCase().includes(q)||
       s.admissionNumber.toLowerCase().includes(q)
-    ).slice(0, 8)
-  }, [allStudents, query])
+    ).slice(0,8)
+  },[allStudents,query])
 
   function select(s: typeof allStudents[number]) {
-    onChange({ id: s.id, name: `${s.firstName} ${s.lastName}`, classId: s.classId ?? null })
+    onChange({ id:s.id, name:`${s.firstName} ${s.lastName}`, classId:s.classId??null })
     setQuery(`${s.firstName} ${s.lastName}`)
     setOpen(false)
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setQuery(e.target.value)
-    setOpen(true)
-    if (!e.target.value.trim()) onChange(null)
-  }
-
   return (
-    <div style={{ position: 'relative' }}>
-      <input
-        className="sui-input"
-        value={query}
-        onChange={handleChange}
-        onFocus={() => query.trim() && setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-        placeholder="Search by name or admission number…"
-        style={{ width: '100%' }}
-        autoComplete="off"
-      />
-      {open && matches.length > 0 && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-          overflow: 'hidden',
-        }}>
-          {matches.map(s => (
-            <div
-              key={s.id}
-              onMouseDown={() => select(s)}
-              style={{
-                padding: '8px 12px', cursor: 'pointer',
-                display: 'flex', gap: 8, alignItems: 'center',
-                borderBottom: '1px solid var(--border)',
-              }}
-              className="sui-tr"
-            >
-              <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>
-                {s.firstName} {s.lastName}
-              </span>
-              <span style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>
-                {s.admissionNumber}
-              </span>
+    <div style={{ position:'relative' }}>
+      <div style={{ position:'relative' }}>
+        <svg style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', opacity:.45 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt)" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <input className="sui-input" value={query}
+          onChange={e=>{ setQuery(e.target.value); setOpen(true); if(!e.target.value.trim()) onChange(null) }}
+          onFocus={()=>query.trim()&&setOpen(true)}
+          onBlur={()=>setTimeout(()=>setOpen(false),150)}
+          placeholder="Search by name or admission number…"
+          style={{ width:'100%', paddingLeft:36 }}
+          autoComplete="off"
+        />
+      </div>
+      {open && matches.length>0 && (
+        <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, right:0, zIndex:400, background:'var(--surface)', border:'.5px solid var(--border)', borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,.14)', overflow:'hidden' }}>
+          {matches.map(s=>(
+            <div key={s.id} onMouseDown={()=>select(s)} style={{ padding:'10px 14px', cursor:'pointer', display:'flex', gap:10, alignItems:'center', borderBottom:'.5px solid var(--border)' }}
+              className="sui-tr">
+              <div style={{ width:32, height:32, borderRadius:'50%', background:'linear-gradient(145deg,var(--brand),var(--brand-dark))', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:900, color:'#fff', flexShrink:0 }}>
+                {`${s.firstName[0]}${s.lastName[0]}`.toUpperCase()}
+              </div>
+              <div>
+                <div style={{ fontWeight:700, fontSize:13, color:'var(--txt)' }}>{s.firstName} {s.lastName}</div>
+                <div style={{ fontSize:11, color:'var(--txt3)', fontFamily:'var(--font3)' }}>{s.admissionNumber}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -107,149 +86,153 @@ function StudentTypeahead({
   )
 }
 
-// ─── ADD / EDIT MODAL ─────────────────────────────────────────────────────
-function RecordModal({
-  initial,
-  onClose,
-}: {
-  initial: DisciplineRecord | null
-  onClose: () => void
-}) {
+// ─── Field label ─────────────────────────────────────────────────────────────────
+const Lbl = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
+  <label style={{ fontSize:11.5, fontWeight:700, color:'var(--txt3)', display:'block', marginBottom:5, textTransform:'uppercase', letterSpacing:.6 }}>
+    {children}{required && <span style={{ color:'var(--danger)', marginLeft:2 }}>*</span>}
+  </label>
+)
+
+// ─── Record modal ─────────────────────────────────────────────────────────────────
+function RecordModal({ initial, onClose }: { initial: DisciplineRecord|null; onClose:()=>void }) {
   const addMut    = useAddDisciplineRecord()
   const updateMut = useUpdateDisciplineRecord()
   const isEdit    = !!initial
+  const isMobile  = useIsMobile()
+  const { data: classes=[] } = useClasses()
 
-  const [selectedStudent, setSelectedStudent] = useState<{ id: string; name: string; classId: string | null } | null>(
-    initial ? { id: initial.studentId, name: initial.studentName ?? initial.studentId, classId: initial.classId } : null
+  const [student,      setStudent]      = useState<{id:string;name:string;classId:string|null}|null>(
+    initial ? { id:initial.studentId, name:initial.studentName??initial.studentId, classId:initial.classId??null } : null
   )
-  const [classId,      setClassId]      = useState(initial?.classId ?? '')
-  const [incidentDate, setIncidentDate] = useState(initial?.incidentDate ?? new Date().toISOString().slice(0, 10))
-  const [nature,       setNature]       = useState<DisciplineNature>(initial?.nature ?? 'misconduct')
-  const [resolution,   setResolution]   = useState(initial?.resolution ?? '')
-  const [notes,        setNotes]        = useState(initial?.notes ?? '')
+  const [classId,      setClassId]      = useState(initial?.classId??'')
+  const [incidentDate, setIncidentDate] = useState(initial?.incidentDate??new Date().toISOString().slice(0,10))
+  const [nature,       setNature]       = useState<DisciplineNature>(initial?.nature??'misconduct')
+  const [resolution,   setResolution]   = useState(initial?.resolution??'')
+  const [notes,        setNotes]        = useState(initial?.notes??'')
   const [err,          setErr]          = useState('')
-  const { data: classes = [] } = useClasses()
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!selectedStudent || !resolution.trim()) {
-      setErr('Student and resolution are required')
-      return
-    }
-    setErr('')
-    try {
-      if (isEdit) {
-        await updateMut.mutateAsync({
-          id: initial!.id, incidentDate, nature, resolution, notes: notes || null,
-        })
-      } else {
-        await addMut.mutateAsync({
-          studentId:    selectedStudent.id,
-          classId:      classId || selectedStudent.classId,
-          incidentDate, nature, resolution, notes: notes || null,
-        })
-      }
-      onClose()
-    } catch (ex: any) {
-      setErr(ex.message ?? 'Failed to save')
-    }
-  }
 
   const isPending = addMut.isPending || updateMut.isPending
 
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-    }}>
-      <form
-        onSubmit={e => { void submit(e) }}
-        style={{
-          background: 'var(--surface)', borderRadius: 20, padding: 32,
-          maxWidth: 500, width: '100%', boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
-          display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '90vh', overflow: 'auto',
-        }}
-      >
-        <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--txt)', margin: 0 }}>
-          {isEdit ? 'Edit Discipline Record' : 'Add Discipline Record'}
-        </h2>
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if(!student||!resolution.trim()){ setErr('Please select a student and enter a resolution.'); return }
+    setErr('')
+    try {
+      if(isEdit) {
+        await updateMut.mutateAsync({ id:initial!.id, incidentDate, nature, resolution, notes:notes||null })
+      } else {
+        await addMut.mutateAsync({ studentId:student.id, classId:classId||student.classId, incidentDate, nature, resolution, notes:notes||null })
+      }
+      onClose()
+    } catch(ex:any){ setErr(ex.message??'Failed to save') }
+  }
 
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 3 }}>
-            Student ★
-          </label>
-          {isEdit ? (
-            <div className="sui-input" style={{ color: 'var(--txt2)', cursor: 'default' }}>
-              {initial?.studentName ?? initial?.studentId}
+  const selectedNatureMeta = NATURE_META[nature]
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.52)', backdropFilter:'blur(5px)', WebkitBackdropFilter:'blur(5px)', display:'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent:'center', zIndex:300, padding: isMobile ? 0 : 20 }}
+      onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
+
+      <form onSubmit={e=>{void submit(e)}} style={{ width:'100%', maxWidth:540, maxHeight: isMobile ? '92dvh' : '88vh', overflowY:'auto', background:'var(--surface)', padding:'28px 24px 32px', borderRadius: isMobile ? '24px 24px 0 0' : 20, boxShadow: isMobile ? '0 -8px 48px rgba(0,0,0,.2)' : '0 20px 60px rgba(0,0,0,.2)', display:'flex', flexDirection:'column', gap:20 }}>
+
+        {/* Handle bar — mobile only */}
+        {isMobile && <div style={{ width:36, height:4, borderRadius:2, background:'var(--border)', margin:'-8px auto 0', flexShrink:0 }}/>}
+
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ width:44, height:44, borderRadius:14, background:`linear-gradient(145deg,${selectedNatureMeta.color},${selectedNatureMeta.color}99)`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 16px ${selectedNatureMeta.color}36`, flexShrink:0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d={selectedNatureMeta.icon}/></svg>
+          </div>
+          <div>
+            <div style={{ fontWeight:900, fontSize:17, color:'var(--txt)', fontFamily:'var(--font2)', letterSpacing:-.3 }}>
+              {isEdit ? 'Edit Record' : 'Add Discipline Record'}
             </div>
+            <div style={{ fontSize:12, color:'var(--txt3)', marginTop:1 }}>
+              {isEdit ? `Editing ${initial?.studentName ?? 'record'}` : 'Fill in the details below'}
+            </div>
+          </div>
+          <button type="button" onClick={onClose} style={{ marginLeft:'auto', width:32, height:32, borderRadius:10, border:'none', background:'var(--surface2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--txt3)', flexShrink:0 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        {/* Student */}
+        <div>
+          <Lbl required>Student</Lbl>
+          {isEdit ? (
+            <div className="sui-input" style={{ color:'var(--txt2)', cursor:'default', opacity:.8 }}>{initial?.studentName??initial?.studentId}</div>
           ) : (
-            <StudentTypeahead
-              value={selectedStudent}
-              onChange={s => {
-                setSelectedStudent(s)
-                if (s?.classId) setClassId(s.classId)
-              }}
-            />
+            <StudentTypeahead value={student} onChange={s=>{ setStudent(s); if(s?.classId) setClassId(s.classId) }}/>
           )}
         </div>
 
-        {!isEdit && (
+        {/* Nature selector — pill buttons */}
+        <div>
+          <Lbl required>Nature of Incident</Lbl>
+          <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
+            {NATURES.map(n=>{
+              const m = NATURE_META[n]
+              const active = nature===n
+              return (
+                <button key={n} type="button" onClick={()=>setNature(n)} style={{
+                  padding:'6px 13px', borderRadius:99, border:`.5px solid ${active?m.color:'var(--border)'}`,
+                  background: active ? m.bg : 'var(--surface2)',
+                  color: active ? m.color : 'var(--txt3)',
+                  fontSize:12.5, fontWeight: active ? 700 : 600,
+                  cursor:'pointer', transition:'all .14s',
+                  WebkitTapHighlightColor:'transparent',
+                }}>
+                  {m.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Date + class */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 3 }}>
-              Class (auto-filled from student)
-            </label>
-            <select className="sui-input" value={classId} onChange={e => setClassId(e.target.value)} style={{ width: '100%' }}>
-              <option value="">Select class…</option>
-              {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <Lbl required>Incident Date</Lbl>
+            <input type="date" className="sui-input" value={incidentDate} onChange={e=>setIncidentDate(e.target.value)} style={{ width:'100%' }}/>
+          </div>
+          {!isEdit && (
+            <div>
+              <Lbl>Class</Lbl>
+              <select className="sui-input" value={classId} onChange={e=>setClassId(e.target.value)} style={{ width:'100%' }}>
+                <option value="">Auto from student</option>
+                {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Resolution */}
+        <div>
+          <Lbl required>Resolution / Action Taken</Lbl>
+          <textarea className="sui-input" value={resolution} onChange={e=>setResolution(e.target.value)} rows={3} placeholder="E.g. Parent notified, detention issued, counselling referral…" style={{ width:'100%', resize:'vertical' }}/>
+        </div>
+
+        {/* Notes */}
+        <div>
+          <Lbl>Additional Notes</Lbl>
+          <textarea className="sui-input" value={notes} onChange={e=>setNotes(e.target.value)} rows={2} placeholder="Optional context or follow-up notes…" style={{ width:'100%', resize:'vertical' }}/>
+        </div>
+
+        {err && (
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', borderRadius:10, background:'rgba(244,63,94,.08)', border:'.5px solid rgba(244,63,94,.22)', color:'var(--danger)', fontSize:12.5, fontWeight:600 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            {err}
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 3 }}>
-              Incident Date ★
-            </label>
-            <input type="date" className="sui-input" value={incidentDate}
-              onChange={e => setIncidentDate(e.target.value)} style={{ width: '100%' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 3 }}>
-              Nature ★
-            </label>
-            <select className="sui-input" value={nature} onChange={e => setNature(e.target.value as DisciplineNature)} style={{ width: '100%' }}>
-              {NATURE_OPTS.map(n => (
-                <option key={n} value={n} style={{ textTransform: 'capitalize' }}>{n.charAt(0).toUpperCase() + n.slice(1)}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 3 }}>
-            Resolution / Action Taken ★
-          </label>
-          <textarea className="sui-input" value={resolution} onChange={e => setResolution(e.target.value)}
-            rows={3} placeholder="E.g. Parent notified, detention issued" style={{ width: '100%', resize: 'vertical' }} />
-        </div>
-
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 3 }}>
-            Notes (optional)
-          </label>
-          <textarea className="sui-input" value={notes} onChange={e => setNotes(e.target.value)}
-            rows={2} style={{ width: '100%', resize: 'vertical' }} />
-        </div>
-
-        {err && <div style={{ color: 'var(--danger)', fontSize: 12 }}>{err}</div>}
-
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button type="button" className="sui-btn-outline" onClick={onClose}>Cancel</button>
-          <button type="submit" disabled={isPending}
-            style={{
-              padding: '8px 20px', background: 'var(--brand)', color: '#fff',
-              border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer',
-            }}>
+        {/* Actions */}
+        <div style={{ display:'flex', gap:10, justifyContent:'flex-end', paddingTop:4 }}>
+          <button type="button" onClick={onClose} style={{ padding:'10px 20px', background:'var(--surface2)', color:'var(--txt2)', border:'.5px solid var(--border)', borderRadius:12, fontWeight:600, fontSize:13.5, cursor:'pointer', transition:'all .14s' }}
+            onMouseEnter={e=>(e.currentTarget.style.background='var(--border)')}
+            onMouseLeave={e=>(e.currentTarget.style.background='var(--surface2)')}>
+            Cancel
+          </button>
+          <button type="submit" disabled={isPending} style={{ padding:'10px 24px', background:isPending?'var(--border)':'linear-gradient(145deg,var(--brand),var(--brand-dark))', color:'#fff', border:'none', borderRadius:12, fontWeight:700, fontSize:13.5, cursor:isPending?'default':'pointer', transition:'all .18s', boxShadow:isPending?'none':'0 4px 14px rgba(13,148,136,.4)' }}>
             {isPending ? 'Saving…' : isEdit ? 'Update Record' : 'Save Record'}
           </button>
         </div>
@@ -258,46 +241,38 @@ function RecordModal({
   )
 }
 
-// ─── DELETE CONFIRM MODAL ─────────────────────────────────────────────────
-function DeleteModal({ record, onClose }: { record: DisciplineRecord; onClose: () => void }) {
+// ─── Delete modal ─────────────────────────────────────────────────────────────────
+function DeleteModal({ record, onClose }: { record:DisciplineRecord; onClose:()=>void }) {
   const deleteMut = useDeleteDisciplineRecord()
+  const isMobile  = useIsMobile()
   const [err, setErr] = useState('')
 
   async function confirm() {
-    try {
-      await deleteMut.mutateAsync(record.id)
-      onClose()
-    } catch (ex: any) {
-      setErr(ex.message ?? 'Failed to delete')
-    }
+    try { await deleteMut.mutateAsync(record.id); onClose() }
+    catch(ex:any){ setErr(ex.message??'Failed to delete') }
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-    }}>
-      <div style={{
-        background: 'var(--surface)', borderRadius: 20, padding: 32,
-        maxWidth: 420, width: '100%', boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
-      }}>
-        <h2 style={{ fontSize: 17, fontWeight: 800, color: 'var(--txt)', marginTop: 0, marginBottom: 12 }}>
-          Delete Record?
-        </h2>
-        <p style={{ fontSize: 13, color: 'var(--txt2)', marginBottom: 20 }}>
-          This will permanently delete the discipline record for{' '}
-          <strong>{record.studentName ?? record.studentId}</strong> on {new Date(record.incidentDate).toLocaleDateString('en-GB')}.
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.52)', backdropFilter:'blur(5px)', WebkitBackdropFilter:'blur(5px)', display:'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent:'center', zIndex:300, padding: isMobile ? 0 : 20 }}
+      onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
+      <div style={{ width:'100%', maxWidth:440, background:'var(--surface)', padding:'28px 24px 32px', borderRadius: isMobile ? '24px 24px 0 0' : 20, boxShadow: isMobile ? '0 -8px 48px rgba(0,0,0,.2)' : '0 20px 60px rgba(0,0,0,.2)' }}>
+        {isMobile && <div style={{ width:36, height:4, borderRadius:2, background:'var(--border)', margin:'-8px auto 20px' }}/>}
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
+          <div style={{ width:44, height:44, borderRadius:14, background:'rgba(244,63,94,.1)', border:'.5px solid rgba(244,63,94,.25)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+          </div>
+          <div>
+            <div style={{ fontWeight:900, fontSize:16, color:'var(--txt)', fontFamily:'var(--font2)' }}>Delete Record?</div>
+            <div style={{ fontSize:12, color:'var(--txt3)', marginTop:1 }}>This action cannot be undone</div>
+          </div>
+        </div>
+        <p style={{ fontSize:13.5, color:'var(--txt2)', lineHeight:1.6, marginBottom:20 }}>
+          Permanently delete the discipline record for <strong style={{ color:'var(--txt)' }}>{record.studentName??record.studentId}</strong> on {new Date(record.incidentDate).toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'})}.
         </p>
-        {err && <div style={{ color: 'var(--danger)', fontSize: 12, marginBottom: 12 }}>{err}</div>}
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button className="sui-btn-outline" onClick={onClose}>Cancel</button>
-          <button
-            disabled={deleteMut.isPending}
-            onClick={() => { void confirm() }}
-            style={{
-              padding: '8px 20px', background: 'var(--danger)', color: '#fff',
-              border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer',
-            }}>
+        {err && <div style={{ color:'var(--danger)', fontSize:12, marginBottom:12 }}>{err}</div>}
+        <div style={{ display:'flex', gap:10 }}>
+          <button onClick={onClose} style={{ flex:1, padding:'11px 0', background:'var(--surface2)', border:'.5px solid var(--border)', borderRadius:12, fontWeight:600, fontSize:13.5, cursor:'pointer', color:'var(--txt2)' }}>Cancel</button>
+          <button disabled={deleteMut.isPending} onClick={()=>{void confirm()}} style={{ flex:1, padding:'11px 0', background:'linear-gradient(145deg,#f43f5e,#e11d48)', color:'#fff', border:'none', borderRadius:12, fontWeight:700, fontSize:13.5, cursor:'pointer', boxShadow:'0 4px 14px rgba(244,63,94,.4)' }}>
             {deleteMut.isPending ? 'Deleting…' : 'Delete'}
           </button>
         </div>
@@ -306,206 +281,214 @@ function DeleteModal({ record, onClose }: { record: DisciplineRecord; onClose: (
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ─── Mobile discipline card ───────────────────────────────────────────────────────
+function DisciplineCard({ record, onEdit, onDelete }: { record:DisciplineRecord; onEdit:()=>void; onDelete:()=>void }) {
+  const m = NATURE_META[record.nature]
+  return (
+    <div style={{ background:'var(--surface)', borderRadius:16, border:'.5px solid var(--border)', overflow:'hidden', boxShadow:'0 1px 8px rgba(0,0,0,.06)', borderLeft:`3px solid ${m.color}` }}>
+      <div style={{ padding:'13px 15px' }}>
+        <div style={{ display:'flex', alignItems:'flex-start', gap:10, marginBottom:8 }}>
+          <div style={{ width:36, height:36, borderRadius:11, background:m.bg, border:`.5px solid ${m.color}22`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={m.color} strokeWidth="2.2"><path d={m.icon}/></svg>
+          </div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontWeight:700, fontSize:14.5, color:'var(--txt)', letterSpacing:-.2, marginBottom:2 }}>{record.studentName??'—'}</div>
+            <div style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
+              <NatureBadge nature={record.nature}/>
+              <span style={{ fontSize:11.5, color:'var(--txt3)' }}>{new Date(record.incidentDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'})}</span>
+              {record.className && <span style={{ fontSize:11.5, color:'var(--txt3)' }}>· {record.className}</span>}
+            </div>
+          </div>
+        </div>
+        <div style={{ fontSize:13, color:'var(--txt2)', lineHeight:1.5, marginBottom:10, paddingLeft:46 }}>{record.resolution}</div>
+        <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+          <button onClick={onEdit} style={{ padding:'6px 16px', borderRadius:10, border:'.5px solid var(--border)', background:'var(--surface2)', color:'var(--txt2)', fontSize:12.5, fontWeight:600, cursor:'pointer', WebkitTapHighlightColor:'transparent' }}>Edit</button>
+          <button onClick={onDelete} style={{ padding:'6px 16px', borderRadius:10, border:'.5px solid rgba(244,63,94,.3)', background:'rgba(244,63,94,.06)', color:'var(--danger)', fontSize:12.5, fontWeight:600, cursor:'pointer', WebkitTapHighlightColor:'transparent' }}>Delete</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════
 // DISCIPLINE PAGE
-// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════════
 export function DisciplinePage() {
-  const [classFilter, setClassFilter] = useState('')
-  const [search,      setSearch]      = useState('')
-  const [natureFilter, setNature]     = useState<DisciplineNature | ''>('')
-  const [modal,       setModal]       = useState<'add' | 'edit' | 'delete' | null>(null)
-  const [selected,    setSelected]    = useState<DisciplineRecord | null>(null)
+  const isMobile = useIsMobile()
+  const [classFilter,  setClassFilter]  = useState('')
+  const [search,       setSearch]       = useState('')
+  const [natureFilter, setNature]       = useState<DisciplineNature|''>('')
+  const [modal,        setModal]        = useState<'add'|'edit'|'delete'|null>(null)
+  const [selected,     setSelected]     = useState<DisciplineRecord|null>(null)
 
-  const { data: records = [], isLoading } = useDisciplineRecords({ classId: classFilter || undefined })
-  const { data: classes = [] } = useClasses()
+  const { data: records=[], isLoading } = useDisciplineRecords({ classId:classFilter||undefined })
+  const { data: classes=[] } = useClasses()
 
-  const filtered = useMemo(() => {
+  const filtered = useMemo(()=>{
     let r = records
-    if (natureFilter) r = r.filter(x => x.nature === natureFilter)
-    if (search.trim()) {
+    if(natureFilter) r = r.filter(x=>x.nature===natureFilter)
+    if(search.trim()){
       const q = search.toLowerCase()
-      r = r.filter(x =>
-        (x.studentName ?? x.studentId).toLowerCase().includes(q) ||
-        x.resolution.toLowerCase().includes(q)
-      )
+      r = r.filter(x=>(x.studentName??x.studentId).toLowerCase().includes(q)||x.resolution.toLowerCase().includes(q))
     }
     return r
-  }, [records, natureFilter, search])
+  },[records,natureFilter,search])
 
   const parentRef = useRef<HTMLDivElement>(null)
-  const virtualizer = useVirtualizer({
-    count:            filtered.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize:     () => 60,
-    overscan:         5,
-  })
+  const virtualizer = useVirtualizer({ count:filtered.length, getScrollElement:()=>parentRef.current, estimateSize:()=>60, overscan:5 })
 
-  function exportCsv() {
-    const header = 'Date,Nature,Student,Class,Resolution\n'
-    const rows = filtered.map(r =>
-      `"${r.incidentDate}","${r.nature}","${r.studentName ?? r.studentId}","${r.className ?? ''}","${r.resolution}"`
-    ).join('\n')
-    const blob = new Blob([header + rows], { type: 'text/csv' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url; a.download = 'discipline-records.csv'; a.click()
-    URL.revokeObjectURL(url)
+  function openEdit(r:DisciplineRecord){ setSelected(r); setModal('edit') }
+  function openDelete(r:DisciplineRecord){ setSelected(r); setModal('delete') }
+  function closeModal(){ setModal(null); setSelected(null) }
+
+  function exportCsv(){
+    const rows = filtered.map(r=>`"${r.incidentDate}","${r.nature}","${r.studentName??r.studentId}","${r.className??''}","${r.resolution}"`).join('\n')
+    const blob = new Blob(['Date,Nature,Student,Class,Resolution\n'+rows],{type:'text/csv'})
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='discipline-records.csv'; a.click()
   }
 
-  function openEdit(r: DisciplineRecord) {
-    setSelected(r)
-    setModal('edit')
-  }
-
-  function openDelete(r: DisciplineRecord) {
-    setSelected(r)
-    setModal('delete')
-  }
-
-  function closeModal() {
-    setModal(null)
-    setSelected(null)
-  }
+  // Nature counts for pill filter
+  const natureCounts = useMemo(()=>{
+    const m = new Map<string,number>()
+    records.forEach(r=>m.set(r.nature,(m.get(r.nature)??0)+1))
+    return m
+  },[records])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <PageHeader title="Discipline Records" subtitle={`${filtered.length} record${filtered.length !== 1 ? 's' : ''}`} />
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="sui-btn-outline" onClick={exportCsv} style={{ fontSize: 13 }}>Export CSV</button>
-          <button
-            onClick={() => setModal('add')}
-            style={{
-              padding: '8px 18px', background: 'var(--brand)', color: '#fff',
-              border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer',
-            }}
-          >
-            + Add Record
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+
+      {/* ── Header ── */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12, flexWrap:'wrap' }}>
+        <div>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+            <div style={{ width:38, height:38, borderRadius:12, background:'linear-gradient(145deg,#f59e0b,#d97706)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 14px rgba(245,158,11,.36)' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+            </div>
+            <h1 style={{ fontSize:isMobile?17:20, fontWeight:900, fontFamily:'var(--font2)', color:'var(--txt)', margin:0, letterSpacing:-.3 }}>Discipline Records</h1>
+          </div>
+          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:0 }}>{filtered.length} record{filtered.length!==1?'s':''} · {records.length} total</p>
+        </div>
+        <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+          {!isMobile && <button onClick={exportCsv} style={{ padding:'8px 16px', borderRadius:10, border:'.5px solid var(--border)', background:'var(--surface)', color:'var(--txt2)', fontSize:13, fontWeight:600, cursor:'pointer' }}>Export CSV</button>}
+          <button onClick={()=>setModal('add')} style={{ padding:'9px 18px', background:'linear-gradient(145deg,var(--brand),var(--brand-dark))', color:'#fff', border:'none', borderRadius:11, fontWeight:700, fontSize:13.5, cursor:'pointer', display:'flex', alignItems:'center', gap:6, boxShadow:'0 4px 14px rgba(13,148,136,.4)', WebkitTapHighlightColor:'transparent' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Record
           </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <input
-          placeholder="Search student or resolution…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="sui-input"
-          style={{ width: 260 }}
-        />
-        <select className="sui-input" style={{ width: 180 }} value={classFilter}
-          onChange={e => setClassFilter(e.target.value)}>
-          <option value="">All Classes</option>
-          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select className="sui-input" style={{ width: 160 }} value={natureFilter}
-          onChange={e => setNature(e.target.value as DisciplineNature | '')}>
-          <option value="">All Types</option>
-          {NATURE_OPTS.map(n => (
-            <option key={n} value={n}>{n.charAt(0).toUpperCase() + n.slice(1)}</option>
-          ))}
-        </select>
+      {/* ── Filters ── */}
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        <div style={{ position:'relative' }}>
+          <svg style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', opacity:.4 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt)" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input placeholder="Search student or resolution…" value={search} onChange={e=>setSearch(e.target.value)} className="sui-input" style={{ paddingLeft:36, width:'100%' }}/>
+        </div>
+        {/* Nature pill filters */}
+        <div style={{ display:'flex', gap:7, overflowX:'auto', scrollbarWidth:'none', paddingBottom:2 }}>
+          {(['',  ...NATURES] as const).map(n=>{
+            const active = natureFilter===n
+            const m      = n ? NATURE_META[n] : null
+            const count  = n ? (natureCounts.get(n)??0) : records.length
+            return (
+              <button key={n||'all'} onClick={()=>setNature(n as DisciplineNature|'')} style={{
+                flexShrink:0, padding:'6px 13px', borderRadius:99,
+                border:`.5px solid ${active?(m?.color??'var(--brand)'):'var(--border)'}`,
+                background: active ? (m?m.bg:'rgba(13,148,136,.1)') : 'var(--surface)',
+                color: active ? (m?.color??'var(--brand)') : 'var(--txt3)',
+                fontSize:12.5, fontWeight: active?700:600, cursor:'pointer',
+                transition:'all .14s', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:5,
+                WebkitTapHighlightColor:'transparent',
+              }}>
+                {n ? m!.label : 'All Types'}
+                {count>0 && <span style={{ fontSize:10, fontWeight:800, opacity:.7 }}>{count}</span>}
+              </button>
+            )
+          })}
+          {!isMobile && (
+            <select className="sui-input" value={classFilter} onChange={e=>setClassFilter(e.target.value)} style={{ marginLeft:'auto', width:180, flexShrink:0 }}>
+              <option value="">All Classes</option>
+              {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
+        </div>
       </div>
 
-      {isLoading && <div style={{ color: 'var(--txt3)' }}>Loading records…</div>}
-
-      {!isLoading && filtered.length === 0 && (
-        <div style={{
-          padding: 40, textAlign: 'center', color: 'var(--txt3)',
-          background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)',
-        }}>
-          No discipline records found.
+      {/* ── Loading ── */}
+      {isLoading && (
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {[1,2,3,4].map(i=><div key={i} className="shule-skeleton" style={{ height:72, borderRadius:16 }}/>)}
         </div>
       )}
 
-      {!isLoading && filtered.length > 0 && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      {/* ── Empty ── */}
+      {!isLoading && filtered.length===0 && (
+        <div style={{ padding:'48px 24px', textAlign:'center', background:'var(--surface)', borderRadius:18, border:'.5px solid var(--border)' }}>
+          <div style={{ width:56, height:56, borderRadius:16, background:'var(--surface2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          </div>
+          <div style={{ fontSize:15, fontWeight:800, color:'var(--txt)', fontFamily:'var(--font2)', marginBottom:6 }}>
+            {search||natureFilter||classFilter ? 'No matching records' : 'No discipline records yet'}
+          </div>
+          <div style={{ fontSize:13, color:'var(--txt3)', marginBottom:18 }}>
+            {search||natureFilter||classFilter ? 'Try adjusting your filters.' : 'Records will appear here once incidents are logged.'}
+          </div>
+          {!search && !natureFilter && !classFilter && (
+            <button onClick={()=>setModal('add')} style={{ padding:'9px 22px', background:'linear-gradient(145deg,var(--brand),var(--brand-dark))', color:'#fff', border:'none', borderRadius:11, fontWeight:700, fontSize:13.5, cursor:'pointer', boxShadow:'0 4px 14px rgba(13,148,136,.4)' }}>
+              Add First Record
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Mobile: cards ── */}
+      {!isLoading && filtered.length>0 && isMobile && (
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {filtered.map(r=>(
+            <DisciplineCard key={r.id} record={r} onEdit={()=>openEdit(r)} onDelete={()=>openDelete(r)}/>
+          ))}
+        </div>
+      )}
+
+      {/* ── Desktop: virtualised table ── */}
+      {!isLoading && filtered.length>0 && !isMobile && (
+        <div style={{ background:'var(--surface)', border:'.5px solid var(--border)', borderRadius:16, overflow:'hidden', boxShadow:'0 2px 12px rgba(0,0,0,.06)' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
             <thead>
               <tr>
-                {['Date', 'Nature', 'Student', 'Class', 'Resolution', 'Actions'].map(h => (
-                  <th key={h} style={{
-                    padding: '10px 14px', background: 'var(--surface2)',
-                    fontWeight: 700, fontSize: 11, color: 'var(--txt3)',
-                    textAlign: 'left', textTransform: 'uppercase',
-                  }}>{h}</th>
+                {['Date','Nature','Student','Class','Resolution',''].map(h=>(
+                  <th key={h} style={{ padding:'10px 14px', background:'var(--surface2)', fontWeight:800, fontSize:10, color:'var(--txt3)', textAlign:'left', textTransform:'uppercase', letterSpacing:.8, borderBottom:'.5px solid var(--border)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
           </table>
-          <div ref={parentRef} style={{ overflowY: 'auto', maxHeight: 520 }}>
-            <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-              {virtualizer.getVirtualItems().map(vRow => {
+          <div ref={parentRef} style={{ overflowY:'auto', maxHeight:520 }}>
+            <div style={{ height:virtualizer.getTotalSize(), position:'relative' }}>
+              {virtualizer.getVirtualItems().map(vRow=>{
                 const r: DisciplineRecord = filtered[vRow.index]
                 return (
-                  <div
-                    key={r.id}
-                    style={{
-                      position: 'absolute', top: 0, left: 0, width: '100%',
-                      transform: `translateY(${vRow.start}px)`,
-                      height: 60, display: 'flex', alignItems: 'center',
-                      borderBottom: '1px solid var(--border)', cursor: 'pointer',
-                    }}
-                    onClick={() => openEdit(r)}
-                    className="sui-tr"
-                  >
-                    <div style={{ flex: '0 0 100px', padding: '0 14px', fontSize: 12, color: 'var(--txt3)' }}>
-                      {new Date(r.incidentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
-                    </div>
-                    <div style={{ flex: '0 0 110px', padding: '0 14px' }}>
-                      <NatureBadge nature={r.nature} />
-                    </div>
-                    <div style={{ flex: 1.5, padding: '0 14px', fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
-                      {r.studentName ?? r.studentId.slice(0, 8) + '…'}
-                    </div>
-                    <div style={{ flex: 1, padding: '0 14px', fontSize: 12, color: 'var(--txt2)' }}>
-                      {r.className ?? '—'}
-                    </div>
-                    <div style={{
-                      flex: 2, padding: '0 14px', fontSize: 12, color: 'var(--txt2)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      {r.resolution}
-                    </div>
-                    <div style={{ flex: '0 0 80px', padding: '0 14px', display: 'flex', gap: 6 }}>
-                      <button
-                        onClick={e => { e.stopPropagation(); openEdit(r) }}
-                        title="Edit"
-                        style={{
-                          padding: '4px 8px', fontSize: 11, border: '1px solid var(--border)',
-                          borderRadius: 6, background: 'var(--surface2)', cursor: 'pointer',
-                          color: 'var(--txt2)',
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); openDelete(r) }}
-                        title="Delete"
-                        style={{
-                          padding: '4px 8px', fontSize: 11, border: '1px solid var(--danger)',
-                          borderRadius: 6, background: 'var(--danger-bg)', cursor: 'pointer',
-                          color: 'var(--danger)',
-                        }}
-                      >
-                        Del
-                      </button>
+                  <div key={r.id} style={{ position:'absolute', top:0, left:0, width:'100%', transform:`translateY(${vRow.start}px)`, height:60, display:'flex', alignItems:'center', borderBottom:'.5px solid var(--border)', cursor:'pointer' }}
+                    onClick={()=>openEdit(r)} className="sui-tr">
+                    <div style={{ flex:'0 0 100px', padding:'0 14px', fontSize:12, color:'var(--txt3)' }}>{new Date(r.incidentDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'})}</div>
+                    <div style={{ flex:'0 0 120px', padding:'0 14px' }}><NatureBadge nature={r.nature}/></div>
+                    <div style={{ flex:1.5, padding:'0 14px', fontSize:13, fontWeight:700, color:'var(--txt)' }}>{r.studentName??r.studentId.slice(0,8)+'…'}</div>
+                    <div style={{ flex:1, padding:'0 14px', fontSize:12, color:'var(--txt2)' }}>{r.className??'—'}</div>
+                    <div style={{ flex:2, padding:'0 14px', fontSize:12, color:'var(--txt2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.resolution}</div>
+                    <div style={{ flex:'0 0 90px', padding:'0 14px', display:'flex', gap:6 }}>
+                      <button onClick={e=>{e.stopPropagation();openEdit(r)}} style={{ padding:'4px 10px', fontSize:11.5, border:'.5px solid var(--border)', borderRadius:8, background:'var(--surface2)', cursor:'pointer', color:'var(--txt2)', fontWeight:600 }}>Edit</button>
+                      <button onClick={e=>{e.stopPropagation();openDelete(r)}} style={{ padding:'4px 10px', fontSize:11.5, border:'.5px solid rgba(244,63,94,.3)', borderRadius:8, background:'rgba(244,63,94,.06)', cursor:'pointer', color:'var(--danger)', fontWeight:600 }}>Del</button>
                     </div>
                   </div>
                 )
               })}
             </div>
           </div>
-          <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--txt3)' }}>
-            {filtered.length} record{filtered.length !== 1 ? 's' : ''}
-          </div>
+          <div style={{ padding:'8px 14px', borderTop:'.5px solid var(--border)', fontSize:11, color:'var(--txt3)' }}>{filtered.length} record{filtered.length!==1?'s':''}</div>
         </div>
       )}
 
-      {modal === 'add'    && <RecordModal initial={null}     onClose={closeModal} />}
-      {modal === 'edit'   && <RecordModal initial={selected} onClose={closeModal} />}
-      {modal === 'delete' && selected && <DeleteModal record={selected} onClose={closeModal} />}
+      {modal==='add'    && <RecordModal initial={null}     onClose={closeModal}/>}
+      {modal==='edit'   && <RecordModal initial={selected} onClose={closeModal}/>}
+      {modal==='delete' && selected && <DeleteModal record={selected} onClose={closeModal}/>}
     </div>
   )
 }

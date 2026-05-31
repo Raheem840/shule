@@ -99,6 +99,7 @@ function TopClassesChart() {
 
   if (isLowBandwidth) {
     return (
+      <div className="mob-cards">
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
         <thead>
           <tr>
@@ -117,6 +118,7 @@ function TopClassesChart() {
           ))}
         </tbody>
       </table>
+      </div>
     )
   }
 

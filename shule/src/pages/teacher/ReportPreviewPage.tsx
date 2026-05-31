@@ -231,6 +231,7 @@ function ScoresTableForStudent({ studentId, journalIds }: { studentId: string; j
   }
 
   return (
+    <div className="table-scroll">
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
       <thead>
         <tr style={{ background: 'var(--surface2)' }}>
@@ -260,5 +261,6 @@ function ScoresTableForStudent({ studentId, journalIds }: { studentId: string; j
         })}
       </tbody>
     </table>
+    </div>
   )
 }

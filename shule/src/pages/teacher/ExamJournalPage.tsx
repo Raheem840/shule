@@ -375,7 +375,7 @@ export function ExamJournalPage() {
           <div style={{ fontSize: 13, marginTop: 4 }}>Create your first assessment entry to get started.</div>
         </div>
       ) : (
-        <div style={{
+        <div className="mob-cards" style={{
           background: 'var(--surface)',
           borderRadius: 14,
           border: '1px solid var(--border)',

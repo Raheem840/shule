@@ -10,9 +10,9 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { Avatar } from '../../components/shared/Avatar'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import type { Staff, UserRole } from '../../types/app'
 
-// ── Role display labels ───────────────────────────────────────
 const ROLE_LABELS: Record<UserRole, string> = {
   principal:     'Principal',
   deputy:        'Deputy Head',
@@ -46,24 +46,28 @@ const ROLE_FILTER_OPTIONS = [
   { value: 'teacher',       label: 'Teacher' },
 ]
 
-function StaffAvatar({ staff }: { staff: Staff }) {
-  return (
-    <Avatar
-      photoPath={staff.photoUrl}
-      bucket="staff-photos"
-      name={`${staff.firstName} ${staff.lastName}`}
-      size="md"
-    />
-  )
+// ── Role palette for avatar gradients ─────────────────────────
+const ROLE_GRAD: Record<string, [string, string]> = {
+  principal:     ['#f59e0b', '#d97706'],
+  deputy:        ['#0d9488', '#0f766e'],
+  dos:           ['#8b5cf6', '#7c3aed'],
+  secretary:     ['#0ea5e9', '#0284c7'],
+  bursar:        ['#f43f5e', '#e11d48'],
+  class_teacher: ['#10b981', '#059669'],
+  teacher:       ['#6366f1', '#4f46e5'],
 }
 
-// ── Staff table row ───────────────────────────────────────────
+function roleGrad(role: string): [string, string] {
+  return ROLE_GRAD[role] ?? ['#94a3b8', '#64748b']
+}
+
+// ── Desktop table row ──────────────────────────────────────────
 function StaffRow({ staff, deptName }: { staff: Staff; deptName: string | null }) {
   return (
     <tr className="sui-tr">
       <td style={{ padding: '0.75rem 1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <StaffAvatar staff={staff} />
+          <Avatar photoPath={staff.photoUrl} bucket="staff-photos" name={`${staff.firstName} ${staff.lastName}`} size="md" />
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
               {staff.firstName} {staff.lastName}
@@ -75,9 +79,7 @@ function StaffRow({ staff, deptName }: { staff: Staff; deptName: string | null }
         </div>
       </td>
       <td style={{ padding: '0.75rem 1rem' }}>
-        <Badge variant={ROLE_VARIANT[staff.role] ?? 'muted'}>
-          {ROLE_LABELS[staff.role]}
-        </Badge>
+        <Badge variant={ROLE_VARIANT[staff.role] ?? 'muted'}>{ROLE_LABELS[staff.role]}</Badge>
       </td>
       <td style={{ padding: '0.75rem 1rem' }}>
         <span style={{ fontSize: 12, color: 'var(--txt2)' }}>
@@ -103,32 +105,114 @@ function StaffRow({ staff, deptName }: { staff: Staff; deptName: string | null }
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────
+// ── Mobile staff card ───────────────────────────────────────────
+// Inspired by iOS Contacts + Telegram People list:
+// • Full-width list row with large avatar, name, role, dept + status
+// • 72px minimum tap target (Apple HIG)
+// • Subtle left color stripe for role identity
+// • Active state shows pressed feel
+function StaffCard({ staff, deptName }: { staff: Staff; deptName: string | null }) {
+  const [c1, c2] = roleGrad(staff.role)
+  const initials = `${staff.firstName[0] ?? ''}${staff.lastName[0] ?? ''}`.toUpperCase()
+  const roleLabel = ROLE_LABELS[staff.role] ?? staff.role
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 14,
+      padding: '12px 16px', minHeight: 72,
+      background: 'var(--surface)',
+      borderBottom: '0.5px solid rgba(0,0,0,0.05)',
+      borderLeft: `3px solid ${c1}`,
+      cursor: 'default',
+      WebkitTapHighlightColor: 'transparent',
+      transition: 'background 0.1s',
+    }}
+      onTouchStart={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--surface2)' }}
+      onTouchEnd={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--surface)' }}
+    >
+      {/* Avatar */}
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        <div style={{
+          width: 48, height: 48, borderRadius: '50%', overflow: 'hidden',
+          background: `linear-gradient(145deg, ${c1}, ${c2})`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 3px 12px ${c1}38`,
+        }}>
+          <Avatar photoPath={staff.photoUrl} bucket="staff-photos" name={`${staff.firstName} ${staff.lastName}`} size="md" />
+        </div>
+        {/* Status dot */}
+        <div style={{
+          position: 'absolute', bottom: 1, right: 1,
+          width: 12, height: 12, borderRadius: '50%',
+          background: staff.isActive ? '#22c55e' : '#94a3b8',
+          border: '2px solid var(--surface)',
+        }} />
+      </div>
+
+      {/* Text */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
+          <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--txt)', letterSpacing: -0.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {staff.firstName} {staff.lastName}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+          <span style={{
+            fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5,
+            color: c1, background: `${c1}14`, padding: '2px 7px', borderRadius: 99,
+          }}>
+            {roleLabel}
+          </span>
+          {deptName && (
+            <span style={{ fontSize: 11.5, color: 'var(--txt3)' }}>{deptName}</span>
+          )}
+        </div>
+        {staff.phone && (
+          <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 3, fontFamily: 'var(--font3)' }}>
+            {staff.phone}
+          </div>
+        )}
+      </div>
+
+      {/* Staff number + chevron */}
+      <div style={{ flexShrink: 0, textAlign: 'right' }}>
+        <div style={{ fontSize: 10.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginBottom: 6 }}>
+          {staff.staffNumber}
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" strokeLinecap="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+// ── Page ────────────────────────────────────────────────────────
 export function SecretaryStaffPage() {
+  const isMobile = useIsMobile()
   const [wizardOpen, setWizardOpen] = useState(false)
   const [search,     setSearch]     = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [deptFilter, setDeptFilter] = useState('')
 
   const filters: StaffFilters = {
-    search:     search.trim() || undefined,
-    role:       (roleFilter as UserRole) || undefined,
+    search:       search.trim() || undefined,
+    role:         (roleFilter as UserRole) || undefined,
     departmentId: deptFilter || undefined,
-    isActive:   true,
+    isActive:     true,
   }
 
   const { data: staffList = [], isLoading } = useStaff(filters)
   const { data: depts     = [] }            = useDepartments()
 
   const deptMap = new Map(depts.map(d => [d.id, d.name]))
-
   const deptOptions = [
     { value: '', label: 'All Departments' },
     ...depts.filter(d => !d.archived).map(d => ({ value: d.id, label: d.name })),
   ]
-
   const totalActive = staffList.length
 
+  // Desktop virtualizer
   const parentRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
     count: staffList.length,
@@ -137,91 +221,137 @@ export function SecretaryStaffPage() {
     overscan: 10,
   })
 
+  const emptyState = (
+    <div style={{
+      padding: '3.5rem', textAlign: 'center',
+      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)',
+    }}>
+      <div style={{
+        width: 56, height: 56, borderRadius: 16, margin: '0 auto 1rem',
+        background: 'var(--surface2)', border: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+      <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, color: 'var(--txt)', marginBottom: 6 }}>
+        {search || roleFilter || deptFilter ? 'No staff match your filters' : 'No staff registered yet'}
+      </div>
+      {!search && !roleFilter && !deptFilter && (
+        <>
+          <div style={{ fontSize: 13, color: 'var(--txt3)', marginBottom: '1.25rem' }}>Register the first staff member to get started.</div>
+          <Button variant="primary" onClick={() => setWizardOpen(true)}>Register First Staff Member</Button>
+        </>
+      )}
+    </div>
+  )
+
   return (
     <>
       <PageHeader
         title="Staff"
         subtitle={`${totalActive} active staff member${totalActive !== 1 ? 's' : ''}`}
         actions={
-          <Button
-            variant="primary"
-            onClick={() => setWizardOpen(true)}
-            leftIcon={
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M12 5v14M5 12h14"/>
-              </svg>
-            }
-          >
-            Register Staff Member
-          </Button>
+          !isMobile ? (
+            <Button variant="primary" onClick={() => setWizardOpen(true)}
+              leftIcon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>}
+            >
+              Register Staff Member
+            </Button>
+          ) : undefined
         }
       />
 
-      {/* ── Filters ───────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.75rem', marginBottom: '1rem', alignItems: 'end' }}>
-        <Input
-          placeholder="Search by name or staff number…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          leftIcon={
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-          }
-        />
-        <Select
-          placeholder=""
-          options={ROLE_FILTER_OPTIONS}
-          value={roleFilter}
-          onChange={e => setRoleFilter(e.target.value)}
-        />
-        <Select
-          placeholder=""
-          options={deptOptions}
-          value={deptFilter}
-          onChange={e => setDeptFilter(e.target.value)}
-        />
-      </div>
+      {/* ── Filters ── */}
+      {isMobile ? (
+        /* Mobile: stacked search + single row filter pills */
+        <div style={{ marginBottom: '0.875rem', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Input
+            placeholder="Search staff…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            leftIcon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>}
+          />
+          <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 2, scrollbarWidth: 'none' }}>
+            {[
+              { value: '', label: 'All Roles' },
+              { value: 'teacher', label: 'Teachers' },
+              { value: 'class_teacher', label: 'Class Teachers' },
+              { value: 'dos', label: 'DoS' },
+              { value: 'bursar', label: 'Bursar' },
+              { value: 'secretary', label: 'Secretary' },
+            ].map(opt => {
+              const active = roleFilter === opt.value
+              const [c1] = roleGrad(opt.value || 'teacher')
+              return (
+                <button key={opt.value} onClick={() => setRoleFilter(opt.value)} style={{
+                  flexShrink: 0, padding: '6px 13px', borderRadius: 99, border: 'none',
+                  fontSize: 12.5, fontWeight: active ? 700 : 600,
+                  background: active ? `${c1}18` : 'var(--surface)',
+                  color: active ? c1 : 'var(--txt3)',
+                  border: `1px solid ${active ? `${c1}30` : 'var(--border)'}`,
+                  cursor: 'pointer', transition: 'all 0.14s',
+                  WebkitTapHighlightColor: 'transparent',
+                } as React.CSSProperties}>
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.75rem', marginBottom: '1rem', alignItems: 'end' }}>
+          <Input
+            placeholder="Search by name or staff number…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            leftIcon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>}
+          />
+          <Select placeholder="" options={ROLE_FILTER_OPTIONS} value={roleFilter} onChange={e => setRoleFilter(e.target.value)} />
+          <Select placeholder="" options={deptOptions}          value={deptFilter} onChange={e => setDeptFilter(e.target.value)} />
+        </div>
+      )}
 
-      {/* ── Table ─────────────────────────────────────────── */}
+      {/* ── Content ── */}
       {isLoading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
           <LoadingSpinner />
         </div>
       ) : staffList.length === 0 ? (
+        emptyState
+      ) : isMobile ? (
+        /* ── Mobile: native contact-list style ── */
         <div style={{
-          padding: '4rem', textAlign: 'center',
-          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)',
+          background: 'var(--surface)',
+          border: '0.5px solid var(--border)',
+          borderRadius: 16,
+          overflow: 'hidden',
+          boxShadow: '0 1px 12px rgba(0,0,0,0.06)',
         }}>
+          {/* Section header */}
           <div style={{
-            width: 56, height: 56, borderRadius: 14,
-            background: 'var(--surface2)', border: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem',
+            padding: '8px 16px',
+            background: 'var(--surface2)',
+            borderBottom: '0.5px solid var(--border)',
+            fontSize: 10, fontWeight: 800, color: 'var(--txt3)',
+            textTransform: 'uppercase', letterSpacing: 1,
           }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
-            </svg>
+            {totalActive} Staff Member{totalActive !== 1 ? 's' : ''}
           </div>
-          <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, color: 'var(--txt)', marginBottom: 6 }}>
-            {search || roleFilter || deptFilter ? 'No staff match your filters' : 'No staff registered yet'}
-          </div>
-          {!search && !roleFilter && !deptFilter && (
-            <>
-              <div style={{ fontSize: 13, color: 'var(--txt3)', marginBottom: '1.25rem' }}>
-                Register the first staff member to get started.
-              </div>
-              <Button variant="primary" onClick={() => setWizardOpen(true)}>
-                Register First Staff Member
-              </Button>
-            </>
-          )}
+
+          {/* Card list */}
+          {staffList.map(staff => (
+            <StaffCard
+              key={staff.id}
+              staff={staff}
+              deptName={staff.departmentId ? (deptMap.get(staff.departmentId) ?? null) : null}
+            />
+          ))}
         </div>
       ) : (
-        <div style={{
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--r-lg)', overflow: 'hidden',
-        }}>
+        /* ── Desktop: virtualised table ── */
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
@@ -263,11 +393,32 @@ export function SecretaryStaffPage() {
         </div>
       )}
 
-      {/* ── Registration wizard ───────────────────────────── */}
-      <StaffRegistrationWizard
-        open={wizardOpen}
-        onClose={() => setWizardOpen(false)}
-      />
+      {/* Mobile FAB — register new staff */}
+      {isMobile && !wizardOpen && (
+        <button
+          onClick={() => setWizardOpen(true)}
+          style={{
+            position: 'fixed', bottom: 'calc(80px + env(safe-area-inset-bottom))', right: 20,
+            width: 52, height: 52, borderRadius: '50%', border: 'none',
+            background: 'linear-gradient(145deg, var(--brand), var(--brand-dark))',
+            color: '#fff', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 20px rgba(13,148,136,0.5)',
+            zIndex: 30,
+            transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.08)')}
+          onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
+          aria-label="Register staff member"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+        </button>
+      )}
+
+      <StaffRegistrationWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
     </>
   )
 }

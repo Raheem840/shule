@@ -742,7 +742,7 @@ html, body, #root {
 /* Animations */
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 @keyframes fillBar {
   from { width: 0; }
@@ -765,7 +765,7 @@ html, body, #root {
 /* ── fadeUp — used by Modal, Toast, animated cards ── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0);    }
+  to   { opacity: 1; transform: none; }
 }
 .sui-fade-up { animation: fadeUp 0.18s ease both; }
 
@@ -1461,7 +1461,7 @@ html, body, #root {
 }
 @keyframes pageEnter {
   from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0);   }
+  to   { opacity: 1; transform: none; }
 }
 
 /* ── Glass card — light + dark ──────────────────────── */
@@ -1581,7 +1581,7 @@ html, body, #root {
 
 /* ── Page enter transition ──────────────────────────── */
 .sui-page-enter {
-  animation: pageEnter 0.35s cubic-bezier(0.16,1,0.3,1) both;
+  animation: pageEnter 0.35s cubic-bezier(0.16,1,0.3,1) forwards;
 }
 
 /* ── Standard table header ──────────────────────────── */
@@ -1711,13 +1711,15 @@ html, body, #root {
   padding-right: 12px;
   align-items: center;
   gap: 4px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 0.5px solid rgba(0,0,0,0.1);
   position: sticky;
   top: 0;
   z-index: 35;
   flex-shrink: 0;
-  box-shadow: 0 1px 0 var(--border), 0 2px 16px rgba(0,0,0,0.04);
+  box-shadow: 0 0.5px 0 rgba(0,0,0,0.1);
   transition: background 0.25s, border-color 0.25s;
 }
 .ar[data-theme="dark"] .mob-topbar {
@@ -1811,8 +1813,8 @@ html, body, #root {
   position: relative;
 }
 .mob-tab.active .mob-tab-icon-wrap {
-  background: rgba(13,148,136,0.10);
-  transform: scale(1.06) translateY(-1px);
+  background: rgba(13,148,136,0.12);
+  transform: scale(1.08) translateY(-2px);
 }
 .ar[data-theme="dark"] .mob-tab.active .mob-tab-icon-wrap {
   background: rgba(13,217,196,0.12);
@@ -1828,6 +1830,10 @@ html, body, #root {
 .mob-tab-label {
   font-size: 10px; font-weight: 600;
   letter-spacing: 0.1px; line-height: 1;
+  transition: font-weight 0.15s;
+}
+.mob-tab.active .mob-tab-label {
+  font-weight: 700;
 }
 
 /* Unread badge on tab */
@@ -1876,7 +1882,7 @@ html, body, #root {
   /* Hide the desktop topbar */
   .topbar { display: none !important; }
 
-  /* Main area: smooth momentum scroll, clear bottom nav */
+  /* Main area: momentum scroll */
   .shell-main {
     -webkit-overflow-scrolling: touch;
     padding-bottom: 0;
@@ -1914,51 +1920,119 @@ html, body, #root {
     margin: 0 auto 16px;
   }
 
-  /* ── Tables scroll horizontally on mobile ── */
-  .sui-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
-  table { min-width: 540px; }
+  /* ── Tables: two modes ───────────────────────────────────────────────────────
+     .mob-cards  → each <tr> becomes a native-app-style card
+     .table-scroll → premium horizontal scroll (virtualizers, timetables, grids)
+     All other tables fall back to scroll (safe default).
+  ── */
 
-  /* ── Hide the table column headers when rows are virtualised / flex ── */
-  /* (VirtualList rows are divs not table rows — handled per-component) */
+  /* Remove the forced min-width that caused universal squeezing */
+  table { min-width: unset; }
+
+  /* ── Card mode ── */
+  .mob-cards { overflow: visible; }
+  .mob-cards table {
+    display: block !important;
+    width: 100% !important;
+  }
+  .mob-cards thead { display: none !important; }
+  .mob-cards tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 9px !important;
+  }
+  .mob-cards tr {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    border-radius: 16px !important;
+    background: var(--surface) !important;
+    border: 0.5px solid var(--border) !important;
+    overflow: hidden !important;
+    box-shadow: 0 1px 10px rgba(0,0,0,0.06) !important;
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+    transition: box-shadow 0.15s !important;
+  }
+  .mob-cards tr:active { box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important; }
+  /* Primary cell: full-width header row of the card */
+  .mob-cards td:first-child {
+    grid-column: 1 / -1 !important;
+    padding: 12px 14px !important;
+    background: var(--surface2) !important;
+    border-bottom: 0.5px solid var(--border) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: var(--txt) !important;
+    display: flex !important;
+    align-items: center !important;
+    min-height: 52px !important;
+  }
+  /* Secondary cells: 2-column grid */
+  .mob-cards td:not(:first-child) {
+    padding: 9px 12px !important;
+    font-size: 12.5px !important;
+    color: var(--txt2) !important;
+    border-right: 0.5px solid var(--border) !important;
+    border-bottom: 0.5px solid var(--border) !important;
+    display: flex !important;
+    align-items: center !important;
+    min-height: 42px !important;
+    word-break: break-word !important;
+    white-space: normal !important;
+  }
+  .mob-cards td:last-child:not(:first-child) {
+    border-right: none !important;
+  }
+  /* Odd secondary cell count: last spans full if alone in its row */
+  .mob-cards td:nth-child(even):last-child {
+    grid-column: 1 / -1 !important;
+    border-right: none !important;
+  }
+
+  /* ── Scroll mode (virtualizers, timetables, grids) ── */
+  .table-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    /* Fade-out right edge hints at scrollable content */
+    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%) !important;
+    mask-image: linear-gradient(to right, black 85%, transparent 100%) !important;
+    border-radius: 14px;
+    scrollbar-width: none;
+  }
+  .table-scroll::-webkit-scrollbar { display: none; }
+  .table-scroll table {
+    display: table !important;
+    min-width: max-content !important;
+  }
+  .table-scroll thead { display: table-header-group !important; }
+  .table-scroll tbody { display: table-row-group !important; flex-direction: unset !important; gap: 0 !important; }
+  .table-scroll tr { display: table-row !important; grid-template-columns: unset !important; box-shadow: none !important; border-radius: 0 !important; border: none !important; }
+  .table-scroll td, .table-scroll th { display: table-cell !important; min-height: unset !important; padding: 8px 10px !important; font-size: 12px !important; }
+
+  /* ── sui-table-wrap (legacy) → same as table-scroll ── */
+  .sui-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 14px;
+    scrollbar-width: none;
+  }
+  .sui-table-wrap::-webkit-scrollbar { display: none; }
 
   /* ── Stacked form grid ── */
   .mob-stack { grid-template-columns: 1fr !important; }
 
-  /* ── Messaging page fills screen ── */
-  .msg-shell {
-    height: calc(100dvh - 56px - env(safe-area-inset-top) - 64px - env(safe-area-inset-bottom)) !important;
-    border-radius: 0 !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-bottom: none !important;
-    box-shadow: none !important;
-  }
-
-  /* Contacts sidebar + chat panel stack as full-screen layers */
-  .msg-sidebar {
-    position: absolute !important;
-    inset: 0 !important;
-    width: 100% !important;
-    z-index: 2;
-    transition: transform 0.32s cubic-bezier(0.32,0.72,0,1) !important;
-  }
-  .msg-sidebar.mob-chat-open { transform: translateX(-100%) !important; }
-
-  .msg-panel {
-    position: absolute !important;
-    inset: 0 !important;
-    width: 100% !important;
-    z-index: 3;
-    transform: translateX(100%);
-    transition: transform 0.32s cubic-bezier(0.32,0.72,0,1) !important;
-  }
-  .msg-panel.mob-chat-open { transform: translateX(0) !important; }
+  /* Messaging renders via createPortal into .ar — no page manipulation needed */
 
   /* ── Term timeline compact ── */
   .tl-shell { height: 148px !important; }
 
   /* ── Sidebar nav items — bigger tap targets ── */
   .ni { min-height: 44px !important; }
+
+  /* ── Page transitions: slide in from right like a native app ── */
+  .sui-page-enter {
+    animation: mobPageEnter 0.24s cubic-bezier(0.2,0,0,1) forwards !important;
+  }
 
   /* ── Academic year timeline cards ── */
   .tl-card-in { animation: none !important; }
@@ -1980,6 +2054,10 @@ html, body, #root {
 @keyframes mobDrawerIn {
   from { transform: translateX(-100%); }
   to   { transform: translateX(0);     }
+}
+@keyframes mobPageEnter {
+  from { opacity: 0; transform: translateX(16px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
 }
 
 /* Show the × close button inside the drawer on mobile */

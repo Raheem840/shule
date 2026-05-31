@@ -223,6 +223,7 @@ export function BursarDashboard() {
               <LoadingSpinner size="sm" />
             </div>
           ) : (
+            <div className="mob-cards">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)' }}>
@@ -244,6 +245,7 @@ export function BursarDashboard() {
                 )}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

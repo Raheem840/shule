@@ -86,6 +86,7 @@ export function StudentFullProfilePage() {
         {profile.examResults.length === 0 ? (
           <div style={{ color: 'var(--txt3)', fontSize: 13 }}>No exam results recorded yet.</div>
         ) : (
+          <div className="mob-cards">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
@@ -109,6 +110,7 @@ export function StudentFullProfilePage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

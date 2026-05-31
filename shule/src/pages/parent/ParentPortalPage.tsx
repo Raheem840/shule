@@ -91,7 +91,7 @@ function ResultsTab({ studentId }: { studentId: string }) {
           }}>
             {termLabel}
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="mob-cards">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -178,7 +178,7 @@ function FeeBalanceTab({ studentId }: { studentId: string }) {
         </div>
       ) : (
         <Card style={{ padding: 0 }}>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="mob-cards">
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
