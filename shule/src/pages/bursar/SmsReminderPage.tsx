@@ -192,7 +192,7 @@ export function SmsReminderPage() {
         subtitle="Send fee reminders to parents via SMS or WhatsApp"
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem', alignItems: 'start' }}>
+      <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem', alignItems: 'start' }}>
 
         {/* ── LEFT: Filters + Preview table ───────────────── */}
         <div>
@@ -270,7 +270,7 @@ export function SmsReminderPage() {
           </div>
 
           {/* Preview table */}
-          <div style={{
+          <div className="mob-cards" style={{
             background: 'var(--surface)', border: '1px solid var(--border)',
             borderRadius: 'var(--r-lg)', overflow: 'hidden',
           }}>

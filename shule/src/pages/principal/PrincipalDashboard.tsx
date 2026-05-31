@@ -172,7 +172,7 @@ function RecentActivity() {
   const recentDiscipline = discipline.slice(0, 5)
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+    <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
       {/* Audit log */}
       <div style={{
         background: 'var(--surface)', border: '1px solid var(--border)',
@@ -312,7 +312,7 @@ export function PrincipalDashboard() {
       </div>
 
       {/* Academic + Fee Overview */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div style={{
           background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: 14, padding: 20,

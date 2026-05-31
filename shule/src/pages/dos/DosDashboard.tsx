@@ -185,7 +185,7 @@ function OverviewTab() {
       )}
 
       {/* Subject Rankings Table */}
-      <div className="sui-glass-panel sui-table-head-sticky">
+      <div className="sui-glass-panel sui-table-head-sticky mob-cards">
         <div className="sui-glass-panel-header">
           <span className="sui-section-title" style={{ fontFamily: 'var(--font2)', fontSize: 14, fontWeight: 800 }}>Subject Rankings</span>
         </div>
@@ -259,7 +259,7 @@ function ClassPerformanceTab() {
       {perf && (
         <>
           {/* Subject Breakdown */}
-          <div style={{
+          <div className="mob-cards" style={{
             background: 'var(--surface)', border: '1px solid var(--border)',
             borderRadius: 14, overflow: 'hidden',
           }}>
@@ -599,7 +599,7 @@ function CurriculumPlanTab() {
           </div>
 
           {/* Topics timeline */}
-          <div style={{
+          <div className="mob-cards" style={{
             background: 'var(--surface)', border: '1px solid var(--border)',
             borderRadius: 14, overflow: 'hidden',
           }}>

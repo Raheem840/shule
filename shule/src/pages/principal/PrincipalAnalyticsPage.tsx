@@ -240,7 +240,7 @@ export function PrincipalAnalyticsPage() {
           {dosLoading || genderLoading
             ? <Loading />
             : (
-              <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
+              <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
                 <div style={card}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 16 }}>Pass Rate Trend</div>
                   {!dos?.passRateTrend.length ? (
@@ -481,7 +481,7 @@ export function PrincipalAnalyticsPage() {
                 </div>
 
                 {/* Pie + by-class bar */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
+                <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
                   <ChartCard title="Collection Overview" height={220}>
                     <PieChart>
                       <Pie

@@ -375,7 +375,7 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
     >
       <WizardSteps current={step} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 268px', gap: '1.5rem' }}>
+      <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 268px', gap: '1.5rem' }}>
         {/* ── Form ─────────────────────────────────────────── */}
         <form id="reg-student-form" onSubmit={handleSubmit(onSubmit, onInvalid)}>
 

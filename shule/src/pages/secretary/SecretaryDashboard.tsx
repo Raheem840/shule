@@ -463,7 +463,7 @@ export function SecretaryDashboard() {
       </div>
 
       {/* ── [3] Attention + Academic Snapshot ────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '40% 1fr', gap: 14, flexWrap: 'wrap' }}>
+      <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '40% 1fr', gap: 14, flexWrap: 'wrap' }}>
         {/* Attention panel */}
         <Panel>
           <SectionHead title="Attention Needed" />
@@ -532,7 +532,7 @@ export function SecretaryDashboard() {
       </div>
 
       {/* ── [4] Enrollment Trend + Fee Status ────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '55% 1fr', gap: 14 }}>
+      <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '55% 1fr', gap: 14 }}>
         {/* Enrollment trend */}
         <Panel>
           <SectionHead title="Enrollment Trend" action={

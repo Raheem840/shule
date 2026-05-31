@@ -276,7 +276,7 @@ export function SalaryPage() {
       )}
 
       {!isLoading && !error && (
-        <div style={{
+        <div className="mob-cards" style={{
           background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: 'var(--r-lg)', overflow: 'hidden',
         }}>

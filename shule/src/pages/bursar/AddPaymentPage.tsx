@@ -262,7 +262,7 @@ export function AddPaymentPage() {
         subtitle="Record a fee payment for a student"
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '40% 60%', gap: '1.5rem', alignItems: 'start' }}>
+      <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '40% 60%', gap: '1.5rem', alignItems: 'start' }}>
 
         {/* ── LEFT: Student finder ───────────────────────── */}
         <div className="sui-glass-card" style={{ padding: '1.25rem' }}>

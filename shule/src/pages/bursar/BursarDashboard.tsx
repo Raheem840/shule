@@ -168,7 +168,7 @@ export function BursarDashboard() {
       )}
 
       {/* ── Chart + Recent payments ────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 420px', gap: '1.5rem' }}>
+      <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 420px', gap: '1.5rem' }}>
 
         {/* Bar chart */}
         <div style={{
