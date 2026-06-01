@@ -3,7 +3,6 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { SubmitHandler } from 'react-hook-form'
-import { PageHeader }     from '../../components/ui/PageHeader'
 import { Button }         from '../../components/ui/Button'
 import { Modal }          from '../../components/ui/Modal'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
@@ -228,32 +227,27 @@ export function FeeStructurePage() {
 
   return (
     <div style={{ padding: '1.5rem 2rem', maxWidth: 900 }}>
-      <PageHeader
-        title="Fee Structure"
-        subtitle="Manage fee types, amounts, and term assignments"
-        actions={
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <select
-              value={filterYearId}
-              onChange={e => setFilterYearId(e.target.value)}
-              aria-label="Filter by academic year"
-              style={{
-                padding: '0.45rem 0.85rem', border: '1.5px solid var(--border)',
-                borderRadius: 'var(--r)', background: 'var(--surface)',
-                color: 'var(--txt)', fontSize: 13, fontFamily: 'var(--font1)',
-              }}
-            >
+      <div style={{ display:'flex', alignItems:'flex-start', gap:14, flexWrap:'wrap', position:'relative', overflow:'hidden', marginBottom:20 }}>
+        <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(16,185,129,.18),transparent 70%)', filter:'blur(50px)', pointerEvents:'none' }} />
+        <div style={{ width:46, height:46, borderRadius:15, background:'linear-gradient(145deg,#10b981,#059669)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 5px 18px rgba(16,185,129,.45)', flexShrink:0 }}>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        </div>
+        <div style={{ flex:1 }}>
+          <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:22, color:'var(--txt)', margin:0, letterSpacing:-.4 }}>Fee Structure</h1>
+          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>Manage fee types, amounts, and term assignments</p>
+        </div>
+        <div style={{ display:'flex', gap:8, alignItems:'center', flexShrink:0 }}>
+          <div style={{ position:'relative' }}>
+            <select value={filterYearId} onChange={e => setFilterYearId(e.target.value)} aria-label="Filter by academic year"
+              style={{ padding:'8px 30px 8px 12px', border:'.5px solid var(--border)', borderRadius:10, background:'var(--surface2)', color:'var(--txt)', fontSize:12.5, appearance:'none', outline:'none' }}>
               <option value="">All Years</option>
-              {(years ?? []).map(y => (
-                <option key={y.id} value={y.id}>{y.name}{y.isActive ? ' ✓' : ''}</option>
-              ))}
+              {(years ?? []).map(y => <option key={y.id} value={y.id}>{y.name}{y.isActive ? ' ✓' : ''}</option>)}
             </select>
-            <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
-              + Add Fee Type
-            </Button>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}><path d="M6 9l6 6 6-6"/></svg>
           </div>
-        }
-      />
+          <button onClick={() => setShowAdd(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:10, border:'none', background:'linear-gradient(145deg,#10b981,#059669)', color:'#fff', fontWeight:700, fontSize:12.5, cursor:'pointer', boxShadow:'0 3px 12px rgba(16,185,129,.35)' }}>+ Add Fee Type</button>
+        </div>
+      </div>
 
       {isLoading && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>

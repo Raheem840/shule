@@ -3,7 +3,6 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useStaff, type StaffFilters } from '../../hooks/useStaff'
 import { useDepartments } from '../../hooks/useClasses'
 import { StaffRegistrationWizard } from './StaffRegistrationWizard'
-import { PageHeader } from '../../components/ui/PageHeader'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Input } from '../../components/ui/Input'
@@ -249,19 +248,22 @@ export function SecretaryStaffPage() {
 
   return (
     <>
-      <PageHeader
-        title="Staff"
-        subtitle={`${totalActive} active staff member${totalActive !== 1 ? 's' : ''}`}
-        actions={
-          !isMobile ? (
-            <Button variant="primary" onClick={() => setWizardOpen(true)}
-              leftIcon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>}
-            >
-              Register Staff Member
-            </Button>
-          ) : undefined
-        }
-      />
+      <div style={{ display:'flex', alignItems:'flex-start', gap:14, flexWrap:'wrap', position:'relative', overflow:'hidden', marginBottom:20 }}>
+        <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(14,165,233,.18),transparent 70%)', filter:'blur(50px)', pointerEvents:'none' }} />
+        <div style={{ width:46, height:46, borderRadius:15, background:'linear-gradient(145deg,#0ea5e9,#0284c7)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 5px 18px rgba(14,165,233,.45)', flexShrink:0 }}>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+        <div style={{ flex:1 }}>
+          <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:22, color:'var(--txt)', margin:0, letterSpacing:-.4 }}>Staff</h1>
+          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>{totalActive} active staff member{totalActive !== 1 ? 's' : ''}</p>
+        </div>
+        {!isMobile && (
+          <button onClick={() => setWizardOpen(true)} style={{ display:'flex', alignItems:'center', gap:7, padding:'10px 18px', borderRadius:11, border:'none', background:'linear-gradient(145deg,#0ea5e9,#0284c7)', color:'#fff', fontWeight:700, fontSize:13.5, cursor:'pointer', boxShadow:'0 4px 14px rgba(14,165,233,.4)', flexShrink:0 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Register Staff Member
+          </button>
+        )}
+      </div>
 
       {/* ── Filters ── */}
       {isMobile ? (

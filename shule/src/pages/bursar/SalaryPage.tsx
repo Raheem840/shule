@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import ExcelJS from 'exceljs'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
-import { PageHeader } from '../../components/ui/PageHeader'
 import { Badge } from '../../components/ui/Badge'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
@@ -221,28 +220,20 @@ export function SalaryPage() {
 
   return (
     <div className="sui-page-enter" style={{ padding: '1.5rem 2rem', maxWidth: 1100 }}>
-      <PageHeader
-        title="Salary Records"
-        subtitle="Staff salary bands — click a band to edit inline"
-        actions={
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={!filtered.length}
-              style={{
-                padding: '0.45rem 1rem', border: '1.5px solid var(--border)',
-                borderRadius: 'var(--r)', background: 'var(--surface)',
-                color: 'var(--txt2)', fontSize: 12, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'var(--font2)',
-                opacity: filtered.length ? 1 : 0.5,
-              }}
-            >
-              Export Excel
-            </button>
-          </div>
-        }
-      />
+      <div style={{ display:'flex', alignItems:'flex-start', gap:14, flexWrap:'wrap', position:'relative', overflow:'hidden', marginBottom:20 }}>
+        <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(16,185,129,.18),transparent 70%)', filter:'blur(50px)', pointerEvents:'none' }} />
+        <div style={{ width:46, height:46, borderRadius:15, background:'linear-gradient(145deg,#10b981,#059669)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 5px 18px rgba(16,185,129,.45)', flexShrink:0 }}>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+        </div>
+        <div style={{ flex:1 }}>
+          <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:22, color:'var(--txt)', margin:0, letterSpacing:-.4 }}>Salary Records</h1>
+          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>Staff salary bands — click a band to edit inline</p>
+        </div>
+        <button type="button" onClick={handleExport} disabled={!filtered.length}
+          style={{ padding:'9px 16px', border:'.5px solid var(--border)', borderRadius:10, background:'var(--surface2)', color:'var(--txt2)', fontSize:12.5, fontWeight:700, cursor:'pointer', opacity:filtered.length?1:.5, flexShrink:0 }}>
+          Export Excel
+        </button>
+      </div>
 
       {/* Filter bar */}
       <div style={{ display: 'flex', gap: 8, marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>

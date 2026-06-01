@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ImportWizard } from '../../components/shared/ImportWizard'
-import { PageHeader } from '../../components/ui/PageHeader'
 import type { ColumnSpec, ParsedRow, ImportResult } from '../../components/shared/ImportWizard'
 
 const STUDENT_REQUIRED: ColumnSpec[] = [
@@ -104,13 +103,21 @@ export function ImportDataPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <PageHeader title="Import Data" subtitle="Batch import students or staff from a spreadsheet." />
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle,rgba(14,165,233,.18),transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+        <div style={{ width: 46, height: 46, borderRadius: 15, background: 'linear-gradient(145deg,#0ea5e9,#0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 18px rgba(14,165,233,.45)', flexShrink: 0 }}>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div>
+          <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>Import Data</h1>
+          <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>Batch import students or staff from a spreadsheet</p>
+        </div>
+      </div>
 
       <div style={{ display: 'flex', gap: 8 }}>
         {(['students', 'staff'] as const).map(m => (
           <button key={m} onClick={() => setMode(m)}
-            className={mode === m ? 'sui-btn-primary' : 'sui-btn-ghost'}
-            style={{ textTransform: 'capitalize' }}>
+            style={{ padding: '9px 18px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', textTransform: 'capitalize', border: 'none', background: mode === m ? 'linear-gradient(145deg,#0ea5e9,#0284c7)' : 'var(--surface2)', color: mode === m ? '#fff' : 'var(--txt2)', boxShadow: mode === m ? '0 3px 12px rgba(14,165,233,.3)' : 'none' }}>
             Import {m}
           </button>
         ))}

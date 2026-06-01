@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { Badge } from '../../components/ui/Badge'
 import { useToast } from '../../components/ui/Toast'
@@ -106,27 +105,22 @@ export function DeliveryLogPage() {
 
   return (
     <div className="sui-page-enter" style={{ padding: '1.5rem 2rem', maxWidth: 1200 }}>
-      <PageHeader
-        title="Delivery Log"
-        subtitle="SMS and WhatsApp message delivery status"
-        actions={
-          allFailedIds.length > 0 && (
-            <button
-              type="button"
-              onClick={handleRetryAll}
-              disabled={retryAll.isPending}
-              style={{
-                padding: '0.45rem 1rem', border: '1.5px solid var(--danger)',
-                borderRadius: 'var(--r)', background: 'var(--danger-bg)',
-                color: 'var(--danger)', fontSize: 12, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'var(--font2)',
-              }}
-            >
-              {retryAll.isPending ? 'Retrying…' : `Retry All Failed (${allFailedIds.length})`}
-            </button>
-          )
-        }
-      />
+      <div style={{ display:'flex', alignItems:'flex-start', gap:14, flexWrap:'wrap', position:'relative', overflow:'hidden', marginBottom:20 }}>
+        <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(16,185,129,.18),transparent 70%)', filter:'blur(50px)', pointerEvents:'none' }} />
+        <div style={{ width:46, height:46, borderRadius:15, background:'linear-gradient(145deg,#10b981,#059669)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 5px 18px rgba(16,185,129,.45)', flexShrink:0 }}>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 014.11 8.11 19.79 19.79 0 011.07 4.5 2 2 0 013.04 2.3h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L7.09 9.91"/></svg>
+        </div>
+        <div style={{ flex:1 }}>
+          <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:22, color:'var(--txt)', margin:0, letterSpacing:-.4 }}>Delivery Log</h1>
+          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>SMS and WhatsApp message delivery status</p>
+        </div>
+        {allFailedIds.length > 0 && (
+          <button type="button" onClick={handleRetryAll} disabled={retryAll.isPending}
+            style={{ padding:'8px 14px', border:'.5px solid var(--danger)', borderRadius:10, background:'rgba(244,63,94,.08)', color:'var(--danger)', fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+            {retryAll.isPending ? 'Retrying…' : `Retry All Failed (${allFailedIds.length})`}
+          </button>
+        )}
+      </div>
 
       {/* Summary chips */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: '1rem' }}>

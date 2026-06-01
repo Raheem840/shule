@@ -10,7 +10,6 @@ import { useClasses, useStreams } from '../../hooks/useClasses'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Select } from '../../components/ui/Select'
-import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
 import type { ReadinessStatus, StudentReadiness } from '../../hooks/useReportCards'
@@ -176,10 +175,16 @@ export function ReportCardsPage() {
 
   return (
     <div style={{ padding: 24 }}>
-      <PageHeader
-        title="Report Cards"
-        subtitle="Generate, preview, and submit CBC report cards for approval."
-      />
+            <div style={{ display:'flex', alignItems:'flex-start', gap:14, position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(14,165,233,.18),transparent 70%)', filter:'blur(50px)', pointerEvents:'none' }} />
+        <div style={{ width:46, height:46, borderRadius:15, background:'linear-gradient(145deg,#0ea5e9,#0284c7)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 5px 18px rgba(14,165,233,.45)', flexShrink:0 }}>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.58-7 8-7s8 3 8 7"/></svg>
+        </div>
+        <div>
+          <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:22, color:'var(--txt)', margin:0, letterSpacing:-.4 }}>Report Cards</h1>
+          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>Generate and track report cards for classes</p>
+        </div>
+      </div>
 
       {/* ── Cohort selector ───────────────────────────────────── */}
       <div style={{

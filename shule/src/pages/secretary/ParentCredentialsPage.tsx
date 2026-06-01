@@ -5,7 +5,6 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { useStudents } from '../../hooks/useStudents'
 import { useClasses } from '../../hooks/useClasses'
-import { PageHeader } from '../../components/ui/PageHeader'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Badge } from '../../components/ui/Badge'
@@ -527,14 +526,20 @@ export function ParentCredentialsPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Parent Portal Access"
-        subtitle={`${students.length} student${students.length !== 1 ? 's' : ''} · ${accountCount} account${accountCount !== 1 ? 's' : ''} created`}
-      />
+      <div style={{ display:'flex', alignItems:'flex-start', gap:14, position:'relative', overflow:'hidden', marginBottom:20 }}>
+        <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(14,165,233,.18),transparent 70%)', filter:'blur(50px)', pointerEvents:'none' }} />
+        <div style={{ width:46, height:46, borderRadius:15, background:'linear-gradient(145deg,#0ea5e9,#0284c7)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 5px 18px rgba(14,165,233,.45)', flexShrink:0 }}>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div>
+          <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:22, color:'var(--txt)', margin:0, letterSpacing:-.4 }}>Parent Portal Access</h1>
+          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>{students.length} student{students.length !== 1 ? 's' : ''} · {accountCount} account{accountCount !== 1 ? 's' : ''} created</p>
+        </div>
+      </div>
 
-      {/* Search */}
       <div style={{ marginBottom: '1rem' }}>
-        <Input
+        <input
+          className="sui-input"
           placeholder="Search by student name or admission number…"
           value={search}
           onChange={e => setSearch(e.target.value)}

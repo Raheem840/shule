@@ -7,7 +7,6 @@ import type { SubmitHandler } from 'react-hook-form'
 import ExcelJS from 'exceljs'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
-import { PageHeader }     from '../../components/ui/PageHeader'
 import { Button }         from '../../components/ui/Button'
 import { Badge }          from '../../components/ui/Badge'
 import { Modal }          from '../../components/ui/Modal'
@@ -435,17 +434,21 @@ export function FeeLedgerPage() {
 
   return (
     <div style={{ padding: '1.5rem 2rem', maxWidth: 1400, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
-      <PageHeader
-        title="Fee Ledger"
-        subtitle="View and manage student fee payments"
-        actions={
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button variant="ghost"   size="sm" onClick={() => setShowImport(true)}>Import Excel</Button>
-            <Button variant="ghost"   size="sm" onClick={handleExport} disabled={!allRows.length}>Export</Button>
-            <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>+ Add Payment</Button>
-          </div>
-        }
-      />
+      <div style={{ display:'flex', alignItems:'flex-start', gap:14, flexWrap:'wrap', position:'relative', overflow:'hidden', marginBottom:16 }}>
+        <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(16,185,129,.18),transparent 70%)', filter:'blur(50px)', pointerEvents:'none' }} />
+        <div style={{ width:46, height:46, borderRadius:15, background:'linear-gradient(145deg,#10b981,#059669)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 5px 18px rgba(16,185,129,.45)', flexShrink:0 }}>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div style={{ flex:1 }}>
+          <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:22, color:'var(--txt)', margin:0, letterSpacing:-.4 }}>Fee Ledger</h1>
+          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>View and manage student fee payments</p>
+        </div>
+        <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+          <button onClick={() => setShowImport(true)} style={{ padding:'8px 14px', borderRadius:10, border:'.5px solid var(--border)', background:'var(--surface2)', color:'var(--txt2)', fontWeight:700, fontSize:12.5, cursor:'pointer' }}>Import Excel</button>
+          <button onClick={handleExport} disabled={!allRows.length} style={{ padding:'8px 14px', borderRadius:10, border:'.5px solid var(--border)', background:'var(--surface2)', color:'var(--txt2)', fontWeight:700, fontSize:12.5, cursor:'pointer', opacity:allRows.length?1:.5 }}>Export</button>
+          <button onClick={() => setShowAdd(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:10, border:'none', background:'linear-gradient(145deg,#10b981,#059669)', color:'#fff', fontWeight:700, fontSize:12.5, cursor:'pointer', boxShadow:'0 3px 12px rgba(16,185,129,.35)' }}>+ Add Payment</button>
+        </div>
+      </div>
 
       {/* ── Filter bar ─────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: '1rem', alignItems: 'center' }}>
