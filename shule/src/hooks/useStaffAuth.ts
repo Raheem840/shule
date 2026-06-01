@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 
 // ── generateTempPassword ───────────────────────────────────────────────────
-// Crypto-random password: 12 chars, avoids ambiguous characters (0/O, 1/I/l).
 function generateTempPassword(): string {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
   const arr = new Uint8Array(12)
@@ -11,8 +10,7 @@ function generateTempPassword(): string {
   return Array.from(arr, b => chars[b % chars.length]).join('')
 }
 
-// ── ACTIVATION_KEY ────────────────────────────────────────────────────────
-// localStorage key for pending activations (see Task 6 workaround).
+// ── ACTIVATION_KEY ─────────────────────────────────────────────────────────
 const ACTIVATION_KEY = 'shule_pending_activations'
 
 export type PendingActivation = {
@@ -44,14 +42,11 @@ export function clearPendingActivation(staffId: string): void {
 }
 
 // ── useActivateStaffLogin ──────────────────────────────────────────────────
-// Attempts to call the 'activate-staff-login' Edge Function (creates Supabase
-// Auth user + updates staff.auth_user_id). If the Edge Function is not yet
-// deployed, stores credentials in localStorage for manual completion by IT Admin.
-//
-// Edge Function contract (to be deployed separately):
-//   POST /functions/v1/activate-staff-login
-//   body: { staffId: string, email: string, tempPassword: string }
-//   response: { authUserId: string }
+// Calls 'create-staff-auth-user' Edge Function which:
+//   - Creates Supabase Auth user with email + default password
+//   - Updates staff.auth_user_id with the new auth user's UUID
+//   - Returns { success, authUserId }
+// Falls back to localStorage if Edge Function not deployed.
 export function useActivateStaffLogin() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -69,38 +64,37 @@ export function useActivateStaffLogin() {
 
       if (staffErr) throw new Error(staffErr.message)
       if (!staff)   throw new Error('Staff member not found')
-      if ((staff as any).auth_user_id) throw new Error('Login is already activated for this staff member')
-      if (!(staff as any).email) throw new Error('Staff member has no email address — update their profile first')
+      if ((staff as any).auth_user_id) throw new Error('Login already activated for this staff member')
+      if (!(staff as any).email) throw new Error('No email address on file — update the staff profile first')
 
-      const email       = (staff as any).email as string
-      const name        = `${(staff as any).first_name} ${(staff as any).last_name}`
-      const tempPassword = generateTempPassword()
+      const email = (staff as any).email as string
+      const name  = `${(staff as any).first_name} ${(staff as any).last_name}`
 
-      // Attempt Edge Function
-      const { error: fnError } = await supabase.functions.invoke('activate-staff-login', {
-        body: { staffId, email, tempPassword },
+      // The Edge Function sets 'Shule@2025' as the initial password.
+      // We use the same value here so the credential slip matches.
+      const tempPassword = 'Shule@2025'
+
+      const { data: fnData, error: fnError } = await supabase.functions.invoke('create-staff-auth-user', {
+        body: { staffId, email, schoolId: user.schoolId },
       })
 
-      if (!fnError) {
-        // Edge Function succeeded — auth user created
+      if (!fnError && (fnData as any)?.success) {
         return { email, tempPassword, manual: false }
       }
 
-      // Edge Function not yet deployed — store credentials in localStorage
-      // for the IT Admin to use manually in Supabase Dashboard
+      // Edge Function not deployed — store for manual creation
       setPendingActivation({ staffId, email, tempPassword, name, storedAt: new Date().toISOString() })
       return { email, tempPassword, manual: true }
     },
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })
     },
   })
 }
 
 // ── useLinkAuthUser ────────────────────────────────────────────────────────
-// Manually links an existing Supabase auth user to a staff record.
-// Used when IT Admin has created the account in the Supabase Dashboard
-// and now needs to connect it to the staff row.
+// Manually links an existing Supabase auth user UUID to a staff record.
 export function useLinkAuthUser() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -111,7 +105,7 @@ export function useLinkAuthUser() {
 
       const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
       if (!uuidRe.test(authUserId.trim())) {
-        throw new Error('Invalid UUID — copy it directly from Supabase Dashboard → Authentication → Users')
+        throw new Error('Invalid UUID — copy it from Supabase Dashboard → Authentication → Users')
       }
 
       const { error } = await supabase
@@ -124,6 +118,7 @@ export function useLinkAuthUser() {
       clearPendingActivation(staffId)
     },
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })
     },
   })
@@ -131,7 +126,6 @@ export function useLinkAuthUser() {
 
 // ── useResetStaffPassword ──────────────────────────────────────────────────
 // Calls reset-staff-password Edge Function with a new random temp password.
-// Falls back to localStorage storage if Edge Function not deployed.
 export function useResetStaffPassword() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -150,12 +144,46 @@ export function useResetStaffPassword() {
 
       if (!fnError) return { tempPassword, manual: false }
 
-      // Store in localStorage as fallback
       setPendingActivation({ staffId, email, tempPassword, name, storedAt: new Date().toISOString() })
       return { tempPassword, manual: true }
     },
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })
+    },
+  })
+}
+
+// ── useSendCredentialsSms ─────────────────────────────────────────────────
+// Sends login credentials to a staff member via Africa's Talking SMS.
+// The send-sms Edge Function takes { recipients: [{phone, message}], schoolId }.
+export function useSendCredentialsSms() {
+  const { user } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({ phone, name, email, password }: {
+      phone: string; name: string; email: string; password: string
+    }) => {
+      if (!user) throw new Error('Not authenticated')
+
+      const loginUrl = window.location.origin
+      const message  = [
+        `Hi ${name},`,
+        `Your Shule school system login has been activated.`,
+        `Email: ${email}`,
+        `Password: ${password}`,
+        `Login at: ${loginUrl}`,
+        `Please change your password after first login.`,
+      ].join('\n')
+
+      const { error } = await supabase.functions.invoke('send-sms', {
+        body: {
+          recipients: [{ phone, message }],
+          schoolId: user.schoolId,
+        },
+      })
+
+      if (error) throw new Error('SMS delivery failed — check Africa\'s Talking config in School Settings')
     },
   })
 }
