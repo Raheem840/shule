@@ -1,22 +1,19 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { useStudents } from '../../hooks/useStudents'
 import { useClasses } from '../../hooks/useClasses'
-import { Button } from '../../components/ui/Button'
-import { Input } from '../../components/ui/Input'
-import { Badge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
-import { useToast } from '../../components/ui/Toast'
+import { Button } from '../../components/ui/Button'
 import { Avatar } from '../../components/shared/Avatar'
+import { useToast } from '../../components/ui/Toast'
 import type { ParentAccount, Student } from '../../types/app'
 
+// suppress unused ref warning — useRef used for timer cleanup
+void useRef
 
 // ── Temp password generator ───────────────────────────────────
-// Uses unambiguous characters only (no I, l, O, 0, 1)
 function generateTempPassword(): string {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
   let pw = ''
@@ -27,8 +24,6 @@ function generateTempPassword(): string {
 }
 
 // ── useParentAccounts ─────────────────────────────────────────
-// Fetches all parent accounts including temp_password.
-// temp_password is only shown to Secretary after password re-auth.
 function useParentAccounts() {
   const { user } = useAuth()
 
@@ -67,22 +62,22 @@ function useCreateParentAccount() {
 
   return useMutation({
     mutationFn: async (input: {
-      fullName:    string
-      email:       string
-      phone:       string | null
-      studentIds:  string[]
+      fullName:     string
+      email:        string
+      phone:        string | null
+      studentIds:   string[]
       tempPassword: string
     }) => {
       const { data, error } = await supabase
         .from('parent_accounts')
         .insert({
-          school_id:    user!.schoolId,
-          email:        input.email,
-          full_name:    input.fullName,
-          phone:        input.phone,
+          school_id:     user!.schoolId,
+          email:         input.email,
+          full_name:     input.fullName,
+          phone:         input.phone,
           temp_password: input.tempPassword,
-          student_ids:  input.studentIds,
-          created_by:   user!.id,
+          student_ids:   input.studentIds,
+          created_by:    user!.id,
         })
         .select('id')
         .single()
@@ -96,7 +91,7 @@ function useCreateParentAccount() {
   })
 }
 
-// ── Copy button ───────────────────────────────────────────────
+// ── CopyButton ────────────────────────────────────────────────
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
 
@@ -109,19 +104,61 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700, color: copied ? 'var(--success)' : 'var(--txt2)', cursor: 'pointer', fontFamily: 'var(--font2)', display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s', flexShrink: 0 }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 5,
+        background: copied ? 'rgba(16,185,129,0.1)' : 'transparent',
+        border: `1px solid ${copied ? 'rgba(16,185,129,0.4)' : 'var(--border)'}`,
+        borderRadius: 7, padding: '5px 12px',
+        fontSize: 11, fontWeight: 700,
+        color: copied ? 'var(--success)' : 'var(--txt2)',
+        cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0,
+        fontFamily: 'var(--font2)',
+      }}
     >
       {copied ? (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
       ) : (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="9" y="9" width="13" height="13" rx="2"/>
+          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+        </svg>
       )}
       {copied ? 'Copied' : 'Copy'}
     </button>
   )
 }
 
-// ── Generate Access Modal ─────────────────────────────────────
+// ── CredFieldRow ──────────────────────────────────────────────
+function CredFieldRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div style={{
+        fontSize: 9, fontWeight: 800, color: 'var(--txt3)',
+        textTransform: 'uppercase', letterSpacing: '0.8px',
+        fontFamily: 'var(--font2)', marginBottom: 5,
+      }}>
+        {label}
+      </div>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        background: 'var(--surface2)', border: '1px solid var(--border)',
+        borderRadius: 10, padding: '9px 12px',
+      }}>
+        <span style={{
+          flex: 1, fontFamily: 'var(--font3)', fontSize: 12.5,
+          color: 'var(--txt)', wordBreak: 'break-all',
+        }}>
+          {value}
+        </span>
+        <CopyButton text={value} />
+      </div>
+    </div>
+  )
+}
+
+// ── GenerateAccessModal ───────────────────────────────────────
 function GenerateAccessModal({
   student,
   onClose,
@@ -129,16 +166,15 @@ function GenerateAccessModal({
   student: Student
   onClose: () => void
 }) {
-  const [fullName,  setFullName]  = useState('')
-  const [email,     setEmail]     = useState('')
-  const [phone,     setPhone]     = useState('')
-  const [done,      setDone]      = useState(false)
-  const [tempPw,    setTempPw]    = useState('')
-  const [emailErr,  setEmailErr]  = useState('')
+  const [fullName, setFullName] = useState('')
+  const [email,    setEmail]    = useState('')
+  const [phone,    setPhone]    = useState('')
+  const [done,     setDone]     = useState(false)
+  const [tempPw,   setTempPw]   = useState('')
+  const [emailErr, setEmailErr] = useState('')
 
-  const { error: err } = useToast()
+  const { error: showErr } = useToast()
   const createMutation = useCreateParentAccount()
-
   const portalUrl = `${window.location.origin}/parent/portal`
 
   async function handleSubmit(e: React.FormEvent) {
@@ -155,106 +191,136 @@ function GenerateAccessModal({
       tempPassword: pw,
     }, {
       onSuccess: () => { setTempPw(pw); setDone(true) },
-      onError:   e  => err(e.message),
+      onError:   (e: Error) => showErr(e.message),
     })
   }
 
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title={done ? 'Access Generated' : 'Generate Parent Access'}
-      size="md"
-    >
+    <Modal open onClose={onClose} title={done ? 'Access Generated' : 'Generate Parent Access'} size="md">
       {done ? (
-        // ── Success screen ────────────────────────────────────
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.85rem 1rem', background: 'var(--success-bg)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 'var(--r-lg)' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '14px 16px',
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(13,148,136,0.07))',
+            border: '1px solid rgba(16,185,129,0.25)',
+            borderRadius: 12,
+          }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: '50%',
+              background: 'rgba(16,185,129,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
             <div>
-              <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: 'var(--txt)' }}>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: 'var(--success)' }}>
                 Account created for {student.firstName} {student.lastName}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>
-                Share these credentials with the parent/guardian
+              <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2 }}>
+                Share these credentials with the parent. They can log in once IT Admin activates the account.
               </div>
             </div>
           </div>
 
-          {[
-            { label: 'Login Email',       value: email.trim().toLowerCase() },
-            { label: 'Temporary Password', value: tempPw },
-            { label: 'Portal URL',         value: portalUrl },
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.6px', fontFamily: 'var(--font2)', marginBottom: 6 }}>
-                {label}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.6rem 0.85rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', fontFamily: 'var(--font3)', fontSize: 13, color: 'var(--txt)', wordBreak: 'break-all' }}>
-                <span style={{ flex: 1 }}>{value}</span>
-                <CopyButton text={value} />
-              </div>
-            </div>
-          ))}
+          <CredFieldRow label="Login Email"        value={email.trim().toLowerCase()} />
+          <CredFieldRow label="Temporary Password" value={tempPw} />
+          <CredFieldRow label="Portal URL"         value={portalUrl} />
 
-          <div style={{ padding: '0.75rem 1rem', background: 'var(--info-bg)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: 'var(--r)', fontSize: 12, color: 'var(--txt2)' }}>
-            The parent cannot log in yet. IT Admin must activate the account in Week 8.
+          <div style={{
+            padding: '10px 14px',
+            background: 'rgba(14,165,233,0.07)', border: '1px solid rgba(14,165,233,0.2)',
+            borderRadius: 10, fontSize: 12, color: 'var(--txt2)', lineHeight: 1.7,
+          }}>
+            <strong style={{ color: 'var(--txt)' }}>Note:</strong> The parent cannot log in yet.
+            IT Admin must activate the Supabase auth account separately.
           </div>
 
           <Button variant="primary" onClick={onClose} style={{ width: '100%' }}>Done</Button>
         </div>
       ) : (
-        // ── Create form ───────────────────────────────────────
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* Student info header */}
-          <div style={{ padding: '0.75rem 1rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--brand-light)', border: '1.5px solid var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 12, color: 'var(--brand)', flexShrink: 0 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '10px 14px',
+            background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12,
+          }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: '50%',
+              background: 'linear-gradient(135deg, var(--brand), var(--brand-dark))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 13, color: '#fff', flexShrink: 0,
+            }}>
               {student.firstName[0]}{student.lastName[0]}
             </div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--txt)' }}>
+              <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
                 {student.firstName} {student.lastName}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>
+              <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginTop: 1 }}>
                 {student.admissionNumber}
               </div>
             </div>
           </div>
 
-          <Input
-            label="Parent / Guardian Full Name *"
-            placeholder="e.g. Nakato Sarah"
-            value={fullName}
-            onChange={e => setFullName(e.target.value)}
-            required
-          />
-
-          <Input
-            label="Email Address *"
-            type="email"
-            placeholder="parent@email.com"
-            value={email}
-            onChange={e => { setEmail(e.target.value); setEmailErr('') }}
-            error={emailErr}
-            helper="This becomes their login — must be unique"
-            required
-          />
-
-          <Input
-            label="Phone (optional)"
-            type="tel"
-            placeholder="+256 700 000 000"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-          />
-
-          <div style={{ padding: '0.6rem 0.85rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', fontSize: 12, color: 'var(--txt3)' }}>
-            A temporary password will be generated automatically. The parent logs in with it after IT Admin activates the account.
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', display: 'block', marginBottom: 5 }}>
+              Parent / Guardian Full Name *
+            </label>
+            <input
+              className="sui-input"
+              placeholder="e.g. Nakato Sarah"
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
+              required
+              style={{ width: '100%' }}
+            />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', paddingTop: 4 }}>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', display: 'block', marginBottom: 5 }}>
+              Email Address *
+            </label>
+            <input
+              className="sui-input"
+              type="email"
+              placeholder="parent@email.com"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setEmailErr('') }}
+              required
+              style={{ width: '100%', borderColor: emailErr ? 'var(--danger)' : undefined }}
+            />
+            {emailErr && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 4 }}>{emailErr}</div>}
+            <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 4 }}>
+              This becomes their login — must be unique
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', display: 'block', marginBottom: 5 }}>
+              Phone (optional)
+            </label>
+            <input
+              className="sui-input"
+              type="tel"
+              placeholder="+256 700 000 000"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              style={{ width: '100%' }}
+            />
+          </div>
+
+          <div style={{
+            padding: '10px 14px',
+            background: 'var(--surface2)', border: '1px solid var(--border)',
+            borderRadius: 10, fontSize: 11.5, color: 'var(--txt3)',
+          }}>
+            A temporary password will be generated automatically.
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
             <Button
               variant="primary"
@@ -271,12 +337,9 @@ function GenerateAccessModal({
   )
 }
 
-const UNLOCK_DURATION_MS = 5 * 60 * 1000  // 5 minutes
+// ── ViewCredentialsModal ──────────────────────────────────────
+const UNLOCK_DURATION_MS = 5 * 60 * 1000
 
-// ── View Credentials Modal ────────────────────────────────────
-// Step 1: Secretary re-enters password.
-// Step 2: Credentials shown blurred — click each value to reveal.
-// Step 3: Auto-relocks after 5 minutes.
 function ViewCredentialsModal({
   account,
   onClose,
@@ -284,27 +347,24 @@ function ViewCredentialsModal({
   account: ParentAccount
   onClose: () => void
 }) {
-  const [step,      setStep]      = useState<'auth' | 'show'>('auth')
-  const [password,  setPassword]  = useState('')
-  const [authErr,   setAuthErr]   = useState('')
-  const [loading,   setLoading]   = useState(false)
-  const [revealed,  setRevealed]  = useState<Set<string>>(new Set())
-  const [timeLeft,  setTimeLeft]  = useState(UNLOCK_DURATION_MS)
+  const [step,     setStep]     = useState<'auth' | 'show'>('auth')
+  const [password, setPassword] = useState('')
+  const [authErr,  setAuthErr]  = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const [revealed, setRevealed] = useState<Set<string>>(new Set())
+  const [timeLeft, setTimeLeft] = useState(UNLOCK_DURATION_MS)
   const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const { user } = useAuth()
   const portalUrl = `${window.location.origin}/parent/portal`
 
-  // Auto-lock after 5 minutes once unlocked
   useEffect(() => {
     if (step !== 'show') return
     setTimeLeft(UNLOCK_DURATION_MS)
 
     lockTimerRef.current = setTimeout(() => {
-      setStep('auth')
-      setRevealed(new Set())
-      setPassword('')
+      setStep('auth'); setRevealed(new Set()); setPassword('')
     }, UNLOCK_DURATION_MS)
 
     countdownRef.current = setInterval(() => {
@@ -320,27 +380,17 @@ function ViewCredentialsModal({
   async function handleReAuth(e: React.FormEvent) {
     e.preventDefault()
     if (!password) { setAuthErr('Enter your password'); return }
-    setLoading(true)
-    setAuthErr('')
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email:    user!.email,
-      password,
-    })
-
+    setLoading(true); setAuthErr('')
+    const { error } = await supabase.auth.signInWithPassword({ email: user!.email, password })
     setLoading(false)
-    if (error) {
-      setAuthErr('Incorrect password. Try again.')
-    } else {
-      setStep('show')
-    }
+    if (error) setAuthErr('Incorrect password. Try again.')
+    else setStep('show')
   }
 
   function toggleReveal(label: string) {
     setRevealed(prev => {
       const next = new Set(prev)
-      if (next.has(label)) next.delete(label)
-      else next.add(label)
+      if (next.has(label)) next.delete(label); else next.add(label)
       return next
     })
   }
@@ -350,45 +400,49 @@ function ViewCredentialsModal({
 
   const credentials = [
     { label: 'Login Email',        value: account.email },
-    { label: 'Temporary Password', value: account.tempPassword ?? '(saved separately — DB column pending)' },
+    { label: 'Temporary Password', value: account.tempPassword ?? '(not stored)' },
     { label: 'Portal URL',         value: portalUrl },
   ]
 
   return (
     <Modal open onClose={onClose} title="View Parent Credentials" size="sm">
       {step === 'auth' ? (
-        // ── Password confirmation ─────────────────────────────
         <form onSubmit={handleReAuth} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ padding: '0.75rem 1rem', background: 'var(--warning-bg)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 'var(--r)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <div style={{
+            display: 'flex', gap: 10, alignItems: 'flex-start',
+            padding: '12px 14px',
+            background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10,
+          }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#92400e" strokeWidth="2" style={{ flexShrink: 0, marginTop: 1 }}>
               <rect x="3" y="11" width="18" height="11" rx="2"/>
               <path d="M7 11V7a5 5 0 0110 0v4"/>
             </svg>
             <p style={{ margin: 0, fontSize: 12.5, color: '#92400e', lineHeight: 1.6 }}>
-              Re-enter your password to unlock this parent's credentials.
-              They will auto-hide after 5 minutes.
+              Re-enter your password to unlock this parent's credentials. They will auto-hide after 5 minutes.
             </p>
           </div>
 
-          <Input
-            label="Your Password"
-            type="password"
-            placeholder="Enter your login password"
-            value={password}
-            onChange={e => { setPassword(e.target.value); setAuthErr('') }}
-            error={authErr}
-            autoFocus
-          />
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', display: 'block', marginBottom: 5 }}>Your Password</label>
+            <input
+              className="sui-input"
+              type="password"
+              placeholder="Enter your login password"
+              value={password}
+              onChange={e => { setPassword(e.target.value); setAuthErr('') }}
+              autoFocus
+              style={{ width: '100%', borderColor: authErr ? 'var(--danger)' : undefined }}
+            />
+            {authErr && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 4 }}>{authErr}</div>}
+          </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
             <Button variant="primary" type="submit" loading={loading}>Confirm</Button>
           </div>
         </form>
       ) : (
-        // ── Credentials display (blurred until clicked) ───────
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* Header row with auto-lock countdown */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
               {account.fullName ?? account.email}
@@ -399,36 +453,34 @@ function ViewCredentialsModal({
               display: 'flex', alignItems: 'center', gap: 4,
             }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
               </svg>
               Locks in {minutesLeft}:{String(secondsLeft).padStart(2, '0')}
             </div>
           </div>
 
           {credentials.map(({ label, value }) => {
-            const isRevealed = revealed.has(label)
+            const isRevealed  = revealed.has(label)
             const isSensitive = label !== 'Portal URL'
             return (
               <div key={label}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.6px', fontFamily: 'var(--font2)', marginBottom: 6 }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.8px', fontFamily: 'var(--font2)', marginBottom: 5 }}>
                   {label}
                 </div>
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '0.6rem 0.85rem',
-                  background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--r)',
+                  padding: '9px 12px',
+                  background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10,
                 }}>
                   <span
                     style={{
-                      flex: 1, fontFamily: 'var(--font3)', fontSize: 13, color: 'var(--txt)',
+                      flex: 1, fontFamily: 'var(--font3)', fontSize: 12.5, color: 'var(--txt)',
                       wordBreak: 'break-all',
                       filter: isSensitive && !isRevealed ? 'blur(5px)' : 'none',
                       userSelect: isSensitive && !isRevealed ? 'none' : 'auto',
                       transition: 'filter 0.2s',
                       cursor: isSensitive ? 'pointer' : 'default',
                     }}
-                    title={isSensitive && !isRevealed ? 'Click to reveal' : undefined}
                     onClick={() => isSensitive && toggleReveal(label)}
                   >
                     {value}
@@ -438,29 +490,17 @@ function ViewCredentialsModal({
                       type="button"
                       onClick={() => toggleReveal(label)}
                       style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 700, color: 'var(--txt3)', cursor: 'pointer' }}
-                      title={isRevealed ? 'Hide' : 'Reveal'}
                     >
-                      {isRevealed ? (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
-                          <line x1="1" y1="1" x2="23" y2="23"/>
-                        </svg>
-                      ) : (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                          <circle cx="12" cy="12" r="3"/>
-                        </svg>
-                      )}
+                      {isRevealed
+                        ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      }
                     </button>
                   )}
-                  {(isRevealed || !isSensitive) && (
-                    <CopyButton text={value} />
-                  )}
+                  {(isRevealed || !isSensitive) && <CopyButton text={value} />}
                 </div>
                 {isSensitive && !isRevealed && (
-                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 3 }}>
-                    Click to reveal
-                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 3 }}>Click to reveal</div>
                 )}
               </div>
             )
@@ -473,218 +513,480 @@ function ViewCredentialsModal({
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────
-export function ParentCredentialsPage() {
-  const [search,             setSearch]             = useState('')
-  const [generateStudentId,  setGenerateStudentId]  = useState<string | null>(null)
-  const [viewCredentials,    setViewCredentials]    = useState<ParentAccount | null>(null)
+// ── StatChip ──────────────────────────────────────────────────
+function StatChip({ label, value, icon }: { label: string; value: number | string; icon: React.ReactNode }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      background: 'rgba(255,255,255,0.15)',
+      backdropFilter: 'blur(8px)',
+      border: '1px solid rgba(255,255,255,0.25)',
+      borderRadius: 12, padding: '10px 16px',
+    }}>
+      <div style={{
+        width: 32, height: 32, borderRadius: 10,
+        background: 'rgba(255,255,255,0.2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      }}>
+        {icon}
+      </div>
+      <div>
+        <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', lineHeight: 1, fontFamily: 'var(--font2)' }}>
+          {value}
+        </div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', marginTop: 2, fontWeight: 600, letterSpacing: 0.3 }}>
+          {label}
+        </div>
+      </div>
+    </div>
+  )
+}
 
-  const { data: students  = [], isLoading: studentsLoading  } = useStudents({})
-  const { data: classes   = [] }                              = useClasses()
-  const { data: accounts  = [], isLoading: accountsLoading  } = useParentAccounts()
+// ── EmptySelect ───────────────────────────────────────────────
+function EmptySelect() {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      gap: 16, padding: '4rem 2rem', textAlign: 'center',
+    }}>
+      <div style={{
+        width: 72, height: 72, borderRadius: 20,
+        background: 'linear-gradient(135deg, rgba(13,148,136,0.1), rgba(14,165,233,0.07))',
+        border: '1px solid rgba(13,148,136,0.15)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1.5">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+      <div>
+        <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, color: 'var(--txt)', marginBottom: 6 }}>
+          Select a student
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--txt3)', lineHeight: 1.6, maxWidth: 260, margin: '0 auto' }}>
+          Pick a student from the list to generate or view their parent portal access.
+        </div>
+      </div>
+    </div>
+  )
+}
 
-  // Build lookup maps
-  const classMap = new Map(classes.map(c => [c.id, c.name]))
-
-  // Map studentId → parent account (a student can be in multiple accounts' student_ids)
-  const parentByStudentId = new Map<string, ParentAccount>()
-  for (const account of accounts) {
-    for (const sid of account.studentIds) {
-      if (!parentByStudentId.has(sid)) parentByStudentId.set(sid, account)
-    }
-  }
-
-  // Filter students
-  const term = search.trim().toLowerCase()
-  const filtered = term
-    ? students.filter(s =>
-        s.firstName.toLowerCase().includes(term) ||
-        s.lastName.toLowerCase().includes(term)  ||
-        s.admissionNumber.toLowerCase().includes(term)
-      )
-    : students
-
-  const accountCount = accounts.length
-  const isLoading    = studentsLoading || accountsLoading
-
-  // Virtualizer
-  const parentRef = useRef<HTMLDivElement>(null)
-  const virtualizer = useVirtualizer({
-    count:           filtered.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize:    () => 57,
-    overscan:        10,
-  })
-
-  // Stable student lookup for the generate modal
-  const generateStudent = generateStudentId
-    ? students.find(s => s.id === generateStudentId) ?? null
-    : null
-
-  const handleGenerate      = useCallback((id: string) => setGenerateStudentId(id), [])
-  const handleViewCred      = useCallback((acc: ParentAccount) => setViewCredentials(acc), [])
+// ── RightPanel ────────────────────────────────────────────────
+function RightPanel({
+  student,
+  account,
+  classLabel,
+  onGenerate,
+  onViewCreds,
+}: {
+  student:     Student | null
+  account:     ParentAccount | null
+  classLabel:  string
+  onGenerate:  () => void
+  onViewCreds: () => void
+}) {
+  if (!student) return <EmptySelect />
 
   return (
-    <div>
-      <div style={{ display:'flex', alignItems:'flex-start', gap:14, position:'relative', overflow:'hidden', marginBottom:20 }}>
-        <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(14,165,233,.18),transparent 70%)', filter:'blur(50px)', pointerEvents:'none' }} />
-        <div style={{ width:46, height:46, borderRadius:15, background:'linear-gradient(145deg,#0ea5e9,#0284c7)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 5px 18px rgba(14,165,233,.45)', flexShrink:0 }}>
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Student info header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 14,
+        padding: '18px 20px',
+        background: 'linear-gradient(135deg, rgba(13,148,136,0.06), rgba(14,165,233,0.04))',
+        border: '1px solid rgba(13,148,136,0.15)',
+        borderRadius: 14,
+      }}>
+        <div style={{
+          width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
+          background: 'linear-gradient(135deg, var(--brand), var(--brand-dark))',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 16, color: '#fff',
+          boxShadow: '0 4px 14px rgba(13,148,136,0.35)',
+        }}>
+          {student.firstName[0]}{student.lastName[0]}
         </div>
         <div>
-          <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:22, color:'var(--txt)', margin:0, letterSpacing:-.4 }}>Parent Portal Access</h1>
-          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>{students.length} student{students.length !== 1 ? 's' : ''} · {accountCount} account{accountCount !== 1 ? 's' : ''} created</p>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 16, color: 'var(--txt)' }}>
+            {student.firstName} {student.lastName}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+            <span style={{
+              fontSize: 11, fontFamily: 'var(--font3)', color: 'var(--txt3)',
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '2px 8px',
+            }}>
+              {student.admissionNumber}
+            </span>
+            {classLabel && (
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: 'var(--brand)',
+                background: 'rgba(13,148,136,0.08)', border: '1px solid rgba(13,148,136,0.2)',
+                borderRadius: 6, padding: '2px 8px',
+              }}>
+                {classLabel}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      <div style={{ marginBottom: '1rem' }}>
-        <input
-          className="sui-input"
-          placeholder="Search by student name or admission number…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          leftIcon={
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-          }
-        />
-      </div>
-
-      {isLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
-          <LoadingSpinner />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div style={{ padding: '4rem', textAlign: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)' }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
-            </svg>
-          </div>
-          <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, color: 'var(--txt)', marginBottom: 6 }}>
-            {search ? 'No students match your search' : 'No students registered yet'}
-          </div>
-          {!search && (
-            <div style={{ fontSize: 13, color: 'var(--txt3)' }}>
-              Register students first, then generate parent portal access from here.
+      {account ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '12px 16px',
+            background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.2)',
+            borderRadius: 12,
+          }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: '50%',
+              background: 'rgba(16,185,129,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
             </div>
-          )}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--success)', fontFamily: 'var(--font2)' }}>
+                Parent account exists
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>
+                {account.fullName ?? account.email} · Created {new Date(account.createdAt).toLocaleDateString()}
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            background: 'var(--surface2)', border: '1px solid var(--border)',
+            borderRadius: 12, overflow: 'hidden',
+          }}>
+            {[
+              { label: 'Login Email',  value: account.email },
+              { label: 'Auth Status',  value: account.authUserId ? 'Activated' : 'Pending IT Admin activation' },
+            ].map(({ label, value }, i) => (
+              <div key={label} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '10px 14px',
+                borderBottom: i === 0 ? '1px solid var(--border)' : undefined,
+              }}>
+                <span style={{ fontSize: 11, color: 'var(--txt3)', fontWeight: 600 }}>{label}</span>
+                <span style={{ fontSize: 12, color: 'var(--txt)', fontFamily: 'var(--font3)', fontWeight: 600 }}>{value}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={onViewCreds}
+              style={{
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                padding: '11px 0',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 10, fontFamily: 'var(--font2)', fontWeight: 700,
+                fontSize: 13, color: 'var(--txt2)', cursor: 'pointer', transition: 'all 0.15s',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                <path d="M7 11V7a5 5 0 0110 0v4"/>
+              </svg>
+              View Credentials
+            </button>
+            <button
+              onClick={onGenerate}
+              style={{
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                padding: '11px 0',
+                background: 'var(--surface)', border: '1px solid rgba(245,158,11,0.4)',
+                borderRadius: 10, fontFamily: 'var(--font2)', fontWeight: 700,
+                fontSize: 13, color: 'var(--warning)', cursor: 'pointer', transition: 'all 0.15s',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+              </svg>
+              Regenerate
+            </button>
+          </div>
         </div>
       ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
-          {/* Table header */}
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                {['Student', 'Class', 'Portal Status', 'Actions'].map(col => (
-                  <th key={col} style={{ textAlign: 'left', fontSize: 10, fontWeight: 900, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--txt3)', padding: '0.6rem 1rem', borderBottom: '1px solid var(--border)', background: 'var(--surface2)', fontFamily: 'var(--font2)', whiteSpace: 'nowrap' }}>
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-          </table>
-
-          {/* Virtualized body */}
-          <div
-            ref={parentRef}
-            style={{ height: Math.min(filtered.length * 57, 560), overflowY: 'auto' }}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', padding: '1.5rem 0' }}>
+          <div style={{
+            width: 60, height: 60, borderRadius: 18,
+            background: 'rgba(13,148,136,0.08)', border: '1px dashed rgba(13,148,136,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1.5">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 15, color: 'var(--txt)', marginBottom: 6 }}>
+              No parent access yet
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--txt3)', lineHeight: 1.6 }}>
+              Generate portal credentials for {student.firstName}'s parent or guardian.
+            </div>
+          </div>
+          <button
+            onClick={onGenerate}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '12px 28px',
+              background: 'linear-gradient(135deg, var(--brand), #0ea5e9)',
+              border: 'none', borderRadius: 12,
+              fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: '#fff',
+              cursor: 'pointer', transition: 'all 0.2s',
+              boxShadow: '0 4px 16px rgba(13,148,136,0.4)',
+            }}
           >
-            <table style={{ width: '100%', borderCollapse: 'collapse', position: 'relative' }}>
-              <tbody style={{ display: 'block', height: virtualizer.getTotalSize() + 'px', position: 'relative' }}>
-                {virtualizer.getVirtualItems().map(vrow => {
-                  const student = filtered[vrow.index]!
-                  return (
-                    <tr
-                      key={student.id}
-                      className="sui-tr"
-                      style={{ position: 'absolute', top: vrow.start + 'px', left: 0, right: 0, height: vrow.size + 'px', display: 'table', width: '100%', tableLayout: 'fixed' }}
-                    >
-                      {/* Name + adm number */}
-                      <td style={{ padding: '0.7rem 1rem', width: '35%' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <Avatar
-                            photoPath={student.photoUrl}
-                            bucket="student-photos"
-                            name={`${student.firstName} ${student.lastName}`}
-                            size="sm"
-                          />
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
-                              {student.firstName} {student.lastName}
-                            </div>
-                            <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginTop: 1 }}>
-                              {student.admissionNumber}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Class */}
-                      <td style={{ padding: '0.7rem 1rem', width: '20%' }}>
-                        <span style={{ fontSize: 12, color: 'var(--txt2)', fontFamily: 'var(--font2)', fontWeight: 600 }}>
-                          {student.classId ? (classMap.get(student.classId) ?? '—') : '—'}
-                        </span>
-                      </td>
-
-                      {/* Status */}
-                      <td style={{ padding: '0.7rem 1rem', width: '22%' }}>
-                        {parentByStudentId.has(student.id) ? (
-                          <Badge variant="green" dot>Account created</Badge>
-                        ) : (
-                          <Badge variant="muted" dot>No access</Badge>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td style={{ padding: '0.7rem 1rem', width: '23%' }}>
-                        {parentByStudentId.has(student.id) ? (
-                          <button
-                            onClick={() => handleViewCred(parentByStudentId.get(student.id)!)}
-                            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 12px', fontSize: 11.5, fontWeight: 700, color: 'var(--txt2)', cursor: 'pointer', fontFamily: 'var(--font2)', display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s' }}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-                            View Credentials
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleGenerate(student.id)}
-                            style={{ background: 'var(--brand)', border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: 11.5, fontWeight: 700, color: '#fff', cursor: 'pointer', fontFamily: 'var(--font2)', display: 'flex', alignItems: 'center', gap: 5 }}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
-                            Generate Access
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Footer count */}
-          <div style={{ padding: '0.6rem 1rem', borderTop: '1px solid var(--border)', background: 'var(--surface2)', fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font2)' }}>
-            Showing {filtered.length} of {students.length} students
-          </div>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            Generate Parent Access
+          </button>
         </div>
       )}
+    </div>
+  )
+}
 
-      {/* Generate Access Modal */}
-      {generateStudent && (
+// ═══════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ═══════════════════════════════════════════════════════════════
+export function ParentCredentialsPage() {
+  const [search,       setSearch]       = useState('')
+  const [selectedId,   setSelectedId]   = useState<string | null>(null)
+  const [showGenerate, setShowGenerate] = useState(false)
+  const [viewCreds,    setViewCreds]    = useState<ParentAccount | null>(null)
+
+  const { data: students = [], isLoading: studentsLoading } = useStudents({})
+  const { data: classes  = [] }                             = useClasses()
+  const { data: accounts = [], isLoading: accountsLoading } = useParentAccounts()
+
+  const classMap = useMemo(() => new Map(classes.map(c => [c.id, c.name])), [classes])
+
+  const parentByStudentId = useMemo(() => {
+    const map = new Map<string, ParentAccount>()
+    for (const acc of accounts) {
+      for (const sid of acc.studentIds) {
+        if (!map.has(sid)) map.set(sid, acc)
+      }
+    }
+    return map
+  }, [accounts])
+
+  const searchTerm = search.trim().toLowerCase()
+  const filtered   = useMemo(() => searchTerm
+    ? students.filter(s =>
+        s.firstName.toLowerCase().includes(searchTerm) ||
+        s.lastName.toLowerCase().includes(searchTerm)  ||
+        s.admissionNumber.toLowerCase().includes(searchTerm)
+      )
+    : students,
+    [students, searchTerm]
+  )
+
+  const selectedStudent = selectedId ? students.find(s => s.id === selectedId) ?? null : null
+  const selectedAccount = selectedId ? (parentByStudentId.get(selectedId) ?? null) : null
+  const classLabel      = selectedStudent?.classId ? (classMap.get(selectedStudent.classId) ?? '') : ''
+
+  const isLoading   = studentsLoading || accountsLoading
+  const cutoff      = Date.now() - 120 * 24 * 60 * 60 * 1000
+  const newThisTerm = accounts.filter(a => new Date(a.createdAt).getTime() > cutoff).length
+
+  const handleGenerate  = useCallback(() => setShowGenerate(true), [])
+  const handleViewCreds = useCallback(() => {
+    if (selectedAccount) setViewCreds(selectedAccount)
+  }, [selectedAccount])
+
+  return (
+    <div className="sui-page-enter">
+      {/* ── Hero Band ── */}
+      <div style={{
+        position: 'relative', overflow: 'hidden',
+        background: 'linear-gradient(135deg, #0d9488 0%, #0ea5e9 100%)',
+        borderRadius: 18, padding: '28px 32px', marginBottom: 24,
+        boxShadow: '0 8px 32px rgba(13,148,136,0.3)',
+      }}>
+        <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -30, left: '40%', width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
+
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: 16,
+              background: 'rgba(255,255,255,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <div>
+              <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: '#fff', margin: 0, letterSpacing: -0.5 }}>
+                Parent Portal Access
+              </h1>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', margin: '4px 0 0' }}>
+                Generate and manage parent login credentials
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <StatChip
+              label="Total Accounts"
+              value={accounts.length}
+              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>}
+            />
+            <StatChip
+              label="Students Linked"
+              value={students.filter(s => parentByStudentId.has(s.id)).length}
+              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>}
+            />
+            <StatChip
+              label="New This Term"
+              value={newThisTerm}
+              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Two-Panel Layout ── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(280px, 360px) 1fr',
+        gap: 16,
+        alignItems: 'start',
+      }}>
+        {/* ── Left: Student List ── */}
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 16, overflow: 'hidden',
+        }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ position: 'relative' }}>
+              <svg
+                style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2"
+              >
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input
+                className="sui-input"
+                placeholder="Search students…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ paddingLeft: 34, width: '100%' }}
+              />
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div style={{ padding: '1.5rem 1rem' }}>
+              {[1, 2, 3].map(i => (
+                <div key={i} className="shule-skeleton" style={{ height: 52, borderRadius: 8, marginBottom: 6 }} />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>
+              {search ? 'No students match your search' : 'No students registered yet'}
+            </div>
+          ) : (
+            <div style={{ maxHeight: 560, overflowY: 'auto' }}>
+              {filtered.map(student => {
+                const isSelected = student.id === selectedId
+                const hasAccount = parentByStudentId.has(student.id)
+                const cn = classMap.get(student.classId ?? '') ?? null
+
+                return (
+                  <button
+                    key={student.id}
+                    onClick={() => setSelectedId(student.id)}
+                    style={{
+                      width: '100%', textAlign: 'left',
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 16px',
+                      background: isSelected ? 'rgba(13,148,136,0.06)' : 'transparent',
+                      borderLeft: `3px solid ${isSelected ? 'var(--brand)' : 'transparent'}`,
+                      borderRight: 'none', borderTop: 'none',
+                      borderBottom: '1px solid var(--border)',
+                      cursor: 'pointer', transition: 'all 0.15s',
+                    }}
+                  >
+                    <Avatar
+                      photoPath={student.photoUrl}
+                      bucket="student-photos"
+                      name={`${student.firstName} ${student.lastName}`}
+                      size="sm"
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: 13, fontWeight: 700,
+                        color: isSelected ? 'var(--brand)' : 'var(--txt)',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
+                        {student.firstName} {student.lastName}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>
+                        {cn ?? '—'} · {student.admissionNumber}
+                      </div>
+                    </div>
+                    <div style={{
+                      width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                      background: hasAccount ? 'var(--success)' : 'var(--border)',
+                    }} />
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          <div style={{
+            padding: '8px 16px', borderTop: '1px solid var(--border)',
+            background: 'var(--surface2)', fontSize: 11, color: 'var(--txt3)',
+            display: 'flex', justifyContent: 'space-between',
+          }}>
+            <span>{filtered.length} of {students.length} students</span>
+            <span>
+              <span style={{ color: 'var(--success)', fontWeight: 700 }}>{accounts.length}</span> with access
+            </span>
+          </div>
+        </div>
+
+        {/* ── Right Panel ── */}
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 16, padding: '24px',
+          minHeight: 320,
+        }}>
+          <RightPanel
+            student={selectedStudent}
+            account={selectedAccount}
+            classLabel={classLabel}
+            onGenerate={handleGenerate}
+            onViewCreds={handleViewCreds}
+          />
+        </div>
+      </div>
+
+      {showGenerate && selectedStudent && (
         <GenerateAccessModal
-          student={generateStudent}
-          onClose={() => setGenerateStudentId(null)}
+          student={selectedStudent}
+          onClose={() => setShowGenerate(false)}
         />
       )}
 
-      {/* View Credentials Modal */}
-      {viewCredentials && (
+      {viewCreds && (
         <ViewCredentialsModal
-          account={viewCredentials}
-          onClose={() => setViewCredentials(null)}
+          account={viewCreds}
+          onClose={() => setViewCreds(null)}
         />
       )}
     </div>
