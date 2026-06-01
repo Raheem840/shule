@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { StudentsPage } from './StudentsPage'
 import { StudentRegistrationWizard } from './StudentRegistrationWizard'
 import { ImportWizard, type ColumnSpec, type ParsedRow, type ImportResult, type ConflictStrategy } from '../../components/shared/ImportWizard'
@@ -40,7 +41,8 @@ export function SecretaryStudentsPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_viewed,    setViewed]     = useState<Student | null>(null)
 
-  const { user }          = useAuth()
+  const qc                     = useQueryClient()
+  const { user }               = useAuth()
   const { data: classes = [] } = useClasses()
   const { data: streams = [] } = useStreams()
 
@@ -96,6 +98,11 @@ export function SecretaryStudentsPage() {
       } else {
         result.imported += batch.length
       }
+    }
+
+    // Bust the students cache so the list re-fetches immediately
+    if (result.imported > 0 || result.updated > 0) {
+      qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
     }
 
     return result
