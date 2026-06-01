@@ -27,6 +27,37 @@ const tooltipStyle = {
   color: '#0f172a',
 }
 
+// ─── CSS tokens injected into print popup ────────────────────────────────────
+const PRINT_STYLES = `
+:root {
+  --brand:#0d9488;--border:#e2e8f0;--txt:#0f172a;--txt2:#475569;--txt3:#94a3b8;
+  --success:#10b981;--warning:#f59e0b;--danger:#f43f5e;--info:#0ea5e9;--violet:#8b5cf6;
+  --surface:#fff;--font:'Plus Jakarta Sans',system-ui,sans-serif;
+  --font2:'Space Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box}
+body{margin:24px;font-family:var(--font);color:var(--txt)}
+table{width:100%;border-collapse:collapse}
+th,td{padding:7px 10px;text-align:left}
+.rpt-actions{display:none!important}
+*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@page{size:A4 portrait;margin:12mm 16mm}
+@media print{body{margin:0}.rpt-actions{display:none!important}}
+`
+
+function printReportPopup(elementId: string, title: string) {
+  const el = document.getElementById(elementId)
+  if (!el) return
+  const win = window.open('', '_blank', 'width=850,height=750,scrollbars=yes')
+  if (!win) { alert('Pop-up blocked — please allow pop-ups for this site and try again.'); return }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${title}</title><style>${PRINT_STYLES}</style></head><body>${el.innerHTML}</body></html>`)
+  win.document.close()
+  win.focus()
+  // Give the browser time to layout before triggering print
+  setTimeout(() => { win.print(); setTimeout(() => win.close(), 400) }, 700)
+}
+
 // ─── Report definitions ─────────────────────────────────────────────────────
 interface ReportDef {
   id:          number
@@ -161,37 +192,48 @@ function ReportCard({ report, onGenerate }: { report: ReportDef; onGenerate: () 
 }
 
 // ─── Shared print/download helpers ──────────────────────────────────────────
-async function printAndDownload(elementId: string, filename: string) {
+async function downloadReportPdf(elementId: string, filename: string) {
   const el = document.getElementById(elementId)
   if (!el) return
+  // Temporarily hide action buttons so they don't appear in PDF
+  const actions = el.querySelector('.rpt-actions') as HTMLElement | null
+  if (actions) actions.style.display = 'none'
   const { default: html2canvas } = await import('html2canvas')
   const { default: jsPDF }       = await import('jspdf')
-  const canvas = await html2canvas(el, { scale: 2, useCORS: true })
+  const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
   const pdf    = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const w      = pdf.internal.pageSize.getWidth()
   const h      = (canvas.height / canvas.width) * w
   pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h)
   pdf.save(filename)
+  if (actions) actions.style.display = ''
 }
 
-function ReportActions({ elementId, filename }: { elementId: string; filename: string }) {
+function ReportActions({ elementId, filename, title }: { elementId: string; filename: string; title: string }) {
   const [busy, setBusy] = useState(false)
   return (
-    <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+    <div className="rpt-actions" style={{
+      display: 'flex', gap: 8, marginBottom: 16,
+      paddingBottom: 12, borderBottom: '1px solid var(--border)',
+    }}>
       <button
-        onClick={() => window.print()}
+        onClick={() => printReportPopup(elementId, title)}
         style={{
           padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)',
           background: 'var(--surface)', fontSize: 12, fontWeight: 700,
           color: 'var(--txt)', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 6,
         }}
       >
-        Print
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+        </svg>
+        Print Preview
       </button>
       <button
         onClick={async () => {
           setBusy(true)
-          await printAndDownload(elementId, filename)
+          await downloadReportPdf(elementId, filename)
           setBusy(false)
         }}
         disabled={busy}
@@ -200,11 +242,26 @@ function ReportActions({ elementId, filename }: { elementId: string; filename: s
           background: C.brand, color: '#fff', fontSize: 12,
           fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer',
           opacity: busy ? 0.7 : 1,
+          display: 'flex', alignItems: 'center', gap: 6,
         }}
       >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
         {busy ? 'Generating…' : 'Download PDF'}
       </button>
     </div>
+  )
+}
+
+// ─── Empty-state row ─────────────────────────────────────────────────────────
+function EmptyRow({ cols }: { cols: number }) {
+  return (
+    <tr>
+      <td colSpan={cols} style={{ padding: '24px 10px', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
+        No records found
+      </td>
+    </tr>
   )
 }
 
@@ -231,14 +288,13 @@ function useReport1Data() {
       const classMap  = new Map((classRes.data ?? []).map((c: any) => [c.id, c.name]))
       const streamMap = new Map((streamRes.data ?? []).map((s: any) => [s.id, s.name]))
       const students = (studRes.data ?? []).map((s: any) => ({
-        id:        s.id,
-        admNo:     s.admission_number,
-        name:      `${s.first_name} ${s.last_name}`,
-        className: classMap.get(s.class_id) ?? '—',
-        streamName:streamMap.get(s.stream_id) ?? '—',
-        status:    s.status,
+        id:         s.id,
+        admNo:      s.admission_number,
+        name:       `${s.first_name} ${s.last_name}`,
+        className:  classMap.get(s.class_id) ?? '—',
+        streamName: streamMap.get(s.stream_id) ?? '—',
+        status:     s.status,
       }))
-      // Group by class
       const groups = new Map<string, typeof students>()
       for (const s of students) {
         if (!groups.has(s.className)) groups.set(s.className, [])
@@ -251,19 +307,25 @@ function useReport1Data() {
 
 function Report1Content() {
   const { data, isLoading } = useReport1Data()
-  if (isLoading) return <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>Loading…</div>
-  if (!data) return null
+  if (isLoading) return <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
+  const groups = data?.groups ?? []
+  const total  = data?.total ?? 0
   return (
     <div id="rpt-1" style={{ fontFamily: 'var(--font, system-ui)', color: '#0f172a' }}>
-      <ReportActions elementId="rpt-1" filename="StudentRegister.pdf" />
+      <ReportActions elementId="rpt-1" filename="StudentRegister.pdf" title="Student Register" />
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
           <h2 style={{ margin: 0, fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Student Register</h2>
-          <div style={{ fontSize: 12, color: 'var(--txt2)', marginTop: 2 }}>Active students only — {data.total} total</div>
+          <div style={{ fontSize: 12, color: 'var(--txt2)', marginTop: 2 }}>
+            Active students — {total} total · {new Date().toLocaleDateString('en-GB')}
+          </div>
         </div>
-        <div style={{ fontSize: 11, color: '#94a3b8' }}>{new Date().toLocaleDateString('en-GB')}</div>
       </div>
-      {data.groups.map(([className, students]) => (
+      {groups.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8', fontSize: 13 }}>
+          No active students registered yet.
+        </div>
+      ) : groups.map(([className, students]) => (
         <div key={className} style={{ marginBottom: 20 }}>
           <div style={{
             fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13,
@@ -275,7 +337,7 @@ function Report1Content() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
-                {['Adm No', 'Name', 'Stream', 'Status'].map(h => (
+                {['#', 'Adm No', 'Name', 'Stream', 'Status'].map(h => (
                   <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontSize: 10, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
                 ))}
               </tr>
@@ -283,6 +345,7 @@ function Report1Content() {
             <tbody>
               {students.map((s, i) => (
                 <tr key={s.id} style={{ background: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
+                  <td style={{ padding: '7px 10px', fontSize: 11, color: '#94a3b8' }}>{i + 1}</td>
                   <td style={{ padding: '7px 10px', fontSize: 12, fontFamily: 'monospace', color: 'var(--txt2)' }}>{s.admNo}</td>
                   <td style={{ padding: '7px 10px', fontSize: 13, fontWeight: 600 }}>{s.name}</td>
                   <td style={{ padding: '7px 10px', fontSize: 12 }}>{s.streamName}</td>
@@ -327,49 +390,92 @@ function useReport2Data() {
         if (!byClass.has(cn)) byClass.set(cn, { M: 0, F: 0, other: 0 })
         const g = row.gender as string | null
         const entry = byClass.get(cn)!
-        if (g === 'male')   entry.M++
+        if (g === 'male')        entry.M++
         else if (g === 'female') entry.F++
-        else                entry.other++
+        else                     entry.other++
       }
       const byClassArr = Array.from(byClass.entries())
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([name, v]) => ({ name, total: v.M + v.F + v.other, M: v.M, F: v.F }))
-      return { byClassArr }
+      const totalStudents = byClassArr.reduce((acc, r) => acc + r.total, 0)
+      const totalMale     = byClassArr.reduce((acc, r) => acc + r.M, 0)
+      const totalFemale   = byClassArr.reduce((acc, r) => acc + r.F, 0)
+      return { byClassArr, totalStudents, totalMale, totalFemale }
     },
   })
 }
 
 function Report2Content() {
   const { data, isLoading } = useReport2Data()
-  if (isLoading) return <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>Loading…</div>
-  if (!data) return null
+  if (isLoading) return <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
+  const byClassArr     = data?.byClassArr ?? []
+  const totalStudents  = data?.totalStudents ?? 0
+  const totalMale      = data?.totalMale ?? 0
+  const totalFemale    = data?.totalFemale ?? 0
   return (
     <div id="rpt-2">
-      <ReportActions elementId="rpt-2" filename="EnrolmentStatistics.pdf" />
-      <h2 style={{ margin: '0 0 16px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Enrolment Statistics</h2>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 700, marginBottom: 8 }}>Students per Class</div>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={data.byClassArr} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-            <XAxis dataKey="name" tick={{ fontSize: 10, fill: C.txt3 }} />
-            <YAxis tick={{ fontSize: 10, fill: C.txt3 }} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Bar dataKey="total" fill={C.brand} radius={[4, 4, 0, 0]} name="Total" />
-          </BarChart>
-        </ResponsiveContainer>
+      <ReportActions elementId="rpt-2" filename="EnrolmentStatistics.pdf" title="Enrolment Statistics" />
+      <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Enrolment Statistics</h2>
+      <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 16 }}>
+        {totalStudents} total active students · {totalMale} male · {totalFemale} female · {new Date().toLocaleDateString('en-GB')}
       </div>
-      <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 700, marginBottom: 8 }}>Gender Breakdown per Class</div>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data.byClassArr} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-          <XAxis dataKey="name" tick={{ fontSize: 10, fill: C.txt3 }} />
-          <YAxis tick={{ fontSize: 10, fill: C.txt3 }} />
-          <Tooltip contentStyle={tooltipStyle} />
-          <Bar dataKey="M" fill={C.info} name="Male" radius={[2, 2, 0, 0]} />
-          <Bar dataKey="F" fill={C.violet} name="Female" radius={[2, 2, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+      {byClassArr.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8', fontSize: 13 }}>
+          No enrolment data available yet.
+        </div>
+      ) : (
+        <>
+          {/* Summary table */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
+            <thead>
+              <tr style={{ background: '#f8fafc' }}>
+                {['Class', 'Male', 'Female', 'Total'].map(h => (
+                  <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {byClassArr.map((row, i) => (
+                <tr key={row.name} style={{ background: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
+                  <td style={{ padding: '7px 10px', fontSize: 13, fontWeight: 700 }}>{row.name}</td>
+                  <td style={{ padding: '7px 10px', fontSize: 12, color: C.info }}>{row.M}</td>
+                  <td style={{ padding: '7px 10px', fontSize: 12, color: C.violet }}>{row.F}</td>
+                  <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700 }}>{row.total}</td>
+                </tr>
+              ))}
+              <tr style={{ background: '#f0fdfa', borderTop: '2px solid #e2e8f0' }}>
+                <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 800, color: C.brand }}>TOTAL</td>
+                <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: C.info }}>{totalMale}</td>
+                <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: C.violet }}>{totalFemale}</td>
+                <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 800 }}>{totalStudents}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 700, marginBottom: 8 }}>Students per Class</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={byClassArr} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: C.txt3 }} />
+                <YAxis tick={{ fontSize: 10, fill: C.txt3 }} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Bar dataKey="total" fill={C.brand} radius={[4, 4, 0, 0]} name="Total" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 700, marginBottom: 8 }}>Gender Breakdown per Class</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={byClassArr} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: C.txt3 }} />
+              <YAxis tick={{ fontSize: 10, fill: C.txt3 }} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Bar dataKey="M" fill={C.info}   name="Male"   radius={[2, 2, 0, 0]} />
+              <Bar dataKey="F" fill={C.violet} name="Female" radius={[2, 2, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </>
+      )}
     </div>
   )
 }
@@ -391,12 +497,12 @@ function useReport3Data() {
         .eq('is_active', true)
         .order('last_name', { ascending: true })
       return (data ?? []).map((s: any) => ({
-        id:   s.id,
-        staffNo:   s.staff_number ?? '—',
-        name:      `${s.first_name} ${s.last_name}`,
-        role:      (s.role as string).replace('_', ' '),
-        empType:   s.employment_type ?? '—',
-        joinDate:  s.join_date ? new Date(s.join_date).toLocaleDateString('en-GB') : '—',
+        id:      s.id,
+        staffNo: s.staff_number ?? '—',
+        name:    `${s.first_name} ${s.last_name}`,
+        role:    (s.role as string).replace('_', ' '),
+        empType: s.employment_type ?? '—',
+        joinDate: s.join_date ? new Date(s.join_date).toLocaleDateString('en-GB') : '—',
       }))
     },
   })
@@ -404,22 +510,26 @@ function useReport3Data() {
 
 function Report3Content() {
   const { data = [], isLoading } = useReport3Data()
-  if (isLoading) return <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>Loading…</div>
+  if (isLoading) return <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
   return (
     <div id="rpt-3">
-      <ReportActions elementId="rpt-3" filename="StaffRegister.pdf" />
-      <h2 style={{ margin: '0 0 16px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Staff Register</h2>
+      <ReportActions elementId="rpt-3" filename="StaffRegister.pdf" title="Staff Register" />
+      <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Staff Register</h2>
+      <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 16 }}>
+        {data.length} active staff · {new Date().toLocaleDateString('en-GB')}
+      </div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ background: '#f8fafc' }}>
-            {['Staff No', 'Name', 'Role', 'Employment Type', 'Join Date'].map(h => (
+            {['#', 'Staff No', 'Name', 'Role', 'Employment Type', 'Join Date'].map(h => (
               <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {data.map((s, i) => (
+          {data.length === 0 ? <EmptyRow cols={6} /> : data.map((s, i) => (
             <tr key={s.id} style={{ background: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
+              <td style={{ padding: '7px 10px', fontSize: 11, color: '#94a3b8' }}>{i + 1}</td>
               <td style={{ padding: '7px 10px', fontSize: 12, fontFamily: 'monospace', color: 'var(--txt2)' }}>{s.staffNo}</td>
               <td style={{ padding: '7px 10px', fontSize: 13, fontWeight: 600 }}>{s.name}</td>
               <td style={{ padding: '7px 10px', fontSize: 12, textTransform: 'capitalize' }}>{s.role}</td>
@@ -453,16 +563,13 @@ function useReport4Data() {
         supabase.from('classes').select('id, name').eq('school_id', sid),
       ])
       const classMap = new Map((classRes.data ?? []).map((c: any) => [c.id, c.name]))
-
-      // Group by class → week
       type WeekEntry = { present: number; total: number; label: string }
       const classWeeks = new Map<string, Map<number, WeekEntry>>()
-
       for (const a of attRes.data ?? []) {
-        const row = a as any
-        const d   = new Date(row.date)
+        const row     = a as any
+        const d       = new Date(row.date)
         const weekNum = Math.ceil((Date.now() - d.getTime()) / (7 * 86400000))
-        const cid = row.class_id as string
+        const cid     = row.class_id as string
         if (!classWeeks.has(cid)) classWeeks.set(cid, new Map())
         const wm = classWeeks.get(cid)!
         const wLabel = `Week -${weekNum}`
@@ -471,7 +578,6 @@ function useReport4Data() {
         entry.total++
         if (row.status === 'present') entry.present++
       }
-
       const data = Array.from(classWeeks.entries()).map(([cid, wm]) => ({
         classId:   cid,
         className: classMap.get(cid) ?? cid,
@@ -481,7 +587,6 @@ function useReport4Data() {
           rate: entry.total > 0 ? Math.round((entry.present / entry.total) * 100) : null,
         })).sort((a, b) => b.weekNumber - a.weekNumber),
       })).sort((a, b) => a.className.localeCompare(b.className))
-
       const maxWeeks = Math.max(...data.map(d => d.weeks.length), 4)
       return { data, termWeeks: maxWeeks }
     },
@@ -490,14 +595,21 @@ function useReport4Data() {
 
 function Report4Content() {
   const { data: res, isLoading } = useReport4Data()
-  if (isLoading) return <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>Loading…</div>
-  if (!res) return null
+  if (isLoading) return <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
   return (
     <div id="rpt-4">
-      <ReportActions elementId="rpt-4" filename="AttendanceSummary.pdf" />
-      <h2 style={{ margin: '0 0 16px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Attendance Summary</h2>
-      <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 12 }}>Last 30 days by class and week</div>
-      <AttendanceHeatmap data={res.data} termWeeks={res.termWeeks} />
+      <ReportActions elementId="rpt-4" filename="AttendanceSummary.pdf" title="Attendance Summary" />
+      <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Attendance Summary</h2>
+      <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 12 }}>
+        Last 30 days by class and week · {new Date().toLocaleDateString('en-GB')}
+      </div>
+      {!res || res.data.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8', fontSize: 13 }}>
+          No attendance records in the last 30 days.
+        </div>
+      ) : (
+        <AttendanceHeatmap data={res.data} termWeeks={res.termWeeks} />
+      )}
     </div>
   )
 }
@@ -521,34 +633,29 @@ function useReport5Data() {
       ])
       const classMap  = new Map((classRes.data ?? []).map((c: any) => [c.id, c.name]))
       const studClass = new Map((studRes.data ?? []).map((s: any) => [s.id, s.class_id]))
-
       type Row = { total: number; draft: number; ready: number; approved: number; released: number }
       const byClass = new Map<string, Row>()
       for (const c of classRes.data ?? []) byClass.set((c as any).id, { total: 0, draft: 0, ready: 0, approved: 0, released: 0 })
-
-      // count students per class
       for (const s of studRes.data ?? []) {
         const row = s as any
         const cid = row.class_id as string
         if (byClass.has(cid)) byClass.get(cid)!.total++
       }
-
       for (const rc of rcRes.data ?? []) {
         const row   = rc as any
         const cid   = studClass.get(row.student_id) ?? ''
         const entry = byClass.get(cid)
         if (!entry) continue
         const st = row.status as string
-        if (st === 'draft')    entry.draft++
+        if (st === 'draft')         entry.draft++
         else if (st === 'ready')    entry.ready++
         else if (st === 'approved') entry.approved++
         else if (st === 'released') entry.released++
       }
-
       return Array.from(byClass.entries())
         .map(([cid, row]) => ({
-          classId: cid,
-          className: classMap.get(cid) ?? cid,
+          classId:    cid,
+          className:  classMap.get(cid) ?? cid,
           ...row,
           completion: row.total > 0 ? Math.round(((row.approved + row.released) / row.total) * 100) : 0,
         }))
@@ -559,11 +666,14 @@ function useReport5Data() {
 
 function Report5Content() {
   const { data = [], isLoading } = useReport5Data()
-  if (isLoading) return <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>Loading…</div>
+  if (isLoading) return <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
   return (
     <div id="rpt-5">
-      <ReportActions elementId="rpt-5" filename="ReportCardPipeline.pdf" />
-      <h2 style={{ margin: '0 0 16px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Report Card Pipeline</h2>
+      <ReportActions elementId="rpt-5" filename="ReportCardPipeline.pdf" title="Report Card Pipeline" />
+      <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Report Card Pipeline</h2>
+      <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 16 }}>
+        {new Date().getFullYear()} · {data.length} classes
+      </div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ background: '#f8fafc' }}>
@@ -573,7 +683,7 @@ function Report5Content() {
           </tr>
         </thead>
         <tbody>
-          {data.map((row, i) => (
+          {data.length === 0 ? <EmptyRow cols={7} /> : data.map((row, i) => (
             <tr key={row.classId} style={{ background: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
               <td style={{ padding: '7px 10px', fontSize: 13, fontWeight: 700 }}>{row.className}</td>
               <td style={{ padding: '7px 10px', fontSize: 12 }}>{row.total}</td>
@@ -586,7 +696,7 @@ function Report5Content() {
                   <div style={{ flex: 1, height: 6, borderRadius: 3, background: '#f1f5f9', overflow: 'hidden' }}>
                     <div style={{ height: '100%', borderRadius: 3, background: C.success, width: `${row.completion}%` }} />
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: C.success, width: 30 }}>{row.completion}%</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: C.success, width: 32 }}>{row.completion}%</span>
                 </div>
               </td>
             </tr>
@@ -616,8 +726,6 @@ function useReport6Data() {
       ])
       const classMap  = new Map((classRes.data ?? []).map((c: any) => [c.id, c.name]))
       const studClass = new Map((studRes.data ?? []).map((s: any) => [s.id, s.class_id]))
-
-      // compute status per student
       const studentStatus = new Map<string, 'paid' | 'partial' | 'unpaid'>()
       for (const p of feeRes.data ?? []) {
         const row  = p as any
@@ -633,24 +741,23 @@ function useReport6Data() {
         if (cur === 'paid' && st !== 'paid') studentStatus.set(row.student_id, st)
         else if (cur === 'partial' && st === 'unpaid') studentStatus.set(row.student_id, st)
       }
-
-      // group by class
       const byClass = new Map<string, { paid: number; partial: number; unpaid: number; name: string }>()
       for (const [sid2, cls] of studClass.entries()) {
         const cn = classMap.get(cls) ?? 'Unknown'
         if (!byClass.has(cls)) byClass.set(cls, { paid: 0, partial: 0, unpaid: 0, name: cn })
         const st = studentStatus.get(sid2) ?? 'unpaid'
         const entry = byClass.get(cls)!
-        if (st === 'paid')    entry.paid++
+        if (st === 'paid')         entry.paid++
         else if (st === 'partial') entry.partial++
-        else                  entry.unpaid++
+        else                       entry.unpaid++
       }
       return Array.from(byClass.values())
         .sort((a, b) => a.name.localeCompare(b.name))
         .map(r => ({
           ...r,
-          total: r.paid + r.partial + r.unpaid,
-          pctPaid: r.paid + r.partial + r.unpaid > 0 ? Math.round((r.paid / (r.paid + r.partial + r.unpaid)) * 100) : 0,
+          total:   r.paid + r.partial + r.unpaid,
+          pctPaid: r.paid + r.partial + r.unpaid > 0
+            ? Math.round((r.paid / (r.paid + r.partial + r.unpaid)) * 100) : 0,
         }))
     },
   })
@@ -658,23 +765,29 @@ function useReport6Data() {
 
 function Report6Content() {
   const { data = [], isLoading } = useReport6Data()
-  if (isLoading) return <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>Loading…</div>
+  if (isLoading) return <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
+  const totals = data.reduce(
+    (acc, r) => ({ paid: acc.paid + r.paid, partial: acc.partial + r.partial, unpaid: acc.unpaid + r.unpaid }),
+    { paid: 0, partial: 0, unpaid: 0 }
+  )
   return (
     <div id="rpt-6">
-      <ReportActions elementId="rpt-6" filename="FeeStatusSummary.pdf" />
+      <ReportActions elementId="rpt-6" filename="FeeStatusSummary.pdf" title="Fee Status Summary" />
       <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Fee Status Summary</h2>
-      <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 16 }}>Student counts only — no monetary values</div>
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={data} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-          <XAxis dataKey="name" tick={{ fontSize: 10, fill: C.txt3 }} />
-          <YAxis tick={{ fontSize: 10, fill: C.txt3 }} />
-          <Tooltip contentStyle={tooltipStyle} />
-          <Bar dataKey="paid"    fill={C.success} name="Paid"    radius={[2, 2, 0, 0]} />
-          <Bar dataKey="partial" fill={C.warning} name="Partial" radius={[2, 2, 0, 0]} />
-          <Bar dataKey="unpaid"  fill={C.danger}  name="Unpaid"  radius={[2, 2, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+      <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 16 }}>Student counts only — no monetary values · {new Date().toLocaleDateString('en-GB')}</div>
+      {data.length > 0 && (
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+            <XAxis dataKey="name" tick={{ fontSize: 10, fill: C.txt3 }} />
+            <YAxis tick={{ fontSize: 10, fill: C.txt3 }} />
+            <Tooltip contentStyle={tooltipStyle} />
+            <Bar dataKey="paid"    fill={C.success} name="Paid"    radius={[2, 2, 0, 0]} />
+            <Bar dataKey="partial" fill={C.warning} name="Partial" radius={[2, 2, 0, 0]} />
+            <Bar dataKey="unpaid"  fill={C.danger}  name="Unpaid"  radius={[2, 2, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16 }}>
         <thead>
           <tr style={{ background: '#f8fafc' }}>
@@ -684,7 +797,7 @@ function Report6Content() {
           </tr>
         </thead>
         <tbody>
-          {data.map((row, i) => (
+          {data.length === 0 ? <EmptyRow cols={5} /> : data.map((row, i) => (
             <tr key={row.name} style={{ background: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
               <td style={{ padding: '7px 10px', fontSize: 13, fontWeight: 700 }}>{row.name}</td>
               <td style={{ padding: '7px 10px', fontSize: 12, color: C.success, fontWeight: 700 }}>{row.paid}</td>
@@ -693,6 +806,19 @@ function Report6Content() {
               <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: C.brand }}>{row.pctPaid}%</td>
             </tr>
           ))}
+          {data.length > 0 && (
+            <tr style={{ background: '#f0fdfa', borderTop: '2px solid #e2e8f0' }}>
+              <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 800, color: C.brand }}>TOTAL</td>
+              <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: C.success }}>{totals.paid}</td>
+              <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: C.warning }}>{totals.partial}</td>
+              <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: C.danger  }}>{totals.unpaid}</td>
+              <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: C.brand }}>
+                {totals.paid + totals.partial + totals.unpaid > 0
+                  ? `${Math.round((totals.paid / (totals.paid + totals.partial + totals.unpaid)) * 100)}%`
+                  : '—'}
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -714,18 +840,25 @@ function useReport7Data() {
         supabase.from('student_guardians')
           .select('id, student_id, full_name, relationship, phone, email, do_not_contact')
           .eq('school_id', sid),
-        supabase.from('students').select('id, first_name, last_name, class_id').eq('school_id', sid).eq('status', 'active'),
+        supabase.from('students')
+          .select('id, first_name, last_name, class_id')
+          .eq('school_id', sid)
+          .eq('status', 'active'),
       ])
       const studMap = new Map((studRes.data ?? []).map((s: any) => [s.id, { name: `${s.first_name} ${s.last_name}`, classId: s.class_id }]))
-      return (guardRes.data ?? []).map((g: any) => ({
-        id:           g.id,
-        studentName:  studMap.get(g.student_id)?.name ?? '—',
-        guardianName: g.full_name,
-        relationship: g.relationship,
-        phone:        g.phone ?? '—',
-        email:        g.email ?? '—',
-        doNotContact: g.do_not_contact as boolean,
-      })).filter(g => studMap.has((guardRes.data ?? []).find((x: any) => x.id === g.id)?.student_id ?? ''))
+      const activeStudentIds = new Set(studRes.data?.map((s: any) => s.id) ?? [])
+      return (guardRes.data ?? [])
+        .filter((g: any) => activeStudentIds.has(g.student_id))
+        .map((g: any) => ({
+          id:           g.id,
+          studentName:  studMap.get(g.student_id)?.name ?? '—',
+          guardianName: g.full_name,
+          relationship: g.relationship,
+          phone:        g.phone ?? '—',
+          email:        g.email ?? '—',
+          doNotContact: g.do_not_contact as boolean,
+        }))
+        .sort((a: any, b: any) => a.studentName.localeCompare(b.studentName))
     },
   })
 }
@@ -736,11 +869,11 @@ async function exportGuardiansToExcel(data: ReturnType<typeof useReport7Data>['d
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('Guardians')
   ws.columns = [
-    { header: 'Student',      key: 'studentName',  width: 22 },
-    { header: 'Guardian',     key: 'guardianName', width: 22 },
-    { header: 'Relationship', key: 'relationship', width: 14 },
-    { header: 'Phone',        key: 'phone',        width: 16 },
-    { header: 'Email',        key: 'email',        width: 26 },
+    { header: 'Student',        key: 'studentName',  width: 22 },
+    { header: 'Guardian',       key: 'guardianName', width: 22 },
+    { header: 'Relationship',   key: 'relationship', width: 14 },
+    { header: 'Phone',          key: 'phone',        width: 16 },
+    { header: 'Email',          key: 'email',        width: 26 },
     { header: 'Do Not Contact', key: 'doNotContact', width: 14 },
   ]
   ws.getRow(1).font = { bold: true }
@@ -756,11 +889,37 @@ async function exportGuardiansToExcel(data: ReturnType<typeof useReport7Data>['d
 function Report7Content() {
   const { data, isLoading } = useReport7Data()
   const [busy, setBusy] = useState(false)
-  if (isLoading) return <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>Loading…</div>
+  if (isLoading) return <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
+  const rows = data ?? []
   return (
     <div id="rpt-7">
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <ReportActions elementId="rpt-7" filename="GuardianContacts.pdf" />
+      <div className="rpt-actions" style={{ display: 'flex', gap: 8, marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+        <button
+          onClick={() => printReportPopup('rpt-7', 'Guardian Contact List')}
+          style={{
+            padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)',
+            background: 'var(--surface)', fontSize: 12, fontWeight: 700,
+            color: 'var(--txt)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+          </svg>
+          Print Preview
+        </button>
+        <button
+          onClick={async () => { setBusy(true); await downloadReportPdf('rpt-7', 'GuardianContacts.pdf'); setBusy(false) }}
+          disabled={busy}
+          style={{
+            padding: '7px 14px', borderRadius: 8, border: 'none',
+            background: C.brand, color: '#fff', fontSize: 12,
+            fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer',
+            opacity: busy ? 0.7 : 1,
+          }}
+        >
+          {busy ? 'Generating…' : 'Download PDF'}
+        </button>
         <button
           onClick={async () => { setBusy(true); await exportGuardiansToExcel(data); setBusy(false) }}
           disabled={busy}
@@ -774,7 +933,10 @@ function Report7Content() {
           {busy ? 'Exporting…' : 'Export Excel'}
         </button>
       </div>
-      <h2 style={{ margin: '0 0 16px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Guardian Contact List</h2>
+      <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Guardian Contact List</h2>
+      <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 16 }}>
+        {rows.length} guardian records · {new Date().toLocaleDateString('en-GB')}
+      </div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ background: '#f8fafc' }}>
@@ -784,7 +946,7 @@ function Report7Content() {
           </tr>
         </thead>
         <tbody>
-          {(data ?? []).map((g, i) => (
+          {rows.length === 0 ? <EmptyRow cols={6} /> : rows.map((g, i) => (
             <tr key={g.id} style={{ background: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
               <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 600 }}>{g.studentName}</td>
               <td style={{ padding: '7px 10px', fontSize: 12 }}>{g.guardianName}</td>
@@ -793,7 +955,7 @@ function Report7Content() {
               <td style={{ padding: '7px 10px', fontSize: 12 }}>{g.email}</td>
               <td style={{ padding: '7px 10px', fontSize: 12 }}>
                 {g.doNotContact
-                  ? <span style={{ color: C.danger, fontWeight: 700 }}>Yes</span>
+                  ? <span style={{ color: C.danger,  fontWeight: 700 }}>Yes</span>
                   : <span style={{ color: C.success }}>No</span>
                 }
               </td>
@@ -816,7 +978,6 @@ function useReport8Data() {
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const sid = user!.schoolId
-      // Get active academic year to find term start
       const { data: ayRows } = await supabase
         .from('academic_years')
         .select('id, is_active, term1_start, term1_end, term2_start, term2_end, term3_start, term3_end')
@@ -862,37 +1023,46 @@ function useReport8Data() {
         }
       }
 
-      return (studRes.data ?? []).map((s: any) => ({
-        id:           s.id,
-        name:         `${s.first_name} ${s.last_name}`,
-        className:    classMap.get(s.class_id) ?? '—',
-        guardianName: guardMap.get(s.id)?.name ?? '—',
-        guardianPhone:guardMap.get(s.id)?.phone ?? '—',
-        enrolledDate: new Date(s.enrolled_at).toLocaleDateString('en-GB'),
-      }))
+      return {
+        students: (studRes.data ?? []).map((s: any) => ({
+          id:            s.id,
+          name:          `${s.first_name} ${s.last_name}`,
+          className:     classMap.get(s.class_id) ?? '—',
+          guardianName:  guardMap.get(s.id)?.name  ?? '—',
+          guardianPhone: guardMap.get(s.id)?.phone ?? '—',
+          enrolledDate:  new Date(s.enrolled_at).toLocaleDateString('en-GB'),
+        })),
+        baseDateLabel: termStart
+          ? `from ${new Date(baseDate).toLocaleDateString('en-GB')} (term start)`
+          : `since ${new Date(baseDate).toLocaleDateString('en-GB')}`,
+      }
     },
   })
 }
 
 function Report8Content() {
-  const { data = [], isLoading } = useReport8Data()
-  if (isLoading) return <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>Loading…</div>
+  const { data, isLoading } = useReport8Data()
+  if (isLoading) return <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
+  const students = data?.students ?? []
   return (
     <div id="rpt-8">
-      <ReportActions elementId="rpt-8" filename="NewStudentsThisTerm.pdf" />
+      <ReportActions elementId="rpt-8" filename="NewStudentsThisTerm.pdf" title="New Students This Term" />
       <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>New Students This Term</h2>
-      <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 16 }}>{data.length} new enrolments</div>
+      <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 16 }}>
+        {students.length} new enrolment{students.length !== 1 ? 's' : ''} {data?.baseDateLabel ?? ''} · {new Date().toLocaleDateString('en-GB')}
+      </div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ background: '#f8fafc' }}>
-            {['Name', 'Class', 'Guardian', 'Guardian Phone', 'Enrolled'].map(h => (
+            {['#', 'Name', 'Class', 'Guardian', 'Guardian Phone', 'Enrolled'].map(h => (
               <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 10, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {data.map((s, i) => (
+          {students.length === 0 ? <EmptyRow cols={6} /> : students.map((s, i) => (
             <tr key={s.id} style={{ background: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
+              <td style={{ padding: '7px 10px', fontSize: 11, color: '#94a3b8' }}>{i + 1}</td>
               <td style={{ padding: '7px 10px', fontSize: 13, fontWeight: 600 }}>{s.name}</td>
               <td style={{ padding: '7px 10px', fontSize: 12 }}>{s.className}</td>
               <td style={{ padding: '7px 10px', fontSize: 12 }}>{s.guardianName}</td>
@@ -941,7 +1111,7 @@ export function SecretaryReportsPage() {
             Reports
           </h1>
           <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 4 }}>
-            Generate, print, and download school reports
+            Generate, preview, print and download school reports
           </div>
         </div>
       </div>
@@ -961,7 +1131,7 @@ export function SecretaryReportsPage() {
         ))}
       </div>
 
-      {/* Report modal */}
+      {/* Report modal — full preview with print/download */}
       {activeReport !== null && (
         <Modal
           open={activeReport !== null}
@@ -969,6 +1139,7 @@ export function SecretaryReportsPage() {
           title={activeReportDef?.name ?? 'Report'}
           size="xl"
         >
+          {/* Note: print is handled by popup window — modal itself is not printed */}
           <div style={{ maxHeight: '80vh', overflowY: 'auto', padding: '4px 0' }}>
             <ReportContent id={activeReport} />
           </div>

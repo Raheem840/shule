@@ -101,12 +101,12 @@ export function useSecretaryBriefing(term: number, year: number) {
         supabase.from('exam_results')
           .select('student_id, score, exam_journal_id, subject_id, term, year')
           .eq('school_id', sid)
-          .eq('term', term)
+          .eq('term', String(term))
           .eq('year', year),
         supabase.from('exam_journal')
           .select('id, pass_mark, term, year')
           .eq('school_id', sid)
-          .eq('term', term)
+          .eq('term', String(term))
           .eq('year', year),
         supabase.from('subjects')
           .select('id, name')
@@ -126,7 +126,7 @@ export function useSecretaryBriefing(term: number, year: number) {
         supabase.from('report_cards')
           .select('id, status')
           .eq('school_id', sid)
-          .eq('term', term)
+          .eq('term', String(term))
           .eq('year', year),
       ])
 

@@ -1,9 +1,42 @@
 import { useState, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useAuth } from '../../store/AuthContext'
-import { useSecretaryBriefing } from '../../hooks/useSecretaryBriefing'
+import { useSecretaryBriefing, type SecretaryBriefingData } from '../../hooks/useSecretaryBriefing'
 import { useAcademicYears } from '../../hooks/useAdmin'
 import { FeeStatusDonut } from '../../components/shared/FeeStatusDonut'
+
+// CSS tokens for popup print window
+const PRINT_STYLES = `
+:root{--brand:#0d9488;--border:#e2e8f0;--txt:#0f172a;--txt2:#475569;--txt3:#94a3b8;
+  --success:#10b981;--warning:#f59e0b;--danger:#f43f5e;--info:#0ea5e9;--violet:#8b5cf6;
+  --surface:#fff;--font:'Plus Jakarta Sans',system-ui,sans-serif;
+  --font2:'Space Grotesk',system-ui,sans-serif;}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font);color:var(--txt);background:#fff}
+.briefing-toolbar,.print-hide{display:none!important}
+*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@page{size:A4 portrait;margin:12mm 16mm}
+`
+
+function printBriefingPopup(year: number, term: number) {
+  const el = document.getElementById('briefing-page')
+  if (!el) return
+  const win = window.open('', '_blank', 'width=870,height=750,scrollbars=yes')
+  if (!win) { alert('Pop-up blocked — please allow pop-ups for this site and try again.'); return }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>School at a Glance — Term ${term} ${year}</title><style>${PRINT_STYLES}</style></head><body>${el.outerHTML}</body></html>`)
+  win.document.close()
+  win.focus()
+  setTimeout(() => { win.print(); setTimeout(() => win.close(), 400) }, 700)
+}
+
+const EMPTY_BRIEFING: SecretaryBriefingData = {
+  studentSummary:   { total: 0, active: 0, suspended: 0, expelled: 0, newThisTerm: 0 },
+  staffSummary:     { total: 0, byRole: [] },
+  academicOverview: { passRate: 0, subjectsBelowSixty: 0, topSubjects: [], bottomSubjects: [] },
+  feeStatusCounts:  { paid: 0, partial: 0, unpaid: 0 },
+  attendanceAlerts: [],
+  reportCardStatus: { draft: 0, ready: 0, approved: 0, released: 0 },
+}
 
 const C = {
   brand:   '#0d9488',
@@ -24,17 +57,17 @@ const tooltipStyle = {
   color: 'var(--txt)',
 }
 
-async function downloadPdf(year: number, term: number) {
+async function downloadBriefingPdf(year: number, term: number) {
   const el = document.getElementById('briefing-page')
   if (!el) return
   const { default: html2canvas } = await import('html2canvas')
   const { default: jsPDF }       = await import('jspdf')
-  const canvas = await html2canvas(el, { scale: 2, useCORS: true })
+  const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
   const pdf    = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const w      = pdf.internal.pageSize.getWidth()
   const h      = (canvas.height / canvas.width) * w
   pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h)
-  pdf.save(`ShuleBriefing_${year}_T${term}.pdf`)
+  pdf.save(`SchoolAtAGlance_${year}_T${term}.pdf`)
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -132,19 +165,19 @@ export function SchoolAtAGlancePage() {
   }, [activeAy, selectedTerm])
 
   const { data: briefing, isLoading } = useSecretaryBriefing(selectedTerm, selectedYear)
+  // Always show the document structure — use zeros when no real data yet
+  const b = briefing ?? EMPTY_BRIEFING
 
   const dateStr  = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   const preparedBy = user?.name ?? 'Secretary'
 
-  const rcTotal = briefing
-    ? briefing.reportCardStatus.draft + briefing.reportCardStatus.ready +
-      briefing.reportCardStatus.approved + briefing.reportCardStatus.released
-    : 0
+  const rcTotal = b.reportCardStatus.draft + b.reportCardStatus.ready +
+    b.reportCardStatus.approved + b.reportCardStatus.released
 
   async function handleDownload() {
     setDownloading(true)
     try {
-      await downloadPdf(selectedYear, selectedTerm)
+      await downloadBriefingPdf(selectedYear, selectedTerm)
     } finally {
       setDownloading(false)
     }
@@ -197,14 +230,14 @@ export function SchoolAtAGlancePage() {
             ))}
           </select>
           <button
-            onClick={() => window.print()}
+            onClick={() => printBriefingPopup(selectedYear, selectedTerm)}
             style={{
               padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)',
               background: 'var(--surface)', fontSize: 13, fontWeight: 700,
               color: 'var(--txt)', cursor: 'pointer',
             }}
           >
-            Print
+            Print Preview
           </button>
           <button
             onClick={handleDownload}
@@ -261,221 +294,226 @@ export function SchoolAtAGlancePage() {
           </div>
         </div>
 
-        {isLoading ? (
-          <div style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8' }}>
-            Loading briefing data…
-          </div>
-        ) : !briefing ? (
-          <div style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8' }}>
-            No data available for the selected period.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-
-            {/* 2. Enrolment Summary */}
-            <section className="briefing-section report-section">
-              <SectionHeader title="Enrolment Summary" />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
-                <StatBox label="Total"        value={briefing.studentSummary.total}       color="#0d9488" />
-                <StatBox label="Active"       value={briefing.studentSummary.active}      color="#10b981" />
-                <StatBox label="Suspended"    value={briefing.studentSummary.suspended}   color="#f59e0b" />
-                <StatBox label="Expelled"     value={briefing.studentSummary.expelled}    color="#f43f5e" />
-                <StatBox label="New This Term" value={briefing.studentSummary.newThisTerm} color="#0ea5e9" />
-              </div>
-            </section>
-
-            {/* 3. Staff Summary */}
-            <section className="briefing-section report-section">
-              <SectionHeader title="Staff Summary" />
-              <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                <div style={{ minWidth: 80 }}>
-                  <StatBox label="Total Staff" value={briefing.staffSummary.total} color="#8b5cf6" />
-                </div>
-                {briefing.staffSummary.byRole.length > 0 && (
-                  <div style={{ flex: 1, minWidth: 200 }}>
-                    <ResponsiveContainer width="100%" height={120}>
-                      <BarChart
-                        data={briefing.staffSummary.byRole.map(r => ({
-                          role: r.role.replace('_', ' '),
-                          count: r.count,
-                        }))}
-                        layout="vertical"
-                        margin={{ top: 0, right: 16, left: 40, bottom: 0 }}
-                      >
-                        <XAxis type="number" tick={{ fontSize: 10, fill: C.txt3 }} />
-                        <YAxis type="category" dataKey="role" tick={{ fontSize: 10, fill: '#0f172a' }} width={80} />
-                        <Tooltip contentStyle={tooltipStyle} />
-                        <Bar dataKey="count" fill={C.violet} radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* 4. Academic Overview */}
-            <section className="briefing-section report-section">
-              <SectionHeader title="Academic Overview" />
-              <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, minWidth: 200 }}>
-                  <StatBox label="Pass Rate"         value={`${briefing.academicOverview.passRate}%`}           color="#10b981" />
-                  <StatBox label="Below 60%"         value={briefing.academicOverview.subjectsBelowSixty}       color="#f43f5e" />
-                </div>
-                {briefing.academicOverview.topSubjects.length > 0 && (
-                  <div style={{ flex: 1, minWidth: 260 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                      Top Subjects
-                    </div>
-                    <ResponsiveContainer width="100%" height={130}>
-                      <BarChart
-                        data={briefing.academicOverview.topSubjects}
-                        layout="vertical"
-                        margin={{ top: 0, right: 16, left: 60, bottom: 0 }}
-                      >
-                        <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: C.txt3 }} />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#0f172a' }} width={80} />
-                        <Tooltip contentStyle={tooltipStyle} formatter={(v: unknown) => [`${v}%`, 'Pass Rate']} />
-                        <Bar dataKey="passRate" fill={C.success} radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* 5. Fee Collection (counts only) */}
-            <section className="briefing-section report-section">
-              <SectionHeader title="Fee Collection" />
-              <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-                <FeeStatusDonut
-                  paid={briefing.feeStatusCounts.paid}
-                  partial={briefing.feeStatusCounts.partial}
-                  unpaid={briefing.feeStatusCounts.unpaid}
-                  size={140}
-                  showLegend
-                />
-                <div style={{ flex: 1, minWidth: 180 }}>
-                  {(() => {
-                    const { paid, partial, unpaid } = briefing.feeStatusCounts
-                    const total = paid + partial + unpaid
-                    return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {[
-                          { label: 'Paid',    count: paid,    color: C.success },
-                          { label: 'Partial', count: partial, color: C.warning },
-                          { label: 'Unpaid',  count: unpaid,  color: C.danger  },
-                        ].map(s => (
-                          <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ width: 60, fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{s.label}</div>
-                            <div style={{ flex: 1, height: 10, borderRadius: 5, background: '#f1f5f9', overflow: 'hidden' }}>
-                              <div style={{
-                                height: '100%', borderRadius: 5, background: s.color,
-                                width: total > 0 ? `${Math.round((s.count / total) * 100)}%` : '0%',
-                              }} />
-                            </div>
-                            <div style={{ width: 28, fontSize: 12, fontWeight: 700, color: s.color, textAlign: 'right' }}>
-                              {total > 0 ? `${Math.round((s.count / total) * 100)}%` : '—'}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
-                </div>
-              </div>
-            </section>
-
-            {/* 6. Attendance Alerts */}
-            <section className="briefing-section report-section">
-              <SectionHeader title="Attendance Alerts (below 80%)" />
-              {briefing.attendanceAlerts.length === 0 ? (
-                <div style={{ color: '#10b981', fontWeight: 600, fontSize: 13 }}>
-                  All classes are above 80% attendance.
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {briefing.attendanceAlerts.map(a => (
-                    <div key={a.classId} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '8px 12px',
-                      background: a.rate < 70 ? '#fff1f2' : '#fff7ed',
-                      borderRadius: 6,
-                      border: `1px solid ${a.rate < 70 ? '#fecdd3' : '#fde68a'}`,
-                    }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{a.className}</span>
-                      <span style={{
-                        fontSize: 13, fontWeight: 800,
-                        color: a.rate < 70 ? C.danger : C.warning,
-                      }}>
-                        {a.rate}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {/* 7. Report Card Pipeline */}
-            <section className="briefing-section report-section">
-              <SectionHeader title="Report Card Pipeline" />
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <PipelineStep label="Draft"    count={briefing.reportCardStatus.draft}    total={rcTotal} color={C.txt3}    />
-                <div style={{ fontSize: 18, color: '#e2e8f0' }}>→</div>
-                <PipelineStep label="Ready"    count={briefing.reportCardStatus.ready}    total={rcTotal} color={C.info}    />
-                <div style={{ fontSize: 18, color: '#e2e8f0' }}>→</div>
-                <PipelineStep label="Approved" count={briefing.reportCardStatus.approved} total={rcTotal} color={C.warning} />
-                <div style={{ fontSize: 18, color: '#e2e8f0' }}>→</div>
-                <PipelineStep label="Released" count={briefing.reportCardStatus.released} total={rcTotal} color={C.success} />
-              </div>
-            </section>
-
-            {/* 8. Pending Actions */}
-            <section className="briefing-section report-section">
-              <SectionHeader title="Pending Actions" />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[
-                  briefing.studentSummary.newThisTerm > 0 && `Issue parent portal credentials for ${briefing.studentSummary.newThisTerm} new student(s)`,
-                  briefing.reportCardStatus.ready > 0 && `Follow up on ${briefing.reportCardStatus.ready} report card(s) awaiting principal approval`,
-                  briefing.attendanceAlerts.length > 0 && `Notify class teachers for ${briefing.attendanceAlerts.length} class(es) with low attendance`,
-                  briefing.feeStatusCounts.unpaid > 0 && `Send fee reminders for ${briefing.feeStatusCounts.unpaid} student(s) with no payment`,
-                  briefing.studentSummary.suspended > 0 && `Update parent records for ${briefing.studentSummary.suspended} suspended student(s)`,
-                ].filter(Boolean).map((action, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <div style={{
-                      width: 16, height: 16, borderRadius: 3,
-                      border: '1.5px solid #94a3b8',
-                      flexShrink: 0, marginTop: 1,
-                    }} />
-                    <span style={{ fontSize: 13, color: '#0f172a' }}>{action as string}</span>
-                  </div>
-                ))}
-                {[
-                  briefing.studentSummary.newThisTerm,
-                  briefing.reportCardStatus.ready,
-                  briefing.attendanceAlerts.length,
-                  briefing.feeStatusCounts.unpaid,
-                  briefing.studentSummary.suspended,
-                ].every(v => v === 0) && (
-                  <div style={{ color: '#10b981', fontWeight: 600, fontSize: 13 }}>
-                    No pending actions — great work!
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* 9. Footer */}
-            <div style={{
-              paddingTop: 16, borderTop: '1px solid #e2e8f0',
-              display: 'flex', justifyContent: 'space-between',
-              fontSize: 10, color: '#94a3b8',
-            }}>
-              <span>Printed by Shule Management System</span>
-              <span>{new Date().toLocaleString('en-GB')}</span>
-              <span>Page 1 of 1</span>
-            </div>
-
+        {isLoading && (
+          <div style={{
+            textAlign: 'center', padding: '12px 0 4px',
+            fontSize: 12, color: '#94a3b8',
+          }}>
+            Loading data…
           </div>
         )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+
+          {/* 2. Enrolment Summary */}
+          <section className="briefing-section report-section">
+            <SectionHeader title="Enrolment Summary" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+              <StatBox label="Total"         value={b.studentSummary.total}       color="#0d9488" />
+              <StatBox label="Active"        value={b.studentSummary.active}      color="#10b981" />
+              <StatBox label="Suspended"     value={b.studentSummary.suspended}   color="#f59e0b" />
+              <StatBox label="Expelled"      value={b.studentSummary.expelled}    color="#f43f5e" />
+              <StatBox label="New This Term" value={b.studentSummary.newThisTerm} color="#0ea5e9" />
+            </div>
+          </section>
+
+          {/* 3. Staff Summary */}
+          <section className="briefing-section report-section">
+            <SectionHeader title="Staff Summary" />
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <div style={{ minWidth: 80 }}>
+                <StatBox label="Total Staff" value={b.staffSummary.total} color="#8b5cf6" />
+              </div>
+              {b.staffSummary.byRole.length > 0 && (
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <ResponsiveContainer width="100%" height={120}>
+                    <BarChart
+                      data={b.staffSummary.byRole.map(r => ({
+                        role: r.role.replace('_', ' '),
+                        count: r.count,
+                      }))}
+                      layout="vertical"
+                      margin={{ top: 0, right: 16, left: 40, bottom: 0 }}
+                    >
+                      <XAxis type="number" tick={{ fontSize: 10, fill: C.txt3 }} />
+                      <YAxis type="category" dataKey="role" tick={{ fontSize: 10, fill: '#0f172a' }} width={80} />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Bar dataKey="count" fill={C.violet} radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+              {b.staffSummary.byRole.length === 0 && (
+                <div style={{ flex: 1, fontSize: 12, color: '#94a3b8', paddingTop: 12 }}>
+                  No staff breakdown available for this period.
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* 4. Academic Overview */}
+          <section className="briefing-section report-section">
+            <SectionHeader title="Academic Overview" />
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, minWidth: 200 }}>
+                <StatBox label="Pass Rate"  value={`${b.academicOverview.passRate}%`}         color="#10b981" />
+                <StatBox label="Below 60%"  value={b.academicOverview.subjectsBelowSixty}     color="#f43f5e" />
+              </div>
+              {b.academicOverview.topSubjects.length > 0 ? (
+                <div style={{ flex: 1, minWidth: 260 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Top Subjects
+                  </div>
+                  <ResponsiveContainer width="100%" height={130}>
+                    <BarChart
+                      data={b.academicOverview.topSubjects}
+                      layout="vertical"
+                      margin={{ top: 0, right: 16, left: 60, bottom: 0 }}
+                    >
+                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: C.txt3 }} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#0f172a' }} width={80} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v: unknown) => [`${v}%`, 'Pass Rate']} />
+                      <Bar dataKey="passRate" fill={C.success} radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div style={{ flex: 1, fontSize: 12, color: '#94a3b8', paddingTop: 12 }}>
+                  No exam results recorded for Term {selectedTerm}, {selectedYear}.
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* 5. Fee Collection (counts only) */}
+          <section className="briefing-section report-section">
+            <SectionHeader title="Fee Collection" />
+            <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
+              <FeeStatusDonut
+                paid={b.feeStatusCounts.paid}
+                partial={b.feeStatusCounts.partial}
+                unpaid={b.feeStatusCounts.unpaid}
+                size={140}
+                showLegend
+              />
+              <div style={{ flex: 1, minWidth: 180 }}>
+                {(() => {
+                  const { paid, partial, unpaid } = b.feeStatusCounts
+                  const total = paid + partial + unpaid
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {[
+                        { label: 'Paid',    count: paid,    color: C.success },
+                        { label: 'Partial', count: partial, color: C.warning },
+                        { label: 'Unpaid',  count: unpaid,  color: C.danger  },
+                      ].map(s => (
+                        <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 60, fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{s.label}</div>
+                          <div style={{ flex: 1, height: 10, borderRadius: 5, background: '#f1f5f9', overflow: 'hidden' }}>
+                            <div style={{
+                              height: '100%', borderRadius: 5, background: s.color,
+                              width: total > 0 ? `${Math.round((s.count / total) * 100)}%` : '0%',
+                            }} />
+                          </div>
+                          <div style={{ width: 36, fontSize: 12, fontWeight: 700, color: s.color, textAlign: 'right' }}>
+                            {total > 0 ? `${Math.round((s.count / total) * 100)}%` : '0%'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+          </section>
+
+          {/* 6. Attendance Alerts */}
+          <section className="briefing-section report-section">
+            <SectionHeader title="Attendance Alerts (below 80%)" />
+            {b.attendanceAlerts.length === 0 ? (
+              <div style={{ color: '#10b981', fontWeight: 600, fontSize: 13 }}>
+                {briefing ? 'All classes are above 80% attendance.' : 'No attendance data recorded for this term.'}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {b.attendanceAlerts.map(a => (
+                  <div key={a.classId} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    background: a.rate < 70 ? '#fff1f2' : '#fff7ed',
+                    borderRadius: 6,
+                    border: `1px solid ${a.rate < 70 ? '#fecdd3' : '#fde68a'}`,
+                  }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{a.className}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: a.rate < 70 ? C.danger : C.warning }}>
+                      {a.rate}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* 7. Report Card Pipeline */}
+          <section className="briefing-section report-section">
+            <SectionHeader title="Report Card Pipeline" />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <PipelineStep label="Draft"    count={b.reportCardStatus.draft}    total={rcTotal} color={C.txt3}    />
+              <div style={{ fontSize: 18, color: '#e2e8f0' }}>→</div>
+              <PipelineStep label="Ready"    count={b.reportCardStatus.ready}    total={rcTotal} color={C.info}    />
+              <div style={{ fontSize: 18, color: '#e2e8f0' }}>→</div>
+              <PipelineStep label="Approved" count={b.reportCardStatus.approved} total={rcTotal} color={C.warning} />
+              <div style={{ fontSize: 18, color: '#e2e8f0' }}>→</div>
+              <PipelineStep label="Released" count={b.reportCardStatus.released} total={rcTotal} color={C.success} />
+            </div>
+          </section>
+
+          {/* 8. Pending Actions */}
+          <section className="briefing-section report-section">
+            <SectionHeader title="Pending Actions" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                b.studentSummary.newThisTerm > 0 && `Issue parent portal credentials for ${b.studentSummary.newThisTerm} new student(s)`,
+                b.reportCardStatus.ready > 0 && `Follow up on ${b.reportCardStatus.ready} report card(s) awaiting principal approval`,
+                b.attendanceAlerts.length > 0 && `Notify class teachers for ${b.attendanceAlerts.length} class(es) with low attendance`,
+                b.feeStatusCounts.unpaid > 0 && `Send fee reminders for ${b.feeStatusCounts.unpaid} student(s) with no payment`,
+                b.studentSummary.suspended > 0 && `Update parent records for ${b.studentSummary.suspended} suspended student(s)`,
+              ].filter(Boolean).map((action, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <div style={{
+                    width: 16, height: 16, borderRadius: 3,
+                    border: '1.5px solid #94a3b8',
+                    flexShrink: 0, marginTop: 1,
+                  }} />
+                  <span style={{ fontSize: 13, color: '#0f172a' }}>{action as string}</span>
+                </div>
+              ))}
+              {[
+                b.studentSummary.newThisTerm,
+                b.reportCardStatus.ready,
+                b.attendanceAlerts.length,
+                b.feeStatusCounts.unpaid,
+                b.studentSummary.suspended,
+              ].every(v => v === 0) && (
+                <div style={{ color: '#10b981', fontWeight: 600, fontSize: 13 }}>
+                  {briefing ? 'No pending actions — great work!' : 'No data yet for this period.'}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* 9. Footer */}
+          <div style={{
+            paddingTop: 16, borderTop: '1px solid #e2e8f0',
+            display: 'flex', justifyContent: 'space-between',
+            fontSize: 10, color: '#94a3b8',
+          }}>
+            <span>Printed by Shule Management System</span>
+            <span>{new Date().toLocaleString('en-GB')}</span>
+            <span>Page 1 of 1</span>
+          </div>
+
+        </div>
       </div>
     </div>
   )
