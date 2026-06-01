@@ -154,6 +154,25 @@ export function useCreateEvent() {
   })
 }
 
+// ── useDeleteEvent ─────────────────────────────────────────────────────────
+export function useDeleteEvent() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error('Not authenticated')
+      const { error } = await supabase.from('school_events').delete()
+        .eq('id', id).eq('school_id', user.schoolId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['school-events-all'] })
+      void qc.invalidateQueries({ queryKey: ['teacher-events'] })
+      void qc.invalidateQueries({ queryKey: ['term-progress'] })
+    },
+  })
+}
+
 // ── useJournalEvent ────────────────────────────────────────────────────────
 // Marks an event as journaled and links it to an exam_journal entry.
 export function useJournalEvent() {

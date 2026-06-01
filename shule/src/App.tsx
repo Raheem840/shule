@@ -90,6 +90,7 @@ const SystemSettingsPage       = lazy(() => import('./pages/admin/SystemSettings
 // Shared
 const MessagingPage            = lazy(() => import('./pages/shared/MessagingPage').then(m => ({ default: m.MessagingPage })))
 const ProfilePage              = lazy(() => import('./pages/shared/ProfilePage').then(m => ({ default: m.ProfilePage })))
+const SharedEventsPage         = lazy(() => import('./pages/shared/SharedEventsPage').then(m => ({ default: m.SharedEventsPage })))
 
 // ─── Role → home route ────────────────────────────────────────────────────
 const ROLE_HOME: Record<UserRole, string> = {
@@ -140,6 +141,7 @@ export default function App() {
             <Route path="/principal/classes"              element={<PrincipalClassesPage />} />
             <Route path="/principal/report-cards"         element={<PrincipalReportCardsPage />} />
             <Route path="/principal/academic-year"        element={<AcademicYearPage />} />
+            <Route path="/principal/events"               element={<SharedEventsPage />} />
             <Route path="/principal/messages"             element={<MessagingPage />} />
             <Route path="/principal/announcements"        element={<Navigate to="/principal/messages" replace />} />
             <Route path="/principal/settings"             element={<PrincipalSettingsPage />} />
@@ -155,6 +157,7 @@ export default function App() {
             <Route path="/deputy/discipline" element={<DisciplinePage />} />
             <Route path="/deputy/timetable"  element={<DeputyTimetablePage />} />
             <Route path="/deputy/students"   element={<DeputyStudentsPage />} />
+            <Route path="/deputy/events"     element={<SharedEventsPage />} />
             <Route path="/deputy/messages"   element={<MessagingPage />} />
           </Route>
 
@@ -172,6 +175,7 @@ export default function App() {
             <Route path="/dos/journals"   element={<DosJournalsPage />} />
             <Route path="/dos/timetable"  element={<DosTimetablePage />} />
             <Route path="/dos/surveys"    element={<DosSurveysPage />} />
+            <Route path="/dos/events"     element={<SharedEventsPage />} />
             <Route path="/dos/messages"   element={<MessagingPage />} />
           </Route>
 
@@ -220,7 +224,7 @@ export default function App() {
             </ProtectedRoute>
           }>
             <Route path="/teacher/dashboard"              element={<TeacherDashboard />} />
-            <Route path="/teacher/events"                 element={<TeacherEventsPage />} />
+            <Route path="/teacher/events"                 element={<SharedEventsPage />} />
             <Route path="/teacher/exams"                  element={<ExamJournalPage />} />
             <Route path="/teacher/exams/:journalId/marks" element={<MarkEntryPage />} />
             <Route path="/teacher/exams/remarks"          element={<TeacherRemarksPage />} />
@@ -238,6 +242,7 @@ export default function App() {
             </ProtectedRoute>
           }>
             <Route path="/student/portal"       element={<StudentPortalPage />} />
+            <Route path="/student/events"       element={<SharedEventsPage />} />
             <Route path="/student/results"      element={<Navigate to="/student/portal" replace />} />
             <Route path="/student/fees"         element={<Navigate to="/student/portal" replace />} />
             <Route path="/student/attendance"   element={<Navigate to="/student/portal" replace />} />
@@ -253,6 +258,7 @@ export default function App() {
             </ProtectedRoute>
           }>
             <Route path="/parent/portal"        element={<ParentPortalPage />} />
+            <Route path="/parent/events"        element={<SharedEventsPage />} />
             <Route path="/parent/results"       element={<Navigate to="/parent/portal" replace />} />
             <Route path="/parent/fees"          element={<Navigate to="/parent/portal" replace />} />
             <Route path="/parent/attendance"    element={<Navigate to="/parent/portal" replace />} />

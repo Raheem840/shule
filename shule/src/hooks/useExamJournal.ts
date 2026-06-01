@@ -207,11 +207,39 @@ export function useCreateJournal() {
         .single()
 
       if (error) throw error
-      return data.id as string
+      const journalId = data.id as string
+
+      // Auto-create a school_events entry so all roles see this exam on the calendar
+      const { data: staffRow } = await supabase.from('staff').select('id')
+        .eq('auth_user_id', user!.id).eq('school_id', user!.schoolId).maybeSingle()
+      if (staffRow) {
+        await supabase.from('school_events').insert({
+          school_id:   user!.schoolId,
+          title:       name,
+          event_type:  input.assessmentType,
+          subject_id:  input.subjectId,
+          class_id:    input.classId,
+          stream_id:   input.streamId ?? null,
+          event_date:  input.dateGiven,
+          total_marks: totalMarks,
+          pass_mark:   passMark,
+          description: input.teacherNotes ?? null,
+          term:        input.term,
+          year:        input.year,
+          created_by:  staffRow.id,
+          journaled:   true,
+          journal_id:  journalId,
+        })
+      }
+
+      return journalId
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['exam-journals', user?.schoolId, user?.id] })
       qc.invalidateQueries({ queryKey: ['next-ca-label', user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['school-events-all'] })
+      qc.invalidateQueries({ queryKey: ['teacher-events'] })
+      qc.invalidateQueries({ queryKey: ['term-progress'] })
     },
   })
 }

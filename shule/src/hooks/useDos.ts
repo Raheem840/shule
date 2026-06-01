@@ -474,6 +474,30 @@ export function useAssignClassTeacher() {
   })
 }
 
+// ── useAssignTeacherClasses ──────────────────────────────────────────────────
+// DoS updates the classes array on a staff member (which classes they teach).
+export function useAssignTeacherClasses() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ staffId, classIds }: { staffId: string; classIds: string[] }) => {
+      const { error } = await supabase
+        .from('staff')
+        .update({ classes: classIds })
+        .eq('id', staffId)
+        .eq('school_id', user!.schoolId)
+      if (error) throw error
+      return staffId
+    },
+    onSuccess: staffId => {
+      void qc.invalidateQueries({ queryKey: ['dos-teacher-perf', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['teachers-for-timetable', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['my-staff-record'] })
+      void qc.invalidateQueries({ queryKey: ['staff-by-id', staffId] })
+    },
+  })
+}
+
 // ── useAssignTeacherSubjects ─────────────────────────────────────────────────
 // DoS updates the subjects array on a staff member.
 export function useAssignTeacherSubjects() {

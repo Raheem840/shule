@@ -99,6 +99,7 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
       items: [
         { label: 'Report Cards', path: '/principal/report-cards', svg: SVG.reportCards },
         { label: 'Academic Year',path: '/principal/academic-year',svg: SVG.academicYear },
+        { label: 'Events',       path: '/principal/events',       svg: SVG.attendance  },
       ],
     },
     {
@@ -177,7 +178,7 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
       label: 'My Teaching',
       items: [
         { label: 'Dashboard',    path: '/teacher/dashboard',     svg: SVG.dashboard    },
-        { label: 'My Events',    path: '/teacher/events',        svg: SVG.announcements},
+        { label: 'Events',       path: '/teacher/events',        svg: SVG.attendance   },
         { label: 'Exam Journal', path: '/teacher/exams',         svg: SVG.examJournal  },
         { label: 'Attendance',   path: '/teacher/attendance',    svg: SVG.attendance   },
         { label: 'My Timetable', path: '/teacher/timetable',     svg: SVG.timetable    },
@@ -199,7 +200,7 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
       label: 'My Teaching',
       items: [
         { label: 'Dashboard',    path: '/teacher/dashboard',     svg: SVG.dashboard    },
-        { label: 'My Events',    path: '/teacher/events',        svg: SVG.announcements},
+        { label: 'Events',       path: '/teacher/events',        svg: SVG.attendance   },
         { label: 'Exam Journal', path: '/teacher/exams',         svg: SVG.examJournal  },
         { label: 'Attendance',   path: '/teacher/attendance',    svg: SVG.attendance   },
         { label: 'My Timetable', path: '/teacher/timetable',     svg: SVG.timetable    },
@@ -231,6 +232,7 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
     {
       label: 'Tools',
       items: [
+        { label: 'Events',       path: '/dos/events',            svg: SVG.attendance   },
         { label: 'Timetable',    path: '/dos/timetable',         svg: SVG.timetable    },
         { label: 'Surveys',      path: '/dos/surveys',           svg: SVG.auditLog     },
         { label: 'Messages',     path: '/dos/messages',          svg: SVG.messages,    badge: 'alert' },
@@ -244,6 +246,7 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
       label: 'Overview',
       items: [
         { label: 'Dashboard',    path: '/deputy/dashboard',      svg: SVG.dashboard    },
+        { label: 'Events',       path: '/deputy/events',         svg: SVG.attendance   },
         { label: 'Discipline',   path: '/deputy/discipline',     svg: SVG.discipline   },
         { label: 'Timetable',    path: '/deputy/timetable',      svg: SVG.timetable    },
         { label: 'Students',     path: '/deputy/students',       svg: SVG.students     },
@@ -258,6 +261,7 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
       label: '',
       items: [
         { label: 'My Portal',    path: '/parent/portal',         svg: SVG.dashboard    },
+        { label: 'Events',       path: '/parent/events',         svg: SVG.attendance   },
       ],
     },
   ],
@@ -268,6 +272,7 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
       label: 'My Portal',
       items: [
         { label: 'My Portal',    path: '/student/portal',        svg: SVG.dashboard    },
+        { label: 'Events',       path: '/student/events',        svg: SVG.attendance   },
       ],
     },
   ],

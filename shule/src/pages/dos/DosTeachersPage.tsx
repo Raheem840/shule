@@ -1,8 +1,10 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '../../lib/supabase'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
-import { useDosTeacherPerformance, useAssignClassTeacher, useAssignTeacherSubjects } from '../../hooks/useDos'
+import { useDosTeacherPerformance, useAssignClassTeacher, useAssignTeacherSubjects, useAssignTeacherClasses } from '../../hooks/useDos'
 import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
 import { useToast } from '../../components/ui/Toast'
 import type { TeacherPerfRow } from '../../types/week9'
@@ -186,11 +188,82 @@ function ManageSubjectsModal({ teacher, onClose }: { teacher: TeacherPerfRow; on
   )
 }
 
+// ─── Manage classes modal ─────────────────────────────────────────────────────
+function ManageClassesModal({ teacher, onClose }: { teacher: TeacherPerfRow; onClose:()=>void }) {
+  const { user } = useAuth()
+  const { data: allClasses=[] } = useClasses()
+  const assignMut = useAssignTeacherClasses()
+  const { success: ok, error: err } = useToast()
+  // Fetch actual staff.classes (not journal-derived) so we init with the real assignment
+  const { data: staffRecord } = useQuery({
+    queryKey: ['staff-classes-raw', teacher.staffId],
+    enabled: !!user && !!teacher.staffId,
+    queryFn: async () => {
+      const { data } = await supabase.from('staff').select('classes').eq('id', teacher.staffId).eq('school_id', user!.schoolId).maybeSingle()
+      return ((data as any)?.classes ?? []) as string[]
+    },
+    staleTime: 0,
+  })
+  const [selected, setSelected] = useState<Set<string>>(new Set(teacher.classes))
+  // Sync from fetched raw data once loaded
+  useEffect(() => {
+    if (staffRecord) setSelected(new Set(staffRecord))
+  }, [staffRecord])
+
+  function toggle(id: string) {
+    setSelected(prev => { const n=new Set(prev); n.has(id)?n.delete(id):n.add(id); return n })
+  }
+
+  async function save() {
+    try {
+      await assignMut.mutateAsync({ staffId: teacher.staffId, classIds: [...selected] })
+      ok(`Teaching classes updated for ${teacher.name}`)
+      onClose()
+    } catch(e:any){ err(e?.message??'Failed to update') }
+  }
+
+  return (
+    <Modal onClose={onClose} maxWidth={480}>
+      <div style={{ padding:'20px 24px 16px', background:'linear-gradient(135deg,rgba(14,165,233,.1),transparent)', borderBottom:'.5px solid var(--border)', flexShrink:0 }}>
+        <div style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:17, color:'var(--txt)' }}>Manage Teaching Classes</div>
+        <div style={{ fontSize:12, color:'var(--txt3)', marginTop:3 }}>Select classes <strong style={{color:'var(--txt)'}}>{teacher.name}</strong> teaches</div>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', padding:'16px 24px', display:'flex', flexDirection:'column', gap:8 }}>
+        {allClasses.map(c => {
+          const on = selected.has(c.id)
+          return (
+            <div key={c.id} onClick={()=>toggle(c.id)}
+              style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', borderRadius:12, border:`.5px solid ${on?'rgba(14,165,233,.4)':'var(--border)'}`, background:on?'rgba(14,165,233,.06)':'var(--surface2)', cursor:'pointer', transition:'all .13s' }}
+            >
+              <div style={{ width:20, height:20, borderRadius:6, border:`.5px solid ${on?'#0ea5e9':'var(--border)'}`, background:on?'#0ea5e9':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .13s' }}>
+                {on && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13.5, fontWeight:700, color:'var(--txt)' }}>{c.name}</div>
+                {c.level && <div style={{ fontSize:11, color:'var(--txt3)', marginTop:1 }}>Level {c.level}</div>}
+              </div>
+            </div>
+          )
+        })}
+        {allClasses.length===0 && <div style={{ padding:24, textAlign:'center', color:'var(--txt3)', fontSize:13 }}>No classes found.</div>}
+      </div>
+      <div style={{ padding:'14px 24px 18px', borderTop:'.5px solid var(--border)', flexShrink:0, display:'flex', gap:10, alignItems:'center' }}>
+        <span style={{ fontSize:12, color:'var(--txt3)', flex:1 }}>{selected.size} class{selected.size!==1?'es':''} selected</span>
+        <button onClick={onClose} style={{ height:44, padding:'0 18px', borderRadius:12, background:'var(--surface2)', border:'.5px solid var(--border)', fontWeight:600, fontSize:13.5, cursor:'pointer', color:'var(--txt2)' }}>Cancel</button>
+        <button onClick={save} disabled={assignMut.isPending}
+          style={{ height:44, padding:'0 24px', borderRadius:12, background:'linear-gradient(145deg,#0ea5e9,#0284c7)', color:'#fff', border:'none', fontWeight:800, fontSize:13.5, cursor:'pointer', boxShadow:'0 4px 14px rgba(14,165,233,.38)', transition:'all .18s' }}
+        >{assignMut.isPending?'Saving…':'Save Classes'}</button>
+      </div>
+    </Modal>
+  )
+}
+
 // ─── Teacher detail modal ──────────────────────────────────────────────────────
 function TeacherDetailModal({ teacher, onClose }: { teacher: TeacherPerfRow; onClose:()=>void }) {
-  const [tab, setTab] = useState<'performance'|'contact'|'subjects'>('performance')
-  const [showAssign, setShowAssign] = useState(false)
-  const [showManageSubj, setShowManageSubj] = useState(false)
+  const [tab, setTab] = useState<'performance'|'contact'|'subjects'|'classes'>('performance')
+  const [showAssign,         setShowAssign]         = useState(false)
+  const [showManageSubj,     setShowManageSubj]     = useState(false)
+  const [showManageClasses,  setShowManageClasses]  = useState(false)
   const { data: allClasses=[] } = useClasses()
   const classMap = Object.fromEntries(allClasses.map(c=>[c.id,c.name]))
   const { data: allSubjects=[] } = useSubjects()
@@ -225,8 +298,8 @@ function TeacherDetailModal({ teacher, onClose }: { teacher: TeacherPerfRow; onC
           </div>
 
           {/* Tabs */}
-          <div style={{ display:'flex', gap:0, borderBottom:'.5px solid var(--border)' }}>
-            {(['performance','contact','subjects'] as const).map(t=>(
+          <div style={{ display:'flex', gap:0, borderBottom:'.5px solid var(--border)', overflowX:'auto' }}>
+            {(['performance','contact','subjects','classes'] as const).map(t=>(
               <button key={t} onClick={()=>setTab(t)}
                 style={{ padding:'9px 18px', border:'none', background:'none', cursor:'pointer', fontWeight:700, fontSize:12.5, color:tab===t?'var(--brand)':'var(--txt3)', borderBottom:tab===t?'2px solid var(--brand)':'2px solid transparent', marginBottom:-1, transition:'all .14s', textTransform:'capitalize' }}
               >{t}</button>
@@ -322,11 +395,47 @@ function TeacherDetailModal({ teacher, onClose }: { teacher: TeacherPerfRow; onC
               )}
             </>
           )}
+
+          {/* Classes tab */}
+          {tab==='classes' && (
+            <>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:'var(--txt)' }}>
+                  {teacher.classes.length} teaching class{teacher.classes.length!==1?'es':''}
+                </div>
+                <button onClick={()=>setShowManageClasses(true)}
+                  style={{ padding:'6px 14px', border:'none', borderRadius:9, background:'linear-gradient(145deg,#0ea5e9,#0284c7)', color:'#fff', fontWeight:700, fontSize:12, cursor:'pointer', boxShadow:'0 3px 10px rgba(14,165,233,.35)' }}
+                >Manage Classes</button>
+              </div>
+              {teacher.classes.length>0 ? (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {teacher.classes.map(id=>{
+                    const name = classMap[id]??id
+                    return (
+                      <div key={id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', borderRadius:12, background:'var(--surface2)', border:'.5px solid var(--border)' }}>
+                        <div style={{ width:8, height:8, borderRadius:'50%', background:'#0ea5e9', flexShrink:0 }}/>
+                        <span style={{ fontSize:13.5, fontWeight:700, color:'var(--txt)' }}>{name}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div style={{ padding:'32px 24px', textAlign:'center' }}>
+                  <div style={{ fontSize:14, fontWeight:800, color:'var(--txt)', marginBottom:6, fontFamily:'var(--font2)' }}>No teaching classes assigned</div>
+                  <div style={{ fontSize:13, color:'var(--txt3)', marginBottom:14 }}>Assign classes so the teacher can plan their curriculum and appear in the timetable builder.</div>
+                  <button onClick={()=>setShowManageClasses(true)}
+                    style={{ padding:'8px 20px', border:'none', borderRadius:10, background:'linear-gradient(145deg,#0ea5e9,#0284c7)', color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer', boxShadow:'0 3px 12px rgba(14,165,233,.4)' }}
+                  >Assign Classes Now</button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </Modal>
 
-      {showAssign     && <AssignClassTeacherModal teacher={teacher} onClose={()=>setShowAssign(false)}/>}
-      {showManageSubj && <ManageSubjectsModal teacher={teacher} onClose={()=>setShowManageSubj(false)}/>}
+      {showAssign        && <AssignClassTeacherModal teacher={teacher} onClose={()=>setShowAssign(false)}/>}
+      {showManageSubj    && <ManageSubjectsModal    teacher={teacher} onClose={()=>setShowManageSubj(false)}/>}
+      {showManageClasses && <ManageClassesModal     teacher={teacher} onClose={()=>setShowManageClasses(false)}/>}
     </>
   )
 }
