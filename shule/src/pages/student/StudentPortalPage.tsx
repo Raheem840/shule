@@ -10,6 +10,8 @@ import {
 import { useSchoolNotices } from '../../hooks/useParentPortal'
 import { usePortalNotifications, useMarkSingleNotificationRead } from '../../hooks/useNotifications'
 import { useAttendanceSummary, useStudentAttendanceHistory } from '../../hooks/useAttendance'
+import { useTimetableSlots } from '../../hooks/useTimetableSlots'
+import { useAuth } from '../../store/AuthContext'
 import { Badge } from '../../components/ui/Badge'
 import { Card } from '../../components/ui/Card'
 import { PageHeader } from '../../components/ui/PageHeader'
@@ -578,8 +580,117 @@ function NoticesTab() {
   )
 }
 
+// ── My Timetable tab ───────────────────────────────────────────
+const DAYS_TT: [number, string, string][] = [
+  [1,'Mon','Monday'],[2,'Tue','Tuesday'],[3,'Wed','Wednesday'],
+  [4,'Thu','Thursday'],[5,'Fri','Friday'],[6,'Sat','Saturday'],[7,'Sun','Sunday'],
+]
+const SUBJ_COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#f43f5e','#8b5cf6','#ec4899','#0d9488']
+function sColor(id: string) { let h=0; for(let i=0;i<id.length;i++) h=id.charCodeAt(i)+((h<<5)-h); return SUBJ_COLORS[Math.abs(h)%SUBJ_COLORS.length] }
+
+function MyTimetableTab({ classId, streamId }: { classId: string | null; streamId: string | null }) {
+  const { user } = useAuth()
+  const [term, setTerm] = useState('Term 1')
+  const [year, setYear] = useState(new Date().getFullYear())
+  const [mobileDay, setMobileDay] = useState<number>(() => { const d=new Date().getDay(); return d===0?7:d>=1&&d<=6?d:1 })
+
+  const { data: slots = [], isLoading } = useTimetableSlots({ classId: classId ?? undefined, streamId: streamId ?? undefined, term, year, published: true })
+
+  // Load period config from localStorage (set by DoS)
+  const periodDefs = useMemo(() => {
+    if (!user?.schoolId) return null
+    try { const r = localStorage.getItem(`shule:period-cfg:${user.schoolId}`); if (r) return JSON.parse(r) } catch { /**/ }
+    return null
+  }, [user?.schoolId])
+
+  const today    = new Date().getDay()
+  const todayCol = today === 0 ? 7 : today >= 1 && today <= 6 ? today : null
+
+  const slotMap = useMemo(() => {
+    const m = new Map<string, typeof slots[number]>()
+    for (const s of slots) m.set(`${s.dayOfWeek}-${s.periodNumber}`, s)
+    return m
+  }, [slots])
+
+  const periodNums = useMemo(() => {
+    if (periodDefs) return (periodDefs as {num:number;type:string}[]).filter(d=>d.type==='class').map(d=>d.num)
+    if (slots.length === 0) return [1,2,3,4,5,6,7,8]
+    const nums = [...new Set(slots.map(s=>s.periodNumber))].sort((a,b)=>a-b)
+    const min=nums[0], max=nums[nums.length-1]
+    return Array.from({length:max-min+1},(_,i)=>min+i)
+  }, [slots, periodDefs])
+
+  if (!classId) return (
+    <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>
+      Your class has not been assigned yet. Contact the Secretary.
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Term / year selector */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <select value={term} onChange={e=>setTerm(e.target.value)} className="sui-input" style={{ minWidth: 110 }}>
+          {['Term 1','Term 2','Term 3'].map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+        <input type="number" value={year} onChange={e=>setYear(parseInt(e.target.value))} className="sui-input" style={{ width: 84 }} />
+      </div>
+
+      {isLoading && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{[1,2,3].map(i=><div key={i} className="shule-skeleton" style={{ height: 56, borderRadius: 10 }} />)}</div>}
+
+      {!isLoading && slots.length === 0 && (
+        <div style={{ padding: '40px 20px', textAlign: 'center', background: 'var(--surface)', borderRadius: 14, border: '.5px solid var(--border)' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--txt)', marginBottom: 6 }}>No timetable published yet</div>
+          <div style={{ fontSize: 13, color: 'var(--txt3)' }}>The DoS hasn't published the timetable for {term} {year} yet.</div>
+        </div>
+      )}
+
+      {!isLoading && slots.length > 0 && (
+        <>
+          {/* Mobile: day tabs */}
+          <div style={{ display: 'flex', gap: 5, overflowX: 'auto', background: 'var(--surface)', padding: '8px 10px', borderRadius: 12, border: '.5px solid var(--border)' }}>
+            {DAYS_TT.map(([d, label]) => (
+              <button key={d} onClick={()=>setMobileDay(d)}
+                style={{ flex:'0 0 auto', padding:'6px 12px', borderRadius:9, border:'none', background: mobileDay===d ? 'linear-gradient(145deg,#0d9488,#0f766e)' : 'var(--surface2)', color: mobileDay===d ? '#fff' : 'var(--txt3)', fontSize:12.5, fontWeight:700, cursor:'pointer', transition:'all .15s', boxShadow: mobileDay===d ? '0 3px 10px rgba(13,148,136,.4)' : 'none', position:'relative' }}
+              >
+                {label}
+                {d===todayCol && <div style={{ position:'absolute', bottom:3, left:'50%', transform:'translateX(-50%)', width:4, height:4, borderRadius:'50%', background: mobileDay===d ? 'rgba(255,255,255,.7)' : 'var(--brand)' }} />}
+              </button>
+            ))}
+          </div>
+
+          {/* Period list for selected day */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {periodNums.map(p => {
+              const slot = slotMap.get(`${mobileDay}-${p}`)
+              const col  = slot ? sColor(slot.subjectId) : 'var(--txt3)'
+              return (
+                <div key={p} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderRadius:13, border: slot ? `.5px solid ${col}28` : '.5px solid var(--border)', background: slot ? `${col}08` : 'var(--surface)', transition:'all .14s' }}>
+                  <div style={{ width:38, height:38, borderRadius:11, background: slot ? `${col}18` : 'var(--surface2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <span style={{ fontSize:11.5, fontWeight:900, color: slot ? col : 'var(--txt3)', fontFamily:'var(--font2)' }}>P{p}</span>
+                  </div>
+                  {slot ? (
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:14, fontWeight:800, color:col, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{slot.subjectName ?? '—'}</div>
+                      <div style={{ fontSize:12, color:'var(--txt3)', marginTop:2 }}>{slot.teacherName ?? '—'}</div>
+                      {slot.startTime && <div style={{ fontSize:11, color:col, fontFamily:'var(--font3)', fontWeight:600, marginTop:1 }}>{slot.startTime} – {slot.endTime}</div>}
+                    </div>
+                  ) : (
+                    <div style={{ flex:1, fontSize:13, color:'var(--txt3)' }}>Free period</div>
+                  )}
+                  {mobileDay===todayCol && slot && <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--brand)', flexShrink:0 }} title="Today" />}
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── Tab definitions ────────────────────────────────────────────
-const BASE_TABS = ['My Results', 'My Fees', 'My Attendance', 'Report Cards'] as const
+const BASE_TABS = ['Timetable', 'My Results', 'My Fees', 'My Attendance', 'Report Cards'] as const
 type BaseTab = typeof BASE_TABS[number]
 type TabName = BaseTab | 'Survey' | 'Notices'
 
@@ -679,6 +790,7 @@ export function StudentPortalPage() {
 
       <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
+      {activeTab === 'Timetable'     && <MyTimetableTab   classId={student.classId} streamId={student.streamId ?? null} />}
       {activeTab === 'My Results'   && <MyResultsTab     studentId={student.id} />}
       {activeTab === 'My Fees'      && <MyFeesTab        studentId={student.id} />}
       {activeTab === 'My Attendance'&& <MyAttendanceTab  studentId={student.id} />}

@@ -7,7 +7,13 @@ import type { TimetableSlot } from '../../types/week9'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EventType = 'class' | 'break' | 'lunch' | 'assembly' | 'prayer' | 'preps' | 'custom'
-type PeriodDef = { num: number; type: EventType; label: string; startTime: string; endTime: string }
+type PeriodDef = { num: number; type: EventType; label: string; startTime: string; endTime: string; days?: number[] }
+
+function appliesToDay(def: PeriodDef, day: number): boolean {
+  if (def.type === 'class') return true
+  if (!def.days || def.days.length === 0) return true
+  return def.days.includes(day)
+}
 
 const DAYS: [number, string][] = [[1,'Mon'],[2,'Tue'],[3,'Wed'],[4,'Thu'],[5,'Fri'],[6,'Sat'],[7,'Sun']]
 
@@ -217,13 +223,20 @@ export function DeputyTimetablePage() {
                     const meta = EVENT_META[def.type]
                     if (isEvent) return (
                       <tr key={def.num}>
-                        <td colSpan={6} style={{ padding: '10px 16px', background: meta.bg, border: `.5px solid ${meta.color}20` }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span style={{ fontSize: 18 }}>{meta.icon}</span>
-                            <span style={{ fontSize: 13, fontWeight: 800, color: meta.color }}>{def.label}</span>
-                            {def.startTime && <span style={{ fontSize: 11, color: meta.color, opacity: .65, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</span>}
-                          </div>
+                        <td style={{ padding: '6px 12px', background: 'var(--surface2)', borderRight: '.5px solid var(--border)', borderBottom: `.5px solid ${meta.color}15` }}>
+                          <div style={{ fontWeight: 800, fontSize: 11, color: meta.color }}>{meta.icon} {def.label}</div>
+                          {def.startTime && <div style={{ fontSize: 9.5, color: meta.color, opacity: .6, fontFamily: 'var(--font3)', marginTop: 1 }}>{def.startTime}–{def.endTime}</div>}
                         </td>
+                        {DAYS.map(([day]) => (
+                          <td key={day} style={{ border: `.5px solid ${appliesToDay(def,day) ? meta.color+'18' : 'var(--border)'}`, background: appliesToDay(def,day) ? meta.bg : 'transparent', padding: appliesToDay(def,day) ? '7px 10px' : 4, verticalAlign: 'middle', height: 42 }}>
+                            {appliesToDay(def,day) ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <span style={{ fontSize: 14 }}>{meta.icon}</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: meta.color }}>{def.label}</span>
+                              </div>
+                            ) : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: 'var(--border)', fontSize: 12 }}>—</span></div>}
+                          </td>
+                        ))}
                       </tr>
                     )
                     return (
@@ -407,13 +420,20 @@ export function DeputyTimetablePage() {
                     const meta = EVENT_META[def.type]
                     if (isEvent) return (
                       <tr key={def.num}>
-                        <td colSpan={6} style={{ padding: '10px 16px', background: meta.bg, border: `.5px solid ${meta.color}18` }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span style={{ fontSize: 18 }}>{meta.icon}</span>
-                            <span style={{ fontSize: 13, fontWeight: 800, color: meta.color }}>{def.label}</span>
-                            {def.startTime && <span style={{ fontSize: 11, color: meta.color, opacity: .6, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</span>}
-                          </div>
+                        <td style={{ padding: '6px 12px', background: 'var(--surface2)', borderRight: '.5px solid var(--border)', borderBottom: `.5px solid ${meta.color}15`, minWidth: 120 }}>
+                          <div style={{ fontWeight: 800, fontSize: 11, color: meta.color }}>{meta.icon} {def.label}</div>
+                          {def.startTime && <div style={{ fontSize: 9.5, color: meta.color, opacity: .6, fontFamily: 'var(--font3)', marginTop: 1 }}>{def.startTime}–{def.endTime}</div>}
                         </td>
+                        {DAYS.map(([day]) => (
+                          <td key={day} style={{ border: `.5px solid ${appliesToDay(def,day) ? meta.color+'18' : 'var(--border)'}`, background: appliesToDay(def,day) ? meta.bg : 'transparent', padding: appliesToDay(def,day) ? '7px 10px' : 4, verticalAlign: 'middle', height: 42, minWidth: 150 }}>
+                            {appliesToDay(def,day) ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <span style={{ fontSize: 14 }}>{meta.icon}</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: meta.color }}>{def.label}</span>
+                              </div>
+                            ) : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: 'var(--border)', fontSize: 12 }}>—</span></div>}
+                          </td>
+                        ))}
                       </tr>
                     )
                     return (

@@ -16,14 +16,25 @@ function RemarkRow({ student, value, saved, onChange }: {
   const ini = `${student.firstName[0] ?? ''}${student.lastName[0] ?? ''}`.toUpperCase()
 
   return (
-    <div style={{ padding: '14px 20px', borderBottom: '.5px solid var(--border)', display: 'grid', gridTemplateColumns: '200px 1fr 28px', gap: 14, alignItems: 'start', background: saved ? 'rgba(16,185,129,.03)' : 'transparent', transition: 'background .15s' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 11, background: 'linear-gradient(145deg,rgba(13,148,136,.18),rgba(13,148,136,.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: 'var(--brand)', flexShrink: 0, fontFamily: 'var(--font2)', border: '.5px solid rgba(13,148,136,.2)' }}>{ini}</div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{student.firstName} {student.lastName}</div>
-          <div style={{ fontSize: 10.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginTop: 1 }}>{student.admissionNumber}</div>
+    <div style={{ padding: '12px 16px', borderBottom: '.5px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 9, background: saved ? 'rgba(16,185,129,.03)' : 'transparent', transition: 'background .15s' }}>
+      {/* Student info + saved indicator */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(145deg,rgba(13,148,136,.18),rgba(13,148,136,.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11.5, fontWeight: 900, color: 'var(--brand)', flexShrink: 0, fontFamily: 'var(--font2)', border: '.5px solid rgba(13,148,136,.2)' }}>{ini}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{student.firstName} {student.lastName}</div>
+            <div style={{ fontSize: 10.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginTop: 1 }}>{student.admissionNumber}</div>
+          </div>
         </div>
+        {saved ? (
+          <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(16,185,129,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+        ) : value.length > 0 ? (
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warning)', flexShrink: 0 }} />
+        ) : null}
       </div>
+      {/* Textarea */}
       <div>
         <textarea value={value} onChange={e => onChange(student.id, e.target.value.slice(0, MAX_CHARS))} rows={2}
           placeholder="Write a remark for this student…"
@@ -32,15 +43,6 @@ function RemarkRow({ student, value, saved, onChange }: {
           onBlur={e => (e.currentTarget.style.borderColor = value.length === 0 ? 'rgba(245,158,11,.5)' : 'var(--border)')}
         />
         <div style={{ fontSize: 10, color: remaining < 20 ? 'var(--danger)' : 'var(--txt3)', textAlign: 'right', marginTop: 3 }}>{remaining} left</div>
-      </div>
-      <div style={{ paddingTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {saved ? (
-          <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(16,185,129,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-        ) : value.length > 0 ? (
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warning)' }} />
-        ) : null}
       </div>
     </div>
   )
@@ -182,8 +184,8 @@ export function TeacherRemarksPage() {
 
       {ready && !isLoading && students.length > 0 && (
         <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 28px', gap: 14, padding: '10px 20px', background: 'var(--surface2)', borderBottom: '.5px solid var(--border)' }}>
-            {['Student', 'Remark (max 200 chars)', ''].map(h => (
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', background: 'var(--surface2)', borderBottom: '.5px solid var(--border)' }}>
+            {['Student & Remarks', 'Chars'].map(h => (
               <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7 }}>{h}</div>
             ))}
           </div>

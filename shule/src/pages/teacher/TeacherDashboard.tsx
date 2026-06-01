@@ -168,7 +168,7 @@ export function TeacherDashboard() {
           <LoadingSpinner size="md" />
         </div>
       ) : kpis && (
-        <div className="stagger-cards sui-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+        <div className="stagger-cards sui-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
           <KpiCard
             label="My Classes"
             value={kpis.myClasses}

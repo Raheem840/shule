@@ -20,7 +20,7 @@ import type { TimetableSlot } from '../../types/week9'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EventType = 'class' | 'break' | 'lunch' | 'assembly' | 'prayer' | 'preps' | 'custom'
-type PeriodDef = { num: number; type: EventType; label: string; startTime: string; endTime: string }
+type PeriodDef = { num: number; type: EventType; label: string; startTime: string; endTime: string; days?: number[] }
 type ViewMode = 'overview' | 'school' | 'builder'
 type TeacherRow = { id: string; name: string; subjects: string[]; classes: string[] }
 type ModalTarget = { classId: string; streamId: string | null; day: number; period: number }
@@ -88,6 +88,13 @@ function subjectColor(id: string): [string, string] {
 }
 
 function ini(n: string) { return n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() }
+
+// Which days a period applies to (undefined = all days)
+function appliesToDay(def: PeriodDef, day: number): boolean {
+  if (def.type === 'class') return true
+  if (!def.days || def.days.length === 0) return true
+  return def.days.includes(day)
+}
 
 function cfgKey(sid: string) { return `shule:period-cfg:${sid}` }
 function loadCfg(sid: string): PeriodDef[] {
@@ -210,7 +217,7 @@ function PeriodConfigPanel({ defs, onChange, onClose }: {
                   </button>
                 </div>
                 {/* Time row */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: def.type !== 'class' ? 10 : 0 }}>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 4 }}>Start</div>
                     <input type="time" value={def.startTime} onChange={e => upd(i, { startTime: e.target.value })}
@@ -224,6 +231,33 @@ function PeriodConfigPanel({ defs, onChange, onClose }: {
                     />
                   </div>
                 </div>
+                {/* Day selector — only for non-class event periods */}
+                {def.type !== 'class' && (
+                  <div style={{ marginTop: 0 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 6 }}>Active on days <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(tap to exclude)</span></div>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      {DAYS.map(([dayNum, label]) => {
+                        const active = !def.days || def.days.length === 0 || def.days.includes(dayNum)
+                        return (
+                          <button key={dayNum} type="button"
+                            onClick={() => {
+                              const allDays = [1,2,3,4,5,6,7]
+                              const current = def.days?.length ? def.days : allDays
+                              const next    = active ? current.filter(d => d !== dayNum) : [...current, dayNum].sort((a,b)=>a-b)
+                              upd(i, { days: next.length === 7 ? undefined : next })
+                            }}
+                            style={{ width: 36, height: 30, borderRadius: 8, border: `.5px solid ${active ? meta.color + '45' : 'var(--border)'}`, background: active ? `${meta.color}18` : 'var(--surface)', color: active ? meta.color : 'var(--txt3)', fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all .13s' }}
+                          >{label}</button>
+                        )
+                      })}
+                    </div>
+                    {def.days && def.days.length < 7 && (
+                      <div style={{ fontSize: 11, color: meta.color, marginTop: 5, opacity: .8 }}>
+                        Only on: {def.days.map(d => DAYS.find(([n]) => n === d)?.[1]).filter(Boolean).join(', ')}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )
           })}
@@ -612,15 +646,18 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
                 const slot = daySlotMap.get(def.num)
                 const isConflict = conflictKeys.has(`${mobileDay}-${def.num}`)
 
-                if (isEvent) return (
-                  <div key={def.num} style={{ padding: '10px 16px', borderRadius: 12, background: meta.bg, border: `.5px solid ${meta.color}30`, display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 18 }}>{meta.icon}</span>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: meta.color }}>{def.label}</div>
-                      {def.startTime && <div style={{ fontSize: 11, color: meta.color, opacity: .7, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</div>}
+                if (isEvent) {
+                  if (!appliesToDay(def, mobileDay)) return null
+                  return (
+                    <div key={def.num} style={{ padding: '10px 16px', borderRadius: 12, background: meta.bg, border: `.5px solid ${meta.color}30`, display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 18 }}>{meta.icon}</span>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: meta.color }}>{def.label}</div>
+                        {def.startTime && <div style={{ fontSize: 11, color: meta.color, opacity: .7, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</div>}
+                      </div>
                     </div>
-                  </div>
-                )
+                  )
+                }
 
                 return (
                   <div key={def.num} onClick={() => !slot && onAssign({ classId: selectedClass!, streamId: selectedStream, day: mobileDay, period: def.num })}
@@ -708,18 +745,27 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
 
                     if (isEvent) return (
                       <tr key={def.num}>
-                        <td colSpan={6} style={{ padding: '9px 14px', background: meta.bg, border: `.5px solid ${meta.color}20` }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span style={{ fontSize: 16 }}>{meta.icon}</span>
-                            <div>
-                              <span style={{ fontSize: 12.5, fontWeight: 800, color: meta.color }}>{def.label}</span>
-                              {def.startTime && <span style={{ fontSize: 11, color: meta.color, opacity: .65, marginLeft: 8, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</span>}
-                            </div>
-                            <div style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: 6, background: `${meta.color}18`, color: meta.color, fontSize: 10, fontWeight: 700, border: `.5px solid ${meta.color}25` }}>
-                              {meta.label.toUpperCase()}
-                            </div>
-                          </div>
+                        <td style={{ padding: '6px 12px', background: 'var(--surface2)', borderRight: '.5px solid var(--border)', borderBottom: `.5px solid ${meta.color}18`, width: 110 }}>
+                          <div style={{ fontWeight: 800, fontSize: 11, color: meta.color }}>{meta.icon} {def.label}</div>
+                          {def.startTime && <div style={{ fontSize: 9.5, color: meta.color, opacity: .65, fontFamily: 'var(--font3)', marginTop: 1 }}>{def.startTime}–{def.endTime}</div>}
                         </td>
+                        {DAYS.map(([day]) => {
+                          const applies = appliesToDay(def, day)
+                          return (
+                            <td key={day} style={{ border: `.5px solid ${applies ? meta.color + '18' : 'var(--border)'}`, background: applies ? meta.bg : 'transparent', padding: applies ? '7px 10px' : 4, verticalAlign: 'middle', height: 42 }}>
+                              {applies ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                  <span style={{ fontSize: 14 }}>{meta.icon}</span>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: meta.color }}>{def.label}</span>
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <span style={{ color: 'var(--border)', fontSize: 12 }}>—</span>
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })}
                       </tr>
                     )
 
@@ -849,11 +895,22 @@ function MiniCard({ cls, slots, periodDefs, onCellClick, onEdit }: {
 
                 if (isEvent) return (
                   <tr key={def.num}>
-                    <td colSpan={6} style={{ padding: '1px 2px' }}>
-                      <div style={{ height: 20, borderRadius: 5, background: meta.bg, border: `.5px solid ${meta.color}25`, display: 'flex', alignItems: 'center', paddingLeft: 6 }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: meta.color }}>{meta.icon} {def.label}</span>
+                    <td style={{ padding: '1px 2px', width: 58 }}>
+                      <div style={{ height: 20, borderRadius: 5, background: meta.bg, display: 'flex', alignItems: 'center', paddingLeft: 4 }}>
+                        <span style={{ fontSize: 8.5, fontWeight: 700, color: meta.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta.icon}</span>
                       </div>
                     </td>
+                    {DAYS.map(([day]) => (
+                      <td key={day} style={{ padding: '1px 1px' }}>
+                        {appliesToDay(def, day) ? (
+                          <div style={{ height: 20, borderRadius: 5, background: meta.bg, border: `.5px solid ${meta.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ fontSize: 8, fontWeight: 700, color: meta.color }}>{meta.icon}</span>
+                          </div>
+                        ) : (
+                          <div style={{ height: 20, borderRadius: 5, border: '.5px dashed var(--border)', opacity: .3 }} />
+                        )}
+                      </td>
+                    ))}
                   </tr>
                 )
 
@@ -1103,13 +1160,20 @@ function SchoolView({ term, year, periodDefs }: {
                   const meta = EVENT_META[def.type]
                   if (isEvent) return (
                     <tr key={def.num}>
-                      <td colSpan={6} style={{ padding: '10px 16px', background: meta.bg, border: `.5px solid ${meta.color}20` }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontSize: 17 }}>{meta.icon}</span>
-                          <span style={{ fontSize: 13, fontWeight: 800, color: meta.color }}>{def.label}</span>
-                          {def.startTime && <span style={{ fontSize: 11, color: meta.color, opacity: .65, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</span>}
-                        </div>
+                      <td style={{ padding: '6px 12px', background: 'var(--surface2)', borderRight: '.5px solid var(--border)', borderBottom: `.5px solid ${meta.color}15` }}>
+                        <div style={{ fontWeight: 800, fontSize: 11, color: meta.color }}>{meta.icon} {def.label}</div>
+                        {def.startTime && <div style={{ fontSize: 9.5, color: meta.color, opacity: .6, fontFamily: 'var(--font3)', marginTop: 1 }}>{def.startTime}–{def.endTime}</div>}
                       </td>
+                      {DAYS.map(([day]) => (
+                        <td key={day} style={{ border: `.5px solid ${appliesToDay(def,day) ? meta.color+'18' : 'var(--border)'}`, background: appliesToDay(def,day) ? meta.bg : 'transparent', padding: appliesToDay(def,day) ? '7px 10px' : 4, verticalAlign: 'middle', height: 42 }}>
+                          {appliesToDay(def,day) ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <span style={{ fontSize: 14 }}>{meta.icon}</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: meta.color }}>{def.label}</span>
+                            </div>
+                          ) : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: 'var(--border)', fontSize: 12 }}>—</span></div>}
+                        </td>
+                      ))}
                     </tr>
                   )
                   return (
@@ -1253,14 +1317,20 @@ function SchoolView({ term, year, periodDefs }: {
                       const meta = EVENT_META[def.type]
                       if (isEvent) return (
                         <tr key={def.num}>
-                          <td colSpan={6} style={{ padding: '10px 16px', background: meta.bg, border: `.5px solid ${meta.color}18` }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <span style={{ fontSize: 18 }}>{meta.icon}</span>
-                              <span style={{ fontSize: 13, fontWeight: 800, color: meta.color }}>{def.label}</span>
-                              {def.startTime && <span style={{ fontSize: 11, color: meta.color, opacity: .6, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</span>}
-                              <div style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: 6, background: `${meta.color}15`, color: meta.color, fontSize: 10, fontWeight: 700 }}>{meta.label.toUpperCase()}</div>
-                            </div>
+                          <td style={{ padding: '6px 12px', background: 'var(--surface2)', borderRight: '.5px solid var(--border)', borderBottom: `.5px solid ${meta.color}15`, minWidth: 120 }}>
+                            <div style={{ fontWeight: 800, fontSize: 11, color: meta.color }}>{meta.icon} {def.label}</div>
+                            {def.startTime && <div style={{ fontSize: 9.5, color: meta.color, opacity: .6, fontFamily: 'var(--font3)', marginTop: 1 }}>{def.startTime}–{def.endTime}</div>}
                           </td>
+                          {DAYS.map(([day]) => (
+                            <td key={day} style={{ border: `.5px solid ${appliesToDay(def,day) ? meta.color+'18' : 'var(--border)'}`, background: appliesToDay(def,day) ? meta.bg : 'transparent', padding: appliesToDay(def,day) ? '7px 10px' : 4, verticalAlign: 'middle', height: 42, minWidth: 150 }}>
+                              {appliesToDay(def,day) ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                  <span style={{ fontSize: 15 }}>{meta.icon}</span>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: meta.color }}>{def.label}</span>
+                                </div>
+                              ) : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: 'var(--border)', fontSize: 12 }}>—</span></div>}
+                            </td>
+                          ))}
                         </tr>
                       )
                       return (
