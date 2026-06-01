@@ -5,30 +5,6 @@ import { useSecretaryBriefing, type SecretaryBriefingData } from '../../hooks/us
 import { useAcademicYears } from '../../hooks/useAdmin'
 import { FeeStatusDonut } from '../../components/shared/FeeStatusDonut'
 
-// CSS tokens for popup print window
-const PRINT_STYLES = `
-:root{--brand:#0d9488;--border:#e2e8f0;--txt:#0f172a;--txt2:#475569;--txt3:#94a3b8;
-  --success:#10b981;--warning:#f59e0b;--danger:#f43f5e;--info:#0ea5e9;--violet:#8b5cf6;
-  --surface:#fff;--font:'Plus Jakarta Sans',system-ui,sans-serif;
-  --font2:'Space Grotesk',system-ui,sans-serif;}
-*{box-sizing:border-box}
-body{margin:0;font-family:var(--font);color:var(--txt);background:#fff}
-.briefing-toolbar,.print-hide{display:none!important}
-*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-@page{size:A4 portrait;margin:12mm 16mm}
-`
-
-function printBriefingPopup(year: number, term: number) {
-  const el = document.getElementById('briefing-page')
-  if (!el) return
-  const win = window.open('', '_blank', 'width=870,height=750,scrollbars=yes')
-  if (!win) { alert('Pop-up blocked — please allow pop-ups for this site and try again.'); return }
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>School at a Glance — Term ${term} ${year}</title><style>${PRINT_STYLES}</style></head><body>${el.outerHTML}</body></html>`)
-  win.document.close()
-  win.focus()
-  setTimeout(() => { win.print(); setTimeout(() => win.close(), 400) }, 700)
-}
-
 const EMPTY_BRIEFING: SecretaryBriefingData = {
   studentSummary:   { total: 0, active: 0, suspended: 0, expelled: 0, newThisTerm: 0 },
   staffSummary:     { total: 0, byRole: [] },
@@ -230,14 +206,14 @@ export function SchoolAtAGlancePage() {
             ))}
           </select>
           <button
-            onClick={() => printBriefingPopup(selectedYear, selectedTerm)}
+            onClick={() => window.print()}
             style={{
               padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)',
               background: 'var(--surface)', fontSize: 13, fontWeight: 700,
               color: 'var(--txt)', cursor: 'pointer',
             }}
           >
-            Print Preview
+            Print
           </button>
           <button
             onClick={handleDownload}

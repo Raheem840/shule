@@ -27,35 +27,20 @@ const tooltipStyle = {
   color: '#0f172a',
 }
 
-// ─── CSS tokens injected into print popup ────────────────────────────────────
-const PRINT_STYLES = `
-:root {
-  --brand:#0d9488;--border:#e2e8f0;--txt:#0f172a;--txt2:#475569;--txt3:#94a3b8;
-  --success:#10b981;--warning:#f59e0b;--danger:#f43f5e;--info:#0ea5e9;--violet:#8b5cf6;
-  --surface:#fff;--font:'Plus Jakarta Sans',system-ui,sans-serif;
-  --font2:'Space Grotesk',system-ui,sans-serif;
-  --font-mono:'JetBrains Mono',monospace;
-}
-*{box-sizing:border-box}
-body{margin:24px;font-family:var(--font);color:var(--txt)}
-table{width:100%;border-collapse:collapse}
-th,td{padding:7px 10px;text-align:left}
-.rpt-actions{display:none!important}
-*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-@page{size:A4 portrait;margin:12mm 16mm}
-@media print{body{margin:0}.rpt-actions{display:none!important}}
-`
-
-function printReportPopup(elementId: string, title: string) {
+// ─── Print helper — clones report into body, prints, then cleans up ──────────
+function printReport(elementId: string) {
   const el = document.getElementById(elementId)
   if (!el) return
-  const win = window.open('', '_blank', 'width=850,height=750,scrollbars=yes')
-  if (!win) { alert('Pop-up blocked — please allow pop-ups for this site and try again.'); return }
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${title}</title><style>${PRINT_STYLES}</style></head><body>${el.innerHTML}</body></html>`)
-  win.document.close()
-  win.focus()
-  // Give the browser time to layout before triggering print
-  setTimeout(() => { win.print(); setTimeout(() => win.close(), 400) }, 700)
+  const clone = el.cloneNode(true) as HTMLElement
+  clone.id = 'print-root'
+  document.body.appendChild(clone)
+  document.body.classList.add('printing-report')
+  const cleanup = () => {
+    document.body.classList.remove('printing-report')
+    clone.remove()
+  }
+  window.addEventListener('afterprint', cleanup, { once: true })
+  window.print()
 }
 
 // ─── Report definitions ─────────────────────────────────────────────────────
@@ -209,7 +194,7 @@ async function downloadReportPdf(elementId: string, filename: string) {
   if (actions) actions.style.display = ''
 }
 
-function ReportActions({ elementId, filename, title }: { elementId: string; filename: string; title: string }) {
+function ReportActions({ elementId, filename }: { elementId: string; filename: string }) {
   const [busy, setBusy] = useState(false)
   return (
     <div className="rpt-actions" style={{
@@ -217,7 +202,7 @@ function ReportActions({ elementId, filename, title }: { elementId: string; file
       paddingBottom: 12, borderBottom: '1px solid var(--border)',
     }}>
       <button
-        onClick={() => printReportPopup(elementId, title)}
+        onClick={() => printReport(elementId)}
         style={{
           padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)',
           background: 'var(--surface)', fontSize: 12, fontWeight: 700,
@@ -228,7 +213,7 @@ function ReportActions({ elementId, filename, title }: { elementId: string; file
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
         </svg>
-        Print Preview
+        Print
       </button>
       <button
         onClick={async () => {
@@ -312,7 +297,7 @@ function Report1Content() {
   const total  = data?.total ?? 0
   return (
     <div id="rpt-1" style={{ fontFamily: 'var(--font, system-ui)', color: '#0f172a' }}>
-      <ReportActions elementId="rpt-1" filename="StudentRegister.pdf" title="Student Register" />
+      <ReportActions elementId="rpt-1" filename="StudentRegister.pdf" />
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
           <h2 style={{ margin: 0, fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Student Register</h2>
@@ -414,7 +399,7 @@ function Report2Content() {
   const totalFemale    = data?.totalFemale ?? 0
   return (
     <div id="rpt-2">
-      <ReportActions elementId="rpt-2" filename="EnrolmentStatistics.pdf" title="Enrolment Statistics" />
+      <ReportActions elementId="rpt-2" filename="EnrolmentStatistics.pdf" />
       <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Enrolment Statistics</h2>
       <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 16 }}>
         {totalStudents} total active students · {totalMale} male · {totalFemale} female · {new Date().toLocaleDateString('en-GB')}
@@ -513,7 +498,7 @@ function Report3Content() {
   if (isLoading) return <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
   return (
     <div id="rpt-3">
-      <ReportActions elementId="rpt-3" filename="StaffRegister.pdf" title="Staff Register" />
+      <ReportActions elementId="rpt-3" filename="StaffRegister.pdf" />
       <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Staff Register</h2>
       <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 16 }}>
         {data.length} active staff · {new Date().toLocaleDateString('en-GB')}
@@ -598,7 +583,7 @@ function Report4Content() {
   if (isLoading) return <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
   return (
     <div id="rpt-4">
-      <ReportActions elementId="rpt-4" filename="AttendanceSummary.pdf" title="Attendance Summary" />
+      <ReportActions elementId="rpt-4" filename="AttendanceSummary.pdf" />
       <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Attendance Summary</h2>
       <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 12 }}>
         Last 30 days by class and week · {new Date().toLocaleDateString('en-GB')}
@@ -669,7 +654,7 @@ function Report5Content() {
   if (isLoading) return <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
   return (
     <div id="rpt-5">
-      <ReportActions elementId="rpt-5" filename="ReportCardPipeline.pdf" title="Report Card Pipeline" />
+      <ReportActions elementId="rpt-5" filename="ReportCardPipeline.pdf" />
       <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Report Card Pipeline</h2>
       <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 16 }}>
         {new Date().getFullYear()} · {data.length} classes
@@ -772,7 +757,7 @@ function Report6Content() {
   )
   return (
     <div id="rpt-6">
-      <ReportActions elementId="rpt-6" filename="FeeStatusSummary.pdf" title="Fee Status Summary" />
+      <ReportActions elementId="rpt-6" filename="FeeStatusSummary.pdf" />
       <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Fee Status Summary</h2>
       <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 16 }}>Student counts only — no monetary values · {new Date().toLocaleDateString('en-GB')}</div>
       {data.length > 0 && (
@@ -895,7 +880,7 @@ function Report7Content() {
     <div id="rpt-7">
       <div className="rpt-actions" style={{ display: 'flex', gap: 8, marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
         <button
-          onClick={() => printReportPopup('rpt-7', 'Guardian Contact List')}
+          onClick={() => printReport('rpt-7')}
           style={{
             padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)',
             background: 'var(--surface)', fontSize: 12, fontWeight: 700,
@@ -906,7 +891,7 @@ function Report7Content() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
           </svg>
-          Print Preview
+          Print
         </button>
         <button
           onClick={async () => { setBusy(true); await downloadReportPdf('rpt-7', 'GuardianContacts.pdf'); setBusy(false) }}
@@ -1046,7 +1031,7 @@ function Report8Content() {
   const students = data?.students ?? []
   return (
     <div id="rpt-8">
-      <ReportActions elementId="rpt-8" filename="NewStudentsThisTerm.pdf" title="New Students This Term" />
+      <ReportActions elementId="rpt-8" filename="NewStudentsThisTerm.pdf" />
       <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>New Students This Term</h2>
       <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 16 }}>
         {students.length} new enrolment{students.length !== 1 ? 's' : ''} {data?.baseDateLabel ?? ''} · {new Date().toLocaleDateString('en-GB')}
