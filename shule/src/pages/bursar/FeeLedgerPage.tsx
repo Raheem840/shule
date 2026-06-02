@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from 'react'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -258,6 +259,7 @@ const CURRENT_YEAR = new Date().getFullYear()
 
 export function FeeLedgerPage() {
   const { user } = useAuth()
+  const isMobile = useIsMobile()
   const [filters, setFilters] = useState<FeeFilters>({
     term: 1, year: CURRENT_YEAR,
   })
@@ -613,12 +615,13 @@ export function FeeLedgerPage() {
         </div>
       ) : (
         <div style={{
-          flex: 1, overflow: 'hidden',
+          flex: 1, overflow: isMobile ? 'auto' : 'hidden',
+          overflowX: isMobile ? 'auto' : undefined,
           background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--r-lg)',
+          borderRadius: 'var(--r-lg)', WebkitOverflowScrolling: 'touch' as any,
         }}>
           {/* Fixed header */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: 720 }}>
             <thead>
               <tr>
                 {['Adm No', 'Student', 'Class', 'Stream', 'Amount Due', 'Amount Paid', 'Balance', 'Status', 'Last Payment', 'Receipt No'].map(h => (

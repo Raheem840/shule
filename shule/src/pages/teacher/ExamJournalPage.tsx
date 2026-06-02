@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -332,7 +333,7 @@ function FiltersBar({ filters, onChange }: { filters: JournalFilters; onChange: 
   const sel: React.CSSProperties = { padding: '8px 32px 8px 12px', fontSize: 12.5, background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10, color: 'var(--txt)', appearance: 'none', outline: 'none' }
 
   return (
-    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', alignItems: 'flex-end' }}>
+    <div className="filter-bar" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', alignItems: 'flex-end' }}>
       {[
         { label: 'Subject', value: filters.subjectId ?? '', opts: [{ value: '', label: 'All Subjects' }, ...subjects.map(s => ({ value: s.id, label: s.name }))], key: 'subjectId' },
         { label: 'Class',   value: filters.classId   ?? '', opts: [{ value: '', label: 'All Classes'  }, ...classes.map(c => ({ value: c.id, label: c.name }))],  key: 'classId'   },
@@ -356,6 +357,7 @@ function FiltersBar({ filters, onChange }: { filters: JournalFilters; onChange: 
 
 export function ExamJournalPage() {
   const navigate   = useNavigate()
+  const isMobile   = useIsMobile()
   const [creating, setCreating] = useState(false)
   const [filters,  setFilters]  = useState<JournalFilters>({})
 
@@ -376,10 +378,12 @@ export function ExamJournalPage() {
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </div>
         <div style={{ flex: 1 }}>
-          <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>Exam Journal</h1>
+          <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: isMobile ? 19 : 22, color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>Exam Journal</h1>
           <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>Create and manage assessment entries, then enter marks</p>
         </div>
+        {/* Desktop create button — hidden on mobile (FAB used instead) */}
         <button
+          className="mob-fab-hide"
           onClick={() => setCreating(true)}
           style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 11, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(13,148,136,.4)', flexShrink: 0 }}
         >
@@ -387,6 +391,15 @@ export function ExamJournalPage() {
           Create Journal Entry
         </button>
       </div>
+
+      {/* Mobile FAB for create */}
+      <button
+        className="mob-fab"
+        onClick={() => setCreating(true)}
+        aria-label="Create Journal Entry"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
 
       <FiltersBar filters={filters} onChange={setFilters} />
 

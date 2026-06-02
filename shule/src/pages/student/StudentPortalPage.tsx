@@ -696,7 +696,7 @@ type TabName = BaseTab | 'Survey' | 'Notices'
 
 function TabBar({ tabs, active, onChange }: { tabs: TabName[]; active: TabName; onChange: (t: TabName) => void }) {
   return (
-    <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: '0.5rem' }}>
+    <div className="tab-scroll" style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: '0.5rem' }}>
       {tabs.map(t => (
         <button
           key={t}

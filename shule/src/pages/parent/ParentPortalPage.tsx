@@ -433,7 +433,7 @@ type TabName = typeof TABS[number]
 
 function TabBar({ active, onChange }: { active: TabName; onChange: (t: TabName) => void }) {
   return (
-    <div style={{
+    <div className="tab-scroll" style={{
       display: 'flex', gap: 0, borderBottom: '1px solid var(--border)',
       marginBottom: '0.5rem',
     }}>
