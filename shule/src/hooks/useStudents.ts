@@ -370,3 +370,70 @@ export function useSetStudentStatus() {
     },
   })
 }
+
+// ── Student login result ────────────────────────────────────────
+export type StudentLoginResult = {
+  email:        string
+  tempPassword: string
+  manual:       boolean   // true = Edge Function not deployed, login NOT created in auth
+}
+
+// ── useCreateStudentLogin ───────────────────────────────────────
+// Secretary one-click: auto-generate an auth user for a student.
+// Email format: student.{sanitised_admNo}@{shortName}.ug
+// Tries the Edge Function first; falls back gracefully if not deployed.
+// Returns { email, tempPassword, manual } — manual=true means the IT admin
+// must create the auth user manually using the returned credentials.
+export function useCreateStudentLogin() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (studentId: string): Promise<StudentLoginResult> => {
+      if (!user) throw new Error('Not authenticated')
+
+      // 1. Fetch student row — needs auth_user_id to check if already activated
+      const { data: studentRow, error: studentErr } = await supabase
+        .from('students')
+        .select('id, school_id, admission_number, first_name, last_name, auth_user_id')
+        .eq('id', studentId)
+        .eq('school_id', user.schoolId)
+        .single()
+
+      if (studentErr) throw studentErr
+      if (!studentRow) throw new Error('Student not found')
+
+      const row = studentRow as AnyRow
+      if (row.auth_user_id) throw new Error('Login already activated')
+
+      // 2. Fetch school short_name
+      const { data: school } = await supabase
+        .from('school_profile')
+        .select('short_name')
+        .eq('id', user.schoolId)
+        .single()
+
+      const shortName = ((school?.short_name as string) ?? 'school').toLowerCase().replace(/\s+/g, '')
+      const admNo     = (row.admission_number as string).toLowerCase().replace(/\//g, '-').replace(/\s+/g, '')
+      const email     = `student.${admNo}@${shortName}.ug`
+      const tempPassword = 'Shule@2025'
+
+      // 3. Try the Edge Function (may not be deployed yet)
+      try {
+        const { error: fnError } = await supabase.functions.invoke('create-student-auth-user', {
+          body: { studentId, email, schoolId: user.schoolId },
+        })
+        if (!fnError) return { email, tempPassword, manual: false }
+        // Edge function returned an error — fall through to manual mode
+      } catch {
+        // Network error or function not deployed — fall through to manual mode
+      }
+
+      // 4. Graceful fallback: return credentials for manual activation
+      return { email, tempPassword, manual: true }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
+    },
+  })
+}

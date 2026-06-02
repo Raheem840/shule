@@ -115,7 +115,7 @@ const schema = z.object({
   dateOfBirth: z.string().optional(),
   gender:      z.string().optional(),
   nationality: z.string().optional(),
-  nationalId:  z.string().min(1, 'National ID required'),
+  nationalId:  z.string().optional(),   // conditionally required via STEP_REQUIRED
   phone:       z.string().optional(),
   email:       z.string().email('Invalid email').or(z.literal('')).optional(),
   address:     z.string().optional(),
@@ -146,15 +146,16 @@ interface Props {
 }
 
 // ── Step indicator ────────────────────────────────────────────
-const STEPS = ['Personal', 'Professional', 'Qualification', 'Documents']
+const STEPS_NEW      = ['Basic Info', 'Professional', 'Qualification', 'Documents']
+const STEPS_EXISTING = ['Basic Info', 'Role & Submit']
 
-function WizardSteps({ current }: { current: number }) {
+function WizardSteps({ current, steps }: { current: number; steps: string[] }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
-      {STEPS.map((label, i) => {
+      {steps.map((label, i) => {
         const num = i + 1; const done = num < current; const active = num === current
         return (
-          <div key={num} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 'none' }}>
+          <div key={num} style={{ display: 'flex', alignItems: 'center', flex: i < steps.length - 1 ? 1 : 'none' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
               <div className={done ? 'sui-wstep-done' : active ? 'sui-wstep-active' : 'sui-wstep-pending'}
                 style={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, fontFamily: 'var(--font2)', flexShrink: 0 }}>
@@ -166,7 +167,7 @@ function WizardSteps({ current }: { current: number }) {
                 {label}
               </span>
             </div>
-            {i < STEPS.length - 1 && (
+            {i < steps.length - 1 && (
               <div className={done ? 'sui-wline-done' : 'sui-wline-pending'}
                 style={{ flex: 1, height: 2, margin: '0 0.5rem', marginBottom: 22 }} />
             )}
@@ -265,11 +266,27 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
   const { fields: docFields, append: docAppend, remove: docRemove } =
     useFieldArray({ control, name: 'documents' })
 
-  const watchedValues        = useWatch({ control })
-  const isExisting           = watchedValues.isExistingStaff ?? false
-  const watchedClasses       = watchedValues.classes ?? []
-  const watchedQualLevel     = watchedValues.qualificationLevel ?? null
-  const qualWarn             = getQualWarning(watchedQualLevel, watchedClasses, classes)
+  const watchedValues    = useWatch({ control })
+  const isExisting       = watchedValues.isExistingStaff ?? false
+  const watchedClasses   = watchedValues.classes ?? []
+  const watchedQualLevel = watchedValues.qualificationLevel ?? null
+  const qualWarn         = getQualWarning(watchedQualLevel, watchedClasses, classes)
+
+  const maxStep = isExisting ? 2 : 4
+  const steps   = isExisting ? STEPS_EXISTING : STEPS_NEW
+
+  // Step-required fields differ by mode
+  const STEP_REQUIRED: Record<number, (keyof FormValues)[]> = isExisting
+    ? {
+        1: ['firstName', 'lastName', 'email'],
+        2: ['role', 'staffNumber'],
+      }
+    : {
+        1: ['firstName', 'lastName', 'nationalId'],
+        2: ['role', 'staffNumber'],
+        3: [],
+        4: [],
+      }
 
   useEffect(() => {
     if (step === 2 && nextNum && !getValues('staffNumber')) {
@@ -281,16 +298,15 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
     if (!open) { reset(); setStep(1); setPhotoDataUrl(null); setUploading({}); setCreds(null) }
   }, [open])
 
-  const STEP_REQUIRED: Record<number, (keyof FormValues)[]> = {
-    1: ['firstName', 'lastName', 'nationalId'],
-    2: ['role', 'staffNumber'],
-    3: [],
-    4: [],
+  // When toggling mode, reset to step 1 so we never land on an invalid step
+  function handleModeChange(value: boolean) {
+    setValue('isExistingStaff', value)
+    setStep(1)
   }
 
   async function next() {
-    const valid = await trigger(STEP_REQUIRED[step])
-    if (valid) setStep(s => Math.min(4, s + 1))
+    const valid = await trigger(STEP_REQUIRED[step] ?? [])
+    if (valid) setStep(s => Math.min(maxStep, s + 1))
   }
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -380,7 +396,8 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
     })
   }
 
-  const isLoading = registerMutation.isPending
+  const isLoading  = registerMutation.isPending
+  const isLastStep = step === maxStep
 
   return (
     <Modal
@@ -398,89 +415,167 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
           }
           {creds
             ? <Button variant="primary" onClick={onClose}>Done — Close</Button>
-            : step < 4
+            : !isLastStep
               ? <Button variant="primary" onClick={next}>Continue →</Button>
               : <Button variant="primary" type="submit" form="reg-staff-form" loading={isLoading}>
-                  Register Staff Member
+                  {isExisting ? 'Register Staff' : 'Register Staff Member'}
                 </Button>
           }
         </div>
       }
     >
-      {/* Old vs New staff toggle */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', padding: '0.5rem', background: 'var(--surface2)', borderRadius: 'var(--r)', border: '1px solid var(--border)' }}>
-        {[
-          { value: false, label: 'New Staff Member' },
-          { value: true,  label: 'Existing Staff (already employed)' },
-        ].map(opt => {
-          const active = isExisting === opt.value
-          return (
-            <button key={String(opt.value)} type="button"
-              onClick={() => setValue('isExistingStaff', opt.value)}
-              style={{ flex: 1, padding: '0.4rem 0.75rem', borderRadius: 6, border: 'none', background: active ? 'var(--brand)' : 'transparent', color: active ? '#fff' : 'var(--txt2)', fontFamily: 'var(--font2)', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}>
-              {opt.label}
-            </button>
-          )
-        })}
+      {/* ── Mode toggle — pill segmented control ─────────────── */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <div style={{
+          display: 'flex', padding: '0.25rem',
+          background: 'var(--surface2)', borderRadius: 12,
+          border: '1px solid var(--border)', gap: '0.25rem',
+        }}>
+          {/* New Employee */}
+          <button
+            type="button"
+            onClick={() => handleModeChange(false)}
+            style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem',
+              padding: '0.5rem 0.75rem', borderRadius: 9, border: 'none', cursor: 'pointer',
+              fontFamily: 'var(--font2)', fontSize: 13, fontWeight: 700, transition: 'all 0.18s',
+              background: !isExisting
+                ? 'linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%)'
+                : 'transparent',
+              color: !isExisting ? '#fff' : 'var(--txt2)',
+              boxShadow: !isExisting ? '0 2px 8px rgba(13,148,136,0.25)' : 'none',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+            New Employee
+          </button>
+
+          {/* Existing Staff */}
+          <button
+            type="button"
+            onClick={() => handleModeChange(true)}
+            style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem',
+              padding: '0.5rem 0.75rem', borderRadius: 9, border: 'none', cursor: 'pointer',
+              fontFamily: 'var(--font2)', fontSize: 13, fontWeight: 700, transition: 'all 0.18s',
+              background: isExisting
+                ? 'linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%)'
+                : 'transparent',
+              color: isExisting ? '#fff' : 'var(--txt2)',
+              boxShadow: isExisting ? '0 2px 8px rgba(13,148,136,0.25)' : 'none',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            Existing Staff
+          </button>
+        </div>
+
+        {/* Context hint for existing staff mode */}
+        {isExisting && (
+          <div style={{
+            marginTop: '0.6rem', padding: '0.5rem 0.75rem',
+            background: 'var(--brand-light)', border: '1px solid rgba(13,148,136,0.2)',
+            borderRadius: 8, display: 'flex', alignItems: 'center', gap: '0.5rem',
+          }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 8v4M12 16h.01"/>
+            </svg>
+            <span style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
+              Quick 2-step registration for staff already employed at the school. Qualifications and documents can be added later.
+            </span>
+          </div>
+        )}
       </div>
 
-      <WizardSteps current={step} />
+      <WizardSteps current={step} steps={steps} />
 
       <form id="reg-staff-form" onSubmit={(handleSubmit as any)(onSubmit)}>
 
-        {/* ── STEP 1 — PERSONAL ──────────────────────────── */}
+        {/* ── STEP 1 — BASIC INFO ────────────────────────────── */}
         {step === 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-            <input ref={photoRef} type="file" accept="image/*" aria-label="Upload staff photo" style={{ display: 'none' }} onChange={handlePhotoChange} />
-            <div onClick={() => photoRef.current?.click()}
-              style={{ border: `2px dashed ${photoDataUrl ? 'var(--brand)' : 'var(--border)'}`, borderRadius: 'var(--r-lg)', padding: '0.85rem 1.1rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', background: photoDataUrl ? 'var(--brand-light)' : 'var(--surface2)', transition: 'all 0.15s' }}>
-              {photoDataUrl ? (
-                <>
-                  <img src={photoDataUrl} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>Photo ready</div>
-                    <div style={{ fontSize: 11, color: 'var(--txt3)' }}>Click to replace</div>
-                  </div>
-                  <button type="button" onClick={e => { e.stopPropagation(); setPhotoDataUrl(null) }}
-                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt2)' }}>Upload staff photo</div>
-                    <div style={{ fontSize: 11, color: 'var(--txt3)' }}>Uploaded to staff-photos bucket · Max 200KB</div>
-                  </div>
-                </>
-              )}
-            </div>
 
+            {/* Photo upload — new staff only */}
+            {!isExisting && (
+              <>
+                <input ref={photoRef} type="file" accept="image/*" aria-label="Upload staff photo" style={{ display: 'none' }} onChange={handlePhotoChange} />
+                <div onClick={() => photoRef.current?.click()}
+                  style={{ border: `2px dashed ${photoDataUrl ? 'var(--brand)' : 'var(--border)'}`, borderRadius: 'var(--r-lg)', padding: '0.85rem 1.1rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', background: photoDataUrl ? 'var(--brand-light)' : 'var(--surface2)', transition: 'all 0.15s' }}>
+                  {photoDataUrl ? (
+                    <>
+                      <img src={photoDataUrl} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>Photo ready</div>
+                        <div style={{ fontSize: 11, color: 'var(--txt3)' }}>Click to replace</div>
+                      </div>
+                      <button type="button" onClick={e => { e.stopPropagation(); setPhotoDataUrl(null) }}
+                        style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt2)' }}>Upload staff photo</div>
+                        <div style={{ fontSize: 11, color: 'var(--txt3)' }}>Uploaded to staff-photos bucket · Max 200KB</div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Name row — always shown */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <Input label="First Name *" {...register('firstName')} error={errors.firstName?.message} placeholder="e.g. Kigongo" />
               <Input label="Last Name *"  {...register('lastName')}  error={errors.lastName?.message}  placeholder="e.g. Nakato" />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <Input label="Date of Birth" type="date" {...register('dateOfBirth')} />
-              <Select label="Gender" {...register('gender')} placeholder="Select"
-                options={[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }]} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <Input label="Nationality" {...register('nationality')} placeholder="e.g. Ugandan" />
-              <Input label="National ID Number *" {...register('nationalId')} error={errors.nationalId?.message} placeholder="CM86010012345XXXX" />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <Input label="Phone" type="tel" {...register('phone')} placeholder="+256 700 000 000" />
-              <Input label="Email" type="email" {...register('email')} error={errors.email?.message} placeholder="name@school.ac.ug" />
-            </div>
-            <Input label="Address" {...register('address')} placeholder="e.g. Kampala, Nakawa Division" />
+
+            {/* Existing staff: simplified fields */}
+            {isExisting ? (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <Input label="Email *" type="email" {...register('email')} error={errors.email?.message} placeholder="name@school.ac.ug" />
+                  <Input label="Phone" type="tel" {...register('phone')} placeholder="+256 700 000 000" />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <Select label="Gender" {...register('gender')} placeholder="Select (optional)"
+                    options={[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }]} />
+                  <Input label="National ID" {...register('nationalId')} placeholder="Optional — add later" />
+                </div>
+              </>
+            ) : (
+              /* New staff: full personal details */
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <Input label="Date of Birth" type="date" {...register('dateOfBirth')} />
+                  <Select label="Gender" {...register('gender')} placeholder="Select"
+                    options={[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }]} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <Input label="Nationality" {...register('nationality')} placeholder="e.g. Ugandan" />
+                  <Input label="National ID Number *" {...register('nationalId')} error={errors.nationalId?.message} placeholder="CM86010012345XXXX" />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <Input label="Phone" type="tel" {...register('phone')} placeholder="+256 700 000 000" />
+                  <Input label="Email" type="email" {...register('email')} error={errors.email?.message} placeholder="name@school.ac.ug" />
+                </div>
+                <Input label="Address" {...register('address')} placeholder="e.g. Kampala, Nakawa Division" />
+              </>
+            )}
           </div>
         )}
 
-        {/* ── STEP 2 — PROFESSIONAL ──────────────────────── */}
+        {/* ── STEP 2 — PROFESSIONAL / ROLE & SUBJECTS ────────── */}
         {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
@@ -489,15 +584,27 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
               <Input label="Staff Number *" {...register('staffNumber')} error={errors.staffNumber?.message}
                 helper="Auto-generated — edit if needed" />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <Input label="Employment Date" type="date" {...register('employmentDate')} />
-              <Select label="Employment Type" {...register('employmentType')} placeholder="Select type"
+
+            {/* Employment Date shown only for new staff (defaults to today for existing) */}
+            {!isExisting ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <Input label="Employment Date" type="date" {...register('employmentDate')} />
+                <Select label="Employment Type" {...register('employmentType')} placeholder="Select type"
+                  options={[
+                    { value: 'permanent',  label: 'Permanent' },
+                    { value: 'contract',   label: 'Contract' },
+                    { value: 'volunteer',  label: 'Volunteer' },
+                  ]} />
+              </div>
+            ) : (
+              <Select label="Employment Type" {...register('employmentType')} placeholder="Select type (optional)"
                 options={[
                   { value: 'permanent',  label: 'Permanent' },
                   { value: 'contract',   label: 'Contract' },
                   { value: 'volunteer',  label: 'Volunteer' },
                 ]} />
-            </div>
+            )}
+
             <Select label="Department" {...register('departmentId')} placeholder="Select department"
               options={depts.filter(d => !d.archived).map(d => ({ value: d.id, label: d.name }))} />
 

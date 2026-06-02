@@ -5,6 +5,24 @@ import { useSecretaryBriefing, type SecretaryBriefingData } from '../../hooks/us
 import { useAcademicYears } from '../../hooks/useAdmin'
 import { FeeStatusDonut } from '../../components/shared/FeeStatusDonut'
 
+// Body-clone print — only the briefing document is printed, not the app shell
+function printBriefingDocument() {
+  const el = document.getElementById('briefing-page')
+  if (!el) return
+  const clone = el.cloneNode(true) as HTMLElement
+  clone.id = 'print-root'
+  // Remove the briefing-toolbar inside the clone if it somehow ended up there
+  clone.querySelectorAll('.print-hide').forEach(n => n.remove())
+  document.body.appendChild(clone)
+  document.body.classList.add('printing-report')
+  const cleanup = () => {
+    document.body.classList.remove('printing-report')
+    clone.remove()
+  }
+  window.addEventListener('afterprint', cleanup, { once: true })
+  window.print()
+}
+
 const EMPTY_BRIEFING: SecretaryBriefingData = {
   studentSummary:   { total: 0, active: 0, suspended: 0, expelled: 0, newThisTerm: 0 },
   staffSummary:     { total: 0, byRole: [] },
@@ -206,7 +224,7 @@ export function SchoolAtAGlancePage() {
             ))}
           </select>
           <button
-            onClick={() => window.print()}
+            onClick={() => printBriefingDocument()}
             style={{
               padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)',
               background: 'var(--surface)', fontSize: 13, fontWeight: 700,
