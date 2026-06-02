@@ -1,6 +1,5 @@
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import { useStudents, useStudentById, useCreateStudentLogin, type StudentFilters, type StudentLoginResult } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useGenerateParentAccess, type GeneratedAccess } from '../../hooks/useParentPortal'
@@ -462,61 +461,51 @@ const LEVEL_COLORS: Record<number, { bg: string; border: string; text: string; a
   6: { bg: 'rgba(16,185,129,.10)', border: 'rgba(16,185,129,.25)', text: '#065f46', accent: '#10b981' },
 }
 
-const ROW_HEIGHT = 56
-
-const TH: React.CSSProperties = {
-  textAlign: 'left', fontSize: 10.5, fontWeight: 800, letterSpacing: .8,
-  textTransform: 'uppercase', color: 'var(--txt3)', padding: '11px 16px',
-  borderBottom: '.5px solid var(--border)', background: 'var(--surface2)',
-  whiteSpace: 'nowrap', fontFamily: 'var(--font2)',
-}
-const TD: React.CSSProperties = {
-  padding: '0 16px', borderBottom: '.5px solid var(--border)',
-  color: 'var(--txt2)', verticalAlign: 'middle', fontSize: 12.5,
-}
-
-// ── Student Row ───────────────────────────────────────────────────────────────
-function StudentRow({ student, classes, streams, onView, onCredentials, style }: {
+// ── Student Card ─────────────────────────────────────────────────────────────
+function StudentCard({ student, classes, streams, onView, onCredentials }: {
   student: Student
   classes: { id: string; name: string; level: string | null }[]
   streams: { id: string; name: string }[]
   onView: (s: Student) => void
   onCredentials: (s: Student) => void
-  style: React.CSSProperties
 }) {
   const [hovered, setHovered] = useState(false)
-  const cls        = classes.find(c => c.id === student.classId)
-  const className  = cls?.name ?? '—'
-  const streamName = streams.find(s => s.id === student.streamId)?.name ?? '—'
-  const levelNum   = cls?.level ? parseInt(cls.level, 10) : null
-  const lvl        = levelNum ? (LEVEL_COLORS[levelNum] ?? null) : null
-  const sc         = statusConfig[student.status]
+  const cls          = classes.find(c => c.id === student.classId)
+  const className    = cls?.name ?? null
+  const streamName   = streams.find(s => s.id === student.streamId)?.name ?? null
+  const levelNum     = cls?.level ? parseInt(cls.level, 10) : null
+  const lvl          = levelNum ? (LEVEL_COLORS[levelNum] ?? null) : null
+  const sc           = statusConfig[student.status]
+  const accentColor  = lvl?.accent ?? '#0d9488'
+  const accentText   = lvl?.text   ?? '#0f766e'
+  const hasLogin     = !!student.authUserId
 
   return (
-    <tr
+    <div
       style={{
-        ...style,
-        cursor: 'pointer',
-        background: hovered ? 'var(--brand-light)' : 'transparent',
-        transition: 'background 0.12s',
-        display: 'table-row',
+        borderRadius: 16, border: '1px solid var(--border)', background: 'var(--surface)',
+        overflow: 'hidden',
+        transition: 'transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s',
+        transform: hovered ? 'translateY(-3px)' : 'none',
+        boxShadow: hovered ? '0 12px 40px rgba(0,0,0,.10)' : '0 1px 6px rgba(0,0,0,.06)',
       }}
-      onClick={() => onView(student)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <td style={TD}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-            background: lvl
-              ? `linear-gradient(135deg, ${lvl.accent}, ${lvl.text})`
-              : 'linear-gradient(135deg, var(--brand), var(--brand-dark))',
-            padding: 2,
-          }}>
-            <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: 'var(--surface)' }}>
-              <Avatar photoPath={student.photoUrl} bucket="student-photos" name={`${student.firstName} ${student.lastName}`} size="sm" />
-            </div>
+      {/* Class-level accent strip */}
+      <div style={{ height: 4, background: `linear-gradient(90deg, ${accentColor}, ${accentText})` }} />
+
+      <div style={{ padding: '16px 16px 14px' }}>
+        {/* Avatar + name */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: '50%',
+              background: `linear-gradient(135deg, ${accentColor}, ${accentText})`, padding: 2.5,
+            }}>
+              <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: 'var(--surface)' }}>
+                <Avatar photoPath={student.photoUrl} bucket="student-photos" name={`${student.firstName} ${student.lastName}`} size="md" />
+              </div>
           </div>
           <div>
             <div style={{ fontWeight: 700, color: 'var(--txt)', fontSize: 13, lineHeight: 1.3 }}>
@@ -526,82 +515,103 @@ function StudentRow({ student, classes, streams, onView, onCredentials, style }:
               {student.gender ? student.gender.charAt(0).toUpperCase() + student.gender.slice(1) : '—'}
               {student.dob ? ` · ${new Date(student.dob).getFullYear()}` : ''}
             </div>
+            </div>
+            {/* Login dot */}
+            <div style={{
+              position: 'absolute', bottom: 1, right: 1,
+              width: 12, height: 12, borderRadius: '50%',
+              background: hasLogin ? 'var(--success)' : sc.dot,
+              border: '2px solid var(--surface)',
+            }} />
+          </div>
+
+          {/* Name + badges */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3, marginBottom: 5 }}>
+              {student.firstName} {student.lastName}
+            </div>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+              {className && (
+                <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .4, color: accentColor, background: `${accentColor}18`, padding: '2px 8px', borderRadius: 99 }}>
+                  {className}
+                </span>
+              )}
+              <span style={{ fontSize: 10, fontWeight: 700, color: sc.color, background: sc.bg, padding: '2px 7px', borderRadius: 99, display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ width: 4, height: 4, borderRadius: '50%', background: sc.dot }} />
+                {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
+              </span>
+            </div>
           </div>
         </div>
-      </td>
-      <td style={TD}>
-        <span style={{ fontFamily: 'var(--font3)', fontSize: 11.5, color: 'var(--txt3)', letterSpacing: .3 }}>
-          {student.admissionNumber}
-        </span>
-      </td>
-      <td style={TD}>
-        {className !== '—' ? (
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 20,
-            background: lvl ? lvl.bg : 'var(--surface2)',
-            border: `.5px solid ${lvl ? lvl.border : 'var(--border)'}`,
-            color: lvl ? lvl.text : 'var(--txt2)',
-            fontSize: 11, fontWeight: 800, fontFamily: 'var(--font2)', whiteSpace: 'nowrap',
-          }}>
-            {className}
-          </span>
-        ) : <span style={{ color: 'var(--txt3)' }}>—</span>}
-      </td>
-      <td style={TD}>
-        {streamName !== '—'
-          ? <span style={{ fontSize: 12.5, color: 'var(--txt2)', fontWeight: 600 }}>{streamName}</span>
-          : <span style={{ color: 'var(--txt3)', fontSize: 12 }}>—</span>}
-      </td>
-      <td style={TD}>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-          background: sc.bg, color: sc.color,
-        }}>
-          <span style={{ width: 5, height: 5, borderRadius: '50%', background: sc.dot, flexShrink: 0 }} />
-          {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
-        </span>
-      </td>
-      <td style={{ ...TD, width: 200 }}>
-        <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+
+        {/* Info rows */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg>
+            <span style={{ fontSize: 11.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', letterSpacing: .3 }}>{student.admissionNumber}</span>
+          </div>
+          {streamName && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+              <span style={{ fontSize: 11.5, color: 'var(--txt3)' }}>{streamName}</span>
+            </div>
+          )}
+          {(student.gender || student.dob) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg>
+              <span style={{ fontSize: 11.5, color: 'var(--txt3)', textTransform: 'capitalize' }}>
+                {[student.gender, student.dob ? new Date(student.dob).getFullYear().toString() : null].filter(Boolean).join(' · ')}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 6 }}>
           <button
-            onClick={e => { e.stopPropagation(); onView(student) }}
-            style={{
-              padding: '4px 11px', borderRadius: 99, border: '.5px solid rgba(14,165,233,.3)',
-              background: 'rgba(14,165,233,.08)', color: '#0369a1', fontWeight: 700, fontSize: 11,
-              cursor: 'pointer', fontFamily: 'var(--font2)', whiteSpace: 'nowrap',
-            }}
+            onClick={() => onView(student)}
+            style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: '.5px solid rgba(14,165,233,.3)', background: 'rgba(14,165,233,.08)', color: '#0369a1', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(14,165,233,.15)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(14,165,233,.08)' }}
           >
             View
           </button>
           <button
-            onClick={e => { e.stopPropagation(); onCredentials(student) }}
-            style={{
-              padding: '4px 11px', borderRadius: 99, border: '.5px solid rgba(139,92,246,.3)',
-              background: 'rgba(139,92,246,.08)', color: '#6d28d9', fontWeight: 700, fontSize: 11,
-              cursor: 'pointer', fontFamily: 'var(--font2)', whiteSpace: 'nowrap',
-              display: 'flex', alignItems: 'center', gap: 4,
-            }}
+            onClick={() => onCredentials(student)}
+            style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: '.5px solid rgba(139,92,246,.3)', background: 'rgba(139,92,246,.08)', color: '#6d28d9', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,.15)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(139,92,246,.08)' }}
           >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
             Credentials
           </button>
         </div>
-      </td>
-    </tr>
+      </div>
+    </div>
   )
 }
 
-// ── Skeleton Row ─────────────────────────────────────────────────────────────
-function SkeletonRow() {
+// ── Skeleton Card ─────────────────────────────────────────────────────────────
+function SkeletonCard() {
   return (
-    <tr style={{ height: ROW_HEIGHT }}>
-      {[{ w: 160 }, { w: 90 }, { w: 56 }, { w: 56 }, { w: 70 }, { w: 140 }].map((col, i) => (
-        <td key={i} style={TD}>
-          <span className="shule-skeleton" style={{ display: 'block', height: 13, width: col.w, borderRadius: 6 }} />
-        </td>
-      ))}
-    </tr>
+    <div style={{ borderRadius: 16, border: '1px solid var(--border)', background: 'var(--surface)', overflow: 'hidden' }}>
+      <span className="shule-skeleton" style={{ display: 'block', height: 4 }} />
+      <div style={{ padding: '16px 16px 14px' }}>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+          <span className="shule-skeleton" style={{ display: 'block', width: 52, height: 52, borderRadius: '50%', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <span className="shule-skeleton" style={{ display: 'block', height: 13, width: '75%', borderRadius: 6, marginBottom: 8 }} />
+            <span className="shule-skeleton" style={{ display: 'block', height: 18, width: '50%', borderRadius: 99 }} />
+          </div>
+        </div>
+        <span className="shule-skeleton" style={{ display: 'block', height: 11, width: '60%', borderRadius: 4, marginBottom: 6 }} />
+        <span className="shule-skeleton" style={{ display: 'block', height: 11, width: '40%', borderRadius: 4, marginBottom: 14 }} />
+        <div style={{ display: 'flex', gap: 6 }}>
+          <span className="shule-skeleton" style={{ flex: 1, display: 'block', height: 34, borderRadius: 10 }} />
+          <span className="shule-skeleton" style={{ flex: 1, display: 'block', height: 34, borderRadius: 10 }} />
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -666,16 +676,6 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
   const { data: streams  = [] }            = useStreams(classId || undefined)
 
   const handleClassChange = useCallback((v: string) => { setClassId(v); setStreamId('') }, [])
-
-  const useVirtual = students.length > 50
-  const parentRef  = useRef<HTMLDivElement>(null)
-  const virtualiser = useVirtualizer({
-    count: students.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
-    overscan: 8,
-    enabled: useVirtual,
-  })
 
   const isFiltered = !!(search || classId || streamId || status)
 
@@ -869,82 +869,40 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
         </span>
       </div>
 
-      {/* ── Table Card ────────────────────────────────────────────── */}
-      <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
-        {useVirtual ? (
-          <div ref={parentRef} style={{ height: Math.min(students.length * ROW_HEIGHT + 46, 540), overflowY: 'auto', overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
-                <tr>
-                  {['Student', 'Adm. No.', 'Class', 'Stream', 'Status', 'Actions'].map(h => (
-                    <th key={h} style={TH}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody style={{ height: virtualiser.getTotalSize(), position: 'relative', display: 'block' }}>
-                {isLoading
-                  ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
-                  : students.length === 0
-                  ? (
-                    <tr>
-                      <td colSpan={6}>
-                        <EmptyState isFiltered={isFiltered} onRegister={onRegister} />
-                      </td>
-                    </tr>
-                  )
-                  : virtualiser.getVirtualItems().map(vRow => (
-                    <StudentRow
-                      key={students[vRow.index].id}
-                      student={students[vRow.index]}
-                      classes={classes}
-                      streams={streams}
-                      onView={onView}
-                      onCredentials={setCredStudent}
-                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: ROW_HEIGHT, transform: `translateY(${vRow.start}px)` }}
-                    />
-                  ))
-                }
-              </tbody>
-            </table>
-          </div>
-        ) : (
+      {/* ── Card Grid ─────────────────────────────────────────────── */}
+      {isLoading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+          {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+      ) : students.length === 0 ? (
+        <EmptyState isFiltered={isFiltered} onRegister={onRegister} />
+      ) : (
+        <div className="stagger-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+          {students.map(s => (
+            <StudentCard
+              key={s.id}
+              student={s}
+              classes={classes}
+              streams={streams}
+              onView={onView}
+              onCredentials={setCredStudent}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* invisible, was table: */}
+      {false && (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
               <thead>
                 <tr>
-                  {['Student', 'Adm. No.', 'Class', 'Stream', 'Status', 'Actions'].map(h => (
-                    <th key={h} style={TH}>{h}</th>
-                  ))}
+                  {[].map(h => <th key={h as string}>{h}</th>)}
                 </tr>
               </thead>
-              <tbody>
-                {isLoading
-                  ? Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
-                  : students.length === 0
-                  ? (
-                    <tr>
-                      <td colSpan={6}>
-                        <EmptyState isFiltered={isFiltered} onRegister={onRegister} />
-                      </td>
-                    </tr>
-                  )
-                  : students.map(s => (
-                    <StudentRow
-                      key={s.id}
-                      student={s}
-                      classes={classes}
-                      streams={streams}
-                      onView={onView}
-                      onCredentials={setCredStudent}
-                      style={{}}
-                    />
-                  ))
-                }
-              </tbody>
             </table>
           </div>
         )}
-      </div>
 
       {credStudent && (
         <CredentialModal
