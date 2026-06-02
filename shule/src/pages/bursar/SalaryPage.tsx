@@ -169,33 +169,76 @@ export function SalaryPage() {
   const roles    = [...new Set(rows.map(r => r.role))].sort()
   const empTypes = [...new Set(rows.map(r => r.employmentType).filter(Boolean))].sort()
 
-  // ── Excel export ───────────────────────────────────────────
+  // ── Excel export (premium) ────────────────────────────────────
   const handleExport = useCallback(async () => {
     if (!filtered.length) return
     try {
       const wb = new ExcelJS.Workbook()
+      wb.creator = 'Shule Management System'
+      wb.created = new Date()
       const ws = wb.addWorksheet('Salary Records')
-      ws.columns = [
-        { header: 'Staff Name',      key: 'name',           width: 28 },
-        { header: 'Role',            key: 'role',           width: 18 },
-        { header: 'Employment Type', key: 'employmentType', width: 16 },
-        { header: 'Salary Band',     key: 'salaryBand',     width: 14 },
-        { header: 'Join Date',       key: 'joinDate',       width: 14 },
-      ]
-      for (const r of filtered) {
-        ws.addRow({
-          name:           `${r.firstName} ${r.lastName}`,
-          role:           ROLE_LABEL[r.role] ?? r.role,
-          employmentType: r.employmentType ?? '',
-          salaryBand:     r.salaryBand ?? '',
-          joinDate:       r.joinDate ?? '',
+
+      const lastCol = 'F'
+      const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      const title = `Staff Salary Records — ${dateStr}`
+
+      // Title row
+      ws.mergeCells(`A1:${lastCol}1`)
+      const titleCell = ws.getCell('A1')
+      titleCell.value = title
+      titleCell.font = { name: 'Calibri', bold: true, size: 14, color: { argb: 'FFFFFFFF' } }
+      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } }
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+      ws.getRow(1).height = 28
+
+      // Date row
+      ws.mergeCells(`A2:${lastCol}2`)
+      const dateCell = ws.getCell('A2')
+      dateCell.value = `Generated: ${dateStr}`
+      dateCell.font = { name: 'Calibri', italic: true, size: 9, color: { argb: 'FF64748B' } }
+      dateCell.alignment = { horizontal: 'right' }
+      ws.getRow(2).height = 14
+
+      // Header row (row 3)
+      const headers = ['Staff No', 'Name', 'Role', 'Employment Type', 'Salary Band', 'Join Date']
+      const headerRow = ws.addRow(headers)
+      headerRow.height = 20
+      headerRow.eachCell(cell => {
+        cell.font = { name: 'Calibri', bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }
+        cell.alignment = { horizontal: 'center', vertical: 'middle' }
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FF0D9488' } } }
+      })
+
+      // Data rows with alternating colours
+      filtered.forEach((r, i) => {
+        const dataRow = ws.addRow([
+          r.id.slice(0, 8).toUpperCase(),
+          `${r.firstName} ${r.lastName}`,
+          ROLE_LABEL[r.role] ?? r.role,
+          r.employmentType ? r.employmentType.charAt(0).toUpperCase() + r.employmentType.slice(1) : '—',
+          r.salaryBand ?? '—',
+          r.joinDate ? new Date(r.joinDate).toLocaleDateString('en-GB') : '—',
+        ])
+        dataRow.height = 16
+        dataRow.eachCell(cell => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' } }
+          cell.font = { name: 'Calibri', size: 10 }
+          cell.alignment = { vertical: 'middle' }
         })
-      }
+      })
+
+      // Column widths
+      const colWidths = [14, 28, 20, 18, 16, 14]
+      ws.columns.forEach((col, i) => { col.width = colWidths[i] ?? 14 })
+
       const buffer = await wb.xlsx.writeBuffer()
       const blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       const url    = URL.createObjectURL(blob)
       const a      = document.createElement('a')
-      a.href = url; a.download = 'salary-records.xlsx'; a.click()
+      a.href = url
+      a.download = `salary-records-${new Date().toISOString().split('T')[0]}.xlsx`
+      a.click()
       URL.revokeObjectURL(url)
       toastOk('Salary records exported')
     } catch (e: any) {

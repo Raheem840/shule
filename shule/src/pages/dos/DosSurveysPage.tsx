@@ -76,10 +76,81 @@ export function DosSurveysPage() {
   const parentRef   = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({ count: responses.length, getScrollElement: () => parentRef.current, estimateSize: () => 56, overscan: 5 })
 
+  async function exportExcel() {
+    if (!responses.length) return
+    const { default: ExcelJS } = await import('exceljs')
+    const wb = new ExcelJS.Workbook()
+    wb.creator = 'Shule Management System'
+    wb.created = new Date()
+    const ws = wb.addWorksheet('Survey Results')
+
+    const lastCol = 'H'
+    const title = `Student Survey Results — Term ${term}, Year ${year}`
+
+    ws.mergeCells(`A1:${lastCol}1`)
+    const titleCell = ws.getCell('A1')
+    titleCell.value = title
+    titleCell.font = { name: 'Calibri', bold: true, size: 14, color: { argb: 'FFFFFFFF' } }
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF8B5CF6' } }
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    ws.getRow(1).height = 28
+
+    ws.mergeCells(`A2:${lastCol}2`)
+    const dateCell = ws.getCell('A2')
+    dateCell.value = `Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`
+    dateCell.font = { name: 'Calibri', italic: true, size: 9, color: { argb: 'FF64748B' } }
+    dateCell.alignment = { horizontal: 'right' }
+    ws.getRow(2).height = 14
+
+    const headers = ['Student Name', 'Class', 'Overall Rating', 'Teacher Rating', 'Hardest Subject', 'Favourite Subject', 'Suggestions', 'Submitted']
+    const headerRow = ws.addRow(headers)
+    headerRow.height = 20
+    headerRow.eachCell(cell => {
+      cell.font = { name: 'Calibri', bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FF8B5CF6' } } }
+    })
+
+    responses.forEach((r, i) => {
+      const dataRow = ws.addRow([
+        r.studentName,
+        r.className,
+        r.overallRating,
+        r.teacherRating,
+        r.hardestSubject ?? '—',
+        r.favouriteSubject ?? '—',
+        r.suggestions ?? '',
+        new Date(r.submittedAt).toLocaleDateString('en-GB'),
+      ])
+      dataRow.height = 16
+      dataRow.eachCell((cell, colNum) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' } }
+        cell.font = { name: 'Calibri', size: 10 }
+        cell.alignment = { vertical: 'middle' }
+        if (colNum === 3 || colNum === 4) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' }
+        }
+      })
+    })
+
+    const colWidths = [24, 12, 14, 14, 20, 20, 36, 14]
+    ws.columns.forEach((col, i) => { col.width = colWidths[i] ?? 14 })
+
+    const buf  = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url
+    a.download = `survey-results-T${term}-${year}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   function exportCSV() {
     const header = 'Student,Class,Overall,Teacher,Hardest,Favourite,Suggestions,Submitted\n'
-    const rows   = responses.map(r => `"${r.studentName}","${r.className}","${r.overallRating}","${r.teacherRating}","${r.hardestSubject ?? ''}","${r.favouriteSubject ?? ''}","${(r.suggestions ?? '').replace(/"/g, '""')}","${r.submittedAt}"`).join('\n')
-    const blob   = new Blob([header + rows], { type: 'text/csv' })
+    const csvRows = responses.map(r => `"${r.studentName}","${r.className}","${r.overallRating}","${r.teacherRating}","${r.hardestSubject ?? ''}","${r.favouriteSubject ?? ''}","${(r.suggestions ?? '').replace(/"/g, '""')}","${r.submittedAt}"`).join('\n')
+    const blob   = new Blob([header + csvRows], { type: 'text/csv' })
     const url    = URL.createObjectURL(blob)
     const a      = document.createElement('a'); a.href = url; a.download = `surveys-t${term}-${year}.csv`; a.click()
     URL.revokeObjectURL(url)
@@ -101,11 +172,17 @@ export function DosSurveysPage() {
               <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>End-of-term student satisfaction surveys.</p>
             </div>
           </div>
-          <button onClick={exportCSV}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 11, border: '.5px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--txt2)', flexShrink: 0 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Export CSV
-          </button>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            <button onClick={() => exportExcel()} disabled={!responses.length}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 11, border: 'none', background: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', cursor: responses.length ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, color: '#fff', opacity: responses.length ? 1 : 0.5, boxShadow: '0 3px 12px rgba(139,92,246,.35)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export Excel
+            </button>
+            <button onClick={exportCSV} disabled={!responses.length}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 14px', borderRadius: 11, border: '.5px solid var(--border)', background: 'var(--surface)', cursor: responses.length ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600, color: 'var(--txt2)', opacity: responses.length ? 1 : 0.5 }}>
+              CSV
+            </button>
+          </div>
         </div>
       </div>
 

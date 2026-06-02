@@ -208,6 +208,87 @@ function ActivityLogTab() {
     dateFrom: dateFrom || undefined, dateTo: dateTo || undefined,
   })
 
+  async function exportExcel() {
+    if (!entries.length) return
+    const { default: ExcelJS } = await import('exceljs')
+    const wb = new ExcelJS.Workbook()
+    wb.creator = 'Shule Management System'
+    wb.created = new Date()
+    const ws = wb.addWorksheet('Audit Log')
+
+    const lastCol = 'F'
+    const dateRange = dateFrom && dateTo
+      ? `${dateFrom} to ${dateTo}`
+      : dateFrom ? `From ${dateFrom}` : dateTo ? `To ${dateTo}` : 'All dates'
+    const title = `Audit Log — ${dateRange}`
+
+    ws.mergeCells(`A1:${lastCol}1`)
+    const titleCell = ws.getCell('A1')
+    titleCell.value = title
+    titleCell.font = { name: 'Calibri', bold: true, size: 14, color: { argb: 'FFFFFFFF' } }
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    ws.getRow(1).height = 28
+
+    ws.mergeCells(`A2:${lastCol}2`)
+    const dateCell = ws.getCell('A2')
+    dateCell.value = `Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`
+    dateCell.font = { name: 'Calibri', italic: true, size: 9, color: { argb: 'FF64748B' } }
+    dateCell.alignment = { horizontal: 'right' }
+    ws.getRow(2).height = 14
+
+    const headers = ['Date / Time', 'Activity', 'Area', 'Done By (Role)', 'Record', 'Action']
+    const headerRow = ws.addRow(headers)
+    headerRow.height = 20
+    headerRow.eachCell(cell => {
+      cell.font = { name: 'Calibri', bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FF0D9488' } } }
+    })
+
+    const ACTION_ARGB: Record<string, string> = {
+      INSERT: 'FF10B981',
+      UPDATE: 'FF0EA5E9',
+      DELETE: 'FFF43F5E',
+    }
+
+    entries.forEach((e: AuditEntry, i) => {
+      const narrative = buildNarrative(e.action, e.tableName, e.entityName, e.userRole)
+      const dataRow = ws.addRow([
+        new Date(e.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        narrative,
+        friendlyTable(e.tableName),
+        friendlyRole(e.userRole),
+        e.entityName ?? '—',
+        ACTION_META[e.action]?.label ?? e.action,
+      ])
+      dataRow.height = 16
+      dataRow.eachCell((cell, colNum) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' } }
+        cell.font = { name: 'Calibri', size: 10 }
+        cell.alignment = { vertical: 'middle' }
+        // Action column: colour by type
+        if (colNum === 6) {
+          const argb = ACTION_ARGB[e.action] ?? 'FF64748B'
+          cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb } }
+        }
+      })
+    })
+
+    const colWidths = [18, 44, 18, 22, 22, 12]
+    ws.columns.forEach((col, i) => { col.width = colWidths[i] ?? 14 })
+
+    const buf  = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url
+    a.download = `audit-log-${new Date().toISOString().split('T')[0]}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   function exportCsv() {
     const header = 'Activity,Area,Done By,Record,Date\n'
     const rows = entries.map((e: AuditEntry) =>
@@ -266,7 +347,8 @@ function ActivityLogTab() {
               <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 }}>To</div>
               <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="sui-input" style={{ width: 148, fontSize: 12 }} />
             </div>
-            <button onClick={exportCsv} className="sui-btn-outline" style={{ fontSize: 11.5, height: 38 }}>Export CSV</button>
+            <button onClick={() => exportExcel()} disabled={!entries.length} className="sui-btn-outline" style={{ fontSize: 11.5, height: 38, opacity: entries.length ? 1 : 0.5 }}>Export Excel</button>
+            <button onClick={exportCsv} disabled={!entries.length} className="sui-btn-outline" style={{ fontSize: 11.5, height: 38, opacity: entries.length ? 1 : 0.5 }}>CSV</button>
           </div>
         </div>
       </div>

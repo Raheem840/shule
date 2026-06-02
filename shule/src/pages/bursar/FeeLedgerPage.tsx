@@ -294,43 +294,103 @@ export function FeeLedgerPage() {
     [rows, updatePayment]
   )
 
-  // ── Excel export ─────────────────────────────────────────────
+  // ── Excel export (premium) ────────────────────────────────────
   async function handleExport() {
-    if (!rows?.length) return
+    if (!allRows.length) return
     const wb = new ExcelJS.Workbook()
+    wb.creator = 'Shule Management System'
+    wb.created = new Date()
     const ws = wb.addWorksheet('Fee Ledger')
-    ws.columns = [
-      { header: 'Adm No',         key: 'admissionNumber', width: 16 },
-      { header: 'Student Name',   key: 'name',            width: 28 },
-      { header: 'Class',          key: 'className',       width: 10 },
-      { header: 'Stream',         key: 'streamName',      width: 10 },
-      { header: 'Amount Due',     key: 'amountDue',       width: 16 },
-      { header: 'Amount Paid',    key: 'amountPaid',      width: 16 },
-      { header: 'Balance',        key: 'balance',         width: 16 },
-      { header: 'Status',         key: 'status',          width: 10 },
-      { header: 'Last Payment',   key: 'paymentDate',     width: 16 },
-      { header: 'Receipt No',     key: 'receiptNumber',   width: 16 },
-    ]
-    for (const r of rows) {
-      ws.addRow({
-        admissionNumber: r.admissionNumber,
-        name:            `${r.firstName} ${r.lastName}`,
-        className:       r.className,
-        streamName:      r.streamName,
-        amountDue:       r.amountDue,
-        amountPaid:      r.amountPaid,
-        balance:         r.balance,
-        status:          r.status,
-        paymentDate:     r.paymentDate ?? '',
-        receiptNumber:   r.receiptNumber ?? '',
+
+    const lastCol = 'J'
+    const title = `Fee Ledger — Term ${filters.term ?? 1}, Year ${filters.year ?? CURRENT_YEAR}`
+
+    // Title row
+    ws.mergeCells(`A1:${lastCol}1`)
+    const titleCell = ws.getCell('A1')
+    titleCell.value = title
+    titleCell.font = { name: 'Calibri', bold: true, size: 14, color: { argb: 'FFFFFFFF' } }
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } }
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    ws.getRow(1).height = 28
+
+    // Date row
+    ws.mergeCells(`A2:${lastCol}2`)
+    const dateCell = ws.getCell('A2')
+    dateCell.value = `Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`
+    dateCell.font = { name: 'Calibri', italic: true, size: 9, color: { argb: 'FF64748B' } }
+    dateCell.alignment = { horizontal: 'right' }
+    ws.getRow(2).height = 14
+
+    // Header row (row 3)
+    const headers = ['Student Name', 'Admission No', 'Class', 'Stream', 'Amount Due (UGX)', 'Amount Paid (UGX)', 'Balance (UGX)', 'Term', 'Status', 'Last Payment']
+    const headerRow = ws.addRow(headers)
+    headerRow.height = 20
+    headerRow.eachCell(cell => {
+      cell.font = { name: 'Calibri', bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FF0D9488' } } }
+    })
+
+    // Data rows with alternating colours
+    const STATUS_FONT: Record<string, string> = { paid: 'FF10B981', partial: 'FFF59E0B', unpaid: 'FFF43F5E' }
+    allRows.forEach((r, i) => {
+      const status = calcFeeStatus(r.amountPaid, r.balance)
+      const dataRow = ws.addRow([
+        `${r.firstName} ${r.lastName}`,
+        r.admissionNumber,
+        r.className,
+        r.streamName ?? '',
+        r.amountDue,
+        r.amountPaid,
+        Math.max(0, r.balance),
+        String(filters.term ?? 1),
+        status.charAt(0).toUpperCase() + status.slice(1),
+        r.paymentDate ?? '',
+      ])
+      dataRow.height = 16
+      dataRow.eachCell((cell, colNum) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' } }
+        cell.font = { name: 'Calibri', size: 10 }
+        cell.alignment = { vertical: 'middle' }
+        if (colNum >= 5 && colNum <= 7) {
+          cell.alignment = { horizontal: 'right', vertical: 'middle' }
+          cell.numFmt = '#,##0'
+        }
+        if (colNum === 9) {
+          const argb = STATUS_FONT[status] ?? 'FF0F172A'
+          cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb } }
+        }
       })
-    }
-    const buffer = await wb.xlsx.writeBuffer()
-    const blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url    = URL.createObjectURL(blob)
-    const a      = document.createElement('a')
+    })
+
+    // Totals row
+    const totDue  = allRows.reduce((s, r) => s + r.amountDue,  0)
+    const totPaid = allRows.reduce((s, r) => s + r.amountPaid, 0)
+    const totBal  = allRows.reduce((s, r) => s + Math.max(0, r.balance), 0)
+    const totRow  = ws.addRow(['TOTALS', '', '', '', totDue, totPaid, totBal, '', '', ''])
+    totRow.height = 18
+    totRow.eachCell((cell, colNum) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } }
+      cell.font = { name: 'Calibri', bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
+      cell.alignment = { vertical: 'middle' }
+      if (colNum >= 5 && colNum <= 7) {
+        cell.alignment = { horizontal: 'right', vertical: 'middle' }
+        cell.numFmt = '#,##0'
+      }
+    })
+
+    // Column widths
+    const colWidths = [28, 14, 10, 10, 18, 18, 16, 8, 10, 14]
+    ws.columns.forEach((col, i) => { col.width = colWidths[i] ?? 14 })
+
+    const buf  = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
     a.href = url
-    a.download = `fee-ledger-term${filters.term}-${filters.year}.xlsx`
+    a.download = `fee-ledger-T${filters.term ?? 1}-${filters.year ?? CURRENT_YEAR}.xlsx`
     a.click()
     URL.revokeObjectURL(url)
   }

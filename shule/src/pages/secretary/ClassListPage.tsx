@@ -510,6 +510,22 @@ function ClassCard({
 }
 
 // ── Page ──────────────────────────────────────────────────────
+// ── Print class list helper ───────────────────────────────────
+function printClassList(elementId: string) {
+  const el = document.getElementById(elementId)
+  if (!el) return
+  const clone = el.cloneNode(true) as HTMLElement
+  clone.id = 'print-root'
+  document.body.appendChild(clone)
+  document.body.classList.add('printing-report')
+  const cleanup = () => {
+    document.body.classList.remove('printing-report')
+    clone.remove()
+  }
+  window.addEventListener('afterprint', cleanup, { once: true })
+  window.print()
+}
+
 export function ClassListPage() {
   const { data: classes = [], isLoading } = useClasses()
   const { data: staffList = [] }          = useStaff({ isActive: true })
@@ -524,14 +540,27 @@ export function ClassListPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div style={{ position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle,rgba(14,165,233,.18),transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, position: 'relative' }}>
-          <div style={{ width: 46, height: 46, borderRadius: 15, background: 'linear-gradient(145deg,#0ea5e9,#0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 18px rgba(14,165,233,.45)', flexShrink: 0 }}>
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, position: 'relative', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+            <div style={{ width: 46, height: 46, borderRadius: 15, background: 'linear-gradient(145deg,#0ea5e9,#0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 18px rgba(14,165,233,.45)', flexShrink: 0 }}>
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+            </div>
+            <div>
+              <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>Class List</h1>
+              <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>{classes.length} class{classes.length !== 1 ? 'es' : ''} · {new Date().getFullYear()}</p>
+            </div>
           </div>
-          <div>
-            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>Class List</h1>
-            <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>{classes.length} class{classes.length !== 1 ? 'es' : ''} · {new Date().getFullYear()}</p>
-          </div>
+          {!isLoading && classes.length > 0 && (
+            <button
+              onClick={() => printClassList('class-list-printable')}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: '.5px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', flexShrink: 0 }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+              </svg>
+              Print Class List
+            </button>
+          )}
         </div>
       </div>
 
@@ -555,7 +584,7 @@ export function ClassListPage() {
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div id="class-list-printable" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {sortedClasses.map((cls, i) => (
             <ClassCard
               key={cls.id}

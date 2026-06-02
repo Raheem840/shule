@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useStaff, type StaffFilters } from '../../hooks/useStaff'
 import { useDepartments } from '../../hooks/useClasses'
 import { StaffRegistrationWizard } from './StaffRegistrationWizard'
 import { Avatar } from '../../components/shared/Avatar'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { useAuth } from '../../store/AuthContext'
 import type { Staff, UserRole } from '../../types/app'
 
 // ── Role metadata ─────────────────────────────────────────────────────────────
@@ -307,6 +308,81 @@ export function SecretaryStaffPage() {
   const adminCount   = staffList.filter(s => ADMIN_ROLES.has(s.role)).length
   const activeCount  = staffList.filter(s => s.isActive).length
 
+  // ── Export Staff Excel (premium) ──────────────────────────────
+  const handleExportStaff = useCallback(async () => {
+    if (!staffList.length) return
+    const { default: ExcelJS } = await import('exceljs')
+    const wb = new ExcelJS.Workbook()
+    wb.creator = 'Shule Management System'
+    wb.created = new Date()
+    const ws = wb.addWorksheet('Staff Register')
+
+    const lastCol = 'I'
+    const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    const title = `Staff Register — ${dateStr}`
+
+    ws.mergeCells(`A1:${lastCol}1`)
+    const titleCell = ws.getCell('A1')
+    titleCell.value = title
+    titleCell.font = { name: 'Calibri', bold: true, size: 14, color: { argb: 'FFFFFFFF' } }
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } }
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    ws.getRow(1).height = 28
+
+    ws.mergeCells(`A2:${lastCol}2`)
+    const dateCell = ws.getCell('A2')
+    dateCell.value = `Generated: ${dateStr}`
+    dateCell.font = { name: 'Calibri', italic: true, size: 9, color: { argb: 'FF64748B' } }
+    dateCell.alignment = { horizontal: 'right' }
+    ws.getRow(2).height = 14
+
+    const headers = ['Staff No', 'Name', 'Role', 'Department', 'Email', 'Phone', 'Employment Type', 'Join Date', 'Status']
+    const headerRow = ws.addRow(headers)
+    headerRow.height = 20
+    headerRow.eachCell(cell => {
+      cell.font = { name: 'Calibri', bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FF0D9488' } } }
+    })
+
+    staffList.forEach((s, i) => {
+      const dataRow = ws.addRow([
+        s.staffNumber,
+        `${s.firstName} ${s.lastName}`,
+        ROLE_LABELS[s.role] ?? s.role,
+        s.departmentId ? (deptMap.get(s.departmentId) ?? '—') : '—',
+        s.email ?? '—',
+        s.phone ?? '—',
+        s.employmentType ? s.employmentType.charAt(0).toUpperCase() + s.employmentType.slice(1) : '—',
+        s.joinDate ? new Date(s.joinDate).toLocaleDateString('en-GB') : '—',
+        s.isActive ? 'Active' : 'Inactive',
+      ])
+      dataRow.height = 16
+      dataRow.eachCell((cell, colNum) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC' } }
+        cell.font = { name: 'Calibri', size: 10 }
+        cell.alignment = { vertical: 'middle' }
+        // Status column: green for active, grey for inactive
+        if (colNum === 9) {
+          cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: s.isActive ? 'FF10B981' : 'FF94A3B8' } }
+        }
+      })
+    })
+
+    const colWidths = [14, 28, 22, 20, 28, 16, 18, 14, 10]
+    ws.columns.forEach((col, i) => { col.width = colWidths[i] ?? 14 })
+
+    const buf  = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url
+    a.download = `staff-register-${new Date().toISOString().split('T')[0]}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [staffList, deptMap])
+
   return (
     <>
       <div className="sui-page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -366,23 +442,44 @@ export function SecretaryStaffPage() {
             </div>
 
             {!isMobile && (
-              <button
-                onClick={() => setWizardOpen(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 7, padding: '10px 20px',
-                  borderRadius: 11, border: 'none', background: '#fff', color: '#0f766e',
-                  fontWeight: 800, fontSize: 13, cursor: 'pointer', alignSelf: 'flex-start',
-                  boxShadow: '0 4px 18px rgba(0,0,0,.18)',
-                  transition: 'box-shadow 0.15s, transform 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,.22)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(0,0,0,.18)' }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 5v14M5 12h14"/>
-                </svg>
-                Register Staff Member
-              </button>
+              <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-start', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => handleExportStaff()}
+                  disabled={!staffList.length}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 7, padding: '10px 16px',
+                    borderRadius: 11, border: '1.5px solid rgba(255,255,255,.4)',
+                    background: 'rgba(255,255,255,.15)', backdropFilter: 'blur(8px)',
+                    color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: staffList.length ? 'pointer' : 'not-allowed',
+                    opacity: staffList.length ? 1 : 0.5,
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.25)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,.15)' }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Export Staff
+                </button>
+                <button
+                  onClick={() => setWizardOpen(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 7, padding: '10px 20px',
+                    borderRadius: 11, border: 'none', background: '#fff', color: '#0f766e',
+                    fontWeight: 800, fontSize: 13, cursor: 'pointer',
+                    boxShadow: '0 4px 18px rgba(0,0,0,.18)',
+                    transition: 'box-shadow 0.15s, transform 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,.22)' }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(0,0,0,.18)' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                  Register Staff Member
+                </button>
+              </div>
             )}
           </div>
         </div>
