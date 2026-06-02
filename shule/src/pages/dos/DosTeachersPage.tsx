@@ -1,6 +1,5 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
@@ -449,6 +448,91 @@ const ROLE_META: Record<string, { color: string; bg: string }> = {
   name:      { color: '#8b5cf6', bg: 'rgba(139,92,246,.1)' },
 }
 
+// ── Teacher performance card ──────────────────────────────────────────────────
+function TeacherCard({ t, onManage }: { t: TeacherPerfRow; onManage: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  const [c1] = pal(t.name)
+  const C_TEACHER = '#6366f1'
+  const C_CLASS   = '#10b981'
+  const accentC   = t.isClassTeacher ? C_CLASS : C_TEACHER
+
+  return (
+    <div
+      style={{
+        borderRadius: 16, border: '1px solid var(--border)', background: 'var(--surface)',
+        overflow: 'hidden',
+        transition: 'transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s',
+        transform: hovered ? 'translateY(-3px)' : 'none',
+        boxShadow: hovered ? '0 12px 40px rgba(0,0,0,.10)' : '0 1px 6px rgba(0,0,0,.05)',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Accent strip */}
+      <div style={{ height: 4, background: `linear-gradient(90deg, ${accentC}, ${c1})` }} />
+
+      <div style={{ padding: '16px 16px 14px' }}>
+        {/* Avatar + name */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div style={{ width: 52, height: 52, borderRadius: '50%', background: `linear-gradient(135deg, ${accentC}, ${c1})`, padding: 2.5 }}>
+              <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: 15, fontWeight: 900, color: accentC, fontFamily: 'var(--font2)' }}>{ini(t.name)}</span>
+              </div>
+            </div>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>{t.name}</div>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .4, color: accentC, background: `${accentC}18`, padding: '2px 8px', borderRadius: 99 }}>
+                {t.isClassTeacher ? 'Class Teacher' : 'Teacher'}
+              </span>
+              {t.phone && <span style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>{t.phone}</span>}
+            </div>
+          </div>
+        </div>
+
+        {/* Subject chips */}
+        {t.subjectNames && t.subjectNames.length > 0 && (
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
+            {t.subjectNames.slice(0, 3).map(s => (
+              <span key={s} style={{ fontSize: 10.5, color: 'var(--txt2)', background: 'var(--surface2)', border: '.5px solid var(--border)', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>{s}</span>
+            ))}
+            {t.subjectNames.length > 3 && (
+              <span style={{ fontSize: 10.5, color: 'var(--txt3)', background: 'var(--surface2)', border: '.5px solid var(--border)', padding: '2px 8px', borderRadius: 6 }}>+{t.subjectNames.length - 3}</span>
+            )}
+          </div>
+        )}
+
+        {/* Performance bars */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', width: 68, textTransform: 'uppercase', letterSpacing: .4 }}>Pass Rate</span>
+            <div style={{ flex: 1 }}><RateBar value={t.passRate} /></div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', width: 68, textTransform: 'uppercase', letterSpacing: .4 }}>Coverage</span>
+            <div style={{ flex: 1 }}><RateBar value={t.curriculumCoverage} /></div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: '.5px solid var(--border)' }}>
+          <span style={{ fontSize: 11.5, color: 'var(--txt3)' }}>
+            {t.assessmentsThisTerm} assessment{t.assessmentsThisTerm !== 1 ? 's' : ''} this term
+          </span>
+          <button
+            onClick={onManage}
+            style={{ padding: '6px 14px', borderRadius: 9, border: 'none', background: `linear-gradient(135deg, ${accentC}, ${c1})`, color: '#fff', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' }}
+          >
+            Manage
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function DosTeachersPage() {
   const { data=[], isLoading, isError } = useDosTeacherPerformance()
   const [search,   setSearch]   = useState('')
@@ -459,114 +543,102 @@ export function DosTeachersPage() {
     let r = data
     if (search.trim()) {
       const q = search.toLowerCase()
-      r = r.filter(t=>t.name.toLowerCase().includes(q))
+      r = r.filter(t => t.name.toLowerCase().includes(q))
     }
-    return [...r].sort((a,b)=>{
-      if (sort==='passRate') return b.passRate-a.passRate
-      if (sort==='coverage') return b.curriculumCoverage-a.curriculumCoverage
+    return [...r].sort((a, b) => {
+      if (sort === 'passRate')  return b.passRate - a.passRate
+      if (sort === 'coverage') return b.curriculumCoverage - a.curriculumCoverage
       return a.name.localeCompare(b.name)
     })
   }, [data, search, sort])
 
-  const parentRef = useRef<HTMLDivElement>(null)
-  const virtualiser = useVirtualizer({ count:rows.length, getScrollElement:()=>parentRef.current, estimateSize:()=>64, overscan:8 })
+  const teacherCount     = rows.length
+  const avgPassRate      = rows.length ? Math.round(rows.reduce((s, t) => s + t.passRate, 0) / rows.length) : 0
+  const avgCoverage      = rows.length ? Math.round(rows.reduce((s, t) => s + t.curriculumCoverage, 0) / rows.length) : 0
+  const classTeachers    = rows.filter(t => t.isClassTeacher).length
 
   return (
-    <div className="sui-page-enter" style={{ display:'flex', flexDirection:'column', gap:22 }}>
+    <div className="sui-page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-        <div style={{ width:42, height:42, borderRadius:13, background:'linear-gradient(145deg,#0d9488,#0f766e)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 14px rgba(13,148,136,.36)' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-        </div>
-        <div>
-          <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:20, color:'var(--txt)', margin:0, letterSpacing:-.3 }}>Teachers</h1>
-          <div style={{ fontSize:12, color:'var(--txt3)', marginTop:2 }}>Pass rates, curriculum coverage, and subject management.</div>
+      {/* Hero band */}
+      <div style={{ borderRadius: 18, overflow: 'hidden', background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)', padding: '28px 28px 24px', position: 'relative' }}>
+        <div style={{ position: 'absolute', top: -30, right: -30, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,.07)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -20, left: 60, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,.05)', pointerEvents: 'none' }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 13, background: 'rgba(255,255,255,.18)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+            </div>
+            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: '#fff', margin: 0, letterSpacing: -.4 }}>Teachers</h1>
+          </div>
+          <p style={{ color: 'rgba(255,255,255,.7)', fontSize: 12.5, margin: '0 0 20px' }}>Pass rates, curriculum coverage and subject assignments</p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Total Teachers',  value: isLoading ? '—' : teacherCount },
+              { label: 'Class Teachers',  value: isLoading ? '—' : classTeachers },
+              { label: 'Avg Pass Rate',   value: isLoading ? '—' : `${avgPassRate}%` },
+              { label: 'Avg Coverage',    value: isLoading ? '—' : `${avgCoverage}%` },
+            ].map(s => (
+              <div key={s.label} style={{ background: 'rgba(255,255,255,.16)', backdropFilter: 'blur(8px)', border: '.5px solid rgba(255,255,255,.25)', borderRadius: 12, padding: '10px 16px', minWidth: 80 }}>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)', lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,.7)', marginTop: 3, fontWeight: 600, letterSpacing: .3 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Filters */}
-      <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-        <div style={{ position:'relative', flex:1, minWidth:200 }}>
-          <svg style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', opacity:.4 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt)" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input className="sui-input" placeholder="Search teacher…" value={search} onChange={e=>setSearch(e.target.value)} style={{ paddingLeft:36, width:'100%' }}/>
+      {/* Search + sort */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+          <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: .4 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt)" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input className="sui-input" placeholder="Search teacher…" value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: 36, width: '100%' }} />
         </div>
-        <select className="sui-input" value={sort} onChange={e=>setSort(e.target.value as typeof sort)} style={{ minWidth:200 }}>
+        <select className="sui-input" value={sort} onChange={e => setSort(e.target.value as typeof sort)} style={{ minWidth: 200 }}>
           <option value="passRate">Sort by Pass Rate</option>
-          <option value="coverage">Sort by Curriculum Coverage</option>
+          <option value="coverage">Sort by Coverage</option>
           <option value="name">Sort by Name</option>
         </select>
       </div>
 
-      {isLoading && <div style={{ display:'flex', justifyContent:'center', padding:40 }}><LoadingSpinner size="md"/></div>}
-      {isError   && <div style={{ color:'var(--danger)', padding:16 }}>Failed to load teacher data.</div>}
-
-      {!isLoading && !isError && (
-        <div style={{ background:'var(--surface)', border:'.5px solid var(--border)', borderRadius:20, overflow:'hidden', boxShadow:'0 2px 16px rgba(0,0,0,.06)' }}>
-          {/* Table header */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 100px 130px 130px 80px', gap:12, padding:'10px 20px', background:'var(--surface2)', borderBottom:'.5px solid var(--border)' }}>
-            {['Teacher','Assessments','Pass Rate','Coverage',''].map(h=>(
-              <div key={h} style={{ fontSize:10.5, fontWeight:800, color:'var(--txt3)', textTransform:'uppercase', letterSpacing:.8, fontFamily:'var(--font2)' }}>{h}</div>
-            ))}
-          </div>
-
-          {/* Virtualised rows */}
-          {rows.length===0 ? (
-            <div style={{ padding:'40px 24px', textAlign:'center', color:'var(--txt3)', fontSize:13 }}>No teacher data available.</div>
-          ) : (
-            <div ref={parentRef} style={{ maxHeight:520, overflowY:'auto' }}>
-              <div style={{ height:virtualiser.getTotalSize(), position:'relative' }}>
-                {virtualiser.getVirtualItems().map(vi=>{
-                  const t = rows[vi.index]
-                  const [col, colBg] = pal(t.name)
-                  return (
-                    <div key={t.staffId}
-                      style={{ position:'absolute', top:0, left:0, width:'100%', transform:`translateY(${vi.start}px)`, height:64 }}
-                    >
-                      <div
-                        onClick={()=>setSelected(t)}
-                        className="sui-tr"
-                        style={{ display:'grid', gridTemplateColumns:'1fr 100px 130px 130px 80px', gap:12, padding:'0 20px', height:'100%', alignItems:'center', cursor:'pointer', borderBottom:'.5px solid var(--border)', transition:'background .1s' }}
-                      >
-                        <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
-                          <div style={{ width:38, height:38, borderRadius:12, background:`linear-gradient(135deg,${col}cc,${col}88)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:900, color:'#fff', fontFamily:'var(--font2)', flexShrink:0, boxShadow:`0 3px 10px ${col}30` }}>
-                            {ini(t.name)}
-                          </div>
-                          <div style={{ minWidth:0 }}>
-                            <div style={{ fontSize:14, fontWeight:700, color:'var(--txt)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.name}</div>
-                            <div style={{ fontSize:11, color:'var(--txt3)', marginTop:1 }}>
-                              {t.subjectIds.length} subject{t.subjectIds.length!==1?'s':''}
-                              {t.phone && ` · ${t.phone}`}
-                            </div>
-                          </div>
-                        </div>
-                        <div style={{ fontSize:13, fontFamily:'var(--font3)', fontWeight:700, color:'var(--txt2)' }}>{t.assessmentsThisTerm}</div>
-                        <div><RateBar value={t.passRate}/></div>
-                        <div><RateBar value={t.curriculumCoverage}/></div>
-                        <div style={{ display:'flex', justifyContent:'flex-end' }}>
-                          <button onClick={e=>{e.stopPropagation();setSelected(t)}}
-                            style={{ padding:'5px 14px', fontSize:11.5, border:'.5px solid var(--border)', borderRadius:9, background:'var(--surface2)', cursor:'pointer', color:'var(--brand)', fontWeight:700, transition:'all .13s' }}
-                            onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.background='rgba(13,148,136,.08)';(e.currentTarget as HTMLButtonElement).style.borderColor='rgba(13,148,136,.3)'}}
-                            onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.background='var(--surface2)';(e.currentTarget as HTMLButtonElement).style.borderColor='var(--border)'}}
-                          >View</button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
+      {/* Content */}
+      {isLoading ? (
+        <div className="stagger-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} style={{ borderRadius: 16, border: '1px solid var(--border)', background: 'var(--surface)', overflow: 'hidden' }}>
+              <span className="shule-skeleton" style={{ display: 'block', height: 4 }} />
+              <div style={{ padding: '16px 16px 14px' }}>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+                  <span className="shule-skeleton" style={{ display: 'block', width: 52, height: 52, borderRadius: '50%', flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <span className="shule-skeleton" style={{ display: 'block', height: 13, width: '70%', borderRadius: 6, marginBottom: 8 }} />
+                    <span className="shule-skeleton" style={{ display: 'block', height: 18, width: '45%', borderRadius: 99 }} />
+                  </div>
+                </div>
+                <span className="shule-skeleton" style={{ display: 'block', height: 8, width: '100%', borderRadius: 4, marginBottom: 8 }} />
+                <span className="shule-skeleton" style={{ display: 'block', height: 8, width: '80%', borderRadius: 4 }} />
               </div>
             </div>
-          )}
-
-          {rows.length>0 && (
-            <div style={{ padding:'10px 20px', borderTop:'.5px solid var(--border)', background:'var(--surface2)', fontSize:11.5, color:'var(--txt3)', fontWeight:700 }}>
-              {rows.length} teacher{rows.length!==1?'s':''}
-            </div>
-          )}
+          ))}
+        </div>
+      ) : isError ? (
+        <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--danger)', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14 }}>Failed to load teacher data.</div>
+      ) : rows.length === 0 ? (
+        <div style={{ padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 }}>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, color: 'var(--txt)', textAlign: 'center' }}>
+            {search ? 'No teachers match your search' : 'No teacher data yet'}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--txt3)', textAlign: 'center' }}>Teachers appear here once they have been assigned subjects.</div>
+        </div>
+      ) : (
+        <div className="stagger-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+          {rows.map(t => (
+            <TeacherCard key={t.staffId} t={t} onManage={() => setSelected(t)} />
+          ))}
         </div>
       )}
 
-      {selected && <TeacherDetailModal teacher={data.find(t=>t.staffId===selected.staffId)??selected} onClose={()=>setSelected(null)}/>}
+      {selected && <TeacherDetailModal teacher={data.find(t => t.staffId === selected.staffId) ?? selected} onClose={() => setSelected(null)} />}
     </div>
   )
 }

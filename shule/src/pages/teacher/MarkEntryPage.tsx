@@ -1,19 +1,70 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Cell,
 } from 'recharts'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { useQueryClient } from '@tanstack/react-query'
 import { useExamJournalById, usePublishJournal } from '../../hooks/useExamJournal'
 import { useExamResults, useSaveMarks } from '../../hooks/useExamResults'
 import { useStudents } from '../../hooks/useStudents'
 import { useSubjects } from '../../hooks/useClasses'
 import { calculateCBCGrade } from '../../types/app'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { Modal } from '../../components/ui/Modal'
+import {
+  ImportWizard,
+  type ColumnSpec,
+  type ParsedRow,
+  type ImportResult,
+  type ConflictStrategy,
+} from '../../components/shared/ImportWizard'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../store/AuthContext'
 import type { Student } from '../../types/app'
 import type { MarkRow } from '../../hooks/useExamResults'
 
+// ── Mark import field specs ────────────────────────────────────
+const MARK_REQUIRED_FIELDS: ColumnSpec[] = [
+  {
+    key:      'admission_number',
+    label:    'Admission No.',
+    required: true,
+    hint:     'Must match the student admission number exactly',
+    example:  'KJA/2025/001',
+  },
+  {
+    key:      'score',
+    label:    'Score',
+    required: true,
+    hint:     'Numeric score within the total marks range',
+    example:  '72',
+    validate: (v: string) => {
+      const n = Number(v)
+      if (isNaN(n) || n < 0) return 'Score must be a positive number'
+      return null
+    },
+  },
+]
+
+const MARK_OPTIONAL_FIELDS: ColumnSpec[] = [
+  {
+    key:      'is_absent',
+    label:    'Absent',
+    required: false,
+    hint:     'TRUE or FALSE — leave blank for present',
+    example:  'FALSE',
+  },
+  {
+    key:      'remarks',
+    label:    'Remarks',
+    required: false,
+    example:  'Excellent performance',
+  },
+]
+
+// ── Grade helpers ──────────────────────────────────────────────
 const GRADE_COLORS: Record<string, string> = {
   A: '#10b981', B: '#0ea5e9', C: '#f59e0b', D: '#f59e0b', E: '#f43f5e',
 }
@@ -170,9 +221,13 @@ function GradeTabs({ marks, students, totalMarks, isCA }: {
   )
 }
 
+// ── Main page ──────────────────────────────────────────────────
 export function MarkEntryPage() {
-  const { journalId } = useParams<{ journalId: string }>()
-  const navigate      = useNavigate()
+  const { journalId }   = useParams<{ journalId: string }>()
+  const navigate        = useNavigate()
+  const [searchParams]  = useSearchParams()
+  const qc              = useQueryClient()
+  const { user }        = useAuth()
 
   const { data: journal, isLoading: journalLoading } = useExamJournalById(journalId)
   const { data: savedResults = [] }                   = useExamResults(journalId)
@@ -185,8 +240,10 @@ export function MarkEntryPage() {
     !!journal,
   )
 
-  const [marks, setMarks] = useState<Map<string, { score: number | null; isAbsent: boolean }>>(new Map())
-  const [saved, setSaved]  = useState(false)
+  const [marks, setMarks]       = useState<Map<string, { score: number | null; isAbsent: boolean }>>(new Map())
+  const [saved, setSaved]       = useState(false)
+  // Open import modal automatically when ?import=1 is present
+  const [importOpen, setImportOpen] = useState(() => searchParams.get('import') === '1')
 
   useEffect(() => {
     if (savedResults.length === 0) return
@@ -211,10 +268,10 @@ export function MarkEntryPage() {
 
   const parentRef = useRef<HTMLDivElement>(null)
   const rowVirt   = useVirtualizer({
-    count:           students.length,
+    count:            students.length,
     getScrollElement: () => parentRef.current,
-    estimateSize:    () => 48,
-    overscan:        10,
+    estimateSize:     () => 48,
+    overscan:         10,
   })
 
   const subjectMap = new Map(subjects.map(s => [s.id, s.name]))
@@ -245,6 +302,63 @@ export function MarkEntryPage() {
     if (!journal) return
     await handleSaveAll()
     await publish.mutateAsync(journal.id)
+  }
+
+  // ── Bulk mark import via ImportWizard ──────────────────────
+  async function handleMarkImport(
+    rows: ParsedRow[],
+    _strategy: ConflictStrategy,
+  ): Promise<ImportResult> {
+    const result: ImportResult = { imported: 0, updated: 0, skipped: 0, failed: [] }
+    if (!journal || !user || rows.length === 0) return result
+
+    // Build admission_number → student_id map
+    const admMap = new Map(students.map(s => [s.admissionNumber.trim().toLowerCase(), s.id]))
+
+    const validRows: Array<{ studentId: string; score: number; isAbsent: boolean }> = []
+
+    rows.forEach((row, idx) => {
+      const adm = (row.admission_number ?? '').trim().toLowerCase()
+      const studentId = admMap.get(adm)
+      if (!studentId) {
+        result.failed.push({ row: idx + 1, reason: `Student not found: "${row.admission_number}"` })
+        return
+      }
+      const scoreNum = Number(row.score)
+      if (isNaN(scoreNum) || scoreNum < 0) {
+        result.failed.push({ row: idx + 1, reason: `Invalid score: "${row.score}"` })
+        return
+      }
+      const absent = (row.is_absent ?? '').toLowerCase() === 'true'
+      validRows.push({ studentId, score: scoreNum, isAbsent: absent })
+    })
+
+    if (validRows.length === 0) return result
+
+    const { error } = await supabase.from('exam_results').upsert(
+      validRows.map(r => ({
+        school_id:       user.schoolId,
+        exam_journal_id: journal.id,
+        student_id:      r.studentId,
+        teacher_id:      user.id,
+        subject_id:      journal.subjectId,
+        score:           r.isAbsent ? null : r.score,
+        is_absent:       r.isAbsent,
+        term:            journal.term,
+        year:            journal.year,
+      })),
+      { onConflict: 'exam_journal_id,student_id' },
+    )
+
+    if (error) {
+      validRows.forEach((_, i) => result.failed.push({ row: i + 1, reason: error.message }))
+      return result
+    }
+
+    result.imported = validRows.length
+    // Invalidate so the grid refreshes
+    qc.invalidateQueries({ queryKey: ['exam-results', journal.id] })
+    return result
   }
 
   if (journalLoading || studentsLoading) {
@@ -290,6 +404,26 @@ export function MarkEntryPage() {
             {missingCount > 0 && <span style={{ color: 'var(--warning)', marginLeft: 8 }}>· {missingCount} missing</span>}
             {absentCount  > 0 && <span style={{ color: 'var(--info)',    marginLeft: 8 }}>· {absentCount} absent</span>}
           </div>
+
+          {/* Import Marks button */}
+          <button
+            onClick={() => setImportOpen(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '9px 14px', borderRadius: 10,
+              border: '.5px solid rgba(13,148,136,.35)',
+              background: 'rgba(13,148,136,.06)',
+              color: 'var(--brand)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="16 16 12 12 8 16"/>
+              <line x1="12" y1="12" x2="12" y2="21"/>
+              <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
+            </svg>
+            Import Marks
+          </button>
+
           <button onClick={() => void handleSaveAll()} disabled={saveMarks.isPending}
             style={{ padding: '9px 16px', borderRadius: 10, border: '.5px solid var(--border)', background: saved ? 'rgba(16,185,129,.1)' : 'var(--surface2)', color: saved ? '#065f46' : 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
             {saveMarks.isPending ? 'Saving…' : saved ? '✓ Saved' : 'Save All'}
@@ -405,6 +539,27 @@ export function MarkEntryPage() {
             <GradeTabs marks={marks} students={students} totalMarks={totalMarks} isCA={isCA} />
           </div>
         </div>
+      )}
+
+      {/* ── Import Marks Modal ─────────────────────────────── */}
+      {importOpen && (
+        <Modal
+          title="Import Marks from Excel / CSV"
+          size="lg"
+          onClose={() => setImportOpen(false)}
+        >
+          <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(14,165,233,.07)', border: '.5px solid rgba(14,165,233,.25)', borderRadius: 10, fontSize: 12.5, color: '#0369a1' }}>
+            <strong>Template columns:</strong> Admission No. · Score · Absent (optional) · Remarks (optional).
+            Scores must be between 0 and {totalMarks}.
+          </div>
+          <ImportWizard
+            context="marks"
+            requiredFields={MARK_REQUIRED_FIELDS}
+            optionalFields={MARK_OPTIONAL_FIELDS}
+            onComplete={handleMarkImport}
+            onClose={() => setImportOpen(false)}
+          />
+        </Modal>
       )}
     </div>
   )

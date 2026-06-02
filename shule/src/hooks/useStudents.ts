@@ -230,6 +230,17 @@ export function useRegisterStudent() {
 
   return useMutation({
     mutationFn: async (input: RegisterStudentInput) => {
+      // students.created_by is a FK → staff.id (the staff row's own PK),
+      // NOT auth.users.id. Resolve the staff row first, same pattern as
+      // useExamJournal. If the lookup fails we still proceed with null
+      // created_by so registration doesn't block entirely.
+      const { data: staffRow } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('auth_user_id', user!.id)
+        .eq('school_id', user!.schoolId)
+        .maybeSingle()
+
       const { data: newStudent, error: studentErr } = await supabase
         .from('students')
         .insert({
@@ -250,7 +261,7 @@ export function useRegisterStudent() {
           religion:          input.religion,
           student_type:      input.studentType,
           previous_school:   input.previousSchool,
-          created_by:        user!.id,
+          created_by:        (staffRow as { id: string } | null)?.id ?? null,
         })
         .select('id')
         .single()
