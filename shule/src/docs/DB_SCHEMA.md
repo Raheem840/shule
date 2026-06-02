@@ -1,6 +1,45 @@
 # SHULE — Database Schema (Ground Truth)
-# Audited: 2026-05-28. This file is the single source of truth.
-# Never query a column not listed here.
+# Audited: 2026-05-28 | RLS policies applied: 2026-06-02
+# This file is the single source of truth. Never query a column not listed here.
+
+---
+
+## RLS Helper Functions (created 2026-06-02)
+
+Run once in Supabase SQL Editor (already done):
+
+```sql
+-- Returns the user_role claim from the JWT (checks both top-level and app_metadata)
+CREATE OR REPLACE FUNCTION public.user_role() RETURNS text LANGUAGE sql STABLE AS $$
+  SELECT COALESCE(auth.jwt() ->> 'user_role', auth.jwt() -> 'app_metadata' ->> 'user_role')
+$$;
+
+-- Returns the school_id claim from the JWT as uuid
+CREATE OR REPLACE FUNCTION public.user_school_id() RETURNS uuid LANGUAGE sql STABLE AS $$
+  SELECT COALESCE(auth.jwt() ->> 'school_id', auth.jwt() -> 'app_metadata' ->> 'school_id')::uuid
+$$;
+```
+
+All RLS policies use these two functions. The JWT claims are set by the custom
+access-token hook in AuthContext.tsx which reads `user_role` and `school_id` from
+`app_metadata` on every sign-in.
+
+---
+
+## Edge Functions (supabase/functions/)
+
+| Function | Purpose | Auth required |
+|---|---|---|
+| `create-staff-auth-user` | Creates Supabase Auth user + sets staff.auth_user_id | secretary, principal, it_admin |
+| `create-student-auth-user` | Creates Supabase Auth user + sets students.auth_user_id | secretary, principal, it_admin |
+| `create-parent-auth-user` | Creates Supabase Auth user + sets parent_accounts.auth_user_id | secretary, principal, it_admin |
+| `reset-staff-password` | Resets password via service role | it_admin, principal |
+| `send-sms` | Africa's Talking SMS delivery | any authenticated |
+| `send-whatsapp` | WhatsApp message delivery | any authenticated |
+| `broadcast-announcement` | Sends announcement to multiple users | secretary, principal |
+| `upload-staff-photo` | Stores photo to staff-photos bucket | any authenticated |
+
+Default initial password for all created accounts: **`Shule@2025`** (staff) / **`Parent@2025`** (parents)
 
 ---
 
@@ -106,9 +145,13 @@ read_at, link, from_user, target_role, created_at
 
 ---
 
-## parent_accounts | RLS: ON
+## parent_accounts | RLS: ON ✅ (policies applied 2026-06-02)
 id, school_id, auth_user_id, email, full_name, phone,
 student_ids (uuid[]), temp_password, created_by, created_at, updated_at
+
+RLS policies:
+- SELECT: any authenticated user from same school
+- INSERT | UPDATE: secretary | principal | it_admin
 
 ---
 
@@ -162,7 +205,7 @@ status, sent_at, delivered_at, created_at
 
 ---
 
-## staff | RLS: OFF ⚠ SECURITY — MUST ENABLE RLS (see useStaff.ts for SQL)
+## staff | RLS: ON ✅ (policies applied 2026-06-02)
 id, school_id, auth_user_id, staff_number, first_name, last_name, role,
 department_id, subjects (text[]), classes (uuid[]),
 qualification_level, qualification_title, institution, graduation_year,
@@ -170,6 +213,12 @@ employment_type, employment_date, join_date, salary_band,
 photo_url, is_active (bool DEFAULT true),
 email, phone, national_id, address, date_of_birth, gender,
 last_login_at, created_at
+
+RLS policies:
+- SELECT: any authenticated user from same school
+- INSERT: secretary | principal | it_admin
+- UPDATE: secretary | principal | it_admin
+- DELETE: principal | it_admin
 
 ---
 
@@ -183,12 +232,16 @@ id, school_id, class_id, name, class_teacher_id, created_at
 
 ---
 
-## student_guardians | RLS: ON
+## student_guardians | RLS: ON ✅ (policies applied 2026-06-02)
 id, school_id, student_id,
 **full_name** ← NOT 'guardian_name',
 relationship, phone, email,
 do_not_contact (bool), comms_preference ('sms'|'whatsapp'|'both'), is_primary (bool),
 created_at
+
+RLS policies:
+- SELECT: any authenticated user from same school
+- INSERT | UPDATE | DELETE: secretary | principal | it_admin
 
 ---
 
@@ -199,12 +252,18 @@ teacher_rating (1–5), suggestions, submitted_at
 
 ---
 
-## students | RLS: ON
+## students | RLS: ON ✅ (policies applied 2026-06-02)
 id, school_id, class_id, stream_id, academic_year_id, admission_number,
 first_name, last_name, dob, gender, nationality (DEFAULT 'Ugandan'),
 religion, photo_url, medical_notes, student_type ('day'|'boarder'),
 previous_school, status ('active'|'suspended'|'expelled'),
 auth_user_id, enrolled_at, created_by, created_at, updated_at
+
+RLS policies:
+- SELECT: any authenticated user from same school
+- INSERT: secretary | principal | it_admin
+- UPDATE: secretary | principal | it_admin | class_teacher
+- DELETE: principal | it_admin
 
 ---
 
