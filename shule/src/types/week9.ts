@@ -10,6 +10,7 @@ export type NotificationType =
   | 'message'
   | 'announcement'
   | 'fee'
+  | 'event'
   | 'general'
 
 export type Notification = {

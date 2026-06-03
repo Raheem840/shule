@@ -73,6 +73,7 @@ serve(async (req) => {
       email,
       password: password ?? 'Shule@2025',
       email_confirm: true,
+      app_metadata: { user_role: 'student', school_id: schoolId },
     })
 
     if (createError) {
@@ -86,6 +87,10 @@ serve(async (req) => {
             .update({ auth_user_id: existing.id })
             .eq('id', studentId)
             .eq('school_id', schoolId)
+
+          await adminClient.auth.admin.updateUserById(existing.id, {
+            app_metadata: { user_role: 'student', school_id: schoolId },
+          })
 
           return new Response(
             JSON.stringify({ success: true, authUserId: existing.id, alreadyExisted: true }),
