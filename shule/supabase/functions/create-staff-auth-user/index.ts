@@ -21,7 +21,7 @@ serve(async (req) => {
       })
     }
 
-    const { email, staffId, schoolId } = await req.json()
+    const { email, staffId, schoolId, password } = await req.json()
 
     if (!email || !staffId || !schoolId) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -67,10 +67,10 @@ serve(async (req) => {
       })
     }
 
-    // Create the auth user
+    // Create the auth user — use caller-provided password or fall back to default
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
-      password: 'Shule@2025',
+      password: password ?? 'Shule@2025',
       email_confirm: true,
     })
 

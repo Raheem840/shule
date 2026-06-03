@@ -169,7 +169,9 @@ export type TeacherPerfRow = {
   name: string
   subjects: string[]      // subject IDs from journals (used for perf stats)
   subjectIds: string[]    // subject IDs from staff.subjects (for assignment)
+  subjectNames: string[]  // resolved display names for subjectIds
   classes: string[]
+  isClassTeacher: boolean
   passRate: number
   assessmentsThisTerm: number
   curriculumCoverage: number   // 0–100 %
@@ -258,13 +260,16 @@ export type SchoolEvent = {
   eventType: string
   description: string | null
   subjectId: string | null
+  subjectName: string | null
   classId: string | null
+  className: string | null
   streamId: string | null
+  streamName: string | null
   totalMarks: number | null
   passMark: number | null
   journaled: boolean
   journalId: string | null
-  createdBy: string
+  createdBy: string | null
   term: string | null
   year: number | null
   createdAt: string

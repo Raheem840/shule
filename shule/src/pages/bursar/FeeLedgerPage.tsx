@@ -496,19 +496,75 @@ export function FeeLedgerPage() {
 
   return (
     <div style={{ padding: '1.5rem 2rem', maxWidth: 1400, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
-      <div style={{ display:'flex', alignItems:'flex-start', gap:14, flexWrap:'wrap', position:'relative', overflow:'hidden', marginBottom:16 }}>
-        <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(16,185,129,.18),transparent 70%)', filter:'blur(50px)', pointerEvents:'none' }} />
-        <div style={{ width:46, height:46, borderRadius:15, background:'linear-gradient(145deg,#10b981,#059669)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 5px 18px rgba(16,185,129,.45)', flexShrink:0 }}>
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        </div>
-        <div style={{ flex:1 }}>
-          <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:22, color:'var(--txt)', margin:0, letterSpacing:-.4 }}>Fee Ledger</h1>
-          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>View and manage student fee payments</p>
-        </div>
-        <div style={{ display:'flex', gap:8, flexShrink:0 }}>
-          <button onClick={() => setShowImport(true)} style={{ padding:'8px 14px', borderRadius:10, border:'.5px solid var(--border)', background:'var(--surface2)', color:'var(--txt2)', fontWeight:700, fontSize:12.5, cursor:'pointer' }}>Import Excel</button>
-          <button onClick={handleExport} disabled={!allRows.length} style={{ padding:'8px 14px', borderRadius:10, border:'.5px solid var(--border)', background:'var(--surface2)', color:'var(--txt2)', fontWeight:700, fontSize:12.5, cursor:'pointer', opacity:allRows.length?1:.5 }}>Export</button>
-          <button onClick={() => setShowAdd(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:10, border:'none', background:'linear-gradient(145deg,#10b981,#059669)', color:'#fff', fontWeight:700, fontSize:12.5, cursor:'pointer', boxShadow:'0 3px 12px rgba(16,185,129,.35)' }}>+ Add Payment</button>
+      {/* Hero Band */}
+      <div style={{
+        borderRadius: 18, overflow: 'hidden',
+        background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)',
+        padding: '28px 28px 24px', position: 'relative', marginBottom: 16,
+      }}>
+        <div style={{ position: 'absolute', top: -30, right: -30, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,.08)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -20, right: 60, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,.06)', pointerEvents: 'none' }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          {/* Icon + title + action buttons */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 13, background: 'rgba(255,255,255,.20)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round">
+                  <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
+                </svg>
+              </div>
+              <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 24, color: '#fff', margin: 0, letterSpacing: -.4 }}>Fee Ledger</h1>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setShowImport(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: '.5px solid rgba(255,255,255,.35)', background: 'rgba(255,255,255,.16)', backdropFilter: 'blur(8px)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', transition: 'background .15s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.26)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,.16)')}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Import
+              </button>
+              <button
+                onClick={handleExport}
+                disabled={!allRows.length}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: '.5px solid rgba(255,255,255,.35)', background: 'rgba(255,255,255,.16)', backdropFilter: 'blur(8px)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: allRows.length ? 'pointer' : 'default', opacity: allRows.length ? 1 : .5, transition: 'background .15s' }}
+                onMouseEnter={e => { if (allRows.length) e.currentTarget.style.background = 'rgba(255,255,255,.26)' }}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,.16)')}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 16 12 21 17 16"/><line x1="12" y1="21" x2="12" y2="9"/></svg>
+                Export
+              </button>
+              <button
+                onClick={() => setShowAdd(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: 'none', background: '#fff', color: '#be123c', fontWeight: 800, fontSize: 12.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,.18)', transition: 'box-shadow .15s, transform .15s' }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,.22)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,.18)' }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Payment
+              </button>
+            </div>
+          </div>
+
+          <p style={{ color: 'rgba(255,255,255,.75)', fontSize: 13, margin: '0 0 20px', fontWeight: 500 }}>
+            View and manage student fee payments for Term {filters.term ?? 1}, {filters.year ?? CURRENT_YEAR}.
+          </p>
+
+          {/* KPI chips */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Total Records', value: isLoading ? '—' : allRows.length },
+              { label: 'Fully Paid', value: isLoading ? '—' : allRows.filter(r => calcFeeStatus(r.amountPaid, r.balance) === 'paid').length },
+              { label: 'Partial', value: isLoading ? '—' : allRows.filter(r => calcFeeStatus(r.amountPaid, r.balance) === 'partial').length },
+              { label: 'Unpaid', value: isLoading ? '—' : allRows.filter(r => calcFeeStatus(r.amountPaid, r.balance) === 'unpaid').length },
+            ].map(stat => (
+              <div key={stat.label} style={{ background: 'rgba(255,255,255,.18)', backdropFilter: 'blur(8px)', border: '.5px solid rgba(255,255,255,.28)', borderRadius: 12, padding: '10px 16px', minWidth: 80 }}>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)', lineHeight: 1 }}>{stat.value}</div>
+                <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,.72)', marginTop: 3, fontWeight: 600, letterSpacing: .3 }}>{stat.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

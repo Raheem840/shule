@@ -16,7 +16,8 @@ export type UserRole =
   | 'student'   | 'parent'       | 'it_admin'
 
 export type AuthUser = {
-  id:          string
+  id:          string   // auth.users UUID
+  staffId?:    string   // staff.id UUID (set for staff roles; used for FK references)
   email:       string
   role:        UserRole
   schoolId:    string
@@ -58,6 +59,7 @@ function sessionToUser(session: Session | null): AuthUser | null {
 
   const role       = (jwt.user_role   ?? meta.user_role)   as UserRole | undefined
   const schoolId   = (jwt.school_id   ?? meta.school_id)   as string   | undefined
+  const staffId    = (jwt.staff_id    ?? meta.staff_id)    as string   | undefined
   const name       = (jwt.full_name   ?? meta.full_name)   as string   | undefined
   const studentIds = (jwt.student_ids ?? meta.student_ids) as string[] | undefined
 
@@ -70,11 +72,12 @@ function sessionToUser(session: Session | null): AuthUser | null {
   }
 
   return {
-    id:    session.user.id,
-    email: session.user.email!,
+    id:      session.user.id,
+    staffId,
+    email:   session.user.email!,
     role,
     schoolId,
-    name:  name ?? session.user.email!,
+    name:    name ?? session.user.email!,
     studentIds,
   }
 }

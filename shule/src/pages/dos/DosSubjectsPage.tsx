@@ -163,49 +163,84 @@ export function DosSubjectsPage() {
   return (
     <div className="sui-page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 13, background: 'linear-gradient(145deg,#0d9488,#0f766e)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(13,148,136,.36)' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
-          </div>
-          <div>
-            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20, color: 'var(--txt)', margin: 0, letterSpacing: -.3 }}>Subjects</h1>
-            <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>
-              {activeCount} active{inactiveCount > 0 ? ` · ${inactiveCount} inactive` : ''}
+      {/* Hero Band */}
+      <div style={{
+        borderRadius: 18, overflow: 'hidden',
+        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        padding: '28px 28px 24px', position: 'relative',
+      }}>
+        <div style={{ position: 'absolute', top: -30, right: -30, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,.08)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -20, right: 60, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,.06)', pointerEvents: 'none' }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          {/* Icon + title row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 13, background: 'rgba(255,255,255,.20)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round">
+                  <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/>
+                </svg>
+              </div>
+              <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 24, color: '#fff', margin: 0, letterSpacing: -.4 }}>Subjects</h1>
             </div>
+            <button
+              onClick={() => setModal('add')}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', background: 'rgba(255,255,255,.18)', backdropFilter: 'blur(8px)', color: '#fff', border: '.5px solid rgba(255,255,255,.35)', borderRadius: 12, fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'background .15s', flexShrink: 0 }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.28)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,.18)')}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Subject
+            </button>
+          </div>
+
+          <p style={{ color: 'rgba(255,255,255,.75)', fontSize: 13, margin: '0 0 20px', fontWeight: 500 }}>
+            Manage the school subject catalogue — activate, edit, or add subjects.
+          </p>
+
+          {/* KPI chips */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+            {[
+              { label: 'Total', value: isLoading ? '—' : allSubjects.length },
+              { label: 'Active', value: isLoading ? '—' : activeCount },
+              { label: 'Inactive', value: isLoading ? '—' : inactiveCount },
+            ].map(stat => (
+              <div key={stat.label} style={{ background: 'rgba(255,255,255,.18)', backdropFilter: 'blur(8px)', border: '.5px solid rgba(255,255,255,.28)', borderRadius: 12, padding: '10px 16px', minWidth: 80 }}>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)', lineHeight: 1 }}>{stat.value}</div>
+                <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,.72)', marginTop: 3, fontWeight: 600, letterSpacing: .3 }}>{stat.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Search + filters inside banner */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+              <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: .6 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                placeholder="Search name or code…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ paddingLeft: 36, width: '100%', background: 'rgba(255,255,255,.16)', backdropFilter: 'blur(8px)', border: '.5px solid rgba(255,255,255,.28)', borderRadius: 10, padding: '0 12px 0 36px', height: 40, color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+              />
+            </div>
+            <select
+              value={levelFilter}
+              onChange={e => setLevelFilter(e.target.value)}
+              style={{ minWidth: 180, height: 40, background: 'rgba(255,255,255,.16)', backdropFilter: 'blur(8px)', border: '.5px solid rgba(255,255,255,.28)', borderRadius: 10, color: '#fff', fontSize: 13, padding: '0 12px', outline: 'none', cursor: 'pointer' }}
+            >
+              <option value="" style={{ background: '#059669', color: '#fff' }}>All Levels</option>
+              <option value="O-Level" style={{ background: '#059669', color: '#fff' }}>O-Level (S.1–S.4)</option>
+              <option value="A-Level" style={{ background: '#059669', color: '#fff' }}>A-Level (S.5–S.6)</option>
+            </select>
+            {inactiveCount > 0 && (
+              <button
+                onClick={() => setShowInactive(v => !v)}
+                style={{ height: 40, padding: '0 14px', borderRadius: 10, border: `.5px solid ${showInactive ? '#fff' : 'rgba(255,255,255,.35)'}`, background: showInactive ? 'rgba(255,255,255,.28)' : 'rgba(255,255,255,.12)', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap' }}
+              >
+                {showInactive ? 'Hide' : 'Show'} {inactiveCount} inactive
+              </button>
+            )}
           </div>
         </div>
-        <button
-          onClick={() => setModal('add')}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(13,148,136,.38)', WebkitTapHighlightColor: 'transparent', transition: 'transform .18s cubic-bezier(.34,1.56,.64,1)' }}
-          onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
-          onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add Subject
-        </button>
-      </div>
-
-      {/* Filter row */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-          <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: .4 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt)" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input className="sui-input" placeholder="Search name or code…" value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: 36, width: '100%' }} />
-        </div>
-        <select className="sui-input" value={levelFilter} onChange={e => setLevelFilter(e.target.value)} style={{ minWidth: 180 }}>
-          <option value="">All Levels</option>
-          <option value="O-Level">O-Level (S.1–S.4)</option>
-          <option value="A-Level">A-Level (S.5–S.6)</option>
-        </select>
-        {inactiveCount > 0 && (
-          <button
-            onClick={() => setShowInactive(v => !v)}
-            style={{ padding: '0 14px', height: 46, borderRadius: 12, border: `.5px solid ${showInactive ? 'rgba(139,92,246,.4)' : 'var(--border)'}`, background: showInactive ? 'rgba(139,92,246,.08)' : 'var(--surface)', color: showInactive ? '#8b5cf6' : 'var(--txt2)', fontWeight: 700, fontSize: 12, cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap' }}
-          >
-            {showInactive ? 'Hide' : 'Show'} {inactiveCount} inactive
-          </button>
-        )}
       </div>
 
       {/* Table */}

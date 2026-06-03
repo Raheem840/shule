@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useStudents, useSetStudentStatus } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
@@ -58,19 +59,12 @@ const STATUS_ACTIONS: Record<StudentStatus, { action: StudentStatus; label: stri
   ],
 }
 
-function StudentActionMenu({ student, onClose, onView }: {
-  student: Student; onClose: () => void; onView: () => void
+function StudentActionMenu({ student, pos, onClose, onView }: {
+  student: Student; pos: { top: number; left: number }; onClose: () => void; onView: () => void
 }) {
   const setStatus = useSetStudentStatus()
   const { success: ok, error: err } = useToast()
-  const ref = useRef<HTMLDivElement>(null)
   const status = (student.status ?? 'active') as StudentStatus
-
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [onClose])
 
   const opts = STATUS_ACTIONS[status] ?? []
 
@@ -82,13 +76,16 @@ function StudentActionMenu({ student, onClose, onView }: {
     onClose()
   }
 
-  return (
-    <div ref={ref} style={{
-      position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 200,
-      background: 'var(--surface)', border: '.5px solid var(--border)',
-      borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,.16)',
-      minWidth: 168, overflow: 'hidden', animation: 'fadeUp .16s ease both',
-    }}>
+  return createPortal(
+    <div
+      onMouseDown={e => e.stopPropagation()}
+      style={{
+        position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999,
+        background: 'var(--surface)', border: '.5px solid var(--border)',
+        borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,.16)',
+        minWidth: 168, overflow: 'hidden', animation: 'fadeUp .16s ease both',
+      }}
+    >
       <div style={{ padding: '8px 14px 6px', borderBottom: '.5px solid var(--border)' }}>
         <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8 }}>Actions</div>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt)', marginTop: 2 }}>{student.firstName} {student.lastName}</div>
@@ -112,7 +109,8 @@ function StudentActionMenu({ student, onClose, onView }: {
           {o.label}
         </button>
       ))}
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -126,12 +124,21 @@ function StudentCard({ student, className, classLevel, streamName, onView }: {
 }) {
   const [hovered,  setHovered]  = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [menuPos,  setMenuPos]  = useState({ top: 0, left: 0 })
+  const menuBtnRef = useRef<HTMLButtonElement>(null)
   const status = (student.status ?? 'active') as StudentStatus
   const [col]  = pal(`${student.firstName}${student.lastName}`)
   const accent = levelColor(classLevel)
   const inits  = ini(student.firstName, student.lastName)
   const gender = student.gender === 'male' ? 'M' : student.gender === 'female' ? 'F' : null
   const boarderLabel = student.studentType === 'boarder' ? 'Boarder' : student.studentType === 'day' ? 'Day' : null
+
+  useEffect(() => {
+    if (!menuOpen) return
+    function close() { setMenuOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [menuOpen])
 
   return (
     <div
@@ -246,9 +253,17 @@ function StudentCard({ student, className, classLevel, streamName, onView }: {
             View Profile
           </button>
 
-          <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+          <div onClick={e => e.stopPropagation()}>
             <button
-              onClick={e => { e.stopPropagation(); setMenuOpen(v => !v) }}
+              ref={menuBtnRef}
+              onClick={e => {
+                e.stopPropagation()
+                if (!menuOpen && menuBtnRef.current) {
+                  const r = menuBtnRef.current.getBoundingClientRect()
+                  setMenuPos({ top: r.bottom + 6, left: r.left })
+                }
+                setMenuOpen(v => !v)
+              }}
               style={{
                 width: 28, height: 28, borderRadius: 7,
                 border: '1px solid var(--border)',
@@ -265,10 +280,10 @@ function StudentCard({ student, className, classLevel, streamName, onView }: {
                 <circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/>
               </svg>
             </button>
-            {menuOpen && (
-              <StudentActionMenu student={student} onClose={() => setMenuOpen(false)} onView={onView} />
-            )}
           </div>
+          {menuOpen && (
+            <StudentActionMenu student={student} pos={menuPos} onClose={() => setMenuOpen(false)} onView={onView} />
+          )}
         </div>
       </div>
     </div>

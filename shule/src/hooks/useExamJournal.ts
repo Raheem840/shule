@@ -59,11 +59,11 @@ export function useExamJournals(filters: JournalFilters = {}) {
     queryKey: ['exam-journals', user?.schoolId, user?.id, filters],
     enabled:  !!user,
     queryFn:  async () => {
+      // RLS handles teacher scoping (teacher sees only their own via staff.id match)
       let q = supabase
         .from('exam_journal')
         .select(JOURNAL_COLS)
         .eq('school_id', user!.schoolId)
-        .eq('teacher_id', user!.id)
         .order('date_given', { ascending: false })
 
       if (filters.subjectId)      q = q.eq('subject_id',     filters.subjectId)
@@ -172,6 +172,16 @@ export function useCreateJournal() {
 
   return useMutation({
     mutationFn: async (input: CreateJournalInput) => {
+      // teacher_id FK references staff.id — resolve from JWT claim or DB lookup
+      let staffId = user!.staffId
+      if (!staffId) {
+        const { data: s } = await supabase
+          .from('staff').select('id')
+          .eq('auth_user_id', user!.id).eq('school_id', user!.schoolId).maybeSingle()
+        staffId = (s as any)?.id
+      }
+      if (!staffId) throw new Error('Staff record not found for this user.')
+
       // CA journals always score 0–3 per competency; total_marks = 3
       const totalMarks = input.assessmentType === 'ca' ? 3 : input.totalMarks
       const passMark   = input.assessmentType === 'ca' ? 2 : input.passMark
@@ -181,7 +191,7 @@ export function useCreateJournal() {
         .from('exam_journal')
         .insert({
           school_id:         user!.schoolId,
-          teacher_id:        user!.id,
+          teacher_id:        staffId,
           subject_id:        input.subjectId,
           class_id:          input.classId,
           stream_id:         input.streamId,
@@ -210,10 +220,7 @@ export function useCreateJournal() {
       const journalId = data.id as string
 
       // Auto-create a school_events entry so all roles see this exam on the calendar
-      const { data: staffRow } = await supabase.from('staff').select('id')
-        .eq('auth_user_id', user!.id).eq('school_id', user!.schoolId).maybeSingle()
-      if (staffRow) {
-        await supabase.from('school_events').insert({
+      await supabase.from('school_events').insert({
           school_id:   user!.schoolId,
           title:       name,
           event_type:  input.assessmentType,
@@ -226,11 +233,10 @@ export function useCreateJournal() {
           description: input.teacherNotes ?? null,
           term:        input.term,
           year:        input.year,
-          created_by:  staffRow.id,
+          created_by:  staffId,
           journaled:   true,
           journal_id:  journalId,
         })
-      }
 
       return journalId
     },

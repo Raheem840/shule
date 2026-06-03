@@ -235,6 +235,14 @@ export function useAddDisciplineRecord() {
     }) => {
       if (!user) throw new Error('Not authenticated')
 
+      let staffId = user.staffId
+      if (!staffId) {
+        const { data: s } = await supabase
+          .from('staff').select('id')
+          .eq('auth_user_id', user.id).eq('school_id', user.schoolId).maybeSingle()
+        staffId = (s as any)?.id
+      }
+
       const { error } = await supabase
         .from('discipline_records')
         .insert({
@@ -245,7 +253,7 @@ export function useAddDisciplineRecord() {
           nature:        input.nature,
           resolution:    input.resolution,
           notes:         input.notes,
-          recorded_by:   user.id,
+          recorded_by:   staffId ?? user.id,
         })
 
       if (error) throw new Error(error.message)

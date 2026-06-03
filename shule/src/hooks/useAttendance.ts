@@ -193,6 +193,16 @@ export function useSaveAttendance() {
 
       if (input.records.length === 0) return
 
+      // recorded_by FK references staff.id — look up if staffId not in JWT yet
+      let staffId = user!.staffId
+      if (!staffId) {
+        const { data: s } = await supabase
+          .from('staff').select('id')
+          .eq('auth_user_id', user!.id).eq('school_id', user!.schoolId).maybeSingle()
+        staffId = (s as any)?.id
+      }
+      if (!staffId) throw new Error('Staff record not found for this user.')
+
       const { error: insErr } = await supabase
         .from('attendance')
         .insert(
@@ -202,7 +212,7 @@ export function useSaveAttendance() {
             class_id:    input.classId,
             date:        input.date,
             status:      r.status,
-            recorded_by: user!.id,
+            recorded_by: staffId!,
           }))
         )
 

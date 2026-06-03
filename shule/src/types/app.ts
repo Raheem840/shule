@@ -90,6 +90,7 @@ export type Student = {
   religion: string | null
   studentType: 'day' | 'boarder' | null
   previousSchool: string | null
+  authUserId: string | null
 }
 
 // ── STUDENT GUARDIAN ───────────────────────────────────────────────────────

@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => ({
       VitePWA({
         registerType: 'autoUpdate',
         devOptions: {
-          enabled: true,   // keep SW active in dev so the install prompt fires
+          enabled: false,
         },
         manifest: {
           name: 'Shule — School Management',
@@ -32,6 +32,9 @@ export default defineConfig(({ mode }) => ({
           ],
         },
         workbox: {
+          skipWaiting: true,
+          clientsClaim: true,
+          cleanupOutdatedCaches: true,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           navigateFallback: 'index.html',
           navigateFallbackDenylist: [/^\/api/],

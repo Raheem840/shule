@@ -390,7 +390,7 @@ export function SecretaryStaffPage() {
         {/* ── Hero Band ───────────────────────────────────────────── */}
         <div style={{
           borderRadius: 18, overflow: 'hidden',
-          background: 'linear-gradient(135deg, #0d9488 0%, #0ea5e9 100%)',
+          background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
           padding: '28px 28px 24px',
           position: 'relative',
         }}>

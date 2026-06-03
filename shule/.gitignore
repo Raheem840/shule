@@ -32,6 +32,15 @@ coverage/
 .claude/
 supabase/.temp/
 
+# Docker build artifacts (the .tar files are USB deliverables, not source)
+shule-install/*.tar
+shule-install/supabase-images/*.tar
+
+# Never ignore these — they are source of truth
+# supabase/migrations/   ← always commit
+# supabase/seeds/        ← always commit
+# supabase/functions/    ← always commit
+
 # Playwright / test artefacts
 test-results/
 playwright-report/

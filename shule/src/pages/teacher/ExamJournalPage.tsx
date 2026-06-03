@@ -1,13 +1,20 @@
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useQuery } from '@tanstack/react-query'
+import {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Cell,
+} from 'recharts'
 import { useExamJournals, useCreateJournal, useNextCALabel } from '../../hooks/useExamJournal'
 import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
 import { useAuth } from '../../store/AuthContext'
+import { supabase } from '../../lib/supabase'
+import { calculateCBCGrade } from '../../types/app'
 import type { AssessmentType, ExamJournal } from '../../types/app'
 import type { JournalFilters } from '../../hooks/useExamJournal'
 
@@ -528,6 +535,407 @@ function JournalCard({
   )
 }
 
+// ── Teacher analytics types ────────────────────────────────────
+type TeacherResultRow = {
+  studentId: string; studentName: string; admissionNumber: string
+  score: number | null; isAbsent: boolean; term: string; year: number
+  subjectId: string; examJournalId: string; grade: string | null
+}
+
+type TeacherAnalyticsFilter = 'all' | 'top10' | 'proficient' | 'can_improve' | 'needs_help'
+
+const GRADE_COLOR_MAP: Record<string, string> = {
+  A: '#10b981', B: '#0d9488', C: '#0ea5e9', D: '#f59e0b', E: '#f43f5e',
+}
+
+function AnalyticsPill({
+  label, active, onClick,
+}: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background:   active ? 'var(--brand)'   : 'var(--surface)',
+        color:        active ? '#fff'            : 'var(--txt2)',
+        border:       active ? '1.5px solid var(--brand)' : '1.5px solid var(--border)',
+        borderRadius: 99, padding: '6px 18px',
+        fontWeight: 800, fontSize: 12, fontFamily: 'var(--font2)',
+        cursor: 'pointer', whiteSpace: 'nowrap' as const, transition: 'all .15s',
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+function TeacherChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 10, padding: '8px 12px', fontSize: 12 }}>
+      <div style={{ fontWeight: 800, marginBottom: 4 }}>{label}</div>
+      {payload.map((p: any) => (
+        <div key={p.dataKey} style={{ color: p.stroke || p.fill || 'var(--brand)' }}>
+          {p.name}: <strong>{typeof p.value === 'number' ? p.value.toFixed(1) : p.value}</strong>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Hook: fetch all results for the current teacher's journals
+function useMyResults(journalIds: string[]) {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['my-results-analytics', user?.schoolId, journalIds.sort().join(',')],
+    enabled: !!user && journalIds.length > 0,
+    queryFn: async (): Promise<TeacherResultRow[]> => {
+      const [resultsRes, studentsRes] = await Promise.all([
+        supabase.from('exam_results')
+          .select('id, exam_journal_id, student_id, subject_id, score, is_absent, term, year, grade')
+          .eq('school_id', user!.schoolId)
+          .in('exam_journal_id', journalIds),
+        supabase.from('students')
+          .select('id, first_name, last_name, admission_number')
+          .eq('school_id', user!.schoolId),
+      ])
+      if (resultsRes.error) throw new Error(resultsRes.error.message)
+      const studMap = new Map<string, { name: string; admNo: string }>(
+        (studentsRes.data ?? []).map((s: any) => [
+          s.id as string,
+          { name: `${s.first_name} ${s.last_name}`, admNo: s.admission_number ?? '—' },
+        ])
+      )
+      return (resultsRes.data ?? []).map((r: any): TeacherResultRow => {
+        const stu   = studMap.get(r.student_id as string)
+        const score = r.score as number | null
+        const gradeVal = (r.grade as string | null) ?? (score != null ? calculateCBCGrade(score) : null)
+        return {
+          studentId:      r.student_id as string,
+          studentName:    stu?.name ?? '—',
+          admissionNumber: stu?.admNo ?? '—',
+          score, isAbsent: (r.is_absent as boolean) ?? false,
+          term: r.term as string, year: r.year as number,
+          subjectId:      r.subject_id as string,
+          examJournalId:  r.exam_journal_id as string,
+          grade: gradeVal,
+        }
+      })
+    },
+    staleTime: 2 * 60_000,
+  })
+}
+
+// My Analytics panel — placed below the journal card grid
+function MyAnalyticsPanel({
+  journals, subjects, classes,
+}: {
+  journals: ExamJournal[]
+  subjects: { id: string; name: string }[]
+  classes:  { id: string; name: string }[]
+}) {
+  const subjectMap = useMemo(() => new Map(subjects.map(s => [s.id, s.name])), [subjects])
+  const classMap   = useMemo(() => new Map(classes.map(c  => [c.id, c.name])), [classes])
+
+  const [bandFilter,  setBandFilter]  = useState<TeacherAnalyticsFilter>('all')
+  const [subjFilter,  setSubjFilter]  = useState('')
+  const [classFilter, setClassFilter] = useState('')
+
+  const journalIds    = useMemo(() => journals.map(j => j.id), [journals])
+  const { data: allResults = [], isLoading } = useMyResults(journalIds)
+
+  const journalMeta = useMemo(() => {
+    const m = new Map<string, ExamJournal>()
+    for (const j of journals) m.set(j.id, j)
+    return m
+  }, [journals])
+
+  // Base results filtered by subject/class dropdowns
+  const baseResults = useMemo(() => {
+    return allResults.filter(r => {
+      const j = journalMeta.get(r.examJournalId)
+      if (!j) return false
+      if (subjFilter  && j.subjectId !== subjFilter)  return false
+      if (classFilter && j.classId   !== classFilter) return false
+      return true
+    })
+  }, [allResults, journalMeta, subjFilter, classFilter])
+
+  // Apply band (pill) filter
+  const filteredResults = useMemo(() => {
+    if (bandFilter === 'all') return baseResults
+    if (bandFilter === 'top10') {
+      const scoreMap = new Map<string, number[]>()
+      for (const r of baseResults) {
+        if (r.score == null) continue
+        const arr = scoreMap.get(r.studentId) ?? []
+        arr.push(r.score)
+        scoreMap.set(r.studentId, arr)
+      }
+      const topIds = new Set(
+        [...scoreMap.entries()]
+          .map(([id, sc]) => ({ id, avg: sc.reduce((a, b) => a + b, 0) / sc.length }))
+          .sort((a, b) => b.avg - a.avg)
+          .slice(0, 10)
+          .map(a => a.id)
+      )
+      return baseResults.filter(r => topIds.has(r.studentId))
+    }
+    return baseResults.filter(r => {
+      if (r.score == null) return false
+      const g = calculateCBCGrade(r.score)
+      if (bandFilter === 'proficient')  return g === 'A' || g === 'B'
+      if (bandFilter === 'can_improve') return g === 'C' || g === 'D'
+      if (bandFilter === 'needs_help')  return g === 'E'
+      return true
+    })
+  }, [baseResults, bandFilter])
+
+  // Grade distribution
+  const gradeData = useMemo(() => {
+    const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 }
+    for (const r of filteredResults) {
+      if (r.isAbsent || r.score == null) continue
+      counts[calculateCBCGrade(r.score)]++
+    }
+    return Object.entries(counts).map(([grade, count]) => ({ grade, count, fill: GRADE_COLOR_MAP[grade] }))
+  }, [filteredResults])
+
+  // Score trend: average per term
+  const trendData = useMemo(() => {
+    const termBucket = new Map<string, number[]>()
+    for (const r of filteredResults) {
+      if (r.score == null || r.isAbsent) continue
+      const key = `T${r.term} ${r.year}`
+      const arr = termBucket.get(key) ?? []
+      arr.push(r.score)
+      termBucket.set(key, arr)
+    }
+    return [...termBucket.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([label, sc]) => ({ label, avg: +(sc.reduce((a, b) => a + b, 0) / sc.length).toFixed(1) }))
+  }, [filteredResults])
+
+  // Student improvement: compare first vs last score per student across terms
+  const improvementData = useMemo(() => {
+    const studentTerms = new Map<string, { name: string; scores: { key: string; score: number }[] }>()
+    for (const r of baseResults) {
+      if (r.score == null || r.isAbsent) continue
+      const j = journalMeta.get(r.examJournalId)
+      const termKey = `T${r.term} ${r.year}`
+      if (!studentTerms.has(r.studentId)) {
+        studentTerms.set(r.studentId, { name: r.studentName, scores: [] })
+      }
+      studentTerms.get(r.studentId)!.scores.push({ key: termKey, score: r.score })
+    }
+    const results: { name: string; delta: number; first: number; last: number }[] = []
+    for (const [, v] of studentTerms.entries()) {
+      if (v.scores.length < 2) continue
+      const sorted = v.scores.sort((a, b) => a.key.localeCompare(b.key))
+      const first  = sorted[0].score
+      const last   = sorted[sorted.length - 1].score
+      results.push({ name: v.name, delta: +(last - first).toFixed(1), first, last })
+    }
+    return results.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 10)
+  }, [baseResults, journalMeta])
+
+  // Excel export
+  const exportExcel = useCallback(async () => {
+    const ExcelJS = (await import('exceljs')).default
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet('My Results')
+    ws.columns = [
+      { header: 'Student Name',   key: 'studentName',     width: 22 },
+      { header: 'Admission No',   key: 'admissionNumber', width: 14 },
+      { header: 'Subject',        key: 'subject',         width: 18 },
+      { header: 'Class',          key: 'className',       width: 12 },
+      { header: 'Assessment',     key: 'assessment',      width: 18 },
+      { header: 'Term',           key: 'term',            width: 8  },
+      { header: 'Year',           key: 'year',            width: 8  },
+      { header: 'Score',          key: 'score',           width: 8  },
+      { header: 'Grade',          key: 'grade',           width: 8  },
+    ]
+    const headerRow = ws.getRow(1)
+    headerRow.font      = { bold: true, color: { argb: 'FFFFFFFF' } }
+    headerRow.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6366F1' } }
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' }
+    headerRow.height    = 20
+    for (const r of filteredResults) {
+      const j = journalMeta.get(r.examJournalId)
+      ws.addRow({
+        studentName:     r.studentName,
+        admissionNumber: r.admissionNumber,
+        subject:         subjectMap.get(r.subjectId) ?? '—',
+        className:       classMap.get(j?.classId ?? '') ?? '—',
+        assessment:      j?.assessmentType.replace(/_/g, ' ') ?? '—',
+        term:            `T${r.term}`,
+        year:            r.year,
+        score:           r.isAbsent ? 'ABS' : (r.score ?? '—'),
+        grade:           r.isAbsent ? 'ABS' : (r.grade ?? '—'),
+      })
+    }
+    ws.autoFilter = { from: 'A1', to: 'I1' }
+    const buf  = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const a    = document.createElement('a')
+    a.href     = URL.createObjectURL(blob)
+    a.download = `my-results-${bandFilter}-${new Date().toISOString().slice(0, 10)}.xlsx`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }, [filteredResults, journalMeta, subjectMap, classMap, bandFilter])
+
+  if (journals.length === 0) return null
+
+  return (
+    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Section header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 22px', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, boxShadow: '0 1px 6px rgba(0,0,0,.04)' }}>
+        <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(145deg,#6366f1,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 16, color: 'var(--txt)', letterSpacing: -.3 }}>My Analytics</div>
+          <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 1 }}>Performance across all your assessed journals</div>
+        </div>
+        <button
+          onClick={() => void exportExcel()}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 14px', borderRadius: 10, border: 'none',
+            background: 'linear-gradient(135deg,#10b981,#059669)',
+            color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(16,185,129,.3)', fontFamily: 'var(--font2)',
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Export My Results
+        </button>
+      </div>
+
+      {/* Band pills */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase' as const, letterSpacing: .7, whiteSpace: 'nowrap' as const, marginRight: 4 }}>Band</span>
+        {([
+          ['all',         'All'],
+          ['top10',       'Top 10'],
+          ['proficient',  'Proficient (A/B)'],
+          ['can_improve', 'Can Improve (C/D)'],
+          ['needs_help',  'Needs Help (E)'],
+        ] as [TeacherAnalyticsFilter, string][]).map(([v, l]) => (
+          <AnalyticsPill key={v} label={l} active={bandFilter === v} onClick={() => setBandFilter(v)} />
+        ))}
+      </div>
+
+      {/* Secondary filters */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '12px 16px', alignItems: 'flex-end' }}>
+        {([
+          { label: 'Subject', val: subjFilter,  set: setSubjFilter,  opts: [['','All Subjects'], ...subjects.map(s => [s.id, s.name])] as [string,string][] },
+          { label: 'Class',   val: classFilter, set: setClassFilter, opts: [['','All Classes'],  ...classes.map(c  => [c.id, c.name])] as [string,string][] },
+        ]).map(({ label, val, set, opts }) => (
+          <div key={label} style={{ flex: '0 1 150px', minWidth: 120 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' as const, letterSpacing: .7, marginBottom: 5 }}>{label}</div>
+            <select value={val} onChange={e => set(e.target.value)} className="sui-input" style={{ width: '100%' }}>
+              {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+        ))}
+        <div style={{ fontSize: 12, color: 'var(--txt3)', alignSelf: 'center', marginLeft: 'auto' }}>
+          <strong style={{ color: 'var(--txt)' }}>{filteredResults.length}</strong> results
+        </div>
+      </div>
+
+      {isLoading && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>
+          {[1,2,3].map(i => <div key={i} className="shule-skeleton" style={{ height: 200, borderRadius: 14 }} />)}
+        </div>
+      )}
+
+      {!isLoading && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16 }}>
+
+          {/* Grade distribution */}
+          <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, padding: '18px 20px', boxShadow: '0 1px 8px rgba(0,0,0,.05)' }}>
+            <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: 'var(--txt)', marginBottom: 14 }}>My Class Grade Distribution</div>
+            {gradeData.every(d => d.count === 0) ? (
+              <div style={{ padding: '30px 0', textAlign: 'center' as const, color: 'var(--txt3)', fontSize: 12.5 }}>No scored results yet.</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={gradeData} margin={{ top: 4, right: 8, bottom: 4, left: -16 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="grade" tick={{ fontSize: 12, fontWeight: 700, fill: 'var(--txt2)' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: 'var(--txt3)' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip content={<TeacherChartTooltip />} cursor={{ fill: 'rgba(0,0,0,.04)' }} />
+                  <Bar dataKey="count" name="Students" radius={[6,6,0,0]}>
+                    {gradeData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Score trend */}
+          <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, padding: '18px 20px', boxShadow: '0 1px 8px rgba(0,0,0,.05)' }}>
+            <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: 'var(--txt)', marginBottom: 14 }}>Average Score per Term</div>
+            {trendData.length < 2 ? (
+              <div style={{ padding: '30px 0', textAlign: 'center' as const, color: 'var(--txt3)', fontSize: 12.5 }}>Need results from at least 2 terms.</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={trendData} margin={{ top: 4, right: 8, bottom: 4, left: -16 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--txt3)' }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'var(--txt3)' }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<TeacherChartTooltip />} cursor={{ stroke: 'var(--border)' }} />
+                  <Line type="monotone" dataKey="avg" name="Avg Score" stroke="var(--brand)" strokeWidth={2.5} dot={{ fill: 'var(--brand)', r: 4 }} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Student improvement */}
+          {improvementData.length > 0 && (
+            <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, padding: '18px 20px', boxShadow: '0 1px 8px rgba(0,0,0,.05)', gridColumn: 'span 1' }}>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: 'var(--txt)', marginBottom: 14 }}>Student Progress (First → Latest)</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {improvementData.map(s => {
+                  const improved = s.delta > 0
+                  const same     = s.delta === 0
+                  return (
+                    <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 10, background: 'var(--surface2)' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{s.name}</span>
+                      <span style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>{s.first} → {s.last}</span>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 3,
+                        padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 800,
+                        background: same ? 'var(--surface)' : improved ? 'rgba(16,185,129,.12)' : 'rgba(244,63,94,.1)',
+                        color: same ? 'var(--txt3)' : improved ? '#10b981' : '#f43f5e',
+                        border: `.5px solid ${same ? 'var(--border)' : improved ? 'rgba(16,185,129,.3)' : 'rgba(244,63,94,.25)'}`,
+                      }}>
+                        {!same && (
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                            {improved
+                              ? <polyline points="18 15 12 9 6 15"/>
+                              : <polyline points="6 9 12 15 18 9"/>}
+                          </svg>
+                        )}
+                        {same ? '=' : (improved ? '+' : '')}{s.delta}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main page ──────────────────────────────────────────────────
 export function ExamJournalPage() {
   const navigate   = useNavigate()
@@ -683,6 +1091,15 @@ export function ExamJournalPage() {
             />
           ))}
         </div>
+      )}
+
+      {/* ── My Analytics section ───────────────────────────── */}
+      {!isLoading && journals.length > 0 && (
+        <MyAnalyticsPanel
+          journals={journals}
+          subjects={subjects}
+          classes={classes}
+        />
       )}
 
       {creating && <CreateJournalModal onClose={() => setCreating(false)} />}

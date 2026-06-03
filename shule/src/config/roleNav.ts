@@ -194,12 +194,13 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
     },
   ],
 
-  // ── CLASS TEACHER ── Same as teacher (same routes, same nav)
+  // ── CLASS TEACHER ── Same as teacher + My Class (students)
   class_teacher: [
     {
       label: 'My Teaching',
       items: [
         { label: 'Dashboard',    path: '/teacher/dashboard',     svg: SVG.dashboard    },
+        { label: 'My Class',     path: '/teacher/my-class',      svg: SVG.students     },
         { label: 'Events',       path: '/teacher/events',        svg: SVG.attendance   },
         { label: 'Exam Journal', path: '/teacher/exams',         svg: SVG.examJournal  },
         { label: 'Attendance',   path: '/teacher/attendance',    svg: SVG.attendance   },

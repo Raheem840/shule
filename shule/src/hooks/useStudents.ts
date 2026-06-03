@@ -9,13 +9,14 @@ import type { Student, StudentGuardian } from '../types/app'
 const LIST_COLS = [
   'id', 'school_id', 'admission_number', 'first_name', 'last_name',
   'dob', 'gender', 'class_id', 'stream_id',
-  'photo_url', 'status', 'enrolled_at',
+  'photo_url', 'status', 'enrolled_at', 'auth_user_id',
 ].join(', ')
 
 const DETAIL_COLS = [
   'id', 'school_id', 'admission_number', 'first_name', 'last_name',
-  'dob', 'gender', 'class_id', 'stream_id',
-  'photo_url', 'medical_notes', 'status', 'enrolled_at',
+  'dob', 'gender', 'class_id', 'stream_id', 'academic_year_id',
+  'photo_url', 'medical_notes', 'status', 'enrolled_at', 'auth_user_id',
+  'nationality', 'religion', 'student_type', 'previous_school',
 ].join(', ')
 
 const GUARDIAN_COLS = [
@@ -48,6 +49,7 @@ function toStudent(r: AnyRow): Student {
     religion:        (r.religion as string) ?? null,
     studentType:     (r.student_type as Student['studentType']) ?? null,
     previousSchool:  (r.previous_school as string) ?? null,
+    authUserId:      (r.auth_user_id as string) ?? null,
   }
 }
 
@@ -315,8 +317,12 @@ export function useUpdateStudent() {
       if (fields.streamId     !== undefined) patch.stream_id     = fields.streamId
       if (fields.photoUrl     !== undefined) patch.photo_url     = fields.photoUrl
       if (fields.medicalNotes !== undefined) patch.medical_notes = fields.medicalNotes
-      if (fields.enrolledAt   !== undefined) patch.enrolled_at   = fields.enrolledAt
-      // DB NEEDS: nationality, religion, student_type, previous_school — skip until columns added
+      if (fields.enrolledAt     !== undefined) patch.enrolled_at     = fields.enrolledAt
+      if (fields.academicYearId !== undefined) patch.academic_year_id = fields.academicYearId
+      if (fields.nationality    !== undefined) patch.nationality     = fields.nationality
+      if (fields.religion       !== undefined) patch.religion        = fields.religion
+      if (fields.studentType    !== undefined) patch.student_type    = fields.studentType
+      if (fields.previousSchool !== undefined) patch.previous_school = fields.previousSchool
 
       const { error } = await supabase
         .from('students')
@@ -389,6 +395,46 @@ export type StudentLoginResult = {
   manual:       boolean   // true = Edge Function not deployed, login NOT created in auth
 }
 
+// ── Student pending-activation localStorage helpers ─────────────
+const STUDENT_ACTIVATION_KEY = 'shule_pending_student_activations'
+
+export type PendingStudentActivation = {
+  studentId:       string
+  email:           string
+  tempPassword:    string
+  name:            string
+  admissionNumber: string
+  storedAt:        string
+}
+
+export function getPendingStudentActivations(): Record<string, PendingStudentActivation> {
+  try {
+    return JSON.parse(localStorage.getItem(STUDENT_ACTIVATION_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
+
+export function setPendingStudentActivation(activation: PendingStudentActivation): void {
+  const existing = getPendingStudentActivations()
+  existing[activation.studentId] = activation
+  localStorage.setItem(STUDENT_ACTIVATION_KEY, JSON.stringify(existing))
+}
+
+export function clearPendingStudentActivation(studentId: string): void {
+  const existing = getPendingStudentActivations()
+  delete existing[studentId]
+  localStorage.setItem(STUDENT_ACTIVATION_KEY, JSON.stringify(existing))
+}
+
+// ── generateStudentTempPassword ─────────────────────────────────
+function generateStudentTempPassword(): string {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+  const arr = new Uint8Array(10)
+  crypto.getRandomValues(arr)
+  return Array.from(arr, b => chars[b % chars.length]).join('')
+}
+
 // ── useCreateStudentLogin ───────────────────────────────────────
 // Secretary one-click: auto-generate an auth user for a student.
 // Email format: student.{sanitised_admNo}@{shortName}.ug
@@ -424,15 +470,18 @@ export function useCreateStudentLogin() {
         .eq('id', user.schoolId)
         .single()
 
-      const shortName = ((school?.short_name as string) ?? 'school').toLowerCase().replace(/\s+/g, '')
-      const admNo     = (row.admission_number as string).toLowerCase().replace(/\//g, '-').replace(/\s+/g, '')
-      const email     = `student.${admNo}@${shortName}.ug`
-      const tempPassword = 'Shule@2025'
+      const shortName  = ((school?.short_name as string) ?? 'school').toLowerCase().replace(/[^a-z0-9]/g, '')
+      const firstInit  = ((row.first_name as string)?.[0] ?? '').toLowerCase()
+      const lastInit   = ((row.last_name  as string)?.[0] ?? '').toLowerCase()
+      // Extract numeric suffix from admission number for uniqueness (e.g. KJA/2025/0049 → '049')
+      const admSeq     = ((row.admission_number as string) ?? '').replace(/\D/g, '').slice(-4).replace(/^0+(?=\d)/, '') || '1'
+      const email      = `${firstInit}${lastInit}${admSeq}@${shortName}.ug`
+      const tempPassword = generateStudentTempPassword()
 
       // 3. Try the Edge Function (may not be deployed yet)
       try {
         const { error: fnError } = await supabase.functions.invoke('create-student-auth-user', {
-          body: { studentId, email, schoolId: user.schoolId },
+          body: { studentId, email, schoolId: user.schoolId, password: tempPassword },
         })
         if (!fnError) return { email, tempPassword, manual: false }
         // Edge function returned an error — fall through to manual mode
@@ -440,11 +489,59 @@ export function useCreateStudentLogin() {
         // Network error or function not deployed — fall through to manual mode
       }
 
-      // 4. Graceful fallback: return credentials for manual activation
+      // 4. Graceful fallback: store credentials so IT Admin can activate later
+      const name = `${row.first_name as string} ${row.last_name as string}`
+      setPendingStudentActivation({
+        studentId,
+        email,
+        tempPassword,
+        name,
+        admissionNumber: row.admission_number as string,
+        storedAt: new Date().toISOString(),
+      })
       return { email, tempPassword, manual: true }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
+    },
+  })
+}
+
+// ── useResetStudentPassword ─────────────────────────────────────
+// IT Admin: reset a student's password.
+// Tries 'reset-student-password' Edge Function; falls back to manual if not deployed.
+export function useResetStudentPassword() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ studentId, authUserId, email, name, admissionNumber }: {
+      studentId: string; authUserId: string; email: string; name: string; admissionNumber: string
+    }): Promise<{ email: string; tempPassword: string; manual: boolean }> => {
+      if (!user) throw new Error('Not authenticated')
+
+      const tempPassword = generateStudentTempPassword()
+
+      const { error: fnError } = await supabase.functions.invoke('reset-student-password', {
+        body: { userId: authUserId, newPassword: tempPassword },
+      })
+
+      if (!fnError) return { email, tempPassword, manual: false }
+
+      // Edge Function not deployed — store for manual update
+      setPendingStudentActivation({
+        studentId,
+        email,
+        tempPassword,
+        name,
+        admissionNumber,
+        storedAt: new Date().toISOString(),
+      })
+      return { email, tempPassword, manual: true }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['students-active-login', user?.schoolId] })
     },
   })
 }

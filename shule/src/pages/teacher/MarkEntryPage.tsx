@@ -221,6 +221,470 @@ function GradeTabs({ marks, students, totalMarks, isCA }: {
   )
 }
 
+// ── Analytics filter types ─────────────────────────────────────
+type AnalyticsFilter = 'all' | 'top10' | 'proficient' | 'needs_help' | 'can_improve' | 'absent'
+
+const ANALYTICS_FILTERS: { key: AnalyticsFilter; label: string }[] = [
+  { key: 'all',         label: 'All'         },
+  { key: 'top10',       label: 'Top 10'      },
+  { key: 'proficient',  label: 'Proficient'  },
+  { key: 'needs_help',  label: 'Needs Help'  },
+  { key: 'can_improve', label: 'Can Improve' },
+  { key: 'absent',      label: 'Absent'      },
+]
+
+// Chart colours per grade — kept outside design tokens intentionally (grade semantics)
+const DIST_GRADE_COLORS: Record<string, string> = {
+  A: '#10b981',
+  B: '#0d9488',
+  C: '#0ea5e9',
+  D: '#f59e0b',
+  E: '#f43f5e',
+  Absent: '#94a3b8',
+}
+
+const RANGE_COLOR: Record<string, string> = {
+  '80–100': '#10b981',
+  '70–79':  '#0d9488',
+  '60–69':  '#0ea5e9',
+  '50–59':  '#f59e0b',
+  '0–49':   '#f43f5e',
+}
+
+type StudentResult = {
+  student:  Student
+  score:    number | null
+  isAbsent: boolean
+  grade:    string | null  // null for absent / not entered
+  pct:      number | null  // percentage (0–100), null if absent
+}
+
+// Custom tooltip for grade bar chart
+function GradeTooltip({ active, payload, totalCount }: {
+  active?: boolean
+  payload?: Array<{ value: number; payload: { grade: string } }>
+  totalCount: number
+}) {
+  if (!active || !payload?.length) return null
+  const count = payload[0].value
+  const pct   = totalCount > 0 ? Math.round((count / totalCount) * 100) : 0
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', fontSize: 12, boxShadow: '0 4px 20px rgba(0,0,0,.12)' }}>
+      <div style={{ fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)', marginBottom: 4 }}>
+        Grade {payload[0].payload.grade}
+      </div>
+      <div style={{ color: 'var(--txt2)' }}>{count} student{count !== 1 ? 's' : ''}</div>
+      <div style={{ color: 'var(--txt3)', fontSize: 11 }}>{pct}% of filtered group</div>
+    </div>
+  )
+}
+
+// Custom tooltip for score range chart
+function RangeTooltip({ active, payload, totalCount }: {
+  active?: boolean
+  payload?: Array<{ value: number; payload: { range: string } }>
+  totalCount: number
+}) {
+  if (!active || !payload?.length) return null
+  const count = payload[0].value
+  const pct   = totalCount > 0 ? Math.round((count / totalCount) * 100) : 0
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', fontSize: 12, boxShadow: '0 4px 20px rgba(0,0,0,.12)' }}>
+      <div style={{ fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)', marginBottom: 4 }}>
+        {payload[0].payload.range}
+      </div>
+      <div style={{ color: 'var(--txt2)' }}>{count} student{count !== 1 ? 's' : ''}</div>
+      <div style={{ color: 'var(--txt3)', fontSize: 11 }}>{pct}% of filtered group</div>
+    </div>
+  )
+}
+
+function PerformanceAnalytics({ marks, students, totalMarks, isCA }: {
+  marks:      Map<string, { score: number | null; isAbsent: boolean }>
+  students:   Student[]
+  totalMarks: number
+  isCA:       boolean
+}) {
+  const [activeFilter, setActiveFilter] = useState<AnalyticsFilter>('all')
+
+  // Build full result list from marks + students
+  const allResults = useMemo<StudentResult[]>(() => {
+    return students.map(student => {
+      const m = marks.get(student.id)
+      if (!m) return { student, score: null, isAbsent: false, grade: null, pct: null }
+      if (m.isAbsent) return { student, score: null, isAbsent: true, grade: null, pct: null }
+      if (m.score === null) return { student, score: null, isAbsent: false, grade: null, pct: null }
+      const pct   = isCA ? (m.score / 3) * 100 : (m.score / totalMarks) * 100
+      const grade = calculateCBCGrade(pct)
+      return { student, score: m.score, isAbsent: false, grade, pct }
+    })
+  }, [marks, students, totalMarks, isCA])
+
+  // Check if there is any data worth showing
+  const hasData = allResults.some(r => r.score !== null || r.isAbsent)
+  if (!hasData) return null
+
+  // Apply filter
+  const filtered = useMemo<StudentResult[]>(() => {
+    switch (activeFilter) {
+      case 'all':
+        return allResults
+      case 'top10': {
+        const withScores = allResults
+          .filter(r => r.score !== null && !r.isAbsent)
+          .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+        return withScores.slice(0, 10)
+      }
+      case 'proficient':
+        return allResults.filter(r => r.grade === 'A' || r.grade === 'B')
+      case 'needs_help':
+        return allResults.filter(r => r.grade === 'E')
+      case 'can_improve':
+        return allResults.filter(r => r.grade === 'C' || r.grade === 'D')
+      case 'absent':
+        return allResults.filter(r => r.isAbsent)
+      default:
+        return allResults
+    }
+  }, [allResults, activeFilter])
+
+  // KPI calculations over filtered set
+  const kpis = useMemo(() => {
+    const scoredRows  = filtered.filter(r => r.score !== null && !r.isAbsent)
+    const scores      = scoredRows.map(r => r.score as number)
+    const absentCount = filtered.filter(r => r.isAbsent).length
+    const passCount   = scoredRows.filter(r => (r.pct ?? 0) >= 50).length
+
+    if (scores.length === 0) {
+      return { avg: null, highest: null, lowest: null, passRate: null, absentCount }
+    }
+
+    const avg      = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
+    const highest  = Math.max(...scores)
+    const lowest   = Math.min(...scores)
+    const passRate = Math.round((passCount / scores.length) * 100)
+    return { avg, highest, lowest, passRate, absentCount }
+  }, [filtered])
+
+  // Grade distribution bar chart data
+  const gradeDistData = useMemo(() => {
+    const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0, Absent: 0 }
+    for (const r of filtered) {
+      if (r.isAbsent) { counts['Absent']++; continue }
+      if (r.grade) counts[r.grade] = (counts[r.grade] ?? 0) + 1
+    }
+    return Object.entries(counts).map(([grade, count]) => ({ grade, count }))
+  }, [filtered])
+
+  // Score range distribution data (percentage-based buckets, works for CA too)
+  const rangeDistData = useMemo(() => {
+    const buckets = [
+      { range: '80–100', min: 80, max: 100, count: 0 },
+      { range: '70–79',  min: 70, max: 79,  count: 0 },
+      { range: '60–69',  min: 60, max: 69,  count: 0 },
+      { range: '50–59',  min: 50, max: 59,  count: 0 },
+      { range: '0–49',   min: 0,  max: 49,  count: 0 },
+    ]
+    for (const r of filtered) {
+      if (r.isAbsent || r.pct === null) continue
+      const bucket = buckets.find(b => r.pct! >= b.min && r.pct! <= b.max)
+      if (bucket) bucket.count++
+    }
+    return buckets
+  }, [filtered])
+
+  // CSV export of filtered data
+  function exportCSV() {
+    const rows: string[] = ['Name,Admission No.,Score,Grade,Absent']
+    for (const r of filtered) {
+      const name  = `"${r.student.firstName} ${r.student.lastName}"`
+      const adm   = r.student.admissionNumber
+      const score = r.isAbsent ? '' : (r.score ?? '')
+      const grade = r.isAbsent ? 'Absent' : (r.grade ?? '')
+      const abs   = r.isAbsent ? 'Yes' : 'No'
+      rows.push(`${name},${adm},${score},${grade},${abs}`)
+    }
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `performance_${activeFilter}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const filteredScoredCount = filtered.filter(r => r.score !== null && !r.isAbsent).length
+
+  return (
+    <div style={{
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 18,
+      padding: 24,
+      marginTop: 4,
+    }}>
+      {/* Header ─────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'var(--brand-light)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6"  y1="20" x2="6"  y2="14"/>
+            </svg>
+          </div>
+          <div>
+            <h2 style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 17, color: 'var(--txt)', margin: 0, letterSpacing: -.3 }}>
+              Performance Analytics
+            </h2>
+            <p style={{ fontSize: 12, color: 'var(--txt3)', margin: 0, marginTop: 1 }}>
+              {filtered.length} student{filtered.length !== 1 ? 's' : ''} · filtered view
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {/* Filter pills */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {ANALYTICS_FILTERS.map(f => {
+              const active = activeFilter === f.key
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => setActiveFilter(f.key)}
+                  style={{
+                    background:   active ? 'var(--brand)' : 'var(--surface)',
+                    color:        active ? '#fff' : 'var(--txt2)',
+                    border:       active ? '1.5px solid var(--brand)' : '1.5px solid var(--border)',
+                    borderRadius: 99,
+                    padding:      '6px 16px',
+                    fontWeight:   700,
+                    fontSize:     12,
+                    fontFamily:   'var(--font2)',
+                    cursor:       'pointer',
+                    transition:   'background .15s, color .15s, border-color .15s',
+                    whiteSpace:   'nowrap',
+                  }}
+                >
+                  {f.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Export button */}
+          <button
+            onClick={exportCSV}
+            title="Export filtered data as CSV"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 13px', borderRadius: 99,
+              border: '1.5px solid var(--border)',
+              background: 'var(--surface)',
+              color: 'var(--txt2)', fontWeight: 700, fontSize: 12,
+              fontFamily: 'var(--font2)', cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'border-color .15s, color .15s',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export CSV
+          </button>
+        </div>
+      </div>
+
+      {/* KPI chips ───────────────────────────── */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 24 }}>
+        {[
+          {
+            label: 'Class Average',
+            value: kpis.avg !== null ? kpis.avg.toString() : '—',
+            sub:   `out of ${totalMarks}`,
+            accent: 'var(--brand)',
+          },
+          {
+            label: 'Highest Score',
+            value: kpis.highest !== null ? kpis.highest.toString() : '—',
+            sub:   'top performer',
+            accent: '#10b981',
+          },
+          {
+            label: 'Lowest Score',
+            value: kpis.lowest !== null ? kpis.lowest.toString() : '—',
+            sub:   'needs attention',
+            accent: '#f43f5e',
+          },
+          {
+            label: 'Pass Rate',
+            value: kpis.passRate !== null ? `${kpis.passRate}%` : '—',
+            sub:   `${filteredScoredCount > 0 ? Math.round(((kpis.passRate ?? 0) / 100) * filteredScoredCount) : 0} of ${filteredScoredCount}`,
+            accent: kpis.passRate !== null && kpis.passRate >= 70 ? '#10b981' : '#f59e0b',
+          },
+          {
+            label: 'Absent',
+            value: kpis.absentCount.toString(),
+            sub:   kpis.absentCount === 1 ? 'student' : 'students',
+            accent: '#94a3b8',
+          },
+        ].map(chip => (
+          <div
+            key={chip.label}
+            style={{
+              flex: '1 1 130px',
+              background:   'var(--surface2)',
+              border:       '1px solid var(--border)',
+              borderRadius: 14,
+              padding:      '16px 20px',
+              minWidth:     120,
+            }}
+          >
+            <div style={{
+              fontSize:    28,
+              fontWeight:  800,
+              fontFamily:  'var(--font2)',
+              color:       chip.accent,
+              lineHeight:  1,
+              marginBottom: 6,
+              letterSpacing: -.5,
+            }}>
+              {chip.value}
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', fontFamily: 'var(--font2)', marginBottom: 2 }}>
+              {chip.label}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--txt3)' }}>{chip.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts ──────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+
+        {/* Grade distribution */}
+        <div style={{
+          background: 'var(--surface2)',
+          border: '1px solid var(--border)',
+          borderRadius: 14,
+          padding: '18px 16px',
+        }}>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13, color: 'var(--txt)', marginBottom: 4 }}>
+            Grade Distribution
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 14 }}>
+            Count per grade band
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={gradeDistData} margin={{ top: 4, right: 8, bottom: 4, left: -10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis
+                dataKey="grade"
+                tick={{ fontSize: 11, fill: 'var(--txt2)', fontWeight: 700 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 10, fill: 'var(--txt3)' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                content={props => (
+                  <GradeTooltip
+                    active={props.active}
+                    payload={props.payload as Array<{ value: number; payload: { grade: string } }> | undefined}
+                    totalCount={filtered.length}
+                  />
+                )}
+              />
+              <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={44}>
+                {gradeDistData.map((entry, i) => (
+                  <Cell key={i} fill={DIST_GRADE_COLORS[entry.grade] ?? '#94a3b8'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Score range distribution */}
+        <div style={{
+          background: 'var(--surface2)',
+          border: '1px solid var(--border)',
+          borderRadius: 14,
+          padding: '18px 16px',
+        }}>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13, color: 'var(--txt)', marginBottom: 4 }}>
+            Score Spread
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 14 }}>
+            Percentage-based bands (present only)
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={rangeDistData} margin={{ top: 4, right: 8, bottom: 4, left: -10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis
+                dataKey="range"
+                tick={{ fontSize: 10, fill: 'var(--txt3)' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 10, fill: 'var(--txt3)' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                content={props => (
+                  <RangeTooltip
+                    active={props.active}
+                    payload={props.payload as Array<{ value: number; payload: { range: string } }> | undefined}
+                    totalCount={filteredScoredCount}
+                  />
+                )}
+              />
+              <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={44}>
+                {rangeDistData.map((entry, i) => (
+                  <Cell key={i} fill={RANGE_COLOR[entry.range] ?? '#94a3b8'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+
+          {/* Mini grade legend */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+            {Object.entries(RANGE_COLOR).map(([range, color]) => (
+              <div key={range} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--txt3)' }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block', flexShrink: 0 }} />
+                {range}
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Empty state for active filter */}
+      {filtered.length === 0 && (
+        <div style={{
+          textAlign: 'center', padding: '32px 0',
+          color: 'var(--txt3)', fontSize: 13, fontFamily: 'var(--font2)',
+        }}>
+          No students match the <strong style={{ color: 'var(--txt2)' }}>{ANALYTICS_FILTERS.find(f => f.key === activeFilter)?.label}</strong> filter.
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main page ──────────────────────────────────────────────────
 export function MarkEntryPage() {
   const { journalId }   = useParams<{ journalId: string }>()
@@ -531,6 +995,16 @@ export function MarkEntryPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Performance Analytics ──────────────────────────── */}
+      {students.length > 0 && (
+        <PerformanceAnalytics
+          marks={marks}
+          students={students}
+          totalMarks={totalMarks}
+          isCA={isCA}
+        />
+      )}
 
       {students.length > 0 && (
         <div style={{ background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)', padding: 20, boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>

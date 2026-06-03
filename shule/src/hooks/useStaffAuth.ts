@@ -52,12 +52,12 @@ export function useActivateStaffLogin() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async (staffId: string): Promise<{ email: string; tempPassword: string; manual: boolean }> => {
+    mutationFn: async ({ staffId, emailOverride }: { staffId: string; emailOverride?: string }): Promise<{ email: string; tempPassword: string; manual: boolean }> => {
       if (!user) throw new Error('Not authenticated')
 
       const { data: staff, error: staffErr } = await supabase
         .from('staff')
-        .select('id, email, first_name, last_name, auth_user_id')
+        .select('id, email, staff_number, first_name, last_name, auth_user_id')
         .eq('id', staffId)
         .eq('school_id', user.schoolId)
         .maybeSingle()
@@ -65,9 +65,20 @@ export function useActivateStaffLogin() {
       if (staffErr) throw new Error(staffErr.message)
       if (!staff)   throw new Error('Staff member not found')
       if ((staff as any).auth_user_id) throw new Error('Login already activated for this staff member')
-      if (!(staff as any).email) throw new Error('No email address on file — update the staff profile first')
 
-      const email = (staff as any).email as string
+      // Resolve email: caller override → profile email → auto-generated from staff number
+      let email = emailOverride?.trim() || ((staff as any).email as string | null) || null
+      if (!email) {
+        const { data: school } = await supabase
+          .from('school_profile')
+          .select('short_name')
+          .eq('id', user.schoolId)
+          .single()
+        const shortName  = ((school?.short_name as string) ?? 'school').toLowerCase().replace(/\s+/g, '')
+        const staffNum   = ((staff as any).staff_number as string).toLowerCase().replace(/\//g, '-').replace(/\s+/g, '')
+        email = `staff.${staffNum}@${shortName}.ug`
+      }
+
       const name  = `${(staff as any).first_name} ${(staff as any).last_name}`
 
       // The Edge Function sets 'Shule@2025' as the initial password.
@@ -75,7 +86,7 @@ export function useActivateStaffLogin() {
       const tempPassword = 'Shule@2025'
 
       const { data: fnData, error: fnError } = await supabase.functions.invoke('create-staff-auth-user', {
-        body: { staffId, email, schoolId: user.schoolId },
+        body: { staffId, email, schoolId: user.schoolId, password: tempPassword },
       })
 
       if (!fnError && (fnData as any)?.success) {
@@ -140,6 +151,18 @@ export function useResetStaffPassword() {
 
       const { error: fnError } = await supabase.functions.invoke('reset-staff-password', {
         body: { userId: authUserId, newPassword: tempPassword },
+      })
+
+      // Record in audit_log regardless of success/failure
+      await supabase.from('audit_log').insert({
+        school_id:   user!.schoolId,
+        user_id:     user!.id,
+        role:        user!.role,
+        action:      'PASSWORD_RESET',
+        table_name:  'staff',
+        record_id:   staffId,
+        entity_name: name,
+        new_value:   { reset_by: user!.email, method: fnError ? 'manual' : 'edge_function', timestamp: new Date().toISOString() },
       })
 
       if (!fnError) return { tempPassword, manual: false }

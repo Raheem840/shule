@@ -1,0 +1,44 @@
+-- Migration: 00004_edge_function_notes
+-- Description: Storage bucket configuration + notes on Edge Function wiring
+--
+-- Edge Functions are deployed separately via Supabase CLI.
+-- This file documents the manual Dashboard steps required after migration.
+--
+-- ── STORAGE BUCKETS ──────────────────────────────────────────────────────────
+-- Run these via Dashboard → Storage, or via the Supabase Management API.
+-- They cannot be created with plain SQL.
+--
+-- Bucket: staff-photos      PUBLIC  — staff avatars
+-- Bucket: student-photos    PRIVATE — signed URLs only, path stored in students.photo_url
+-- Bucket: documents         PRIVATE — staff NIN/transcripts, path in staff_documents.file_url
+-- Bucket: report-cards      PUBLIC  — generated PDFs, URL stored in report_cards.pdf_url
+-- Bucket: templates         PRIVATE — school report card templates
+-- Bucket: staff-attachments PUBLIC  — message file attachments
+--
+-- ── AUTH HOOK (MANUAL STEP) ───────────────────────────────────────────────────
+-- After migration, go to:
+--   Dashboard → Authentication → Hooks
+--   Add hook: custom_access_token_hook
+--   Type: PostgreSQL Function
+--   Schema: public, Function: custom_access_token_hook
+--
+-- ── EDGE FUNCTIONS (MANUAL STEP) ─────────────────────────────────────────────
+-- Deploy after migration with:
+--   supabase functions deploy create-staff-auth-user   --project-ref $PROJECT_REF
+--   supabase functions deploy create-student-auth-user --project-ref $PROJECT_REF
+--   supabase functions deploy create-parent-auth-user  --project-ref $PROJECT_REF
+--   supabase functions deploy reset-staff-password     --project-ref $PROJECT_REF
+--   supabase functions deploy reset-student-password   --project-ref $PROJECT_REF
+--   supabase functions deploy send-sms                 --project-ref $PROJECT_REF
+--   supabase functions deploy send-whatsapp            --project-ref $PROJECT_REF
+--   supabase functions deploy broadcast-announcement   --project-ref $PROJECT_REF
+--   supabase functions deploy upload-staff-photo       --project-ref $PROJECT_REF
+--
+-- ── FIRST USER (MANUAL STEP) ─────────────────────────────────────────────────
+-- After hook is wired, create the IT Admin user:
+--   1. Dashboard → Authentication → Users → Invite user
+--   2. Insert row into staff table with role='it_admin' and auth_user_id set
+--   3. IT Admin logs in, goes to School Settings, creates first Principal + Secretary
+
+-- Placeholder SQL so this file has at least one executable statement
+SELECT 'Migration 00004 applied — see comments for manual steps' AS status;

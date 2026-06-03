@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useDosTeacherPerformance, useAssignClassTeacher, useAssignTeacherSubjects, useAssignTeacherClasses } from '../../hooks/useDos'
 import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
 import { useToast } from '../../components/ui/Toast'
+import { useAuth } from '../../store/AuthContext'
 import type { TeacherPerfRow } from '../../types/week9'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -190,6 +191,7 @@ function ManageSubjectsModal({ teacher, onClose }: { teacher: TeacherPerfRow; on
 // ─── Manage classes modal ─────────────────────────────────────────────────────
 function ManageClassesModal({ teacher, onClose }: { teacher: TeacherPerfRow; onClose:()=>void }) {
   const { user } = useAuth()
+  const qc = useQueryClient()
   const { data: allClasses=[] } = useClasses()
   const assignMut = useAssignTeacherClasses()
   const { success: ok, error: err } = useToast()
@@ -216,6 +218,8 @@ function ManageClassesModal({ teacher, onClose }: { teacher: TeacherPerfRow; onC
   async function save() {
     try {
       await assignMut.mutateAsync({ staffId: teacher.staffId, classIds: [...selected] })
+      // Invalidate the raw staff-classes cache so reopening the modal is fresh
+      void qc.invalidateQueries({ queryKey: ['staff-classes-raw', teacher.staffId] })
       ok(`Teaching classes updated for ${teacher.name}`)
       onClose()
     } catch(e:any){ err(e?.message??'Failed to update') }

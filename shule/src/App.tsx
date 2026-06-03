@@ -5,6 +5,7 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { AppShell } from './components/layout/AppShell'
 import { PageLoader } from './components/ui/PageLoader'
 import { ErrorBoundary } from './components/shared/ErrorBoundary'
+import { ChunkErrorBoundary } from './components/shared/ChunkErrorBoundary'
 import type { UserRole } from './store/AuthContext'
 
 // ─── Lazy page imports ─────────────────────────────────────────────────────
@@ -71,8 +72,9 @@ const MarkEntryPage            = lazy(() => import('./pages/teacher/MarkEntryPag
 const TeacherRemarksPage       = lazy(() => import('./pages/teacher/TeacherRemarksPage').then(m => ({ default: m.TeacherRemarksPage })))
 const AttendancePage           = lazy(() => import('./pages/teacher/AttendancePage').then(m => ({ default: m.AttendancePage })))
 const TeacherTimetablePage     = lazy(() => import('./pages/teacher/TeacherTimetablePage').then(m => ({ default: m.TeacherTimetablePage })))
-const TeacherCurriculumPage    = lazy(() => import('./pages/teacher/TeacherCurriculumPage').then(m => ({ default: m.TeacherCurriculumPage })))
-const ReportPreviewPage        = lazy(() => import('./pages/teacher/ReportPreviewPage').then(m => ({ default: m.ReportPreviewPage })))
+const TeacherCurriculumPage         = lazy(() => import('./pages/teacher/TeacherCurriculumPage').then(m => ({ default: m.TeacherCurriculumPage })))
+const ReportPreviewPage             = lazy(() => import('./pages/teacher/ReportPreviewPage').then(m => ({ default: m.ReportPreviewPage })))
+const ClassTeacherStudentsPage      = lazy(() => import('./pages/teacher/ClassTeacherStudentsPage').then(m => ({ default: m.ClassTeacherStudentsPage })))
 
 // Student / Parent
 const StudentPortalPage        = lazy(() => import('./pages/student/StudentPortalPage').then(m => ({ default: m.StudentPortalPage })))
@@ -119,6 +121,7 @@ function RoleRedirect() {
 export default function App() {
   return (
     <ErrorBoundary>
+      <ChunkErrorBoundary>
       <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* ── Public ─────────────────────────────────────────────── */}
@@ -175,7 +178,7 @@ export default function App() {
             <Route path="/dos/journals"   element={<DosJournalsPage />} />
             <Route path="/dos/timetable"  element={<DosTimetablePage />} />
             <Route path="/dos/surveys"    element={<DosSurveysPage />} />
-            <Route path="/dos/events"     element={<SharedEventsPage />} />
+            <Route path="/dos/events"     element={<TeacherEventsPage />} />
             <Route path="/dos/messages"   element={<MessagingPage />} />
           </Route>
 
@@ -224,7 +227,8 @@ export default function App() {
             </ProtectedRoute>
           }>
             <Route path="/teacher/dashboard"              element={<TeacherDashboard />} />
-            <Route path="/teacher/events"                 element={<SharedEventsPage />} />
+            <Route path="/teacher/events"                 element={<TeacherEventsPage />} />
+            <Route path="/teacher/my-class"               element={<ClassTeacherStudentsPage />} />
             <Route path="/teacher/exams"                  element={<ExamJournalPage />} />
             <Route path="/teacher/exams/:journalId/marks" element={<MarkEntryPage />} />
             <Route path="/teacher/exams/remarks"          element={<TeacherRemarksPage />} />
@@ -295,6 +299,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      </ChunkErrorBoundary>
     </ErrorBoundary>
   )
 }

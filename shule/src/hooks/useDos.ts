@@ -264,10 +264,10 @@ export function useDosTeacherPerformance() {
     queryFn: async (): Promise<TeacherPerfRow[]> => {
       const sid = user!.schoolId
 
-      const [staffRes, journalsRes, resultsRes, topicsRes] = await Promise.all([
+      const [staffRes, journalsRes, resultsRes, topicsRes, subjectsRes] = await Promise.all([
         supabase
           .from('staff')
-          .select('id, first_name, last_name, subjects, classes, phone, email, staff_number')
+          .select('id, first_name, last_name, role, subjects, classes, phone, email, staff_number')
           .eq('school_id', sid)
           .in('role', ['teacher', 'class_teacher'])
           .eq('is_active', true),
@@ -283,6 +283,11 @@ export function useDosTeacherPerformance() {
           .from('curriculum_plan')
           .select('subject_id, covered_at, school_id')
           .eq('school_id', sid),
+        supabase
+          .from('subjects')
+          .select('id, name')
+          .eq('school_id', sid)
+          .eq('is_active', true),
       ])
 
       if (staffRes.error) throw new Error(staffRes.error.message)
@@ -291,6 +296,12 @@ export function useDosTeacherPerformance() {
       const journals = journalsRes.data ?? []
       const results  = resultsRes.data ?? []
       const topics   = topicsRes.data ?? []
+      const subjects = subjectsRes.data ?? []
+
+      // Subject name lookup
+      const subjectNameMap = new Map<string, string>(
+        subjects.map((s: any) => [s.id as string, s.name as string])
+      )
 
       // Pass mark lookup
       const passMarkMap = new Map<string, number>(
@@ -313,16 +324,20 @@ export function useDosTeacherPerformance() {
         const covered   = tTopics.filter((t: any) => t.covered_at != null).length
         const coverage  = tTopics.length > 0 ? Math.round((covered / tTopics.length) * 100) : 0
 
-        // Get unique subject and class names from journals
+        // Get unique subject and class IDs from journals
         const uniqueSubjects = [...new Set(tJournals.map((j: any) => j.subject_id as string))]
         const uniqueClasses  = [...new Set(tJournals.map((j: any) => j.class_id as string))]
+
+        const assignedSubjectIds = (teacher.subjects ?? []) as string[]
 
         return {
           staffId:             teacher.id,
           name:                `${teacher.first_name} ${teacher.last_name}`,
           subjects:            uniqueSubjects,
-          subjectIds:          (teacher.subjects ?? []) as string[],
+          subjectIds:          assignedSubjectIds,
+          subjectNames:        assignedSubjectIds.map(id => subjectNameMap.get(id) ?? id),
           classes:             uniqueClasses,
+          isClassTeacher:      (teacher.role as string) === 'class_teacher',
           passRate,
           assessmentsThisTerm: tJournals.length,
           curriculumCoverage:  coverage,
@@ -408,6 +423,19 @@ export function useMarkTopicCovered() {
   })
 }
 
+// ── RLS error helper ───────────────────────────────────────────────────────
+function isRlsError(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === '42501' ||
+    (error.message?.includes('row-level security') ?? false) ||
+    (error.message?.includes('permission denied') ?? false)
+  )
+}
+
+const RLS_SQL_FIX = `RLS policy blocks DoS updates. IT Admin must run in Supabase SQL Editor:
+DROP POLICY IF EXISTS "staff_update_admin" ON staff;
+CREATE POLICY "staff_update_admin" ON staff FOR UPDATE TO authenticated USING (school_id = public.user_school_id() AND public.user_role() IN ('principal','secretary','it_admin','dos'));`
+
 // ── useAssignClassTeacher ──────────────────────────────────────────────────
 // Assigns a teacher as class teacher for a stream.
 // Enforces: one class teacher per class — throws if another stream in the
@@ -452,20 +480,33 @@ export function useAssignClassTeacher() {
       }
 
       // Update the stream
-      const { error } = await supabase
+      const { error: streamErr } = await supabase
         .from('streams')
         .update({ class_teacher_id: teacherId })
         .eq('id', streamId)
         .eq('school_id', user.schoolId)
 
-      if (error) throw new Error(error.message)
+      if (streamErr) throw new Error(streamErr.message)
 
-      // Update the staff row to role = class_teacher
-      await supabase
+      // Update staff.role = 'class_teacher' — try direct update, fall back to RPC
+      const { error: staffErr } = await supabase
         .from('staff')
         .update({ role: 'class_teacher' })
         .eq('id', teacherId)
         .eq('school_id', user.schoolId)
+
+      if (staffErr) {
+        if (!isRlsError(staffErr)) throw new Error(staffErr.message)
+
+        // RLS blocked — try RPC fallback
+        const { error: rpcErr } = await supabase.rpc('dos_assign_class_teacher', {
+          p_stream_id: streamId,
+          p_teacher_id: teacherId,
+          p_school_id: user.schoolId,
+        })
+
+        if (rpcErr) throw new Error(RLS_SQL_FIX)
+      }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['dos-teacher-perf', user?.schoolId] })
@@ -481,19 +522,37 @@ export function useAssignTeacherClasses() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ staffId, classIds }: { staffId: string; classIds: string[] }) => {
+      if (!user) throw new Error('Not authenticated')
+      const schoolId = user.schoolId
+
+      // Try direct update first
       const { error } = await supabase
         .from('staff')
         .update({ classes: classIds })
         .eq('id', staffId)
-        .eq('school_id', user!.schoolId)
-      if (error) throw error
+        .eq('school_id', schoolId)
+
+      if (error) {
+        if (!isRlsError(error)) throw new Error(error.message)
+
+        // RLS blocked — try RPC fallback
+        const { error: rpcErr } = await supabase.rpc('dos_assign_classes', {
+          p_staff_id: staffId,
+          p_classes: classIds,
+          p_school_id: schoolId,
+        })
+
+        if (rpcErr) throw new Error(RLS_SQL_FIX)
+      }
+
       return staffId
     },
-    onSuccess: staffId => {
+    onSuccess: (staffId: string) => {
       void qc.invalidateQueries({ queryKey: ['dos-teacher-perf', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['teachers-for-timetable', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['my-staff-record'] })
       void qc.invalidateQueries({ queryKey: ['staff-by-id', staffId] })
+      void qc.invalidateQueries({ queryKey: ['staff-classes-raw', staffId] })
     },
   })
 }
@@ -505,15 +564,32 @@ export function useAssignTeacherSubjects() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ staffId, subjectIds }: { staffId: string; subjectIds: string[] }) => {
+      if (!user) throw new Error('Not authenticated')
+      const schoolId = user.schoolId
+
+      // Try direct update first
       const { error } = await supabase
         .from('staff')
         .update({ subjects: subjectIds })
         .eq('id', staffId)
-        .eq('school_id', user!.schoolId)
-      if (error) throw error
+        .eq('school_id', schoolId)
+
+      if (error) {
+        if (!isRlsError(error)) throw new Error(error.message)
+
+        // RLS blocked — try RPC fallback
+        const { error: rpcErr } = await supabase.rpc('dos_assign_subjects', {
+          p_staff_id: staffId,
+          p_subjects: subjectIds,
+          p_school_id: schoolId,
+        })
+
+        if (rpcErr) throw new Error(RLS_SQL_FIX)
+      }
+
       return staffId
     },
-    onSuccess: staffId => {
+    onSuccess: (staffId: string) => {
       void qc.invalidateQueries({ queryKey: ['dos-teacher-perf', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['teachers-for-timetable', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['staff-by-id', staffId] })

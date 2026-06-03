@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useStaff, useSetStaffActive, type StaffFilters } from '../../hooks/useStaff'
 import { useDepartments } from '../../hooks/useClasses'
@@ -82,8 +83,17 @@ function StaffCard({
   const navigate = useNavigate()
   const [hovered, setHovered] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
+  const menuBtnRef = useRef<HTMLButtonElement>(null)
   const [c1, c2] = roleGrad(staff.role)
   const roleLabel = ROLE_LABELS[staff.role] ?? staff.role
+
+  useEffect(() => {
+    if (!menuOpen) return
+    function close() { setMenuOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [menuOpen])
 
   return (
     <div
@@ -200,9 +210,17 @@ function StaffCard({
               View
             </button>
             {/* More menu */}
-            <div style={{ position: 'relative' }}>
+            <div>
               <button
-                onClick={e => { e.stopPropagation(); setMenuOpen(v => !v) }}
+                ref={menuBtnRef}
+                onClick={e => {
+                  e.stopPropagation()
+                  if (!menuOpen && menuBtnRef.current) {
+                    const r = menuBtnRef.current.getBoundingClientRect()
+                    setMenuPos({ top: r.bottom + 6, left: r.left })
+                  }
+                  setMenuOpen(v => !v)
+                }}
                 style={{
                   width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)',
                   background: menuOpen ? 'var(--surface2)' : 'transparent',
@@ -218,29 +236,33 @@ function StaffCard({
                   <circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/>
                 </svg>
               </button>
-              {menuOpen && (
-                <div style={{
-                  position: 'absolute', left: 0, top: 'calc(100% + 6px)', zIndex: 200,
-                  background: 'var(--surface)', border: '.5px solid var(--border)',
-                  borderRadius: 12, boxShadow: '0 8px 28px rgba(0,0,0,.14)',
-                  minWidth: 148, overflow: 'hidden',
-                }}>
-                  <button
-                    onClick={() => { setMenuOpen(false); onActivate(staff.id, `${staff.firstName} ${staff.lastName}`, staff.isActive) }}
-                    style={{
-                      width: '100%', padding: '10px 14px', border: 'none', background: 'none',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-                      fontSize: 12.5, fontWeight: 700,
-                      color: staff.isActive ? '#f59e0b' : '#10b981', transition: 'background .1s',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = staff.isActive ? 'rgba(245,158,11,.07)' : 'rgba(16,185,129,.07)' }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none' }}
-                  >
-                    {staff.isActive ? 'Deactivate' : 'Reactivate'}
-                  </button>
-                </div>
-              )}
             </div>
+            {menuOpen && createPortal(
+              <div
+                onMouseDown={e => e.stopPropagation()}
+                style={{
+                  position: 'fixed', top: menuPos.top, left: menuPos.left, zIndex: 9999,
+                  background: 'var(--surface)', border: '.5px solid var(--border)',
+                  borderRadius: 12, boxShadow: '0 8px 28px rgba(0,0,0,.18)',
+                  minWidth: 148, overflow: 'hidden',
+                }}
+              >
+                <button
+                  onClick={() => { setMenuOpen(false); onActivate(staff.id, `${staff.firstName} ${staff.lastName}`, staff.isActive) }}
+                  style={{
+                    width: '100%', padding: '10px 14px', border: 'none', background: 'none',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                    fontSize: 12.5, fontWeight: 700,
+                    color: staff.isActive ? '#f59e0b' : '#10b981', transition: 'background .1s',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = staff.isActive ? 'rgba(245,158,11,.07)' : 'rgba(16,185,129,.07)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none' }}
+                >
+                  {staff.isActive ? 'Deactivate' : 'Reactivate'}
+                </button>
+              </div>,
+              document.body
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>

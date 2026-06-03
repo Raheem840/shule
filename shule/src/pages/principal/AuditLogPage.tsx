@@ -691,16 +691,39 @@ export function AuditLogPage() {
   return (
     <div className="sui-page-enter stagger-sections" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* ── Hero header ─────────────────────────────────────── */}
-      <div className="sui-hero-band">
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)', margin: '0 0 4px' }}>
-              Activity Log
-            </h1>
-            <div style={{ fontSize: 13, color: 'var(--txt3)' }}>
-              A complete record of everything that has been added, changed, or removed — and who did it.
+      {/* Hero Band */}
+      <div style={{
+        borderRadius: 18, overflow: 'hidden',
+        background: 'linear-gradient(135deg, #475569 0%, #334155 100%)',
+        padding: '28px 28px 24px', position: 'relative',
+      }}>
+        <div style={{ position: 'absolute', top: -30, right: -30, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,.08)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -20, right: 60, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,.06)', pointerEvents: 'none' }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 13, background: 'rgba(255,255,255,.20)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                <rect x="9" y="3" width="6" height="4" rx="1"/>
+                <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
+              </svg>
             </div>
+            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 24, color: '#fff', margin: 0, letterSpacing: -.4 }}>Activity Log</h1>
+          </div>
+          <p style={{ color: 'rgba(255,255,255,.75)', fontSize: 13, margin: '0 0 20px', fontWeight: 500 }}>
+            A complete record of everything that has been added, changed, or removed — and who did it.
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Activity Log', value: activeTab === 'activity' ? 'Active' : '—' },
+              { label: 'Message Log', value: activeTab === 'messages' ? 'Active' : '—' },
+              { label: 'Audit Trail', value: 'Live' },
+            ].map(stat => (
+              <div key={stat.label} style={{ background: 'rgba(255,255,255,.18)', backdropFilter: 'blur(8px)', border: '.5px solid rgba(255,255,255,.28)', borderRadius: 12, padding: '10px 16px', minWidth: 80 }}>
+                <div style={{ fontSize: 14, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)', lineHeight: 1 }}>{stat.value}</div>
+                <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,.72)', marginTop: 3, fontWeight: 600, letterSpacing: .3 }}>{stat.label}</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
