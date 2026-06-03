@@ -238,7 +238,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
   const [step,         setStep]         = useState(1)
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null)
   const [uploading,    setUploading]    = useState<Record<number, boolean>>({})
-  const [creds,        setCreds]        = useState<{ email: string; password: string } | null>(null)
+  // Auth account activation is IT Admin's responsibility — no credential state here
   const photoRef = useRef<HTMLInputElement>(null)
 
   const { user }               = useAuth()
@@ -295,7 +295,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
   }, [step, nextNum])
 
   useEffect(() => {
-    if (!open) { reset(); setStep(1); setPhotoDataUrl(null); setUploading({}); setCreds(null) }
+    if (!open) { reset(); setStep(1); setPhotoDataUrl(null); setUploading({}) }
   }, [open])
 
   // When toggling mode, reset to step 1 so we never land on an invalid step
@@ -374,23 +374,10 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
           } catch { /* non-critical — registration already succeeded */ }
         }
 
-        // Invoke Edge Function to create Supabase Auth account for this staff member
-        const email = values.email?.trim()
-        if (email) {
-          supabase.functions.invoke('create-staff-auth-user', {
-            body: { staffId: id, email, schoolId: user!.schoolId },
-          }).catch(() => { /* Edge Function may not be deployed yet */ })
-        }
-
         ok(`${values.firstName} ${values.lastName} registered successfully`)
         onSuccess?.(id)
-
-        // Show credentials so Secretary can hand them to the new staff member
-        if (email) {
-          setCreds({ email, password: 'Shule@2025' })
-        } else {
-          onClose()
-        }
+        // Auth account activation is handled by IT Admin in the Users page
+        onClose()
       },
       onError: e => err(e.message),
     })
@@ -407,19 +394,14 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
       size="xl"
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-          {creds
-            ? <div />
-            : <Button variant="ghost" onClick={step === 1 ? onClose : () => setStep(s => s - 1)}>
-                {step === 1 ? 'Cancel' : '← Back'}
+          <Button variant="ghost" onClick={step === 1 ? onClose : () => setStep(s => s - 1)}>
+            {step === 1 ? 'Cancel' : '← Back'}
+          </Button>
+          {!isLastStep
+            ? <Button variant="primary" onClick={next}>Continue →</Button>
+            : <Button variant="primary" type="submit" form="reg-staff-form" loading={isLoading}>
+                {isExisting ? 'Register Staff' : 'Register Staff Member'}
               </Button>
-          }
-          {creds
-            ? <Button variant="primary" onClick={onClose}>Done — Close</Button>
-            : !isLastStep
-              ? <Button variant="primary" onClick={next}>Continue →</Button>
-              : <Button variant="primary" type="submit" form="reg-staff-form" loading={isLoading}>
-                  {isExisting ? 'Register Staff' : 'Register Staff Member'}
-                </Button>
           }
         </div>
       }
@@ -744,22 +726,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
               </button>
             )}
 
-            {/* Credential display — only visible after successful registration */}
-            {creds && (
-              <div style={{ padding: '1rem', background: 'var(--success-bg)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 'var(--r-lg)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
-                    Staff registered — share login credentials
-                  </span>
-                </div>
-                <CredRow label="Email" value={creds.email} />
-                <CredRow label="Temp password" value={creds.password} />
-                <div style={{ marginTop: 8, fontSize: 11, color: 'var(--txt3)' }}>
-                  Staff member must change this password on first login.
-                </div>
-              </div>
-            )}
+            {/* IT Admin activates auth accounts from the Users page */}
           </div>
         )}
       </form>

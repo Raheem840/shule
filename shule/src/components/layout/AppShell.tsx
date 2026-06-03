@@ -103,28 +103,42 @@ function getPageTitle(pathname: string, nav: import('../../config/roleNav').Role
 
 export function AppShell() {
   const { user, signOut } = useAuth()
-  const [theme, setTheme]       = useState<'light' | 'dark'>(getStoredTheme)
-  const [drawerOpen, setDrawer] = useState(false)
+  const [theme, setTheme]               = useState<'light' | 'dark'>(getStoredTheme)
+  const [drawerOpen, setDrawer]         = useState(false)
+  const [showPwBanner, setShowPwBanner] = useState(false)
   const location  = useLocation()
   const navigate  = useNavigate()
   const isMobile  = useIsMobile()
   const { data: schoolSettings } = useSchoolSettings()
   const { data: unreadCount = 0 } = useUnreadCount()
 
-  // Fetch real first name from staff table — JWT full_name claim is often
-  // missing for accounts created directly in Supabase dashboard, so user.name
-  // falls back to email which the greeting() helper capitalises to "Principal".
+  // Staff-only roles that get the first-login password prompt
+  const isStaffRole = user?.role && !['student', 'parent'].includes(user.role)
+
+  // Fetch real first name + check first login (last_login_at null = never logged in before)
   const { data: staffFirstName } = useQuery({
     queryKey: ['staff-first-name', user?.id],
     enabled: !!user?.id,
     staleTime: 10 * 60_000,
     queryFn: async () => {
+      if (!isStaffRole) return null
       const { data } = await supabase
         .from('staff')
-        .select('first_name')
+        .select('first_name, last_login_at')
         .eq('auth_user_id', user!.id)
         .single()
-      return (data?.first_name as string | null) ?? null
+      if (!data) return null
+
+      // Show the password change prompt only on the very first login
+      if (!data.last_login_at) setShowPwBanner(true)
+
+      // Stamp last_login_at so the prompt won't show again
+      void supabase
+        .from('staff')
+        .update({ last_login_at: new Date().toISOString() })
+        .eq('auth_user_id', user!.id)
+
+      return (data.first_name as string | null) ?? null
     },
   })
 
@@ -202,6 +216,38 @@ export function AppShell() {
       {/* ── RIGHT PANEL ──────────────────────────────────────────── */}
       <div className="shell-r">
         <OfflineBanner />
+
+        {/* First-login password change prompt — dismissable, not mandatory */}
+        {showPwBanner && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '10px 20px',
+            background: 'linear-gradient(90deg,rgba(139,92,246,.12),rgba(99,102,241,.08))',
+            borderBottom: '1px solid rgba(139,92,246,.2)',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" style={{ flexShrink: 0 }}>
+              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+            <span style={{ flex: 1, fontSize: 13, color: 'var(--txt2)', lineHeight: 1.4 }}>
+              <strong style={{ color: 'var(--txt)' }}>Welcome!</strong> You are logged in with your default credentials.
+              Consider{' '}
+              <button
+                onClick={() => { navigate('/profile'); setShowPwBanner(false) }}
+                style={{ background: 'none', border: 'none', padding: 0, color: '#8b5cf6', fontWeight: 700, fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                changing your password
+              </button>
+              {' '}when ready — it is not mandatory right now.
+            </span>
+            <button
+              onClick={() => setShowPwBanner(false)}
+              aria-label="Dismiss"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', padding: 4, borderRadius: 6, flexShrink: 0 }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        )}
 
         {/* Mobile topbar */}
         <div className="mob-topbar">
