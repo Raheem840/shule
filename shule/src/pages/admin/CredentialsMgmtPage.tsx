@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../components/ui/Toast'
@@ -15,7 +15,6 @@ import {
   useResetStudentPassword,
   getPendingStudentActivations,
   clearPendingStudentActivation,
-  type PendingStudentActivation,
 } from '../../hooks/useStudents'
 import { useSchoolSettings } from '../../hooks/useAdmin'
 
@@ -30,19 +29,6 @@ function generateRandomPassword(): string {
 // ── Types ──────────────────────────────────────────────────────────────────────
 type TabId = 'staff' | 'students' | 'parents'
 
-type StaffRow = {
-  id: string
-  school_id: string
-  auth_user_id: string | null
-  first_name: string
-  last_name: string
-  role: string
-  email: string | null
-  is_active: boolean
-  staff_number: string
-  phone: string | null
-  department_id: string | null
-}
 
 type StudentRow = {
   id: string
@@ -344,7 +330,7 @@ function StaffPanel({
   onPasswordResult: (r: PasswordResult) => void
 }) {
   const { data: allStaff = [], isLoading } = useStaff({})
-  const { ok, err } = useToast()
+  const { success: ok, error: err } = useToast()
   const qc = useQueryClient()
 
   const activate = useActivateStaffLogin()
@@ -438,7 +424,7 @@ function StaffPanel({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       {/* Toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 18px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: '8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 18px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 12px', height: 36, flex: 1, minWidth: 200 }}>
           <IcoSearch />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, staff number or email…" style={{ border: 'none', background: 'transparent', fontSize: 12.5, color: 'var(--txt)', outline: 'none', flex: 1 }} />
@@ -548,7 +534,7 @@ function StudentsPanel({
   schoolShortName: string
   onPasswordResult: (r: PasswordResult) => void
 }) {
-  const { ok, err } = useToast()
+  const { success: ok, error: err } = useToast()
   const { data: classes = [] } = useClasses()
   const classMap = useMemo(() => new Map(classes.map(c => [c.id, c.name])), [classes])
 
@@ -560,7 +546,10 @@ function StudentsPanel({
   const [selected, setSelected] = useState<BulkSelection>(new Set())
   const [busyIds,  setBusyIds]  = useState<Set<string>>(new Set())
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [copiedPwId, setCopiedPwId] = useState<string | null>(null)
   const [confirm,  setConfirm]  = useState<{ title: string; body: string; onConfirm: () => void } | null>(null)
+  // Force re-render when localStorage changes (e.g. after creating a login)
+  const [localPendingVersion, setLocalPendingVersion] = useState(0)
 
   const { data: allStudents = [], isLoading } = useQuery({
     queryKey: ['students-creds', schoolId],
@@ -576,8 +565,9 @@ function StudentsPanel({
     },
   })
 
-  // Merge with localStorage pending activations so pending emails show
-  const localPending = useMemo(() => getPendingStudentActivations(), [allStudents])
+  // Merge with localStorage pending activations so pending emails and passwords show
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const localPending = useMemo(() => getPendingStudentActivations(), [allStudents, localPendingVersion])
 
   const filtered = useMemo(() => {
     let out = allStudents
@@ -608,6 +598,7 @@ function StudentsPanel({
     try {
       const r = await createLogin.mutateAsync(s.id)
       onPasswordResult({ id: s.id, name: `${s.first_name} ${s.last_name}`, email: r.email, password: r.tempPassword, type: 'students' })
+      setLocalPendingVersion(v => v + 1)
       ok('Login created')
     } catch (e) { err(e instanceof Error ? e.message : 'Failed') }
     finally { setBusy(s.id, false) }
@@ -621,9 +612,21 @@ function StudentsPanel({
     try {
       const r = await resetPw.mutateAsync({ studentId: s.id, authUserId: s.auth_user_id, email, name, admissionNumber: s.admission_number })
       onPasswordResult({ id: s.id, name, email: r.email, password: r.tempPassword, type: 'students' })
+      setLocalPendingVersion(v => v + 1)
       ok('Password reset')
     } catch (e) { err(e instanceof Error ? e.message : 'Reset failed') }
     finally { setBusy(s.id, false) }
+  }
+
+  function handleClearPending(studentId: string) {
+    clearPendingStudentActivation(studentId)
+    setLocalPendingVersion(v => v + 1)
+  }
+
+  async function handleUnlinkStudent(s: StudentRow) {
+    const { error } = await supabase.from('students').update({ auth_user_id: null }).eq('id', s.id).eq('school_id', schoolId)
+    if (error) { err(error.message); return }
+    ok('Auth user unlinked — student can be re-registered')
   }
 
   function toggleSelect(id: string) {
@@ -679,17 +682,18 @@ function StudentsPanel({
             </div>
           )
           : filtered.map(s => {
-            const isBusy = busyIds.has(s.id)
-            const email  = derivedEmail(s)
+            const isBusy  = busyIds.has(s.id)
+            const email   = derivedEmail(s)
+            const pending = localPending[s.id]
             return (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 18px', borderBottom: '1px solid var(--border)', background: selected.has(s.id) ? 'rgba(13,148,136,.04)' : 'transparent', transition: 'background 0.15s' }}>
+              <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 18px', borderBottom: '1px solid var(--border)', background: selected.has(s.id) ? 'rgba(13,148,136,.04)' : 'transparent', transition: 'background 0.15s' }}>
                 <input
                   type="checkbox"
                   checked={selected.has(s.id)}
                   onChange={() => toggleSelect(s.id)}
-                  style={{ width: 15, height: 15, flexShrink: 0, accentColor: 'var(--brand)', cursor: 'pointer' }}
+                  style={{ width: 15, height: 15, flexShrink: 0, accentColor: 'var(--brand)', cursor: 'pointer', marginTop: 10 }}
                 />
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,var(--info),var(--brand))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,var(--info),var(--brand))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
                   <span style={{ fontSize: 12, fontWeight: 800, color: '#fff' }}>
                     {s.first_name[0]?.toUpperCase()}{s.last_name[0]?.toUpperCase()}
                   </span>
@@ -704,20 +708,52 @@ function StudentsPanel({
                   <div style={{ fontSize: 11, color: 'var(--brand)', fontFamily: 'var(--font3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {email}
                   </div>
-                </div>
-                <StatusPill authUserId={s.auth_user_id} />
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-                  {!s.auth_user_id ? (
-                    <ActionBtn onClick={() => void handleActivate(s)} disabled={isBusy} label={isBusy ? 'Creating…' : 'Create Login'} icon={<IcoKey />} variant="brand" />
-                  ) : (
-                    <ActionBtn onClick={() => void handleReset(s)} disabled={isBusy} label={isBusy ? 'Resetting…' : 'Reset PW'} icon={<IcoRefresh />} variant="warning" />
+                  {/* Temp password stored in localStorage — show reveal + clear */}
+                  {pending && (
+                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5 }}>Temp PW:</span>
+                      <ParentPasswordReveal password={pending.tempPassword} />
+                      <button
+                        onClick={() => handleClearPending(s.id)}
+                        title="Mark as saved and clear from this device"
+                        style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--txt3)', fontSize: 10, fontWeight: 700, padding: '2px 7px', display: 'flex', alignItems: 'center', gap: 3 }}
+                      >
+                        <IcoCheck /><span>Saved</span>
+                      </button>
+                    </div>
                   )}
-                  <ActionBtn
-                    onClick={() => { copy(email, () => { setCopiedId(s.id); setTimeout(() => setCopiedId(null), 2000) }) }}
-                    label={copiedId === s.id ? 'Copied' : 'Copy Email'}
-                    icon={copiedId === s.id ? <IcoCheck /> : <IcoCopy />}
-                    variant="ghost"
-                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                  <StatusPill authUserId={s.auth_user_id} />
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    {!s.auth_user_id ? (
+                      <ActionBtn onClick={() => void handleActivate(s)} disabled={isBusy} label={isBusy ? 'Creating…' : 'Create Login'} icon={<IcoKey />} variant="brand" />
+                    ) : (
+                      <>
+                        <ActionBtn onClick={() => void handleReset(s)} disabled={isBusy} label={isBusy ? 'Resetting…' : 'Reset PW'} icon={<IcoRefresh />} variant="warning" />
+                        <ActionBtn
+                          onClick={() => setConfirm({ title: `Unlink auth for ${s.first_name}?`, body: 'This sets auth_user_id to null on the student record. Use this if the account shows Active but the student cannot log in (orphan). You can then re-create the login.', onConfirm: () => { void handleUnlinkStudent(s); setConfirm(null) } })}
+                          label="Unlink"
+                          icon={<IcoUnlink />}
+                          variant="danger"
+                        />
+                      </>
+                    )}
+                    {pending ? (
+                      <ActionBtn
+                        onClick={() => { copy(pending.tempPassword, () => { setCopiedPwId(s.id); setTimeout(() => setCopiedPwId(null), 2000) }) }}
+                        label={copiedPwId === s.id ? 'Copied!' : 'Copy PW'}
+                        icon={copiedPwId === s.id ? <IcoCheck /> : <IcoKey />}
+                        variant="ghost"
+                      />
+                    ) : null}
+                    <ActionBtn
+                      onClick={() => { copy(email, () => { setCopiedId(s.id); setTimeout(() => setCopiedId(null), 2000) }) }}
+                      label={copiedId === s.id ? 'Copied' : 'Copy Email'}
+                      icon={copiedId === s.id ? <IcoCheck /> : <IcoCopy />}
+                      variant="ghost"
+                    />
+                  </div>
                 </div>
               </div>
             )
@@ -747,7 +783,7 @@ function ParentsPanel({
   schoolId: string
   onPasswordResult: (r: PasswordResult) => void
 }) {
-  const { ok, err } = useToast()
+  const { success: ok, error: err } = useToast()
   const qc = useQueryClient()
 
   const [search,    setSearch]   = useState('')
@@ -1072,8 +1108,9 @@ export function CredentialsMgmtPage() {
       <div style={{ borderRadius: 12, border: '1px solid rgba(245,158,11,.25)', background: 'rgba(245,158,11,.05)', padding: '10px 16px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ color: 'var(--warning)', marginTop: 1, flexShrink: 0 }}><IcoWarn /></div>
         <div style={{ fontSize: 12, color: 'var(--txt2)', lineHeight: 1.6 }}>
-          <strong style={{ color: 'var(--warning)' }}>Orphan accounts</strong> have an auth_user_id but no email on record — use "Unlink" to clean them up.{' '}
-          <strong style={{ color: 'var(--warning)' }}>Duplicate email</strong> badges warn when the same address appears on multiple accounts. Review and resolve before users experience login issues.
+          <strong style={{ color: 'var(--warning)' }}>Orphan accounts</strong> — if a user shows as <em>Active</em> but cannot log in, the auth user may have been deleted. Use <strong>"Unlink"</strong> to reset the auth link, then re-create the login.{' '}
+          Staff orphans are also detected when <em>auth_user_id is set but no email is on file</em>.{' '}
+          <strong style={{ color: 'var(--warning)' }}>Duplicate email</strong> badges warn when the same address appears on multiple accounts — resolve before users encounter login conflicts.
         </div>
       </div>
 

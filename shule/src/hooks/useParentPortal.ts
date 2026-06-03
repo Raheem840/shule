@@ -1,8 +1,241 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
+import { calcFeeStatus } from './useFeePayments'
+import type { Student } from '../types/app'
 
 type AnyRow = Record<string, unknown>
+
+// ── Shared portal types ───────────────────────────────────────
+export type PortalReportCard = {
+  id:              string
+  term:            string | number
+  year:            number
+  pdfUrl:          string | null
+  releasedAt:      string | null
+  principalRemarks?: string | null
+}
+
+export type ExamResultRow = {
+  subjectName:    string
+  assessmentType: string
+  journalName:    string
+  score:          number | null
+  grade:          string | null
+  totalMarks:     number
+  term:           string
+  year:           number
+  isAbsent:       boolean
+}
+
+export type StudentFeeRecord = {
+  id:            string
+  termLabel:     string
+  amountDue:     number
+  amountPaid:    number
+  balance:       number
+  paymentDate:   string | null
+  receiptNumber: string | null
+  status:        'paid' | 'partial' | 'unpaid'
+}
+
+// ── useParentStudents ─────────────────────────────────────────
+// Fetches all students linked to the parent's account via student_ids JWT claim.
+export function useParentStudents() {
+  const { user } = useAuth()
+  const studentIds = user?.studentIds ?? []
+
+  return useQuery({
+    queryKey: ['parent-students', user?.schoolId, studentIds],
+    enabled:  !!user?.schoolId && studentIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('students')
+        .select('id, school_id, admission_number, first_name, last_name, dob, gender, class_id, stream_id, photo_url, status, enrolled_at, student_type, nationality, religion, medical_notes, previous_school')
+        .eq('school_id', user!.schoolId)
+        .in('id', studentIds)
+        .order('first_name')
+
+      if (error) throw error
+
+      return ((data ?? []) as AnyRow[]).map(r => ({
+        id:             r.id as string,
+        schoolId:       r.school_id as string,
+        admissionNumber: r.admission_number as string,
+        firstName:      r.first_name as string,
+        lastName:       r.last_name as string,
+        dob:            (r.dob as string) ?? null,
+        gender:         (r.gender as Student['gender']) ?? null,
+        nationality:    (r.nationality as string) ?? 'Ugandan',
+        religion:       (r.religion as string) ?? null,
+        classId:        (r.class_id as string) ?? null,
+        streamId:       (r.stream_id as string) ?? null,
+        studentType:    (r.student_type as Student['studentType']) ?? null,
+        previousSchool: (r.previous_school as string) ?? null,
+        photoUrl:       (r.photo_url as string) ?? null,
+        medicalNotes:   (r.medical_notes as string) ?? null,
+        status:         r.status as Student['status'],
+        enrolledAt:     r.enrolled_at as string,
+        createdBy:      null,
+      } satisfies Student))
+    },
+  })
+}
+
+// ── useStudentReleasedReportCards ─────────────────────────────
+export function useStudentReleasedReportCards(studentId: string | null) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['parent-report-cards', user?.schoolId, studentId],
+    enabled:  !!studentId && !!user?.schoolId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('report_cards')
+        .select('id, term, year, pdf_url, released_at, principal_remarks')
+        .eq('school_id',  user!.schoolId)
+        .eq('student_id', studentId!)
+        .eq('status',     'released')
+        .order('year',  { ascending: false })
+        .order('term',  { ascending: false })
+
+      if (error) throw error
+
+      return ((data ?? []) as AnyRow[]).map(r => ({
+        id:              r.id as string,
+        term:            r.term as string,
+        year:            r.year as number,
+        pdfUrl:          (r.pdf_url as string) ?? null,
+        releasedAt:      (r.released_at as string) ?? null,
+        principalRemarks: (r.principal_remarks as string) ?? null,
+      } satisfies PortalReportCard))
+    },
+  })
+}
+
+// ── useStudentExamSummary ─────────────────────────────────────
+export function useStudentExamSummary(studentId: string | null) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['parent-exam-summary', user?.schoolId, studentId],
+    enabled:  !!studentId && !!user?.schoolId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('exam_results')
+        .select('score, grade, term, year, exam_journal_id, is_absent')
+        .eq('school_id',  user!.schoolId)
+        .eq('student_id', studentId!)
+        .order('year', { ascending: false })
+        .order('term', { ascending: false })
+
+      if (error) throw error
+      if (!data || data.length === 0) return []
+
+      const journalIds = [...new Set((data as AnyRow[]).map(r => r.exam_journal_id as string))]
+      const { data: journals, error: jErr } = await supabase
+        .from('exam_journal')
+        .select('id, name, assessment_type, total_marks, subject_id')
+        .in('id', journalIds)
+        .eq('status', 'published')
+
+      if (jErr) throw jErr
+
+      const subjectIds = [...new Set(((journals ?? []) as AnyRow[]).map(j => j.subject_id as string))]
+      const { data: subjects } = await supabase
+        .from('subjects')
+        .select('id, name')
+        .in('id', subjectIds)
+
+      const journalMap = new Map<string, AnyRow>()
+      for (const j of (journals ?? []) as AnyRow[]) journalMap.set(j.id as string, j)
+      const subjectMap = new Map<string, string>()
+      for (const s of (subjects ?? []) as AnyRow[]) subjectMap.set(s.id as string, s.name as string)
+
+      return (data as AnyRow[]).map(r => {
+        const j = journalMap.get(r.exam_journal_id as string)
+        return {
+          subjectName:    j ? (subjectMap.get(j.subject_id as string) ?? '—') : '—',
+          assessmentType: (j?.assessment_type as string) ?? '—',
+          journalName:    (j?.name as string) ?? '—',
+          score:          (r.score as number) ?? null,
+          grade:          (r.grade as string) ?? null,
+          totalMarks:     (j?.total_marks as number) ?? 0,
+          term:           r.term as string,
+          year:           r.year as number,
+          isAbsent:       (r.is_absent as boolean) ?? false,
+        } satisfies ExamResultRow
+      })
+    },
+  })
+}
+
+// ── useStudentFeeBalance ──────────────────────────────────────
+export function useStudentFeeBalance(studentId: string | null) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['parent-fee-balance', user?.schoolId, studentId],
+    enabled:  !!studentId && !!user?.schoolId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('fee_payments')
+        .select('id, amount_due, amount_paid, balance, payment_date, receipt_number, term')
+        .eq('school_id',  user!.schoolId)
+        .eq('student_id', studentId!)
+        .order('payment_date', { ascending: false, nullsFirst: false })
+        .order('term',         { ascending: false })
+
+      if (error) throw error
+
+      return ((data ?? []) as AnyRow[]).map(r => {
+        const amtDue  = Number(r.amount_due)  || 0
+        const amtPaid = Number(r.amount_paid) || 0
+        const balance = Number(r.balance)     ?? (amtDue - amtPaid)
+        return {
+          id:            r.id as string,
+          termLabel:     `Term ${r.term}`,
+          amountDue:     amtDue,
+          amountPaid:    amtPaid,
+          balance,
+          paymentDate:   (r.payment_date as string) ?? null,
+          receiptNumber: (r.receipt_number as string) ?? null,
+          status:        calcFeeStatus(amtPaid, balance),
+        } satisfies StudentFeeRecord
+      })
+    },
+  })
+}
+
+// ── useSchoolNotices ──────────────────────────────────────────
+// Returns the last 20 school-wide announcements (messages marked is_announcement=true).
+export function useSchoolNotices() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['school-notices', user?.schoolId],
+    enabled:  !!user?.schoolId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id, body, link, sent_at')
+        .eq('school_id',     user!.schoolId)
+        .eq('is_announcement', true)
+        .order('sent_at', { ascending: false })
+        .limit(20)
+
+      if (error) throw error
+
+      return ((data ?? []) as AnyRow[]).map(r => ({
+        id:        r.id as string,
+        body:      r.body as string,
+        link:      (r.link as string) ?? null,
+        createdAt: r.sent_at as string,
+      }))
+    },
+  })
+}
 
 // ── useParentAccounts ─────────────────────────────────────────
 export function useParentAccounts() {
