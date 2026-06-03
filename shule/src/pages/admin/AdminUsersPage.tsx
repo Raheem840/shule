@@ -804,25 +804,29 @@ export function AdminUsersPage() {
         </div>
 
         {/* Sub-tabs: Pending | Active */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          {section === 'staff'
-            ? ([
+        {(() => {
+          const subTabs = section === 'staff'
+            ? [
                 { id: 'pending' as const, label: 'Pending Activation', count: staffPending.length, red: staffPending.length > 0 },
                 { id: 'active'  as const, label: 'Active Logins',      count: staffActive.length,  red: false },
-              ])
-            : ([
+              ]
+            : [
                 { id: 'pending' as const, label: 'Pending Activation', count: studentsPending.length, red: studentsPending.length > 0 },
                 { id: 'active'  as const, label: 'Active Logins',      count: studentsActive.length,  red: false },
-              ])
-          }.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 99, cursor: 'pointer', fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13, background: tab === t.id ? 'linear-gradient(135deg,#8b5cf6,#6366f1)' : 'var(--surface)', color: tab === t.id ? '#fff' : 'var(--txt2)', boxShadow: tab === t.id ? '0 4px 14px rgba(99,102,241,.35)' : 'none', border: tab === t.id ? 'none' : '1px solid var(--border)', transition: 'all 0.18s' }}>
-              {t.label}
-              <span style={{ background: tab === t.id ? 'rgba(255,255,255,.25)' : t.red ? 'rgba(244,63,94,.12)' : 'var(--surface2)', color: tab === t.id ? '#fff' : t.red ? 'var(--danger)' : 'var(--txt3)', borderRadius: 99, padding: '2px 8px', fontSize: 11, fontWeight: 800 }}>
-                {t.count}
-              </span>
-            </button>
-          ))}
-        </div>
+              ]
+          return (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {subTabs.map(t => (
+                <button key={t.id} onClick={() => setTab(t.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 99, cursor: 'pointer', fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13, background: tab === t.id ? 'linear-gradient(135deg,#8b5cf6,#6366f1)' : 'var(--surface)', color: tab === t.id ? '#fff' : 'var(--txt2)', boxShadow: tab === t.id ? '0 4px 14px rgba(99,102,241,.35)' : 'none', border: tab === t.id ? 'none' : '1px solid var(--border)', transition: 'all 0.18s' }}>
+                  {t.label}
+                  <span style={{ background: tab === t.id ? 'rgba(255,255,255,.25)' : t.red ? 'rgba(244,63,94,.12)' : 'var(--surface2)', color: tab === t.id ? '#fff' : t.red ? 'var(--danger)' : 'var(--txt3)', borderRadius: 99, padding: '2px 8px', fontSize: 11, fontWeight: 800 }}>
+                    {t.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )
+        })()}
 
         {/* Search + role pills (staff only shows role filter) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

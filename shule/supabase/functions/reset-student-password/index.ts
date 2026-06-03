@@ -55,8 +55,19 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
+    // Fetch the student's school_id to patch app_metadata
+    const { data: studentRow } = await serviceClient
+      .from('students')
+      .select('school_id')
+      .eq('auth_user_id', userId)
+      .maybeSingle()
+
     const { error: updateError } = await serviceClient.auth.admin.updateUserById(userId, {
       password: newPassword,
+      app_metadata: {
+        user_role: 'student',
+        school_id: studentRow?.school_id ?? null,
+      },
     })
 
     if (updateError) {

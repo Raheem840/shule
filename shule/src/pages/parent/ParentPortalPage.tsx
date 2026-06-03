@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   useParentStudents,
   useStudentReleasedReportCards,
@@ -7,140 +7,253 @@ import {
   useSchoolNotices,
 } from '../../hooks/useParentPortal'
 import { useAttendanceSummary, useStudentAttendanceHistory } from '../../hooks/useAttendance'
-import { Badge } from '../../components/ui/Badge'
-import { Card } from '../../components/ui/Card'
-import { PageHeader } from '../../components/ui/PageHeader'
+import { useClasses, useStreams } from '../../hooks/useClasses'
+import { useAuth } from '../../store/AuthContext'
 import { Avatar } from '../../components/shared/Avatar'
 import type { Student } from '../../types/app'
 import type { AttendanceDay } from '../../hooks/useAttendance'
 import type { ExamResultRow, StudentFeeRecord, PortalReportCard } from '../../hooks/useParentPortal'
 
-// ── Shared styles ──────────────────────────────────────────────
-const TH: React.CSSProperties = {
-  textAlign: 'left', fontSize: 10, fontWeight: 900, letterSpacing: '1px',
-  textTransform: 'uppercase', color: 'var(--txt3)', padding: '0.5rem 0.85rem',
-  borderBottom: '1px solid var(--border)', background: 'var(--surface2)',
-  fontFamily: 'var(--font2)', whiteSpace: 'nowrap',
-}
-const TD: React.CSSProperties = {
-  padding: '0.55rem 0.85rem', borderBottom: '1px solid var(--border)',
-  color: 'var(--txt2)', verticalAlign: 'middle', fontSize: 12.5,
+// ── Design tokens (all via CSS vars) ─────────────────────────────
+
+const GRADE_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
+  A: { color: '#10b981', bg: 'rgba(16,185,129,0.12)', label: 'Excellent' },
+  B: { color: '#0d9488', bg: 'rgba(13,148,136,0.12)', label: 'Good' },
+  C: { color: '#0ea5e9', bg: 'rgba(14,165,233,0.12)', label: 'Average' },
+  D: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', label: 'Below Avg' },
+  E: { color: '#f43f5e', bg: 'rgba(244,63,94,0.12)',  label: 'Fail' },
 }
 
-// ── Attendance status colour map ───────────────────────────────
-const ATT_COLOR: Record<string, string> = {
+const ATT_COLORS: Record<string, string> = {
   present: 'var(--success)',
   absent:  'var(--danger)',
   late:    'var(--warning)',
   excused: 'var(--info)',
 }
 
-// ── KPI tile ───────────────────────────────────────────────────
-function KpiTile({ label, value, color }: { label: string; value: number | string; color?: string }) {
+const fmtUGX = (n: number) =>
+  'UGX ' + n.toLocaleString('en-UG', { minimumFractionDigits: 0 })
+
+// ── Name → avatar hue ────────────────────────────────────────────
+function nameHue(name: string) {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360
+  return h
+}
+
+// ── SVG Donut ────────────────────────────────────────────────────
+function DonutChart({
+  segments, size = 120, thickness = 16,
+}: {
+  segments: { value: number; color: string }[]
+  size?: number
+  thickness?: number
+}) {
+  const r   = (size - thickness) / 2
+  const circ = 2 * Math.PI * r
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1
+
+  let offset = 0
+  const arcs = segments.map(seg => {
+    const len  = (seg.value / total) * circ
+    const arc  = { offset, len, color: seg.color }
+    offset += len
+    return arc
+  })
+
+  return (
+    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke="var(--border)" strokeWidth={thickness}
+      />
+      {arcs.map((arc, i) => arc.len > 0 && (
+        <circle
+          key={i}
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none"
+          stroke={arc.color}
+          strokeWidth={thickness}
+          strokeDasharray={`${arc.len} ${circ - arc.len}`}
+          strokeDashoffset={-arc.offset}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dasharray 0.6s ease' }}
+        />
+      ))}
+    </svg>
+  )
+}
+
+// ── Skeleton ─────────────────────────────────────────────────────
+function Skeleton({ w, h, r = 8 }: { w?: string; h?: number; r?: number }) {
+  return (
+    <div className="shule-skeleton" style={{
+      width: w ?? '100%', height: h ?? 16, borderRadius: r,
+    }} />
+  )
+}
+
+// ── Empty state ──────────────────────────────────────────────────
+function EmptyState({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div style={{
-      background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 'var(--r)', padding: '0.9rem 1.1rem', flex: 1, minWidth: 100,
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      gap: '1rem', padding: '3.5rem 1.5rem', textAlign: 'center',
     }}>
-      <div style={{ fontSize: 20, fontWeight: 900, fontFamily: 'var(--font2)', color: color ?? 'var(--txt)' }}>
-        {value}
+      <div style={{
+        width: 72, height: 72, borderRadius: '50%',
+        background: 'var(--brand-light)', border: '1.5px solid var(--border)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: 'var(--brand)',
+      }}>
+        {icon}
       </div>
-      <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font2)', marginTop: 2 }}>{label}</div>
+      <div>
+        <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 15, color: 'var(--txt)', marginBottom: 6 }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--txt3)', maxWidth: 280, lineHeight: 1.6 }}>
+          {body}
+        </div>
+      </div>
     </div>
   )
 }
 
-// ── Results tab ────────────────────────────────────────────────
+// ── Results tab ───────────────────────────────────────────────────
 function ResultsTab({ studentId }: { studentId: string }) {
   const { data = [], isLoading } = useStudentExamSummary(studentId)
 
   const grouped = useMemo(() => {
     const map = new Map<string, ExamResultRow[]>()
     for (const r of data) {
-      const key = `Term ${r.term} — ${r.year}`
-      const arr = map.get(key) ?? []
-      arr.push(r)
-      map.set(key, arr)
+      const key = `Term ${r.term} · ${r.year}`
+      map.set(key, [...(map.get(key) ?? []), r])
     }
     return map
   }, [data])
 
   if (isLoading) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>
-        Loading results…
+      <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {[0, 1].map(i => (
+          <div key={i} style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', overflow: 'hidden' }}>
+            <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)' }}>
+              <Skeleton w="140px" h={16} />
+            </div>
+            {[0, 1, 2].map(j => (
+              <div key={j} style={{ padding: '0.85rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', gap: '1rem' }}>
+                <Skeleton w="35%" h={13} />
+                <Skeleton w="20%" h={13} />
+                <Skeleton w="15%" h={13} />
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     )
   }
 
   if (data.length === 0) {
     return (
-      <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>
-        No published results yet.
-      </div>
+      <EmptyState
+        icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>}
+        title="No results yet"
+        body="Exam results will appear here once they are published by teachers."
+      />
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem' }}>
+    <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {[...grouped.entries()].map(([termLabel, rows]) => (
-        <Card key={termLabel} style={{ padding: 0 }}>
+        <div key={termLabel} style={{
+          background: 'var(--surface)', borderRadius: 16,
+          border: '1px solid var(--border)', overflow: 'hidden',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+        }}>
+          {/* Term header */}
           <div style={{
-            padding: '0.65rem 1rem', borderBottom: '1px solid var(--border)',
-            fontWeight: 800, fontSize: 13, fontFamily: 'var(--font2)', color: 'var(--txt)',
+            padding: '0.85rem 1.25rem',
+            background: 'linear-gradient(90deg, var(--brand-light) 0%, var(--surface) 100%)',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', gap: '0.6rem',
           }}>
-            {termLabel}
+            <div style={{ width: 3, height: 18, borderRadius: 99, background: 'var(--brand)' }} />
+            <span style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13, color: 'var(--txt)' }}>
+              {termLabel}
+            </span>
+            <span style={{
+              marginLeft: 'auto', fontSize: 11, fontFamily: 'var(--font2)', fontWeight: 700,
+              color: 'var(--txt3)', background: 'var(--surface2)',
+              padding: '2px 8px', borderRadius: 99, border: '1px solid var(--border)',
+            }}>
+              {rows.length} subject{rows.length !== 1 ? 's' : ''}
+            </span>
           </div>
-          <div className="mob-cards">
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={TH}>Subject</th>
-                  <th style={TH}>Assessment</th>
-                  <th style={TH}>Journal</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>Score</th>
-                  <th style={{ ...TH, textAlign: 'center' }}>Grade</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr key={i} style={{ background: r.isAbsent ? 'var(--warning-bg)' : undefined }}>
-                    <td style={{ ...TD, fontWeight: 700, color: 'var(--txt)' }}>{r.subjectName}</td>
-                    <td style={TD}>
-                      <span style={{ textTransform: 'capitalize', fontSize: 12 }}>
-                        {r.assessmentType.replace(/_/g, ' ')}
+
+          {/* Subject rows */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {rows.map((r, i) => {
+              const gcfg = r.grade ? (GRADE_CONFIG[r.grade] ?? null) : null
+              return (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '0.75rem 1.25rem',
+                  borderBottom: i < rows.length - 1 ? '1px solid var(--border)' : 'none',
+                  transition: 'background 0.15s',
+                }}>
+                  {/* Subject name */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--txt)', fontFamily: 'var(--font2)', marginBottom: 2 }}>
+                      {r.subjectName}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--txt3)' }}>
+                      {r.assessmentType.replace(/_/g, ' ')}
+                    </div>
+                  </div>
+
+                  {/* Score */}
+                  <div style={{ textAlign: 'right', minWidth: 64 }}>
+                    {r.isAbsent ? (
+                      <span style={{
+                        fontSize: 11, fontWeight: 800, fontFamily: 'var(--font2)',
+                        color: 'var(--warning)', background: 'rgba(245,158,11,0.12)',
+                        padding: '2px 8px', borderRadius: 99,
+                      }}>ABSENT</span>
+                    ) : (
+                      <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, fontSize: 14, color: 'var(--txt)' }}>
+                        {r.score ?? '—'}
+                        <span style={{ fontSize: 11, color: 'var(--txt3)', fontWeight: 400 }}>/{r.totalMarks}</span>
                       </span>
-                    </td>
-                    <td style={{ ...TD, fontSize: 12 }}>{r.journalName}</td>
-                    <td style={{ ...TD, textAlign: 'right', fontFamily: 'var(--font3)' }}>
-                      {r.isAbsent ? (
-                        <span style={{ color: 'var(--warning)', fontSize: 11, fontWeight: 700 }}>ABSENT</span>
-                      ) : (
-                        <>
-                          <span style={{ fontWeight: 700, color: 'var(--txt)' }}>{r.score ?? '—'}</span>
-                          <span style={{ color: 'var(--txt3)', fontSize: 11 }}>/{r.totalMarks}</span>
-                        </>
-                      )}
-                    </td>
-                    <td style={{ ...TD, textAlign: 'center' }}>
-                      {r.grade ? (
-                        <Badge variant={r.grade === 'A' ? 'green' : r.grade === 'E' ? 'red' : 'blue'}>
-                          {r.grade}
-                        </Badge>
-                      ) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    )}
+                  </div>
+
+                  {/* Grade badge */}
+                  {gcfg ? (
+                    <div style={{
+                      width: 36, height: 36, borderRadius: '50%',
+                      background: gcfg.bg, border: `1.5px solid ${gcfg.color}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 14,
+                      color: gcfg.color, flexShrink: 0,
+                    }}>
+                      {r.grade}
+                    </div>
+                  ) : (
+                    <div style={{ width: 36, height: 36, flexShrink: 0 }} />
+                  )}
+                </div>
+              )
+            })}
           </div>
-        </Card>
+        </div>
       ))}
     </div>
   )
 }
 
-// ── Fee balance tab ────────────────────────────────────────────
+// ── Fee Balance tab ───────────────────────────────────────────────
 function FeeBalanceTab({ studentId }: { studentId: string }) {
   const { data = [], isLoading } = useStudentFeeBalance(studentId)
 
@@ -150,315 +263,914 @@ function FeeBalanceTab({ studentId }: { studentId: string }) {
     bal:  data.reduce((s, r) => s + r.balance,    0),
   }), [data])
 
-  const fmtAmt = (n: number) =>
-    'UGX ' + n.toLocaleString('en-UG', { minimumFractionDigits: 0 })
+  const pctPaid = totals.due > 0 ? Math.round((totals.paid / totals.due) * 100) : 0
 
-  const statusVariant: Record<StudentFeeRecord['status'], 'green' | 'amber' | 'red'> = {
-    paid:    'green',
-    partial: 'amber',
-    unpaid:  'red',
+  const statusConfig: Record<StudentFeeRecord['status'], { color: string; bg: string; label: string }> = {
+    paid:    { color: 'var(--success)', bg: 'rgba(16,185,129,0.1)',  label: 'Paid' },
+    partial: { color: 'var(--warning)', bg: 'rgba(245,158,11,0.1)',  label: 'Partial' },
+    unpaid:  { color: 'var(--danger)',  bg: 'rgba(244,63,94,0.1)',   label: 'Unpaid' },
   }
 
   if (isLoading) {
-    return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>Loading fees…</div>
+    return (
+      <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{ flex: 1, minWidth: 140, background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '1.1rem' }}>
+              <Skeleton w="60%" h={24} r={6} />
+              <div style={{ marginTop: 8 }}><Skeleton w="80%" h={12} /></div>
+            </div>
+          ))}
+        </div>
+        <Skeleton h={180} r={16} />
+      </div>
+    )
   }
 
+  if (data.length === 0) {
+    return (
+      <EmptyState
+        icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>}
+        title="No fee records"
+        body="Your child's fee payment history will appear here once records are added."
+      />
+    )
+  }
+
+  // Circular ring progress
+  const ringR = 46
+  const ringCirc = 2 * Math.PI * ringR
+  const ringFill = (pctPaid / 100) * ringCirc
+
   return (
-    <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {/* Summary tiles */}
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <KpiTile label="Total Charged" value={fmtAmt(totals.due)} />
-        <KpiTile label="Total Paid"    value={fmtAmt(totals.paid)} color="var(--success)" />
-        <KpiTile label="Balance Due"   value={fmtAmt(totals.bal)}  color={totals.bal > 0 ? 'var(--danger)' : 'var(--success)'} />
+    <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+      {/* Overview hero card */}
+      <div style={{
+        background: 'var(--surface)', borderRadius: 20,
+        border: '1px solid var(--border)',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        padding: '1.5rem', display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap',
+      }}>
+        {/* Circular progress ring */}
+        <div style={{ position: 'relative', width: 112, height: 112, flexShrink: 0 }}>
+          <svg width={112} height={112} style={{ transform: 'rotate(-90deg)' }}>
+            <circle cx={56} cy={56} r={ringR} fill="none" stroke="var(--border)" strokeWidth={10} />
+            <circle
+              cx={56} cy={56} r={ringR}
+              fill="none"
+              stroke={pctPaid >= 100 ? 'var(--success)' : pctPaid >= 50 ? 'var(--warning)' : 'var(--danger)'}
+              strokeWidth={10}
+              strokeDasharray={`${ringFill} ${ringCirc - ringFill}`}
+              strokeLinecap="round"
+              style={{ transition: 'stroke-dasharray 0.8s ease' }}
+            />
+          </svg>
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20, color: 'var(--txt)', lineHeight: 1 }}>
+              {pctPaid}%
+            </span>
+            <span style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'var(--font2)', fontWeight: 600, marginTop: 2 }}>
+              paid
+            </span>
+          </div>
+        </div>
+
+        {/* Stat grid */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem', minWidth: 160 }}>
+          {[
+            { label: 'Total Charged', value: fmtUGX(totals.due), color: 'var(--txt)' },
+            { label: 'Amount Paid',   value: fmtUGX(totals.paid), color: 'var(--success)' },
+            { label: 'Balance Due',   value: fmtUGX(totals.bal),  color: totals.bal > 0 ? 'var(--danger)' : 'var(--success)' },
+          ].map(stat => (
+            <div key={stat.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font2)' }}>{stat.label}</span>
+              <span style={{ fontFamily: 'var(--font3)', fontWeight: 800, fontSize: 13.5, color: stat.color }}>
+                {stat.value}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {data.length === 0 ? (
-        <div style={{ textAlign: 'center', color: 'var(--txt3)', fontSize: 13, padding: '2rem' }}>
-          No fee records found.
-        </div>
-      ) : (
-        <Card style={{ padding: 0 }}>
-          <div className="mob-cards">
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={TH}>Term</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>Charged</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>Paid</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>Balance</th>
-                  <th style={{ ...TH, textAlign: 'center' }}>Status</th>
-                  <th style={TH}>Receipt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map(r => (
-                  <tr key={r.id}>
-                    <td style={{ ...TD, fontWeight: 700, color: 'var(--txt)' }}>{r.termLabel}</td>
-                    <td style={{ ...TD, textAlign: 'right', fontFamily: 'var(--font3)', fontSize: 12 }}>
-                      {fmtAmt(r.amountDue)}
-                    </td>
-                    <td style={{ ...TD, textAlign: 'right', fontFamily: 'var(--font3)', fontSize: 12, color: 'var(--success)' }}>
-                      {fmtAmt(r.amountPaid)}
-                    </td>
-                    <td style={{ ...TD, textAlign: 'right', fontFamily: 'var(--font3)', fontSize: 12, color: r.balance > 0 ? 'var(--danger)' : 'var(--txt3)' }}>
-                      {fmtAmt(r.balance)}
-                    </td>
-                    <td style={{ ...TD, textAlign: 'center' }}>
-                      <Badge variant={statusVariant[r.status]}>
-                        {r.status.charAt(0).toUpperCase() + r.status.slice(1)}
-                      </Badge>
-                    </td>
-                    <td style={{ ...TD, fontFamily: 'var(--font3)', fontSize: 11 }}>
-                      {r.receiptNumber ?? <span style={{ color: 'var(--txt3)' }}>—</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+      {/* Per-term breakdown */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+        {data.map(r => {
+          const scfg = statusConfig[r.status]
+          const termPct = r.amountDue > 0 ? Math.round((r.amountPaid / r.amountDue) * 100) : 0
+          return (
+            <div key={r.id} style={{
+              background: 'var(--surface)', borderRadius: 14,
+              border: '1px solid var(--border)',
+              overflow: 'hidden',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}>
+              {/* Status strip */}
+              <div style={{ height: 3, background: scfg.color }} />
+              <div style={{ padding: '0.9rem 1.1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                  <div>
+                    <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: 'var(--txt)' }}>
+                      {r.termLabel}
+                    </div>
+                    {r.receiptNumber && (
+                      <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginTop: 2 }}>
+                        Receipt: {r.receiptNumber}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, fontFamily: 'var(--font2)',
+                    color: scfg.color, background: scfg.bg,
+                    padding: '3px 10px', borderRadius: 99,
+                  }}>
+                    {scfg.label}
+                  </span>
+                </div>
+
+                {/* Mini progress bar */}
+                <div style={{ background: 'var(--surface2)', borderRadius: 99, height: 6, marginBottom: '0.6rem' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 99,
+                    width: `${termPct}%`, background: scfg.color,
+                    transition: 'width 0.5s',
+                  }} />
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  {[
+                    { l: 'Charged', v: fmtUGX(r.amountDue), c: 'var(--txt2)' },
+                    { l: 'Paid',    v: fmtUGX(r.amountPaid), c: 'var(--success)' },
+                    { l: 'Balance', v: fmtUGX(r.balance), c: r.balance > 0 ? 'var(--danger)' : 'var(--txt3)' },
+                  ].map(s => (
+                    <div key={s.l}>
+                      <div style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'var(--font2)', fontWeight: 600, marginBottom: 2 }}>
+                        {s.l}
+                      </div>
+                      <div style={{ fontFamily: 'var(--font3)', fontWeight: 700, fontSize: 12.5, color: s.c }}>
+                        {s.v}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
 
-// ── Attendance tab ─────────────────────────────────────────────
+// ── Attendance tab ────────────────────────────────────────────────
 function AttendanceTab({ studentId }: { studentId: string }) {
   const { data: summary, isLoading: summLoading } = useAttendanceSummary(studentId)
   const { data: history = [], isLoading: histLoading } = useStudentAttendanceHistory(studentId)
 
   if (summLoading || histLoading) {
-    return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>Loading attendance…</div>
+    return (
+      <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <Skeleton w="120px" h={120} r={99} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {[0, 1, 2, 3].map(i => <Skeleton key={i} h={14} />)}
+          </div>
+        </div>
+        <Skeleton h={200} r={16} />
+      </div>
+    )
   }
 
   if (!summary || summary.totalDays === 0) {
-    return <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No attendance records yet.</div>
+    return (
+      <EmptyState
+        icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>}
+        title="No attendance records"
+        body="Attendance data will appear here once teachers start recording daily attendance."
+      />
+    )
   }
 
+  const donutSegs = [
+    { value: summary.presentDays, color: 'var(--success)' },
+    { value: summary.absentDays,  color: 'var(--danger)' },
+    { value: summary.lateDays,    color: 'var(--warning)' },
+    { value: summary.excusedDays, color: 'var(--info)' },
+  ]
+
+  const statRows = [
+    { label: 'Present', value: summary.presentDays, color: 'var(--success)' },
+    { label: 'Absent',  value: summary.absentDays,  color: 'var(--danger)' },
+    { label: 'Late',    value: summary.lateDays,     color: 'var(--warning)' },
+    { label: 'Excused', value: summary.excusedDays,  color: 'var(--info)' },
+  ]
+
   return (
-    <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {/* KPI tiles */}
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <KpiTile label="Total Days"  value={summary.totalDays} />
-        <KpiTile label="Present"     value={summary.presentDays} color="var(--success)" />
-        <KpiTile label="Absent"      value={summary.absentDays}  color={summary.absentDays > 0 ? 'var(--danger)' : undefined} />
-        <KpiTile label="Late"        value={summary.lateDays}    color={summary.lateDays > 0 ? 'var(--warning)' : undefined} />
-        <KpiTile label="Excused"     value={summary.excusedDays} color="var(--info)" />
+    <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+      {/* Hero card */}
+      <div style={{
+        background: 'var(--surface)', borderRadius: 20,
+        border: '1px solid var(--border)',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        padding: '1.5rem', display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap',
+      }}>
+        {/* Donut + rate */}
+        <div style={{ position: 'relative', width: 120, height: 120, flexShrink: 0 }}>
+          <DonutChart segments={donutSegs} size={120} thickness={14} />
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{
+              fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22,
+              color: summary.isBelowThreshold ? 'var(--danger)' : 'var(--success)', lineHeight: 1,
+            }}>
+              {summary.rate}%
+            </span>
+            <span style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'var(--font2)', fontWeight: 600, marginTop: 2 }}>
+              rate
+            </span>
+          </div>
+        </div>
+
+        {/* Stat breakdown */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.6rem', minWidth: 160 }}>
+          <div style={{
+            fontSize: 12, fontFamily: 'var(--font2)', fontWeight: 700, color: 'var(--txt3)',
+            marginBottom: 2,
+          }}>
+            {summary.totalDays} school days recorded
+          </div>
+          {statRows.map(s => (
+            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+              <span style={{ fontSize: 12.5, color: 'var(--txt2)', fontFamily: 'var(--font2)', flex: 1 }}>{s.label}</span>
+              <span style={{ fontFamily: 'var(--font3)', fontWeight: 800, fontSize: 14, color: s.color }}>{s.value}</span>
+            </div>
+          ))}
+          {summary.isBelowThreshold && (
+            <div style={{
+              marginTop: 4, fontSize: 11.5, color: 'var(--danger)',
+              fontFamily: 'var(--font2)', fontWeight: 700,
+              background: 'rgba(244,63,94,0.08)', borderRadius: 8,
+              padding: '0.4rem 0.65rem', borderLeft: '3px solid var(--danger)',
+            }}>
+              Below 80% threshold — improvement needed
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Attendance rate bar */}
-      <Card style={{ padding: '0.9rem 1.1rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, fontFamily: 'var(--font2)', color: 'var(--txt)' }}>
-            Attendance Rate
-          </span>
-          <span style={{
-            fontSize: 16, fontWeight: 900, fontFamily: 'var(--font2)',
-            color: summary.isBelowThreshold ? 'var(--danger)' : 'var(--success)',
-          }}>
-            {summary.rate}%
-          </span>
-        </div>
-        <div style={{ background: 'var(--surface2)', borderRadius: 99, height: 8, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', borderRadius: 99,
-            width: `${summary.rate}%`,
-            background: summary.isBelowThreshold ? 'var(--danger)' : 'var(--success)',
-            transition: 'width 0.4s',
-          }} />
-        </div>
-        {summary.isBelowThreshold && (
-          <div style={{ fontSize: 11.5, color: 'var(--danger)', marginTop: '0.4rem', fontFamily: 'var(--font2)', fontWeight: 700 }}>
-            Below 80% threshold — attendance improvement needed.
-          </div>
-        )}
-      </Card>
-
-      {/* Recent history */}
+      {/* Dot grid calendar */}
       {history.length > 0 && (
-        <Card style={{ padding: 0 }}>
+        <div style={{
+          background: 'var(--surface)', borderRadius: 16,
+          border: '1px solid var(--border)', overflow: 'hidden',
+        }}>
           <div style={{
-            padding: '0.65rem 1rem', borderBottom: '1px solid var(--border)',
-            fontWeight: 800, fontSize: 12.5, fontFamily: 'var(--font2)', color: 'var(--txt)',
+            padding: '0.85rem 1.25rem',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', gap: '0.6rem',
           }}>
-            Recent History (last 90 days)
+            <div style={{ width: 3, height: 18, borderRadius: 99, background: 'var(--brand)' }} />
+            <span style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13, color: 'var(--txt)' }}>
+              Recent Days
+            </span>
+            <span style={{
+              marginLeft: 'auto', fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font2)',
+            }}>
+              last {Math.min(history.length, 60)} days
+            </span>
           </div>
-          <div style={{ maxHeight: 320, overflowY: 'auto' }}>
-            {history.map((day: AttendanceDay) => (
+
+          {/* Dot grid */}
+          <div style={{ padding: '1rem 1.25rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+              {history.slice(0, 60).map((day: AttendanceDay) => (
+                <div
+                  key={day.date}
+                  title={`${new Date(day.date).toLocaleDateString('en-UG', { weekday: 'short', day: 'numeric', month: 'short' })} — ${day.status}`}
+                  style={{
+                    width: 10, height: 10, borderRadius: '50%',
+                    background: ATT_COLORS[day.status] ?? 'var(--border)',
+                    opacity: 0.85,
+                    cursor: 'default',
+                    transition: 'transform 0.1s',
+                  }}
+                />
+              ))}
+            </div>
+            {/* Legend */}
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.85rem', flexWrap: 'wrap' }}>
+              {[
+                { label: 'Present', color: 'var(--success)' },
+                { label: 'Absent',  color: 'var(--danger)' },
+                { label: 'Late',    color: 'var(--warning)' },
+                { label: 'Excused', color: 'var(--info)' },
+              ].map(l => (
+                <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: l.color }} />
+                  <span style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font2)' }}>{l.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Recent history list */}
+          <div style={{ borderTop: '1px solid var(--border)', maxHeight: 260, overflowY: 'auto' }}>
+            {history.slice(0, 30).map((day: AttendanceDay, i) => (
               <div key={day.date} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '0.5rem 1rem', borderBottom: '1px solid var(--border)',
+                padding: '0.55rem 1.25rem',
+                borderBottom: i < 29 ? '1px solid var(--border)' : 'none',
+                background: i % 2 === 0 ? 'transparent' : 'var(--surface2)',
               }}>
                 <span style={{ fontSize: 12.5, fontFamily: 'var(--font3)', color: 'var(--txt2)' }}>
                   {new Date(day.date).toLocaleDateString('en-UG', { weekday: 'short', day: 'numeric', month: 'short' })}
                 </span>
                 <span style={{
-                  fontSize: 11.5, fontWeight: 800, fontFamily: 'var(--font2)',
-                  color: ATT_COLOR[day.status] ?? 'var(--txt3)',
-                  textTransform: 'capitalize',
+                  fontSize: 11, fontWeight: 800, fontFamily: 'var(--font2)', textTransform: 'capitalize',
+                  color: ATT_COLORS[day.status] ?? 'var(--txt3)',
+                  background: `${ATT_COLORS[day.status] ?? 'var(--border)'}18`,
+                  padding: '2px 10px', borderRadius: 99,
                 }}>
                   {day.status}
                 </span>
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       )}
     </div>
   )
 }
 
-// ── Report cards tab ───────────────────────────────────────────
+// ── Report Cards tab ──────────────────────────────────────────────
+const REPORT_GRADIENTS = [
+  'linear-gradient(135deg, #0d9488 0%, #0ea5e9 100%)',
+  'linear-gradient(135deg, #8b5cf6 0%, #0d9488 100%)',
+  'linear-gradient(135deg, #f59e0b 0%, #f43f5e 100%)',
+  'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
+]
+
 function ReportCardsTab({ studentId }: { studentId: string }) {
   const { data = [], isLoading } = useStudentReleasedReportCards(studentId)
 
   if (isLoading) {
-    return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>Loading report cards…</div>
+    return (
+      <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {[0, 1].map(i => (
+          <div key={i} style={{ background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)', overflow: 'hidden' }}>
+            <Skeleton h={60} r={0} />
+            <div style={{ padding: '1rem' }}>
+              <Skeleton w="40%" h={16} />
+              <div style={{ marginTop: 12 }}><Skeleton h={40} r={8} /></div>
+              <div style={{ marginTop: 12 }}><Skeleton w="30%" h={32} r={8} /></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
   }
 
   if (data.length === 0) {
-    return <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No released report cards yet.</div>
+    return (
+      <EmptyState
+        icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>}
+        title="No report cards released"
+        body="Report cards will appear here once the principal approves and releases them."
+      />
+    )
   }
 
   return (
-    <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-      {data.map((rc: PortalReportCard) => (
-        <Card key={rc.id} style={{ padding: '0.85rem 1.1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 13.5, fontFamily: 'var(--font2)', color: 'var(--txt)' }}>
-                Term {rc.term} — {rc.year}
-              </div>
-              {rc.releasedAt && (
-                <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 2 }}>
-                  Released {new Date(rc.releasedAt).toLocaleDateString('en-UG')}
-                </div>
-              )}
+    <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+      {data.map((rc: PortalReportCard, idx) => (
+        <div key={rc.id} style={{
+          background: 'var(--surface)', borderRadius: 18,
+          border: '1px solid var(--border)', overflow: 'hidden',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+        }}>
+          {/* Gradient top strip */}
+          <div style={{
+            background: REPORT_GRADIENTS[idx % REPORT_GRADIENTS.length],
+            padding: '0.9rem 1.25rem',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <span style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 14, color: '#fff' }}>
+                Term {rc.term} · {rc.year}
+              </span>
             </div>
+            {rc.releasedAt && (
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', fontFamily: 'var(--font2)' }}>
+                {new Date(rc.releasedAt).toLocaleDateString('en-UG', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+            )}
+          </div>
+
+          <div style={{ padding: '1rem 1.25rem' }}>
+            {/* Principal remarks */}
+            {rc.principalRemarks && (
+              <div style={{
+                background: 'var(--brand-light)', borderRadius: 10,
+                borderLeft: '3px solid var(--brand)',
+                padding: '0.7rem 0.9rem', marginBottom: '1rem',
+              }}>
+                <div style={{ fontSize: 10, fontFamily: 'var(--font2)', fontWeight: 700, color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
+                  Principal's Remarks
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--txt2)', lineHeight: 1.55, fontStyle: 'italic' }}>
+                  "{rc.principalRemarks}"
+                </div>
+              </div>
+            )}
+
+            {/* Download button */}
             {rc.pdfUrl ? (
               <a
                 href={rc.pdfUrl}
                 target="_blank"
                 rel="noreferrer"
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                  padding: '0.4rem 0.9rem', borderRadius: 'var(--r)',
+                  display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                  padding: '0.6rem 1.25rem', borderRadius: 10,
                   background: 'var(--brand)', color: '#fff',
-                  fontSize: 12, fontWeight: 700, fontFamily: 'var(--font2)',
-                  textDecoration: 'none',
+                  fontSize: 12.5, fontWeight: 700, fontFamily: 'var(--font2)',
+                  textDecoration: 'none', transition: 'background 0.15s, transform 0.1s',
+                  boxShadow: '0 2px 8px rgba(13,148,136,0.3)',
                 }}
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
                 Download PDF
               </a>
             ) : (
-              <span style={{ fontSize: 12, color: 'var(--txt3)' }}>PDF unavailable</span>
+              <span style={{
+                fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font2)',
+                background: 'var(--surface2)', padding: '0.4rem 0.8rem',
+                borderRadius: 8, border: '1px solid var(--border)',
+              }}>
+                PDF not available
+              </span>
             )}
           </div>
-        </Card>
+        </div>
       ))}
     </div>
   )
 }
 
-// ── Child info card ────────────────────────────────────────────
-function ChildInfoCard({ student, classes, streams }: {
-  student: Student
-  classes: { id: string; name: string }[]
-  streams: { id: string; name: string }[]
-}) {
-  const className  = classes.find(c => c.id === student.classId)?.name ?? '—'
-  const streamName = streams.find(s => s.id === student.streamId)?.name ?? '—'
-  return (
-    <Card style={{ padding: '1rem 1.25rem', marginBottom: '1rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <Avatar
-          photoPath={student.photoUrl}
-          bucket="student-photos"
-          name={`${student.firstName} ${student.lastName}`}
-          size="lg"
-        />
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--txt)' }}>
-            {student.firstName} {student.lastName}
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2, display: 'flex', gap: '0.75rem' }}>
-            <span style={{ fontFamily: 'var(--font3)' }}>{student.admissionNumber}</span>
-            <span>{className}{streamName !== '—' ? ` · ${streamName}` : ''}</span>
-            <Badge variant={student.status === 'active' ? 'green' : 'red'}>
-              {student.status}
-            </Badge>
-          </div>
-        </div>
-      </div>
-    </Card>
-  )
-}
-
-// ── Notices tab ────────────────────────────────────────────────
+// ── Notices tab ───────────────────────────────────────────────────
 function NoticesTab() {
   const { data: notices = [], isLoading } = useSchoolNotices()
-  if (isLoading) return <div style={{ color: 'var(--txt3)', padding: 16 }}>Loading notices…</div>
-  if (notices.length === 0) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  if (isLoading) {
     return (
-      <div style={{ color: 'var(--txt3)', padding: 32, textAlign: 'center',
-        background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)' }}>
-        No school notices at this time.
+      <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {[0, 1, 2].map(i => (
+          <div key={i} style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '1rem 1.25rem' }}>
+            <Skeleton w="80%" h={14} />
+            <div style={{ marginTop: 8 }}><Skeleton w="40%" h={11} /></div>
+          </div>
+        ))}
       </div>
     )
   }
+
+  if (notices.length === 0) {
+    return (
+      <EmptyState
+        icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M22 17H2a3 3 0 000 6h20a3 3 0 000-6z"/><path d="M17 11V5a2 2 0 00-4 0v6"/><path d="M5 11V5a2 2 0 014 0v6"/><path d="M11 11V5"/></svg>}
+        title="No school notices"
+        body="School announcements and notices will appear here."
+      />
+    )
+  }
+
+  const toggle = (id: string) =>
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {notices.map(n => (
-        <div key={n.id} style={{
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 12, padding: '14px 18px',
-        }}>
-          <div style={{ fontSize: 14, color: 'var(--txt)', lineHeight: 1.5 }}>{n.body}</div>
-          <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 6 }}>
-            {new Date(n.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+    <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+      {notices.map((n, idx) => {
+        const isOpen = expanded.has(n.id)
+        const isNew  = idx < 2  // treat first 2 as unread indicator
+
+        return (
+          <div key={n.id} style={{
+            background: 'var(--surface)', borderRadius: 14,
+            border: isNew ? '1.5px solid var(--brand)' : '1px solid var(--border)',
+            overflow: 'hidden', boxShadow: isNew ? '0 0 0 3px rgba(13,148,136,0.07)' : 'none',
+            transition: 'box-shadow 0.2s',
+          }}>
+            <button
+              onClick={() => toggle(n.id)}
+              style={{
+                width: '100%', padding: '0.9rem 1.1rem',
+                background: 'none', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '0.75rem', textAlign: 'left',
+              }}
+            >
+              {isNew && (
+                <div style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: 'var(--brand)', flexShrink: 0,
+                }} />
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: 13.5, color: 'var(--txt)', fontFamily: 'var(--font2)', fontWeight: 700,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: isOpen ? 'normal' : 'nowrap',
+                  lineHeight: 1.4,
+                }}>
+                  {n.body}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 3 }}>
+                  {new Date(n.createdAt).toLocaleString('en-UG', {
+                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                  })}
+                </div>
+              </div>
+              <svg
+                width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="var(--txt3)" strokeWidth="2.5"
+                style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}
+              >
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </button>
+
+            {isOpen && n.link && (
+              <div style={{ padding: '0 1.1rem 0.9rem' }}>
+                <a href={n.link} target="_blank" rel="noreferrer" style={{
+                  fontSize: 12, color: 'var(--brand)', fontFamily: 'var(--font2)', fontWeight: 700,
+                  textDecoration: 'none',
+                }}>
+                  View link →
+                </a>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
 
-// ── Tab button ─────────────────────────────────────────────────
+// ── Tab bar ───────────────────────────────────────────────────────
 const TABS = ['Results', 'Fee Balance', 'Attendance', 'Report Cards', 'Notices'] as const
 type TabName = typeof TABS[number]
 
+const TAB_ICONS: Record<TabName, React.ReactNode> = {
+  Results: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+    </svg>
+  ),
+  'Fee Balance': (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>
+    </svg>
+  ),
+  Attendance: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+  ),
+  'Report Cards': (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+    </svg>
+  ),
+  Notices: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>
+    </svg>
+  ),
+}
+
 function TabBar({ active, onChange }: { active: TabName; onChange: (t: TabName) => void }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
   return (
-    <div className="tab-scroll" style={{
-      display: 'flex', gap: 0, borderBottom: '1px solid var(--border)',
-      marginBottom: '0.5rem',
+    <div style={{
+      background: 'var(--surface)', borderBottom: '1px solid var(--border)',
+      padding: '0 1rem',
+      position: 'sticky', top: 0, zIndex: 10,
     }}>
-      {TABS.map(t => (
-        <button
-          key={t}
-          onClick={() => onChange(t)}
-          style={{
-            padding: '0.55rem 1.1rem', border: 'none', background: 'none',
-            cursor: 'pointer', fontSize: 12.5, fontFamily: 'var(--font2)', fontWeight: 700,
-            color: active === t ? 'var(--brand)' : 'var(--txt3)',
-            borderBottom: active === t ? '2px solid var(--brand)' : '2px solid transparent',
-            marginBottom: -1, transition: 'color 0.15s',
-          }}
-        >
-          {t}
-        </button>
-      ))}
+      <div
+        ref={scrollRef}
+        style={{
+          display: 'flex', gap: 0, overflowX: 'auto',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+      >
+        {TABS.map(t => (
+          <button
+            key={t}
+            onClick={() => onChange(t)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.35rem',
+              padding: '0.75rem 0.9rem',
+              border: 'none', background: 'none', cursor: 'pointer',
+              fontSize: 12.5, fontFamily: 'var(--font2)', fontWeight: 700,
+              color: active === t ? 'var(--brand)' : 'var(--txt3)',
+              borderBottom: active === t ? '2px solid var(--brand)' : '2px solid transparent',
+              marginBottom: -1, transition: 'color 0.15s', whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ opacity: active === t ? 1 : 0.6 }}>{TAB_ICONS[t]}</span>
+            {t}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
 
-// ── ParentPortalPage ───────────────────────────────────────────
+// ── Child selector card ───────────────────────────────────────────
+function ChildCard({
+  child, isSelected, onClick, classes, streams,
+}: {
+  child: Student
+  isSelected: boolean
+  onClick: () => void
+  classes: { id: string; name: string }[]
+  streams: { id: string; name: string }[]
+}) {
+  const hue       = nameHue(`${child.firstName} ${child.lastName}`)
+  const className = classes.find(c => c.id === child.classId)?.name ?? '—'
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem',
+        padding: '0.85rem 1rem', borderRadius: 16, cursor: 'pointer',
+        border: isSelected ? '2px solid var(--brand)' : '1.5px solid var(--border)',
+        background: isSelected ? 'var(--surface)' : 'rgba(255,255,255,0.35)',
+        boxShadow: isSelected ? '0 4px 16px rgba(13,148,136,0.18)' : 'none',
+        transition: 'all 0.2s', minWidth: 100, flexShrink: 0,
+        transform: isSelected ? 'translateY(-2px)' : 'none',
+      }}
+    >
+      <div style={{
+        width: 52, height: 52, borderRadius: '50%', overflow: 'hidden',
+        border: isSelected ? '2.5px solid var(--brand)' : '2px solid var(--border)',
+        flexShrink: 0,
+      }}>
+        <Avatar
+          photoPath={child.photoUrl}
+          bucket="student-photos"
+          name={`${child.firstName} ${child.lastName}`}
+          size="lg"
+          style={{
+            width: '100%', height: '100%',
+            background: `hsl(${hue}, 60%, 50%)`,
+          }}
+        />
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{
+          fontSize: 12.5, fontWeight: 800, fontFamily: 'var(--font2)',
+          color: isSelected ? 'var(--brand)' : 'var(--txt)', lineHeight: 1.2,
+        }}>
+          {child.firstName}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font2)', marginTop: 1 }}>
+          {className}
+        </div>
+      </div>
+    </button>
+  )
+}
+
+// ── Selected child hero ───────────────────────────────────────────
+function ChildHeroCard({
+  child, classes, streams,
+}: {
+  child: Student
+  classes: { id: string; name: string }[]
+  streams: { id: string; name: string }[]
+}) {
+  const className  = classes.find(c => c.id === child.classId)?.name ?? '—'
+  const streamName = streams.find(s => s.id === child.streamId)?.name ?? null
+  const hue        = nameHue(`${child.firstName} ${child.lastName}`)
+
+  const { data: summary } = useAttendanceSummary(child.id)
+  const { data: results = [] } = useStudentExamSummary(child.id)
+  const { data: fees = [] } = useStudentFeeBalance(child.id)
+  const { data: reportCards = [] } = useStudentReleasedReportCards(child.id)
+
+  const latestGrade = useMemo(() => {
+    if (!results.length) return null
+    return results.find(r => r.grade)?.grade ?? null
+  }, [results])
+
+  const totalBalance = useMemo(
+    () => fees.reduce((s, r) => s + r.balance, 0),
+    [fees]
+  )
+
+  const kpis = [
+    {
+      label: 'Attendance',
+      value: summary ? `${summary.rate}%` : '—',
+      color: summary?.isBelowThreshold ? 'var(--danger)' : 'var(--success)',
+    },
+    {
+      label: 'Top Grade',
+      value: latestGrade ?? '—',
+      color: latestGrade ? (GRADE_CONFIG[latestGrade]?.color ?? 'var(--txt)') : 'var(--txt3)',
+    },
+    {
+      label: 'Balance',
+      value: totalBalance > 0 ? fmtUGX(totalBalance) : 'Cleared',
+      color: totalBalance > 0 ? 'var(--danger)' : 'var(--success)',
+    },
+    {
+      label: 'Reports',
+      value: String(reportCards.length),
+      color: 'var(--brand)',
+    },
+  ]
+
+  return (
+    <div style={{
+      margin: '0 1rem 0',
+      background: 'var(--surface)', borderRadius: 20,
+      border: '1px solid var(--border)',
+      boxShadow: '0 2px 16px rgba(0,0,0,0.07)',
+      overflow: 'hidden',
+    }}>
+      {/* Coloured top strip */}
+      <div style={{
+        height: 5,
+        background: `linear-gradient(90deg, hsl(${hue},60%,48%) 0%, var(--brand) 100%)`,
+      }} />
+
+      <div style={{ padding: '1.25rem', display: 'flex', gap: '1.1rem', alignItems: 'flex-start' }}>
+        {/* Big avatar */}
+        <div style={{
+          width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+          border: `3px solid hsl(${hue},60%,60%)`,
+          boxShadow: `0 4px 14px hsl(${hue},60%,50%,0.3)`,
+        }}>
+          <Avatar
+            photoPath={child.photoUrl}
+            bucket="student-photos"
+            name={`${child.firstName} ${child.lastName}`}
+            size="lg"
+            style={{ width: '100%', height: '100%', background: `hsl(${hue},60%,50%)` }}
+          />
+        </div>
+
+        {/* Info block */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 17, color: 'var(--txt)', lineHeight: 1.2 }}>
+            {child.firstName} {child.lastName}
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginTop: 3 }}>
+            {child.admissionNumber}
+          </div>
+          <div style={{ marginTop: 6, display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{
+              fontSize: 11.5, fontFamily: 'var(--font2)', fontWeight: 700,
+              color: 'var(--txt2)', background: 'var(--surface2)',
+              padding: '2px 8px', borderRadius: 99, border: '1px solid var(--border)',
+            }}>
+              {className}{streamName ? ` · ${streamName}` : ''}
+            </span>
+            <span style={{
+              fontSize: 11, fontWeight: 800, fontFamily: 'var(--font2)',
+              color: child.status === 'active' ? 'var(--success)' : 'var(--danger)',
+              background: child.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)',
+              padding: '2px 8px', borderRadius: 99,
+            }}>
+              {child.status.charAt(0).toUpperCase() + child.status.slice(1)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* KPI row */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+        borderTop: '1px solid var(--border)',
+      }}>
+        {kpis.map((kpi, i) => (
+          <div key={kpi.label} style={{
+            padding: '0.75rem 0.5rem', textAlign: 'center',
+            borderRight: i < kpis.length - 1 ? '1px solid var(--border)' : 'none',
+          }}>
+            <div style={{
+              fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 15,
+              color: kpi.color, lineHeight: 1,
+            }}>
+              {kpi.value}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'var(--font2)', marginTop: 3 }}>
+              {kpi.label}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Parent greeting hero ──────────────────────────────────────────
+function HeroHeader({ parentName, childCount, noticeCount }: {
+  parentName: string
+  childCount: number
+  noticeCount: number
+}) {
+  return (
+    <div style={{
+      background: 'linear-gradient(145deg, #0f172a 0%, #134e4a 100%)',
+      padding: '1.5rem 1.25rem 2.5rem',
+      position: 'relative', overflow: 'hidden',
+    }}>
+      {/* Abstract circles */}
+      <div style={{
+        position: 'absolute', top: -40, right: -40, width: 160, height: 160,
+        borderRadius: '50%', background: 'rgba(13,148,136,0.15)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', bottom: -20, left: -20, width: 100, height: 100,
+        borderRadius: '50%', background: 'rgba(14,165,233,0.1)',
+        pointerEvents: 'none',
+      }} />
+
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        {/* Greeting */}
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', fontFamily: 'var(--font2)', fontWeight: 600, marginBottom: 4 }}>
+          PARENT PORTAL
+        </div>
+        <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: '#fff', lineHeight: 1.2, marginBottom: 8 }}>
+          Welcome back,<br />{parentName.split(' ')[0]}
+        </div>
+
+        {/* Summary chips */}
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+            background: 'rgba(255,255,255,0.12)', borderRadius: 99,
+            padding: '4px 12px', backdropFilter: 'blur(8px)',
+          }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2.5">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.85)', fontFamily: 'var(--font2)', fontWeight: 700 }}>
+              {childCount} {childCount === 1 ? 'child' : 'children'}
+            </span>
+          </div>
+          {noticeCount > 0 && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+              background: 'rgba(13,148,136,0.3)', borderRadius: 99,
+              padding: '4px 12px', border: '1px solid rgba(13,148,136,0.5)',
+            }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--brand)' }} />
+              <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.9)', fontFamily: 'var(--font2)', fontWeight: 700 }}>
+                {noticeCount} notice{noticeCount !== 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────
 export function ParentPortalPage() {
+  const { user } = useAuth()
   const { data: children = [], isLoading } = useParentStudents()
+  const { data: classes  = [] } = useClasses()
+  const { data: notices  = [] } = useSchoolNotices()
 
   const [activeChildId, setActiveChildId] = useState<string | null>(null)
   const [activeTab, setActiveTab]         = useState<TabName>('Results')
@@ -468,79 +1180,137 @@ export function ParentPortalPage() {
     return children.find(c => c.id === activeChildId) ?? children[0]
   }, [children, activeChildId])
 
+  const { data: streams = [] } = useStreams(selectedChild?.classId)
+
+  // When selected child changes, reset tab
+  useEffect(() => {
+    setActiveTab('Results')
+  }, [activeChildId])
+
+  // ── Loading ──
   if (isLoading) {
     return (
-      <div style={{ padding: '1.4rem 1.5rem' }}>
-        <PageHeader title="Parent Portal" subtitle="Loading…" />
-        <div style={{ textAlign: 'center', color: 'var(--txt3)', fontSize: 13, padding: '3rem' }}>
-          Loading your children's information…
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg)' }}>
+        <div style={{ background: 'linear-gradient(145deg, #0f172a 0%, #134e4a 100%)', padding: '1.5rem 1.25rem 2.5rem' }}>
+          <Skeleton w="50%" h={14} />
+          <div style={{ marginTop: 10 }}><Skeleton w="65%" h={24} r={6} /></div>
+          <div style={{ marginTop: 12, display: 'flex', gap: '0.5rem' }}>
+            <Skeleton w="90px" h={26} r={99} />
+            <Skeleton w="80px" h={26} r={99} />
+          </div>
+        </div>
+        <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '-1rem' }}>
+          <Skeleton h={120} r={20} />
+          <Skeleton h={200} r={16} />
         </div>
       </div>
     )
   }
 
+  // ── No children ──
   if (children.length === 0) {
     return (
-      <div style={{ padding: '1.4rem 1.5rem' }}>
-        <PageHeader title="Parent Portal" subtitle="No students linked" />
-        <Card style={{ padding: '3rem', textAlign: 'center' }}>
-          <div style={{ color: 'var(--txt3)', fontSize: 13 }}>
-            No students are linked to your account. Please contact the school secretary.
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg)' }}>
+        <HeroHeader parentName={user?.name ?? 'Parent'} childCount={0} noticeCount={notices.length} />
+        <div style={{ padding: '1rem', marginTop: '-1rem' }}>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 20,
+            border: '1px solid var(--border)', overflow: 'hidden',
+          }}>
+            <EmptyState
+              icon={
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 010 7.75"/>
+                </svg>
+              }
+              title="No students linked"
+              body="No students are linked to your account yet. Please contact the school secretary to set up your access."
+            />
           </div>
-        </Card>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="sui-page-enter" style={{ padding: '1.4rem 1.5rem' }}>
-      <PageHeader
-        title="Parent Portal"
-        subtitle={`${children.length} child${children.length !== 1 ? 'ren' : ''} linked`}
-        action={
-          children.length > 1 ? (
-            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-              <select
-                value={selectedChild?.id ?? ''}
-                onChange={e => setActiveChildId(e.target.value)}
-                style={{
-                  background: 'var(--surface2)', border: '1px solid var(--border)',
-                  borderRadius: 'var(--r)', fontSize: 12.5, fontFamily: 'var(--font2)',
-                  color: 'var(--txt)', padding: '0.4rem 2rem 0.4rem 0.75rem',
-                  appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer',
-                  fontWeight: 700,
-                }}
-              >
-                {children.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.firstName} {c.lastName}
-                  </option>
-                ))}
-              </select>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2"
-                style={{ position: 'absolute', right: '0.5rem', pointerEvents: 'none' }}>
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </div>
-          ) : null
-        }
+    <div className="sui-page-enter" style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg)', minHeight: '100vh' }}>
+
+      {/* Hero header */}
+      <HeroHeader
+        parentName={user?.name ?? 'Parent'}
+        childCount={children.length}
+        noticeCount={notices.length}
       />
 
-      {selectedChild && (
-        <>
-          <ChildInfoCard
-            student={selectedChild}
-            classes={[]}
-            streams={[]}
+      {/* Content floats up over the hero */}
+      <div style={{ marginTop: '-1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+
+        {/* Child selector (horizontal scroll) — only when multiple */}
+        {children.length > 1 && (
+          <div style={{
+            padding: '0 1rem',
+          }}>
+            <div style={{
+              background: 'var(--surface)', borderRadius: 20,
+              border: '1px solid var(--border)',
+              padding: '1rem',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+            }}>
+              <div style={{
+                fontSize: 10.5, fontFamily: 'var(--font2)', fontWeight: 700,
+                color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.6px',
+                marginBottom: '0.75rem',
+              }}>
+                Select child
+              </div>
+              <div style={{
+                display: 'flex', gap: '0.75rem', overflowX: 'auto',
+                paddingBottom: '0.25rem', scrollbarWidth: 'none',
+              }}>
+                {children.map(child => (
+                  <ChildCard
+                    key={child.id}
+                    child={child}
+                    isSelected={child.id === (selectedChild?.id ?? children[0]?.id)}
+                    onClick={() => setActiveChildId(child.id)}
+                    classes={classes}
+                    streams={streams}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Selected child hero */}
+        {selectedChild && (
+          <ChildHeroCard
+            child={selectedChild}
+            classes={classes}
+            streams={streams}
           />
-          <TabBar active={activeTab} onChange={setActiveTab} />
-          {activeTab === 'Results'      && <ResultsTab     studentId={selectedChild.id} />}
-          {activeTab === 'Fee Balance'  && <FeeBalanceTab  studentId={selectedChild.id} />}
-          {activeTab === 'Attendance'   && <AttendanceTab  studentId={selectedChild.id} />}
-          {activeTab === 'Report Cards' && <ReportCardsTab studentId={selectedChild.id} />}
-          {activeTab === 'Notices'      && <NoticesTab />}
-        </>
-      )}
+        )}
+
+        {/* Tab content area */}
+        {selectedChild && (
+          <div style={{
+            background: 'var(--surface)', borderRadius: '16px 16px 0 0',
+            border: '1px solid var(--border)', borderBottom: 'none',
+            minHeight: '60vh', overflow: 'hidden',
+          }}>
+            <TabBar active={activeTab} onChange={setActiveTab} />
+
+            {activeTab === 'Results'      && <ResultsTab     studentId={selectedChild.id} />}
+            {activeTab === 'Fee Balance'  && <FeeBalanceTab  studentId={selectedChild.id} />}
+            {activeTab === 'Attendance'   && <AttendanceTab  studentId={selectedChild.id} />}
+            {activeTab === 'Report Cards' && <ReportCardsTab studentId={selectedChild.id} />}
+            {activeTab === 'Notices'      && <NoticesTab />}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
