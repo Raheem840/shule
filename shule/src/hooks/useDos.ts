@@ -324,11 +324,12 @@ export function useDosTeacherPerformance() {
         const covered   = tTopics.filter((t: any) => t.covered_at != null).length
         const coverage  = tTopics.length > 0 ? Math.round((covered / tTopics.length) * 100) : 0
 
-        // Get unique subject and class IDs from journals
+        // Get unique subject IDs from journals (for subject activity count)
         const uniqueSubjects = [...new Set(tJournals.map((j: any) => j.subject_id as string))]
-        const uniqueClasses  = [...new Set(tJournals.map((j: any) => j.class_id as string))]
 
         const assignedSubjectIds = (teacher.subjects ?? []) as string[]
+        // Use staff.classes[] directly — this is the source of truth for assigned teaching classes
+        const assignedClassIds   = (teacher.classes  ?? []) as string[]
 
         return {
           staffId:             teacher.id,
@@ -336,7 +337,7 @@ export function useDosTeacherPerformance() {
           subjects:            uniqueSubjects,
           subjectIds:          assignedSubjectIds,
           subjectNames:        assignedSubjectIds.map(id => subjectNameMap.get(id) ?? id),
-          classes:             uniqueClasses,
+          classes:             assignedClassIds,
           isClassTeacher:      (teacher.role as string) === 'class_teacher',
           passRate,
           assessmentsThisTerm: tJournals.length,

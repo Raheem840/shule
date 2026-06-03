@@ -291,7 +291,7 @@ function TeacherDetailModal({ teacher, onClose }: { teacher: TeacherPerfRow; onC
             <div style={{ display:'flex', gap:8 }}>
               <button onClick={()=>setShowAssign(true)}
                 style={{ padding:'7px 14px', background:'linear-gradient(145deg,var(--brand),var(--brand-dark))', color:'#fff', border:'none', borderRadius:10, fontWeight:700, fontSize:11.5, cursor:'pointer', boxShadow:'0 3px 10px rgba(13,148,136,.35)', whiteSpace:'nowrap' }}
-              >Assign Class</button>
+              >{teacher.isClassTeacher ? 'Change Class' : 'Assign Class'}</button>
               <button onClick={onClose}
                 style={{ width:32, height:32, border:'none', background:'var(--surface2)', borderRadius:9, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--txt3)', flexShrink:0 }}
               >

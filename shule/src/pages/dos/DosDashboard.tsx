@@ -15,6 +15,7 @@ import {
   useAssignClassTeacher,
 } from '../../hooks/useDos'
 import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
+import { useToast } from '../../components/ui/Toast'
 import { SafeTermProgressTimeline } from '../../components/shared/TermProgressTimeline'
 import type { SubjectRanking } from '../../types/week9'
 
@@ -348,27 +349,46 @@ function TeacherPerformanceTab() {
   const { data: classes = [] } = useClasses()
   const { data: streams = [] } = useStreams(null)
   const assignMut = useAssignClassTeacher()
+  const { success: toastOk, error: toastErr } = useToast()
   const [assignModal, setAssignModal] = useState<{
-    staffId: string; name: string
+    staffId: string; name: string; isClassTeacher: boolean
   } | null>(null)
+  const [targetClassId, setTargetClassId] = useState('')
   const [targetStreamId, setTargetStreamId] = useState('')
-  const [assignError, setAssignError] = useState('')
+  const [done, setDone] = useState(false)
+
+  const streamsForClass = targetClassId
+    ? streams.filter(s => s.classId === targetClassId && (!s.classTeacherId || s.classTeacherId === assignModal?.staffId))
+    : []
+
+  function openModal(t: { staffId: string; name: string; isClassTeacher: boolean }) {
+    setAssignModal(t)
+    setTargetClassId('')
+    setTargetStreamId('')
+    setDone(false)
+  }
+
+  function closeModal() {
+    setAssignModal(null)
+    setTargetClassId('')
+    setTargetStreamId('')
+    setDone(false)
+  }
 
   async function handleAssign() {
     if (!assignModal || !targetStreamId) return
     const stream = streams.find(s => s.id === targetStreamId)
     if (!stream) return
-    setAssignError('')
     try {
       await assignMut.mutateAsync({
         streamId:  stream.id,
         classId:   stream.classId,
         teacherId: assignModal.staffId,
       })
-      setAssignModal(null)
-      setTargetStreamId('')
+      setDone(true)
+      toastOk(`${assignModal.name} assigned as class teacher`)
     } catch (err: any) {
-      setAssignError(err.message ?? 'Assignment failed')
+      toastErr(err.message ?? 'Assignment failed')
     }
   }
 
@@ -413,7 +433,12 @@ function TeacherPerformanceTab() {
                   className="sui-tr"
                   style={{ height: vr.size, transform: `translateY(${vr.start}px)` }}
                 >
-                  <td style={{ padding: '8px 12px', fontWeight: 600 }}>{t.name}</td>
+                  <td style={{ padding: '8px 12px', fontWeight: 600 }}>
+                    {t.name}
+                    {t.isClassTeacher && (
+                      <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,.1)', padding: '1px 6px', borderRadius: 99 }}>CT</span>
+                    )}
+                  </td>
                   <td style={{ padding: '8px 12px', color: 'var(--txt2)', fontSize: 12 }}>
                     {t.subjects.length} subject{t.subjects.length !== 1 ? 's' : ''}
                   </td>
@@ -440,11 +465,11 @@ function TeacherPerformanceTab() {
                   </td>
                   <td style={{ padding: '8px 12px' }}>
                     <button
-                      onClick={() => setAssignModal({ staffId: t.staffId, name: t.name })}
+                      onClick={() => openModal({ staffId: t.staffId, name: t.name, isClassTeacher: t.isClassTeacher })}
                       className="sui-btn-outline"
-                      style={{ fontSize: 11, padding: '4px 10px' }}
+                      style={{ fontSize: 11, padding: '4px 10px', whiteSpace: 'nowrap' }}
                     >
-                      Assign Class Teacher
+                      {t.isClassTeacher ? 'Change Class' : 'Assign Class'}
                     </button>
                   </td>
                 </tr>
@@ -454,71 +479,77 @@ function TeacherPerformanceTab() {
         </table>
       </div>
 
-      {/* Assign Class Teacher Modal */}
+      {/* Assign Class Teacher Modal — matches DosTeachersPage modal */}
       {assignModal && (
         <div
           className="sui-overlay"
           style={{
-            position: 'fixed', inset: 0, background: 'var(--modal-overlay)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,.52)', backdropFilter: 'blur(10px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20,
           }}
-          onClick={e => { if (e.target === e.currentTarget) { setAssignModal(null); setAssignError('') } }}
+          onClick={e => { if (e.target === e.currentTarget) closeModal() }}
         >
-          <div
-            className="sui-modal-dialog"
-            style={{
-              background: 'var(--modal-bg)', borderRadius: 20, padding: 28, width: 400,
-              border: '1px solid var(--modal-border)',
-              borderTop: '1px solid var(--modal-border-t)',
-              backdropFilter: 'blur(24px)', boxShadow: 'var(--modal-shadow)',
-            }}
-          >
-            <h3 style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, marginTop: 0 }}>
-              Assign Class Teacher
-            </h3>
-            <p style={{ color: 'var(--txt2)', fontSize: 13, marginBottom: 16 }}>
-              Assigning <strong>{assignModal.name}</strong> as class teacher.
-              Select the stream:
-            </p>
-
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt2)' }}>Stream</label>
-            <select
-              value={targetStreamId}
-              onChange={e => setTargetStreamId(e.target.value)}
-              className="sui-input"
-              style={{ width: '100%', marginTop: 4, marginBottom: 12 }}
-            >
-              <option value="">Select stream…</option>
-              {streams.map(s => (
-                <option key={s.id} value={s.id}>
-                  {classes.find(c => c.id === s.classId)?.name ?? s.classId} — {s.name}
-                </option>
-              ))}
-            </select>
-
-            {assignError && (
-              <div style={{
-                background: 'var(--danger-bg)', color: 'var(--danger)',
-                padding: '8px 12px', borderRadius: 8, fontSize: 13, marginBottom: 12,
-              }}>
-                {assignError}
+          <div style={{
+            width: '100%', maxWidth: 440, borderRadius: 24, overflow: 'hidden',
+            background: 'var(--surface)', boxShadow: '0 24px 80px rgba(0,0,0,.24)',
+            animation: 'discCenterIn .26s cubic-bezier(.32,.72,0,1) both',
+          }}>
+            {/* Header */}
+            <div style={{ padding: '20px 24px 16px', background: 'linear-gradient(135deg,rgba(13,148,136,.1),transparent)', borderBottom: '.5px solid var(--border)' }}>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 17, color: 'var(--txt)' }}>
+                {assignModal.isClassTeacher ? 'Change Class Assignment' : 'Assign as Class Teacher'}
               </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => { setAssignModal(null); setAssignError('') }}
-                className="sui-btn-outline"
-              >
-                Cancel
+              <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 3 }}>
+                Assigning <strong style={{ color: 'var(--txt)' }}>{assignModal.name}</strong> to a class stream
+              </div>
+            </div>
+            {/* Body */}
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {done ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px', borderRadius: 14, background: 'rgba(16,185,129,.08)', border: '.5px solid rgba(16,185,129,.25)' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(16,185,129,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{assignModal.name} has been assigned as class teacher.</div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, display: 'block', marginBottom: 6 }}>Class</label>
+                    <select className="sui-input" value={targetClassId} onChange={e => { setTargetClassId(e.target.value); setTargetStreamId('') }} style={{ width: '100%' }}>
+                      <option value="">Choose class…</option>
+                      {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  {targetClassId && (
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, display: 'block', marginBottom: 6 }}>Stream</label>
+                      {streamsForClass.length === 0
+                        ? <div style={{ fontSize: 12, color: 'var(--txt3)', padding: '10px 14px', background: 'var(--surface2)', borderRadius: 10 }}>No available streams for this class.</div>
+                        : <select className="sui-input" value={targetStreamId} onChange={e => setTargetStreamId(e.target.value)} style={{ width: '100%' }}>
+                            <option value="">Choose stream…</option>
+                            {streamsForClass.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          </select>
+                      }
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            {/* Footer */}
+            <div style={{ padding: '14px 24px 18px', borderTop: '.5px solid var(--border)', display: 'flex', gap: 10 }}>
+              <button onClick={closeModal} style={{ flex: 1, height: 44, borderRadius: 12, background: 'var(--surface2)', border: '.5px solid var(--border)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer', color: 'var(--txt2)' }}>
+                {done ? 'Close' : 'Cancel'}
               </button>
-              <button
-                onClick={() => { void handleAssign() }}
-                disabled={!targetStreamId || assignMut.isPending}
-                className="sui-btn-primary"
-              >
-                {assignMut.isPending ? 'Assigning…' : 'Assign'}
-              </button>
+              {!done && (
+                <button
+                  onClick={() => { void handleAssign() }}
+                  disabled={!targetStreamId || assignMut.isPending}
+                  style={{ flex: 2, height: 44, borderRadius: 12, background: targetStreamId ? 'linear-gradient(145deg,var(--brand),var(--brand-dark))' : 'var(--border)', color: targetStreamId ? '#fff' : 'var(--txt3)', border: 'none', fontWeight: 800, fontSize: 13.5, cursor: targetStreamId ? 'pointer' : 'default', boxShadow: targetStreamId ? '0 4px 14px rgba(13,148,136,.38)' : 'none', transition: 'all .18s' }}
+                >
+                  {assignMut.isPending ? 'Assigning…' : 'Confirm Assignment'}
+                </button>
+              )}
             </div>
           </div>
         </div>
