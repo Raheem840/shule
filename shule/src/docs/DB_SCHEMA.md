@@ -34,12 +34,17 @@ access-token hook in AuthContext.tsx which reads `user_role` and `school_id` fro
 | `create-student-auth-user` | Creates Supabase Auth user + sets students.auth_user_id | secretary, principal, it_admin |
 | `create-parent-auth-user` | Creates Supabase Auth user + sets parent_accounts.auth_user_id | secretary, principal, it_admin |
 | `reset-staff-password` | Resets password via service role | it_admin, principal |
+| `reset-student-password` | Resets student password via service role | secretary, it_admin, principal |
+| `reset-parent-password` | Resets parent password, persists new temp_password to DB | secretary, it_admin, principal |
 | `send-sms` | Africa's Talking SMS delivery | any authenticated |
 | `send-whatsapp` | WhatsApp message delivery | any authenticated |
 | `broadcast-announcement` | Sends announcement to multiple users | secretary, principal |
-| `upload-staff-photo` | Stores photo to staff-photos bucket | any authenticated |
+| `upload-staff-photo` | Stores photo to staff-photos bucket | all staff roles |
 
-Default initial password for all created accounts: **`Shule@2025`** (staff) / **`Parent@2025`** (parents)
+Default initial password for created accounts: **`Shule@2025`** (staff) / **`Parent@2025`** (parents)
+
+Student login email format: `{firstInit}{lastInit}{numericAdmSeq}@{schoolShortName}.ug`
+(e.g., admission KJA/2025/0049 → `na49@stmarys.ug` for Nakato Aisha)
 
 ---
 
@@ -209,10 +214,13 @@ status, sent_at, delivered_at, created_at
 id, school_id, auth_user_id, staff_number, first_name, last_name, role,
 department_id, subjects (text[]), classes (uuid[]),
 qualification_level, qualification_title, institution, graduation_year,
-employment_type, employment_date, join_date, salary_band,
+employment_type, employment_date, join_date,
 photo_url, is_active (bool DEFAULT true),
 email, phone, national_id, address, date_of_birth, gender,
 last_login_at, created_at
+
+**NOTE: `salary_band` column exists in DB but is NOT used in the application.
+Do NOT query or display it. Salary data is out of scope for the current build.**
 
 RLS policies:
 - SELECT: any authenticated user from same school

@@ -204,7 +204,7 @@ TABLE: staff | RLS: OFF ⚠ MUST ENABLE — see useStaff.ts for SQL
 id, school_id, auth_user_id, staff_number, first_name, last_name, role,
 department_id, subjects(text[]), classes(uuid[]),
 qualification_level, qualification_title, institution, graduation_year,
-employment_type, employment_date, join_date, salary_band,
+employment_type, employment_date, join_date,
 photo_url, is_active(bool DEFAULT true),
 email, phone, national_id, address, date_of_birth, gender, last_login_at, created_at
 

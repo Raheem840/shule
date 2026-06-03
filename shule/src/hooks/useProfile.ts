@@ -179,7 +179,6 @@ export function useRequestPasswordReset() {
         type:        'system',
         title:       'Password Reset Request',
         body:        `${staffName} wants to change their password. New password: ${desiredPassword}`,
-        read:        false,
         target_role: 'it_admin',
       }))
 
@@ -237,7 +236,7 @@ export function useApprovePasswordReset() {
     mutationFn: async (notificationId: string) => {
       const { error } = await supabase
         .from('notifications')
-        .update({ read: true, read_at: new Date().toISOString() })
+        .update({ read_at: new Date().toISOString() })
         .eq('id', notificationId)
         .eq('school_id', user!.schoolId)
       if (error) throw new Error(error.message)
