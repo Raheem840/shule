@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useStudents } from '../../hooks/useStudents'
 import { useAssignClassTeacher } from '../../hooks/useDos'
 import { useStaff } from '../../hooks/useStaff'
 import { useToast } from '../../components/ui/Toast'
-import type { Stream } from '../../types/app'
+import type { Stream, Class } from '../../types/app'
 
 // ─── Assign Teacher Modal ─────────────────────────────────────────────────────
 function AssignTeacherModal({ stream, onClose }: { stream: Stream; onClose: () => void }) {
@@ -65,103 +65,270 @@ function AssignTeacherModal({ stream, onClose }: { stream: Stream; onClose: () =
   )
 }
 
-// ─── Class detail panel ───────────────────────────────────────────────────────
-function ClassDetail({ classId, className }: { classId: string; className: string }) {
-  const { data: streams = [] }  = useStreams(classId)
-  const [streamFilter, setStreamFilter] = useState('')
-  const [search,       setSearch]       = useState('')
+// ─── Streams panel (right panel when a card is selected) ─────────────────────
+function StreamsPanel({ cls }: { cls: Class }) {
+  const { data: streams = [], isLoading } = useStreams(cls.id)
+  const { data: students = [], isLoading: loadingStudents } = useStudents({ classId: cls.id, status: 'active' })
+  const { data: staff = [] } = useStaff()
   const [assignStream, setAssignStream] = useState<Stream | null>(null)
 
-  const { data: students = [], isLoading } = useStudents({ classId, streamId: streamFilter || undefined, status: 'active' })
+  const staffMap = useMemo(
+    () => new Map(staff.map(s => [s.id, `${s.firstName} ${s.lastName}`])),
+    [staff]
+  )
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return students
-    const q = search.toLowerCase()
-    return students.filter(s =>
-      `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
-      s.admissionNumber?.toLowerCase().includes(q)
-    )
-  }, [students, search])
+  // Per-stream student counts
+  const streamCounts = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const s of students) {
+      if (s.streamId) map.set(s.streamId, (map.get(s.streamId) ?? 0) + 1)
+    }
+    return map
+  }, [students])
 
-  const ini = (n: string) => n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
-
-  const PALETTE = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#f43f5e','#8b5cf6','#ec4899','#0d9488']
-  function sColor(id: string) { let h=0; for (let i=0;i<id.length;i++) h=id.charCodeAt(i)+((h<<5)-h); return PALETTE[Math.abs(h)%PALETTE.length] }
+  const noStreamCount = students.filter(s => !s.streamId).length
 
   return (
-    <div style={{ padding: '0 20px 20px', borderBottom: '.5px solid var(--border)' }}>
-      {/* Streams + assign */}
-      {streams.length > 0 && (
-        <div style={{ padding: '14px 0 16px', borderBottom: '.5px solid var(--border)', marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 10 }}>Streams</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {streams.map(s => (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderRadius: 12, border: '.5px solid var(--border)', background: 'var(--surface2)', gap: 10 }}>
-                <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>{s.name}</span>
-                {s.classTeacherId ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 9px', borderRadius: 99, fontSize: 10.5, fontWeight: 700, background: 'rgba(16,185,129,.1)', color: 'var(--success)', border: '.5px solid rgba(16,185,129,.2)' }}>
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>Teacher assigned
-                  </span>
-                ) : (
-                  <button onClick={() => setAssignStream(s)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 8, border: '.5px solid rgba(139,92,246,.3)', background: 'rgba(139,92,246,.06)', color: '#8b5cf6', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Assign Teacher
-                  </button>
-                )}
-              </div>
-            ))}
+    <div style={{
+      flex: 1, display: 'flex', flexDirection: 'column', gap: 0,
+      background: 'var(--surface)', borderRadius: 18,
+      border: '.5px solid rgba(13,148,136,.25)',
+      boxShadow: '0 4px 32px rgba(13,148,136,.08)',
+      overflow: 'hidden',
+    }}>
+      {/* Panel header */}
+      <div style={{
+        padding: '20px 22px 18px',
+        background: 'linear-gradient(135deg,rgba(13,148,136,.07),rgba(13,148,136,.02))',
+        borderBottom: '.5px solid var(--border)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 11,
+            background: 'linear-gradient(145deg,var(--brand),var(--brand-dark))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 3px 10px rgba(13,148,136,.35)', flexShrink: 0,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 18, color: 'var(--txt)', letterSpacing: -.3 }}>{cls.name}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 1 }}>
+              {loadingStudents ? '…' : students.length} student{students.length !== 1 ? 's' : ''} · {streams.length} stream{streams.length !== 1 ? 's' : ''}
+            </div>
           </div>
         </div>
-      )}
-
-      {/* Student filters */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
-        <input placeholder="Search students…" value={search} onChange={e => setSearch(e.target.value)}
-          className="sui-input" style={{ flex: '1 1 180px', maxWidth: 260 }} />
-        {streams.length > 0 && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <button onClick={() => setStreamFilter('')}
-              style={{ padding: '5px 12px', borderRadius: 99, fontSize: 11.5, fontWeight: 700, border: `.5px solid ${!streamFilter ? 'rgba(139,92,246,.5)' : 'var(--border)'}`, background: !streamFilter ? 'rgba(139,92,246,.1)' : 'var(--surface2)', color: !streamFilter ? '#8b5cf6' : 'var(--txt3)', cursor: 'pointer' }}>All</button>
-            {streams.map(s => (
-              <button key={s.id} onClick={() => setStreamFilter(streamFilter === s.id ? '' : s.id)}
-                style={{ padding: '5px 12px', borderRadius: 99, fontSize: 11.5, fontWeight: 700, border: `.5px solid ${streamFilter === s.id ? 'rgba(139,92,246,.5)' : 'var(--border)'}`, background: streamFilter === s.id ? 'rgba(139,92,246,.1)' : 'var(--surface2)', color: streamFilter === s.id ? '#8b5cf6' : 'var(--txt3)', cursor: 'pointer' }}>{s.name}</button>
-            ))}
-          </div>
+        {cls.level && (
+          <span style={{
+            display: 'inline-block', padding: '2px 10px', borderRadius: 99, marginTop: 4,
+            background: 'rgba(13,148,136,.1)', color: 'var(--brand)',
+            border: '.5px solid rgba(13,148,136,.25)', fontSize: 10.5, fontWeight: 700,
+          }}>
+            Level {cls.level}
+          </span>
         )}
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--txt3)', flexShrink: 0 }}>{filtered.length} student{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {isLoading && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{[1,2,3,4,5,6].map(i => <div key={i} className="shule-skeleton" style={{ width: 140, height: 70, borderRadius: 12 }} />)}</div>}
+      {/* Streams list */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px 16px' }}>
+        {isLoading && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[1,2,3].map(i => <div key={i} className="shule-skeleton" style={{ height: 72, borderRadius: 12 }} />)}
+          </div>
+        )}
 
-      {!isLoading && filtered.length === 0 && (
-        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No students found{search ? ` matching "${search}"` : ''}.</div>
-      )}
+        {!isLoading && streams.length === 0 && (
+          <div style={{ padding: '32px 16px', textAlign: 'center' }}>
+            <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+              </svg>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt2)', marginBottom: 4 }}>No streams yet</div>
+            <div style={{ fontSize: 12, color: 'var(--txt3)' }}>Streams are created when students are registered.</div>
+          </div>
+        )}
 
-      {/* Student pill grid */}
-      {!isLoading && filtered.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 8 }}>
-          {filtered.map(s => {
-            const col = sColor(s.id)
-            const name = `${s.firstName} ${s.lastName}`
-            return (
-              <div key={s.id} style={{ padding: '10px 12px', borderRadius: 12, border: `.5px solid ${col}25`, background: `${col}08`, display: 'flex', alignItems: 'center', gap: 9, transition: 'all .14s', cursor: 'default' }}
-                onMouseEnter={e => { e.currentTarget.style.background = `${col}15`; e.currentTarget.style.borderColor = `${col}45` }}
-                onMouseLeave={e => { e.currentTarget.style.background = `${col}08`; e.currentTarget.style.borderColor = `${col}25` }}
-              >
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: `${col}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, color: col, flexShrink: 0, fontFamily: 'var(--font2)' }}>{ini(name)}</div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.firstName}</div>
-                  <div style={{ fontSize: 11, color: 'var(--txt3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.lastName}</div>
-                  {s.admissionNumber && <div style={{ fontSize: 9.5, color: col, fontFamily: 'var(--font3)', marginTop: 1 }}>{s.admissionNumber}</div>}
+        {!isLoading && streams.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {streams.map(s => {
+              const teacherName = s.classTeacherId ? (staffMap.get(s.classTeacherId) ?? null) : null
+              const count = streamCounts.get(s.id) ?? 0
+              return (
+                <div key={s.id} style={{
+                  padding: '12px 14px', borderRadius: 12,
+                  border: '.5px solid var(--border)', background: 'var(--surface2)',
+                  display: 'flex', alignItems: 'center', gap: 12, transition: 'all .14s',
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                    background: 'linear-gradient(145deg,rgba(13,148,136,.15),rgba(13,148,136,.06))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 14, color: 'var(--brand)',
+                  }}>
+                    {s.name.slice(0, 2)}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>{s.name}</div>
+                    {teacherName ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>{teacherName}</span>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 3 }}>No class teacher</div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                    <span style={{
+                      padding: '2px 9px', borderRadius: 99, fontSize: 10.5, fontWeight: 700,
+                      background: 'rgba(14,165,233,.10)', color: 'var(--info)',
+                      border: '.5px solid rgba(14,165,233,.2)',
+                    }}>
+                      {count} stu
+                    </span>
+                    <button
+                      onClick={() => setAssignStream(s)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        padding: '4px 10px', borderRadius: 7,
+                        border: '.5px solid rgba(139,92,246,.3)',
+                        background: 'rgba(139,92,246,.06)', color: '#8b5cf6',
+                        fontSize: 10.5, fontWeight: 700, cursor: 'pointer', transition: 'all .13s',
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(139,92,246,.14)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(139,92,246,.06)' }}
+                    >
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      {s.classTeacherId ? 'Reassign' : 'Assign'}
+                    </button>
+                  </div>
                 </div>
+              )
+            })}
+
+            {/* Students without a stream */}
+            {noStreamCount > 0 && (
+              <div style={{ padding: '10px 14px', borderRadius: 12, border: '.5px dashed var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 12, color: 'var(--txt3)', flex: 1 }}>Unassigned to stream</span>
+                <span style={{
+                  padding: '2px 9px', borderRadius: 99, fontSize: 10.5, fontWeight: 700,
+                  background: 'rgba(148,163,184,.12)', color: 'var(--txt3)',
+                  border: '.5px solid rgba(148,163,184,.25)',
+                }}>
+                  {noStreamCount} stu
+                </span>
               </div>
-            )
-          })}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </div>
 
       {assignStream && <AssignTeacherModal stream={assignStream} onClose={() => setAssignStream(null)} />}
+    </div>
+  )
+}
+
+// ─── Class summary card (grid item) ──────────────────────────────────────────
+function ClassCard({
+  cls, selected, onClick,
+  streamCount, studentCount,
+}: {
+  cls: Class; selected: boolean; onClick: () => void
+  streamCount: number; studentCount: number
+}) {
+  const [hovered, setHovered] = useState(false)
+  const active = selected || hovered
+
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
+        border: selected ? '.5px solid rgba(13,148,136,.45)' : `.5px solid ${hovered ? 'rgba(13,148,136,.25)' : 'var(--border)'}`,
+        background: selected
+          ? 'linear-gradient(145deg,rgba(13,148,136,.09),rgba(13,148,136,.03))'
+          : 'var(--surface)',
+        boxShadow: selected
+          ? '0 6px 28px rgba(13,148,136,.13)'
+          : hovered ? '0 4px 18px rgba(0,0,0,.07)' : '0 1px 6px rgba(0,0,0,.04)',
+        transition: 'all .18s cubic-bezier(.34,1.56,.64,1)',
+        transform: active && !selected ? 'translateY(-2px)' : 'none',
+      }}
+    >
+      {/* Accent top bar */}
+      <div style={{
+        height: 3, width: '100%',
+        background: selected
+          ? 'linear-gradient(90deg,var(--brand),var(--brand-dark))'
+          : 'transparent',
+        transition: 'background .18s',
+      }} />
+
+      <div style={{ padding: '16px 16px 14px' }}>
+        {/* Class name */}
+        <div style={{
+          fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)',
+          letterSpacing: -.5, lineHeight: 1, marginBottom: 6,
+        }}>
+          {cls.name}
+        </div>
+
+        {/* Level badge */}
+        {cls.level && (
+          <span style={{
+            display: 'inline-block', padding: '2px 9px', borderRadius: 99, marginBottom: 12,
+            background: selected ? 'rgba(13,148,136,.12)' : 'var(--surface2)',
+            color: selected ? 'var(--brand)' : 'var(--txt3)',
+            border: selected ? '.5px solid rgba(13,148,136,.25)' : '.5px solid var(--border)',
+            fontSize: 10.5, fontWeight: 700, transition: 'all .15s',
+          }}>
+            Level {cls.level}
+          </span>
+        )}
+
+        {/* Stats row */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{
+            flex: 1, padding: '8px 10px', borderRadius: 10,
+            background: 'rgba(14,165,233,.07)', border: '.5px solid rgba(14,165,233,.18)',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 18, color: 'var(--info)', lineHeight: 1 }}>
+              {studentCount}
+            </div>
+            <div style={{ fontSize: 9.5, color: 'var(--txt3)', marginTop: 3, fontWeight: 600 }}>Students</div>
+          </div>
+          <div style={{
+            flex: 1, padding: '8px 10px', borderRadius: 10,
+            background: 'rgba(139,92,246,.07)', border: '.5px solid rgba(139,92,246,.18)',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 18, color: '#8b5cf6', lineHeight: 1 }}>
+              {streamCount}
+            </div>
+            <div style={{ fontSize: 9.5, color: 'var(--txt3)', marginTop: 3, fontWeight: 600 }}>Streams</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Selected indicator */}
+      {selected && (
+        <div style={{
+          padding: '8px 16px', background: 'rgba(13,148,136,.08)',
+          borderTop: '.5px solid rgba(13,148,136,.15)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2.8"><polyline points="20 6 9 17 4 12"/></svg>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand)' }}>Viewing streams</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -169,84 +336,154 @@ function ClassDetail({ classId, className }: { classId: string; className: strin
 // ═══════════════════════════════════════════════════════════════════════════════
 export function DosClassesPage() {
   const { data: classes = [], isLoading } = useClasses()
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  function toggle(id: string) {
-    setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
-  }
+  const selectedClass = classes.find(c => c.id === selectedId) ?? null
+
+  // Auto-select first class when loaded
+  useEffect(() => {
+    if (!isLoading && classes.length > 0 && !selectedId) {
+      setSelectedId(classes[0].id)
+    }
+  }, [isLoading, classes, selectedId])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
 
-      {/* Hero Band */}
+      {/* ── Hero Band ──────────────────────────────────────────────────────── */}
       <div style={{
         borderRadius: 18, overflow: 'hidden',
-        background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+        background: 'linear-gradient(135deg,var(--brand) 0%,var(--brand-dark) 55%,#0369a1 100%)',
         padding: '28px 28px 24px', position: 'relative',
       }}>
-        <div style={{ position: 'absolute', top: -30, right: -30, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,.08)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -20, right: 60, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,.06)', pointerEvents: 'none' }} />
+        {/* decorative orbs */}
+        <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,.07)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -24, right: 80, width: 130, height: 130, borderRadius: '50%', background: 'rgba(255,255,255,.05)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: 20, right: 160, width: 60, height: 60, borderRadius: '50%', background: 'rgba(255,255,255,.04)', pointerEvents: 'none' }} />
+
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 13, background: 'rgba(255,255,255,.20)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round">
-                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 14,
+              background: 'rgba(255,255,255,.20)', backdropFilter: 'blur(8px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="14" width="7" height="7" rx="1.5"/>
               </svg>
             </div>
-            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 24, color: '#fff', margin: 0, letterSpacing: -.4 }}>Classes</h1>
+            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 26, color: '#fff', margin: 0, letterSpacing: -.5 }}>
+              Classes &amp; Streams
+            </h1>
           </div>
-          <p style={{ color: 'rgba(255,255,255,.75)', fontSize: 13, margin: '0 0 20px', fontWeight: 500 }}>
-            Expand a class to view students, streams, and assign class teachers.
+          <p style={{ color: 'rgba(255,255,255,.75)', fontSize: 13, margin: '0 0 22px', fontWeight: 500 }}>
+            Select a class to view its streams, student counts, and assign class teachers.
           </p>
+
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {[
-              { label: 'Total Classes', value: isLoading ? '—' : classes.length },
-              { label: 'Open', value: isLoading ? '—' : expanded.size },
+              {
+                label: 'Classes',
+                value: isLoading ? '—' : classes.length,
+                icon: (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                  </svg>
+                ),
+              },
             ].map(stat => (
-              <div key={stat.label} style={{ background: 'rgba(255,255,255,.18)', backdropFilter: 'blur(8px)', border: '.5px solid rgba(255,255,255,.28)', borderRadius: 12, padding: '10px 16px', minWidth: 80 }}>
-                <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)', lineHeight: 1 }}>{stat.value}</div>
-                <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,.72)', marginTop: 3, fontWeight: 600, letterSpacing: .3 }}>{stat.label}</div>
+              <div key={stat.label} style={{
+                background: 'rgba(255,255,255,.18)', backdropFilter: 'blur(10px)',
+                border: '.5px solid rgba(255,255,255,.30)', borderRadius: 13,
+                padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10, minWidth: 110,
+              }}>
+                {stat.icon}
+                <div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)', lineHeight: 1 }}>{stat.value}</div>
+                  <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,.72)', marginTop: 3, fontWeight: 600, letterSpacing: .3 }}>{stat.label}</div>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {isLoading && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{[1,2,3].map(i => <div key={i} className="shule-skeleton" style={{ height: 64, borderRadius: 14 }} />)}</div>}
+      {/* ── Loading skeletons ─────────────────────────────────────────────── */}
+      {isLoading && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 12 }}>
+          {[1,2,3,4].map(i => (
+            <div key={i} className="shule-skeleton" style={{ height: 130, borderRadius: 16 }} />
+          ))}
+        </div>
+      )}
 
+      {/* ── Empty state ───────────────────────────────────────────────────── */}
       {!isLoading && classes.length === 0 && (
-        <div style={{ padding: '52px 24px', textAlign: 'center', background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)' }}>
+        <div style={{
+          padding: '60px 24px', textAlign: 'center',
+          background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)',
+        }}>
+          <div style={{ width: 56, height: 56, borderRadius: 18, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+          </div>
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--txt)', marginBottom: 6 }}>No classes found</div>
           <div style={{ fontSize: 13, color: 'var(--txt3)' }}>Classes appear here after students are registered by the Secretary.</div>
         </div>
       )}
 
-      {/* Class cards */}
+      {/* ── Main two-column layout ────────────────────────────────────────── */}
       {!isLoading && classes.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {classes.map(c => {
-            const isOpen = expanded.has(c.id)
-            return (
-              <div key={c.id} style={{ background: 'var(--surface)', border: `.5px solid ${isOpen ? 'rgba(139,92,246,.35)' : 'var(--border)'}`, borderRadius: 18, overflow: 'hidden', boxShadow: isOpen ? '0 4px 24px rgba(139,92,246,.1)' : '0 1px 6px rgba(0,0,0,.04)', transition: 'all .18s' }}>
-                {/* Class header */}
-                <div onClick={() => toggle(c.id)} style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', background: isOpen ? 'linear-gradient(135deg,rgba(139,92,246,.06),transparent)' : 'transparent', transition: 'background .15s' }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 13, background: isOpen ? 'linear-gradient(145deg,#8b5cf6,#7c3aed)' : 'linear-gradient(145deg,rgba(139,92,246,.2),rgba(139,92,246,.08))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .18s', boxShadow: isOpen ? '0 4px 14px rgba(139,92,246,.4)' : 'none' }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isOpen ? '#fff' : '#8b5cf6'} strokeWidth="2.2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 16, color: 'var(--txt)', letterSpacing: -.2 }}>{c.name}</div>
-                    {c.level && <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>Level {c.level}</div>}
-                  </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2.5" style={{ transition: 'transform .2s', transform: isOpen ? 'rotate(180deg)' : 'none', flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
-                </div>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
 
-                {isOpen && <ClassDetail classId={c.id} className={c.name} />}
-              </div>
-            )
-          })}
+          {/* Left: class cards grid */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))',
+            gap: 10,
+            flex: '0 0 auto',
+            width: classes.length <= 4 ? '100%' : undefined,
+            maxWidth: 480,
+          }}>
+            {classes.map(c => (
+              <ClassCardWithCounts
+                key={c.id}
+                cls={c}
+                selected={selectedId === c.id}
+                onClick={() => setSelectedId(c.id)}
+              />
+            ))}
+          </div>
+
+          {/* Right: streams panel */}
+          {selectedClass && (
+            <div style={{ flex: 1, minWidth: 0, minHeight: 320, position: 'sticky', top: 12 }}>
+              <StreamsPanel cls={selectedClass} />
+            </div>
+          )}
         </div>
       )}
     </div>
+  )
+}
+
+// Wrapper that fetches counts for each card
+function ClassCardWithCounts({ cls, selected, onClick }: { cls: Class; selected: boolean; onClick: () => void }) {
+  const { data: streams = [] }  = useStreams(cls.id)
+  const { data: students = [] } = useStudents({ classId: cls.id, status: 'active' })
+  return (
+    <ClassCard
+      cls={cls}
+      selected={selected}
+      onClick={onClick}
+      streamCount={streams.length}
+      studentCount={students.length}
+    />
   )
 }

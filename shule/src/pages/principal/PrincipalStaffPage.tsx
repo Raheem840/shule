@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useStaff, useSetStaffActive, type StaffFilters } from '../../hooks/useStaff'
-import { useDepartments } from '../../hooks/useClasses'
+import { useDepartments, useClasses } from '../../hooks/useClasses'
 import { Avatar } from '../../components/shared/Avatar'
 import { useAuth } from '../../store/AuthContext'
 import { useToast } from '../../components/ui/Toast'
@@ -74,10 +74,11 @@ function FilterPill({ label, active, onClick }: {
 
 // ── Staff Card ────────────────────────────────────────────────────────────────
 function StaffCard({
-  staff, deptName, onActivate,
+  staff, deptName, classNames, onActivate,
 }: {
   staff: Staff
   deptName: string | null
+  classNames: string[]
   onActivate: (id: string, name: string, isActive: boolean) => void
 }) {
   const navigate = useNavigate()
@@ -191,6 +192,27 @@ function StaffCard({
                 <span style={{ fontSize: 11.5, color: 'var(--txt3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{staff.email}</span>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Teaching classes chips — only for teacher / class_teacher */}
+        {(staff.role === 'teacher' || staff.role === 'class_teacher') && classNames.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ marginTop: 3, flexShrink: 0 }}>
+              <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/>
+            </svg>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {classNames.map(name => (
+                <span key={name} style={{
+                  display: 'inline-block', padding: '1px 7px', borderRadius: 99,
+                  background: 'rgba(14,165,233,.10)', color: 'var(--info)',
+                  border: '1px solid rgba(14,165,233,.22)',
+                  fontSize: 10.5, fontWeight: 700, fontFamily: 'var(--font2)',
+                }}>
+                  {name}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
@@ -316,7 +338,9 @@ export function PrincipalStaffPage() {
 
   const { data: staffList = [], isLoading } = useStaff(filters)
   const { data: depts     = [] }            = useDepartments()
-  const deptMap = new Map(depts.map(d => [d.id, d.name]))
+  const { data: classes   = [] }            = useClasses()
+  const deptMap  = new Map(depts.map(d => [d.id, d.name]))
+  const classMap = useMemo(() => new Map(classes.map(c => [c.id, c.name])), [classes])
 
   // Filter out the logged-in principal's own record
   const filtered = useMemo(
@@ -565,6 +589,7 @@ export function PrincipalStaffPage() {
                 key={s.id}
                 staff={s}
                 deptName={s.departmentId ? (deptMap.get(s.departmentId) ?? null) : null}
+                classNames={s.classes.map(cid => classMap.get(cid)).filter((n): n is string => !!n)}
                 onActivate={(id, name, isActive) => { void handleActivate(id, name, isActive) }}
               />
             ))}

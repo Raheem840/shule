@@ -82,7 +82,7 @@ const CURRENT_YEAR = new Date().getFullYear()
 
 export function SmsReminderPage() {
   const [smsFilters, setSmsFilters] = useState<SmsFilters>({
-    balanceStatus: 'both',
+    balanceStatus: 'all',
     minBalance: 0,
     term: 1,
     year: CURRENT_YEAR,
@@ -257,6 +257,7 @@ export function SmsReminderPage() {
               aria-label="Balance status filter"
               style={{ padding: '0.3rem 0.75rem', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', background: 'var(--surface)', color: 'var(--txt)', fontSize: 12 }}
             >
+              <option value="all">All Students</option>
               <option value="both">Unpaid + Partial</option>
               <option value="unpaid">Unpaid Only</option>
               <option value="partial">Partial Only</option>

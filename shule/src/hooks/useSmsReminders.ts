@@ -26,7 +26,7 @@ export type SmsStudentRow = {
 export type SmsFilters = {
   classId?:    string
   streamId?:   string
-  balanceStatus: 'unpaid' | 'partial' | 'both'
+  balanceStatus: 'unpaid' | 'partial' | 'both' | 'all'
   minBalance:  number
   term:        number
   year:        number
@@ -105,12 +105,14 @@ export function useSmsStudents(filters: SmsFilters) {
       let rows: SmsStudentRow[] = []
       for (const s of studentsRes.data ?? []) {
         const sid      = s.id as string
-        const fees     = feeMap.get(sid)
+        // Students without a guardian phone cannot be contacted — skip
         const guardian = primaryGuardian.get(sid) ?? anyGuardian.get(sid)
+        if (!guardian) continue
 
-        if (!fees || !guardian) continue
-
+        // Students with no fee_payments row get zero amounts (they appear in "All Students")
+        const fees = feeMap.get(sid) ?? { amountDue: 0, amountPaid: 0, balance: 0 }
         const status = calcFeeStatus(fees.amountPaid, fees.balance)
+
         rows.push({
           studentId:       sid,
           firstName:       s.first_name as string,
@@ -133,9 +135,10 @@ export function useSmsStudents(filters: SmsFilters) {
       if (filters.classId)  rows = rows.filter(r => r.classId === filters.classId)
       if (filters.streamId) rows = rows.filter(r => r.streamId === filters.streamId)
 
-      if (filters.balanceStatus === 'unpaid')  rows = rows.filter(r => r.status === 'unpaid')
+      if (filters.balanceStatus === 'unpaid')       rows = rows.filter(r => r.status === 'unpaid')
       else if (filters.balanceStatus === 'partial') rows = rows.filter(r => r.status === 'partial')
-      else rows = rows.filter(r => r.status !== 'paid') // 'both' = unpaid + partial
+      else if (filters.balanceStatus === 'both')    rows = rows.filter(r => r.status !== 'paid')
+      // 'all' — no balance filter: every student with a contactable guardian is shown
 
       if (filters.minBalance > 0) rows = rows.filter(r => r.balance >= filters.minBalance)
 
