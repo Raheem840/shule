@@ -94,7 +94,6 @@ export function PrincipalStaffProfilePage() {
         <InfoRow label="Phone"           value={staff.phone ?? '—'} />
         <InfoRow label="Employment Type" value={staff.employmentType?.replace('_', ' ') ?? '—'} />
         <InfoRow label="Join Date"       value={staff.joinDate ? new Date(staff.joinDate).toLocaleDateString('en-GB') : '—'} />
-        <InfoRow label="Salary Band"     value={staff.salaryBand ?? '—'} mono />
         <InfoRow label="Qualification"   value={staff.qualificationLevel ? QUAL_LABELS[staff.qualificationLevel] ?? `Level ${staff.qualificationLevel}` : '—'} />
         {staff.qualificationTitle && (
           <InfoRow label="Qualification Title" value={staff.qualificationTitle} />

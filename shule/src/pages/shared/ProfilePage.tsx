@@ -229,7 +229,6 @@ export function ProfilePage() {
   const roleColour     = ROLE_COLOURS[profile.role] ?? '#374151'
   const roleLabel      = ROLE_LABEL[profile.role as UserRole] ?? profile.role
   const avatarInitials = `${profile.firstName[0] ?? ''}${profile.lastName[0] ?? ''}`.toUpperCase()
-  const canSeeSalary   = ['principal', 'bursar', 'it_admin'].includes(user?.role ?? '')
 
   return (
     <div className="profile-page-wrap">
@@ -417,10 +416,7 @@ export function ProfilePage() {
             <InfoRow label="Department"    value={profile.departmentName ?? '—'} />
             <InfoRow label="Type"          value={EMPLOYMENT_LABEL[profile.employmentType ?? ''] ?? (profile.employmentType ?? '—')} />
             <InfoRow label="Join Date"     value={profile.joinDate ? formatDate(profile.joinDate) : '—'} />
-            <InfoRow label="Qualification" value={QUAL_LABELS[profile.qualificationLevel ?? 0] ?? '—'} last={!canSeeSalary} />
-            {canSeeSalary && (
-              <InfoRow label="Salary Band" value={profile.salaryBand ?? '—'} last />
-            )}
+            <InfoRow label="Qualification" value={QUAL_LABELS[profile.qualificationLevel ?? 0] ?? '—'} last />
           </InfoCard>
 
           {/* ── Account Access ── */}

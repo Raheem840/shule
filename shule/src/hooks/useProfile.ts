@@ -25,7 +25,6 @@ export type MyProfile = {
   schoolName: string | null
   employmentType: string | null
   qualificationLevel: number | null
-  salaryBand: string | null
   joinDate: string | null
   isActive: boolean
   lastSignInAt: string | null
@@ -47,7 +46,7 @@ export function useMyProfile() {
           .select([
             'id', 'first_name', 'last_name', 'email', 'phone', 'address',
             'role', 'staff_number', 'photo_url', 'department_id',
-            'employment_type', 'qualification_level', 'salary_band',
+            'employment_type', 'qualification_level',
             'join_date', 'is_active',
           ].join(', '))
           .eq('school_id', sid)
@@ -88,7 +87,6 @@ export function useMyProfile() {
         schoolName:         schoolRes.data?.school_name ?? null,
         employmentType:     (row['employment_type'] as string | null) ?? null,
         qualificationLevel: (row['qualification_level'] as number | null) ?? null,
-        salaryBand:         (row['salary_band'] as string | null) ?? null,
         joinDate:           (row['join_date'] as string | null) ?? null,
         isActive:           (row['is_active'] as boolean | null) ?? true,
         lastSignInAt:       sessionRes.data.session?.user.last_sign_in_at ?? null,

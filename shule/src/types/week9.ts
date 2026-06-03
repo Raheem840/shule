@@ -348,6 +348,5 @@ export type StaffFullProfile = {
   staffNumber: string | null
   photoUrl: string | null
   isActive: boolean
-  salaryBand: string | null
   joinDate: string | null
 }

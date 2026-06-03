@@ -59,7 +59,6 @@ const BursarDashboard          = lazy(() => import('./pages/bursar/BursarDashboa
 const FeeLedgerPage            = lazy(() => import('./pages/bursar/FeeLedgerPage').then(m => ({ default: m.FeeLedgerPage })))
 const FeeStructurePage         = lazy(() => import('./pages/bursar/FeeStructurePage').then(m => ({ default: m.FeeStructurePage })))
 const SmsReminderPage          = lazy(() => import('./pages/bursar/SmsReminderPage').then(m => ({ default: m.SmsReminderPage })))
-const SalaryPage               = lazy(() => import('./pages/bursar/SalaryPage').then(m => ({ default: m.SalaryPage })))
 const BursarImportPage         = lazy(() => import('./pages/bursar/BursarImportPage').then(m => ({ default: m.BursarImportPage })))
 const AddPaymentPage           = lazy(() => import('./pages/bursar/AddPaymentPage').then(m => ({ default: m.AddPaymentPage })))
 const DeliveryLogPage          = lazy(() => import('./pages/bursar/DeliveryLogPage').then(m => ({ default: m.DeliveryLogPage })))
@@ -219,7 +218,6 @@ export default function App() {
             <Route path="/bursar/reminders"     element={<SmsReminderPage />} />
             <Route path="/bursar/add-payment"   element={<AddPaymentPage />} />
             <Route path="/bursar/delivery-log"  element={<DeliveryLogPage />} />
-            <Route path="/bursar/salaries"      element={<SalaryPage />} />
             <Route path="/bursar/reports"       element={<FeeReportsPage />} />
             <Route path="/bursar/messages"      element={<MessagingPage />} />
           </Route>

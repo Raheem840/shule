@@ -164,9 +164,8 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
       ],
     },
     {
-      label: 'Payroll',
+      label: 'Reports',
       items: [
-        { label: 'Salary Records',path: '/bursar/salaries',      svg: SVG.salary       },
         { label: 'Fee Reports',  path: '/bursar/reports',        svg: SVG.feeReports   },
         { label: 'Messages',     path: '/bursar/messages',       svg: SVG.messages,    badge: 'alert' },
       ],

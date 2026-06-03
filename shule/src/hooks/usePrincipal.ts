@@ -291,7 +291,7 @@ export function useStaffFullProfile(staffId: string | null) {
         .select(
           'id, auth_user_id, first_name, last_name, role, email, phone,' +
           ' department_id, qualification_level, employment_type,' +
-          ' staff_number, photo_url, is_active, salary_band, join_date'
+          ' staff_number, photo_url, is_active, join_date'
         )
         .eq('school_id', user!.schoolId)
         .eq('id', staffId!)
@@ -314,7 +314,6 @@ export function useStaffFullProfile(staffId: string | null) {
         staffNumber:        d.staff_number,
         photoUrl:           d.photo_url,
         isActive:           d.is_active,
-        salaryBand:         d.salary_band,
         joinDate:           d.join_date,
       }
     },
@@ -367,7 +366,6 @@ export function useSuspendStaff() {
   })
 }
 
-// ── useUpdateSalaryBand ────────────────────────────────────────────────────
 // ── useAllClassPerformance ─────────────────────────────────────────────────
 // All classes with pass rate, avg score, student count — sorted alphabetically.
 export function useAllClassPerformance() {
@@ -558,23 +556,3 @@ export function useMonthlyDiscipline() {
   })
 }
 
-// ── useUpdateSalaryBand ────────────────────────────────────────────────────
-export function useUpdateSalaryBand() {
-  const { user } = useAuth()
-  const qc = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ staffId, salaryBand }: { staffId: string; salaryBand: string }) => {
-      if (!user) throw new Error('Not authenticated')
-      const { error } = await supabase
-        .from('staff')
-        .update({ salary_band: salaryBand })
-        .eq('id', staffId)
-        .eq('school_id', user.schoolId)
-      if (error) throw new Error(error.message)
-    },
-    onSuccess: (_d, vars) => {
-      void qc.invalidateQueries({ queryKey: ['staff-full-profile', user?.schoolId, vars.staffId] })
-    },
-  })
-}

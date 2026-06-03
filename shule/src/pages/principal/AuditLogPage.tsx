@@ -44,7 +44,7 @@ function prettifyField(field: string): string {
     first_name:'First Name', last_name:'Last Name', email:'Email', phone:'Phone',
     role:'Role', status:'Status', is_active:'Active', is_absent:'Absent',
     score:'Score', grade:'Grade', amount_paid:'Amount Paid', amount_due:'Amount Owing',
-    balance:'Balance', date_given:'Exam Date', salary_band:'Salary Band',
+    balance:'Balance', date_given:'Exam Date',
     employment_type:'Employment Type', national_id:'National ID',
     admission_number:'Admission Number', student_type:'Student Type',
     receipt_number:'Receipt Number', payment_date:'Payment Date',
