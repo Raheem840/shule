@@ -1,38 +1,36 @@
 version: '3.8'
 
-# School on-site installation stack.
-# Run: docker compose -f docker-compose.school.yml up -d
-#
-# For cloud deployments, only the shule-app service is needed.
-# The Supabase services below are for fully offline/local installs
-# where the school has no reliable internet.
-
 services:
   shule-app:
-    image: shule-frontend
+    image: ${SCHOOL_IMAGE_NAME:-shule-frontend}
     ports:
       - "80:80"
-    environment:
-      - VITE_SUPABASE_URL=${SUPABASE_URL:-http://192.168.1.100:8000}
-      - VITE_SUPABASE_ANON_KEY=${LOCAL_ANON_KEY}
     restart: always
-    # For cloud-only deployments, remove the depends_on block below
-    # and set VITE_SUPABASE_URL to your Supabase cloud URL
+    networks:
+      - shule-network
 
-  # ── Self-hosted Supabase (local/offline only) ──────────────────────────────
-  # Pull the official Supabase docker compose and merge with this file.
-  # See: https://supabase.com/docs/guides/self-hosting/docker
-  #
-  # supabase-db:
-  #   image: supabase/postgres:15.1.1.61
-  #   ports:
-  #     - "5432:5432"
-  #   environment:
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  #   volumes:
-  #     - db_data:/var/lib/postgresql/data
-  #     - ./supabase/migrations:/docker-entrypoint-initdb.d
-  #   restart: always
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ShuleDB2025}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
+    networks:
+      - shule-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  shule-network:
+    driver: bridge
 
 volumes:
-  db_data:
+  postgres_data:
