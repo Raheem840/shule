@@ -22,6 +22,7 @@ import { ROLE_NAV, ROLE_AVATAR, ROLE_LABEL, ROLE_BOTTOM_NAV } from '../../config
 import { OfflineBanner } from '../shared/OfflineBanner'
 import { ErrorBoundary } from '../shared/ErrorBoundary'
 import { useNotifications, useMarkNotificationsRead } from '../../hooks/useNotifications'
+import { NotificationPushListener } from '../shared/NotificationPush'
 import { useUnreadCount } from '../../hooks/useMessaging'
 import { useSchoolSettings } from '../../hooks/useAdmin'
 import { applyBrandColor } from '../../lib/brandColor'
@@ -345,6 +346,8 @@ export function AppShell() {
             </ErrorBoundary>
           </div>
         </main>
+
+        <NotificationPushListener />
 
         {/* ── Bottom navigation (mobile only) ─────────────────────── */}
         {bottomItems.length > 0 && (

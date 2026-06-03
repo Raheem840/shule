@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
+import { sendNotifications } from '../lib/notifications'
 import type { SchoolEvent } from '../types/week9'
 
 const EVENT_SELECT =
@@ -146,6 +147,50 @@ export function useCreateEvent() {
 
       if (error?.code === '42P01') throw new Error('Events table not yet created on this server')
       if (error) throw new Error(error.message)
+
+      // Fire-and-forget notifications to affected students + DoS/Principal
+      void (async () => {
+        try {
+          const recipients: string[] = []
+
+          // Students in the class/stream who have portal access
+          if (input.classId) {
+            let q = supabase
+              .from('students')
+              .select('auth_user_id')
+              .eq('school_id', user.schoolId)
+              .eq('class_id', input.classId)
+              .not('auth_user_id', 'is', null)
+            if (input.streamId) q = q.eq('stream_id', input.streamId)
+            const { data: studs } = await q
+            for (const s of studs ?? []) {
+              if (s.auth_user_id) recipients.push(s.auth_user_id as string)
+            }
+          }
+
+          // DoS and Principal
+          const { data: admins } = await supabase
+            .from('staff')
+            .select('auth_user_id')
+            .eq('school_id', user.schoolId)
+            .in('role', ['dos', 'principal'])
+            .not('auth_user_id', 'is', null)
+          for (const a of admins ?? []) {
+            if (a.auth_user_id) recipients.push(a.auth_user_id as string)
+          }
+
+          if (recipients.length > 0) {
+            const dateStr = new Date(input.eventDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+            await sendNotifications({
+              schoolId: user.schoolId,
+              userIds:  [...new Set(recipients)],
+              type:     'event',
+              body:     `New event: "${input.title}" on ${dateStr}`,
+              link:     null,
+            })
+          }
+        } catch { /* notifications are best-effort */ }
+      })()
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['teacher-events'] })
