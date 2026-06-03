@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const ALLOWED_ROLES  = ['secretary', 'principal', 'it_admin']
+const ALLOWED_ROLES  = ['secretary', 'principal', 'it_admin', 'deputy', 'dos', 'bursar', 'teacher', 'class_teacher']
 const ALLOWED_TYPES  = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_SIZE_BYTES = 5 * 1024 * 1024  // 5 MB
 

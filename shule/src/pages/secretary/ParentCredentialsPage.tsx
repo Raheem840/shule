@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
-import { useStudents, useCreateStudentLogin } from '../../hooks/useStudents'
+import { useStudents, useCreateStudentLogin, useResetStudentPassword } from '../../hooks/useStudents'
 import { useClasses } from '../../hooks/useClasses'
 import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
@@ -592,103 +592,172 @@ function EmptySelect() {
 }
 
 // ── StudentLoginSection ───────────────────────────────────────
-function StudentLoginSection({ student }: { student: Student }) {
-  const [result,  setResult]  = useState<{ email: string; tempPassword: string; manual: boolean } | null>(null)
-  const [copied,  setCopied]  = useState<string | null>(null)
-  const { error: showErr, success: showOk } = useToast()
-  const createLogin = useCreateStudentLogin()
-
-  function copy(key: string, value: string) {
+// ── Credential row ────────────────────────────────────────────
+function CredRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false)
+  function copy() {
     void navigator.clipboard.writeText(value)
-    setCopied(key)
-    setTimeout(() => setCopied(null), 2000)
+    setCopied(true); setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 9, padding: '8px 12px' }}>
+      <div>
+        <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 2 }}>{label}</div>
+        <div style={{ fontSize: 12.5, fontFamily: 'var(--font3)', color: 'var(--txt)' }}>{value}</div>
+      </div>
+      <button onClick={copy}
+        style={{ background: copied ? 'rgba(16,185,129,0.1)' : 'var(--surface)', border: `1px solid ${copied ? 'rgba(16,185,129,0.3)' : 'var(--border)'}`, borderRadius: 7, padding: '4px 10px', fontSize: 11, fontWeight: 700, color: copied ? 'var(--success)' : 'var(--txt2)', cursor: 'pointer', transition: 'all 0.15s' }}>
+        {copied ? '✓' : 'Copy'}
+      </button>
+    </div>
+  )
+}
+
+function StudentLoginSection({ student }: { student: Student }) {
+  const [newCreds, setNewCreds] = useState<{ email: string; tempPassword: string; isReset: boolean } | null>(null)
+  const [showReset, setShowReset] = useState(false)
+  const { error: showErr, success: showOk } = useToast()
+  const { user } = useAuth()
+  const createLogin = useCreateStudentLogin()
+  const resetPassword = useResetStudentPassword()
+
+  // Fetch school short_name to reconstruct the student email
+  const { data: school } = useQuery({
+    queryKey: ['school-short-name', user?.schoolId],
+    enabled: !!user?.schoolId,
+    staleTime: 60 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase.from('school_profile').select('short_name').eq('id', user!.schoolId).single()
+      return (data?.short_name as string | null) ?? 'school'
+    },
+  })
+
+  function computeEmail() {
+    const shortName  = (school ?? 'school').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const firstInit  = (student.firstName[0] ?? '').toLowerCase()
+    const lastInit   = (student.lastName[0] ?? '').toLowerCase()
+    const admSeq     = student.admissionNumber.replace(/\D/g, '').slice(-4).replace(/^0+(?=\d)/, '') || '1'
+    return `${firstInit}${lastInit}${admSeq}@${shortName}.ug`
   }
 
   async function handleCreate() {
     try {
       const r = await createLogin.mutateAsync(student.id)
-      setResult(r)
-      showOk('Student login credentials generated')
+      setNewCreds({ email: r.email, tempPassword: r.tempPassword, isReset: false })
+      showOk('Student login created')
     } catch (e) {
       showErr(e instanceof Error ? e.message : 'Failed to create login')
     }
   }
 
-  if (student.authUserId && !result) {
-    return (
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '11px 14px',
-        background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.2)',
-        borderRadius: 12, marginTop: 4,
-      }}>
-        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        </div>
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--success)', fontFamily: 'var(--font2)' }}>
-          Student login active
-        </div>
-      </div>
-    )
+  async function handleReset() {
+    if (!student.authUserId) return
+    const email = computeEmail()
+    try {
+      const r = await resetPassword.mutateAsync({
+        studentId:       student.id,
+        authUserId:      student.authUserId,
+        email,
+        name:            `${student.firstName} ${student.lastName}`,
+        admissionNumber: student.admissionNumber,
+      })
+      setNewCreds({ email: r.email, tempPassword: r.tempPassword, isReset: true })
+      setShowReset(false)
+      showOk('Password reset — give the new credentials to the student')
+    } catch (e) {
+      showErr(e instanceof Error ? e.message : 'Failed to reset password')
+    }
   }
 
-  if (result) {
+  // Active account view
+  if (student.authUserId && !newCreds) {
+    const email = computeEmail()
     return (
-      <div style={{ marginTop: 4, borderRadius: 12, border: '1px solid rgba(139,92,246,0.25)', background: 'rgba(139,92,246,0.04)', overflow: 'hidden' }}>
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--violet)', fontFamily: 'var(--font2)' }}>Student Login Created</span>
-          {result.manual && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--warning)', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 6, padding: '1px 7px', marginLeft: 'auto' }}>
-              Manual — activate in Supabase
-            </span>
-          )}
+      <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.6, fontFamily: 'var(--font2)' }}>
+          Student Portal Login
         </div>
-        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {([
-            { key: 'email', label: 'Email',    value: result.email },
-            { key: 'pass',  label: 'Password', value: result.tempPassword },
-          ] as const).map(f => (
-            <div key={f.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 9, padding: '8px 12px' }}>
-              <div>
-                <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 2 }}>{f.label}</div>
-                <div style={{ fontSize: 12.5, fontFamily: 'var(--font3)', color: 'var(--txt)' }}>{f.value}</div>
-              </div>
-              <button
-                onClick={() => copy(f.key, f.value)}
-                style={{ background: copied === f.key ? 'rgba(139,92,246,0.1)' : 'var(--surface)', border: `1px solid ${copied === f.key ? 'rgba(139,92,246,0.3)' : 'var(--border)'}`, borderRadius: 7, padding: '4px 10px', fontSize: 11, fontWeight: 700, color: copied === f.key ? 'var(--violet)' : 'var(--txt2)', cursor: 'pointer', transition: 'all 0.15s' }}
-              >
-                {copied === f.key ? '✓' : 'Copy'}
+        {/* Active badge + email */}
+        <div style={{ borderRadius: 12, border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.04)', overflow: 'hidden' }}>
+          <div style={{ padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid rgba(16,185,129,0.12)' }}>
+            <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', fontFamily: 'var(--font2)' }}>Login active</span>
+          </div>
+          <div style={{ padding: '10px 14px' }}>
+            <CredRow label="Login Email" value={email} />
+          </div>
+        </div>
+
+        {/* Reset section */}
+        {!showReset ? (
+          <button onClick={() => setShowReset(true)}
+            style={{ width: '100%', padding: '9px 0', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+            Student Forgot Password / Reset
+          </button>
+        ) : (
+          <div style={{ borderRadius: 12, border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.04)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 12, color: 'var(--txt2)', lineHeight: 1.5 }}>
+              This will generate a new temporary password. The old password will stop working immediately.
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setShowReset(false)}
+                style={{ flex: 1, padding: '8px 0', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={() => { void handleReset() }} disabled={resetPassword.isPending}
+                style={{ flex: 2, padding: '8px 0', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer', opacity: resetPassword.isPending ? 0.7 : 1 }}>
+                {resetPassword.isPending ? 'Resetting…' : 'Reset Password'}
               </button>
             </div>
-          ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Show newly created/reset credentials
+  if (newCreds) {
+    const accent = newCreds.isReset ? '#f59e0b' : '#8b5cf6'
+    return (
+      <div style={{ marginTop: 4, borderRadius: 12, border: `1px solid ${accent}30`, background: `${accent}06`, overflow: 'hidden' }}>
+        <div style={{ padding: '10px 14px', borderBottom: `1px solid ${accent}18`, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span style={{ fontSize: 12.5, fontWeight: 800, color: accent, fontFamily: 'var(--font2)' }}>
+            {newCreds.isReset ? 'Password Reset' : 'Login Created'}
+          </span>
+          <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--warning)', fontWeight: 700 }}>Save these now</span>
+        </div>
+        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <CredRow label="Login Email"        value={newCreds.email} />
+          <CredRow label="Temporary Password" value={newCreds.tempPassword} />
+          <div style={{ fontSize: 10.5, color: 'var(--txt3)', textAlign: 'center', lineHeight: 1.5 }}>
+            Password is shown once. Student must change it after first login.
+          </div>
+          <button onClick={() => setNewCreds(null)}
+            style={{ width: '100%', padding: '8px 0', borderRadius: 9, border: 'none', background: `${accent}18`, color: accent, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+            Done
+          </button>
         </div>
       </div>
     )
   }
 
+  // No login yet
   return (
     <div style={{ marginTop: 4 }}>
       <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8, fontFamily: 'var(--font2)' }}>
         Student Portal Login
       </div>
-      <button
-        onClick={() => { void handleCreate() }}
-        disabled={createLogin.isPending}
-        style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-          padding: '10px 0', borderRadius: 10,
-          border: '1px solid rgba(139,92,246,0.35)', background: 'rgba(139,92,246,0.07)',
-          color: 'var(--violet)', fontWeight: 700, fontSize: 12.5, fontFamily: 'var(--font2)',
-          cursor: createLogin.isPending ? 'wait' : 'pointer', opacity: createLogin.isPending ? 0.7 : 1,
-          transition: 'all 0.15s',
-        }}
-      >
+      <button onClick={() => { void handleCreate() }} disabled={createLogin.isPending}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 0', borderRadius: 10, border: '1px solid rgba(139,92,246,0.35)', background: 'rgba(139,92,246,0.07)', color: 'var(--violet)', fontWeight: 700, fontSize: 12.5, fontFamily: 'var(--font2)', cursor: createLogin.isPending ? 'wait' : 'pointer', opacity: createLogin.isPending ? 0.7 : 1, transition: 'all 0.15s' }}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         {createLogin.isPending ? 'Creating…' : 'Create Student Login'}
       </button>
       <div style={{ fontSize: 10.5, color: 'var(--txt3)', marginTop: 5, textAlign: 'center' }}>
-        Auto-generates email from admission number
+        Auto-generates email · shown once after creation
       </div>
     </div>
   )
