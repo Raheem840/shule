@@ -75,6 +75,7 @@ const TeacherTimetablePage     = lazy(() => import('./pages/teacher/TeacherTimet
 const TeacherCurriculumPage         = lazy(() => import('./pages/teacher/TeacherCurriculumPage').then(m => ({ default: m.TeacherCurriculumPage })))
 const ReportPreviewPage             = lazy(() => import('./pages/teacher/ReportPreviewPage').then(m => ({ default: m.ReportPreviewPage })))
 const ClassTeacherStudentsPage      = lazy(() => import('./pages/teacher/ClassTeacherStudentsPage').then(m => ({ default: m.ClassTeacherStudentsPage })))
+const TeacherMyClassesPage          = lazy(() => import('./pages/teacher/TeacherMyClassesPage').then(m => ({ default: m.TeacherMyClassesPage })))
 
 // Student / Parent
 const StudentPortalPage        = lazy(() => import('./pages/student/StudentPortalPage').then(m => ({ default: m.StudentPortalPage })))
@@ -229,6 +230,7 @@ export default function App() {
             <Route path="/teacher/dashboard"              element={<TeacherDashboard />} />
             <Route path="/teacher/events"                 element={<TeacherEventsPage />} />
             <Route path="/teacher/my-class"               element={<ClassTeacherStudentsPage />} />
+            <Route path="/teacher/my-classes"             element={<TeacherMyClassesPage />} />
             <Route path="/teacher/exams"                  element={<ExamJournalPage />} />
             <Route path="/teacher/exams/:journalId/marks" element={<MarkEntryPage />} />
             <Route path="/teacher/exams/remarks"          element={<TeacherRemarksPage />} />

@@ -9,7 +9,7 @@ import {
   useUpdateEvent,
   useDeleteEvent,
 } from '../../hooks/useTeacherEvents'
-import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
+import { useClasses, useStreams, useSubjects, useMyAssignedClasses } from '../../hooks/useClasses'
 import type { SchoolEvent } from '../../types/week9'
 
 const EVENT_TYPES = [
@@ -76,7 +76,7 @@ function EventFormModal({ initial, onSave, onClose, saving }: {
   onClose: () => void
   saving: boolean
 }) {
-  const { data: classes  = [] } = useClasses()
+  const classes                 = useMyAssignedClasses()
   const { data: subjects = [] } = useSubjects()
   const [form, setForm] = useState<EventFormState>({
     title:       initial?.title       ?? '',

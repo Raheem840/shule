@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTeacherRemarks, useSaveRemarks } from '../../hooks/useTeacherRemarks'
 import { useStudents } from '../../hooks/useStudents'
-import { useClasses, useStreams } from '../../hooks/useClasses'
+import { useClasses, useStreams, useMyAssignedClasses } from '../../hooks/useClasses'
 import type { Student } from '../../types/app'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -55,7 +55,7 @@ export function TeacherRemarksPage() {
   const [remarks,  setRemarks]  = useState<Map<string, string>>(new Map())
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set())
 
-  const { data: classes = [] } = useClasses()
+  const classes                = useMyAssignedClasses()
   const { data: streams = [] } = useStreams(classId || null)
   const { data: students = [], isLoading: studentsLoading } = useStudents({ classId: classId || undefined, streamId: streamId || undefined, status: 'active' })
   const { data: savedRemarks, isLoading: remarksLoading } = useTeacherRemarks({ term: term || null, classId: classId || null, streamId: streamId || null, year: CURRENT_YEAR })

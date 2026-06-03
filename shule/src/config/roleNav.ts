@@ -178,6 +178,7 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
       label: 'My Teaching',
       items: [
         { label: 'Dashboard',    path: '/teacher/dashboard',     svg: SVG.dashboard    },
+        { label: 'My Classes',   path: '/teacher/my-classes',    svg: SVG.classes      },
         { label: 'Events',       path: '/teacher/events',        svg: SVG.attendance   },
         { label: 'Exam Journal', path: '/teacher/exams',         svg: SVG.examJournal  },
         { label: 'Attendance',   path: '/teacher/attendance',    svg: SVG.attendance   },
@@ -194,12 +195,13 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
     },
   ],
 
-  // ── CLASS TEACHER ── Same as teacher + My Class (students)
+  // ── CLASS TEACHER ── Same as teacher + My Class (homeroom students)
   class_teacher: [
     {
       label: 'My Teaching',
       items: [
         { label: 'Dashboard',    path: '/teacher/dashboard',     svg: SVG.dashboard    },
+        { label: 'My Classes',   path: '/teacher/my-classes',    svg: SVG.classes      },
         { label: 'My Class',     path: '/teacher/my-class',      svg: SVG.students     },
         { label: 'Events',       path: '/teacher/events',        svg: SVG.attendance   },
         { label: 'Exam Journal', path: '/teacher/exams',         svg: SVG.examJournal  },

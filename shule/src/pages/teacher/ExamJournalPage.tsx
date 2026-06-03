@@ -11,7 +11,7 @@ import {
   ResponsiveContainer, Cell,
 } from 'recharts'
 import { useExamJournals, useCreateJournal, useNextCALabel } from '../../hooks/useExamJournal'
-import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
+import { useClasses, useStreams, useSubjects, useMyAssignedClasses } from '../../hooks/useClasses'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { calculateCBCGrade } from '../../types/app'
@@ -180,7 +180,7 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
   const { user: _user }  = useAuth()
   const navigate         = useNavigate()
   const create           = useCreateJournal()
-  const { data: classes  = [] } = useClasses()
+  const classes          = useMyAssignedClasses()
   const { data: subjects = [] } = useSubjects()
 
   const { control, register, watch, handleSubmit, formState: { errors } } =
@@ -383,7 +383,7 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
 // ── Filters bar ────────────────────────────────────────────────
 function FiltersBar({ filters, onChange }: { filters: JournalFilters; onChange: (f: JournalFilters) => void }) {
   const { data: subjects = [] } = useSubjects()
-  const { data: classes  = [] } = useClasses()
+  const classes                 = useMyAssignedClasses()
 
   const sel: React.CSSProperties = {
     padding: '7px 32px 7px 12px', fontSize: 12.5,
@@ -948,7 +948,7 @@ export function ExamJournalPage() {
 
   const { data: journals = [], isLoading } = useExamJournals(filters)
   const { data: subjects = [] } = useSubjects()
-  const { data: classes  = [] } = useClasses()
+  const classes                 = useMyAssignedClasses()
   const { data: streams  = [] } = useStreams()
 
   const subjectMap = new Map(subjects.map(s => [s.id, s.name]))

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useClasses, useStreams } from '../../hooks/useClasses'
+import { useClasses, useStreams, useMyAssignedClasses } from '../../hooks/useClasses'
 import { useStudents } from '../../hooks/useStudents'
 import { useAttendance, useClassTermAttendance, useSaveAttendance } from '../../hooks/useAttendance'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
@@ -90,7 +90,7 @@ export function AttendancePage() {
 
   const { success: ok, error: err } = useToast()
 
-  const { data: classes  = [] }                = useClasses()
+  const classes                                = useMyAssignedClasses()
   const { data: streams  = [] }                = useStreams(classId || null)
   const { data: students = [], isLoading: studentsLoading } = useStudents(
     streamId ? { streamId } : classId ? { classId } : {},

@@ -239,3 +239,31 @@ export function useMoveStudent() {
     },
   })
 }
+
+// ── useMyAssignedClasses ───────────────────────────────────────────────────────
+// Returns only the classes the current teacher is assigned to teach (staff.classes[]).
+// Used to filter dropdowns in teacher-facing pages.
+export function useMyAssignedClasses() {
+  const { user } = useAuth()
+  const { data: allClasses = [] } = useClasses()
+
+  const { data: assignedIds = [] } = useQuery({
+    queryKey: ['my-staff-classes', user?.schoolId, user?.id],
+    enabled: !!user && ['teacher', 'class_teacher'].includes(user.role ?? ''),
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('staff')
+        .select('classes')
+        .eq('auth_user_id', user!.id)
+        .eq('school_id', user!.schoolId)
+        .maybeSingle()
+      return ((data as any)?.classes ?? []) as string[]
+    },
+  })
+
+  if (!['teacher', 'class_teacher'].includes(user?.role ?? '')) return allClasses
+  if (!assignedIds.length) return allClasses
+  return allClasses.filter(c => assignedIds.includes(c.id))
+}
+
