@@ -90,6 +90,7 @@ const SchoolProfilePage        = lazy(() => import('./pages/admin/SchoolProfileP
 const ApiConfigPage            = lazy(() => import('./pages/admin/ApiConfigPage').then(m => ({ default: m.ApiConfigPage })))
 const TemplatesPage            = lazy(() => import('./pages/admin/TemplatesPage').then(m => ({ default: m.TemplatesPage })))
 const SystemSettingsPage       = lazy(() => import('./pages/admin/SystemSettingsPage').then(m => ({ default: m.SystemSettingsPage })))
+const CredentialsMgmtPage     = lazy(() => import('./pages/admin/CredentialsMgmtPage').then(m => ({ default: m.CredentialsMgmtPage })))
 
 // Shared
 const MessagingPage            = lazy(() => import('./pages/shared/MessagingPage').then(m => ({ default: m.MessagingPage })))
@@ -286,7 +287,8 @@ export default function App() {
             <Route path="/admin/school"    element={<SchoolProfilePage />} />
             <Route path="/admin/api"       element={<ApiConfigPage />} />
             <Route path="/admin/templates" element={<TemplatesPage />} />
-            <Route path="/admin/settings"  element={<SystemSettingsPage />} />
+            <Route path="/admin/settings"     element={<SystemSettingsPage />} />
+            <Route path="/admin/credentials" element={<CredentialsMgmtPage />} />
             <Route path="/admin/messages"  element={<MessagingPage />} />
           </Route>
 

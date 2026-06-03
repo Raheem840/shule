@@ -70,6 +70,7 @@ const SVG = {
   systemSettings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M21 12h-2M19.07 19.07l-1.41-1.41M12 21v-2M4.93 19.07l1.41-1.41M3 12h2M4.93 4.93l1.41 1.41"/></svg>`,
   feeStatus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
   portalLinks: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>`,
+  credentials: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>`,
 }
 
 // ─── Role navigation configs ───────────────────────────────────────────────────
@@ -287,8 +288,9 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
       label: 'System',
       items: [
         { label: 'Dashboard',      path: '/admin/dashboard',     svg: SVG.dashboard        },
+        { label: 'Credentials',    path: '/admin/credentials',   svg: SVG.passwordResets   },
         { label: 'Users',          path: '/admin/users',         svg: SVG.users            },
-        { label: 'Password Resets',path: '/admin/resets',        svg: SVG.passwordResets },
+        { label: 'Password Resets',path: '/admin/resets',        svg: SVG.passwordResets   },
       ],
     },
     {
