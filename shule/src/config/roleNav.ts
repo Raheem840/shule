@@ -150,6 +150,7 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
       label: 'Finance',
       items: [
         { label: 'Dashboard',    path: '/bursar/dashboard',       svg: SVG.dashboard    },
+        { label: 'Students',     path: '/bursar/students',        svg: SVG.students     },
         { label: 'Fee Ledger',   path: '/bursar/fees',            svg: SVG.feeLedger    },
         { label: 'Import Fees',  path: '/bursar/import',          svg: SVG.importData   },
         { label: 'Fee Structure',path: '/bursar/fee-structure',   svg: SVG.feeStructure },

@@ -192,6 +192,8 @@ export type FeeStructure = {
   term:           1 | 2 | 3
   isActive:       boolean
   academicYearId: string
+  classId:        string | null  // null = applies to ALL classes
+  isCompulsory:   boolean        // false = optional fee
 }
 
 // Maps to: fee_payments — one row per student per fee type per term

@@ -63,6 +63,7 @@ const BursarImportPage         = lazy(() => import('./pages/bursar/BursarImportP
 const AddPaymentPage           = lazy(() => import('./pages/bursar/AddPaymentPage').then(m => ({ default: m.AddPaymentPage })))
 const DeliveryLogPage          = lazy(() => import('./pages/bursar/DeliveryLogPage').then(m => ({ default: m.DeliveryLogPage })))
 const FeeReportsPage           = lazy(() => import('./pages/bursar/FeeReportsPage').then(m => ({ default: m.FeeReportsPage })))
+const BursarStudentsPage       = lazy(() => import('./pages/bursar/BursarStudentsPage').then(m => ({ default: m.BursarStudentsPage })))
 
 // Teacher
 const TeacherDashboard         = lazy(() => import('./pages/teacher/TeacherDashboard').then(m => ({ default: m.TeacherDashboard })))
@@ -219,6 +220,7 @@ export default function App() {
             <Route path="/bursar/add-payment"   element={<AddPaymentPage />} />
             <Route path="/bursar/delivery-log"  element={<DeliveryLogPage />} />
             <Route path="/bursar/reports"       element={<FeeReportsPage />} />
+            <Route path="/bursar/students"      element={<BursarStudentsPage />} />
             <Route path="/bursar/messages"      element={<MessagingPage />} />
           </Route>
 
