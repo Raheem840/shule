@@ -40,6 +40,7 @@ const DosClassesPage           = lazy(() => import('./pages/dos/DosClassesPage')
 const DosTeachersPage          = lazy(() => import('./pages/dos/DosTeachersPage').then(m => ({ default: m.DosTeachersPage })))
 const DosCurriculumPage        = lazy(() => import('./pages/dos/DosCurriculumPage').then(m => ({ default: m.DosCurriculumPage })))
 const DosJournalsPage          = lazy(() => import('./pages/dos/DosJournalsPage').then(m => ({ default: m.DosJournalsPage })))
+const DosStudentsPage          = lazy(() => import('./pages/dos/DosStudentsPage').then(m => ({ default: m.DosStudentsPage })))
 
 // Secretary
 const SecretaryDashboard       = lazy(() => import('./pages/secretary/SecretaryDashboard').then(m => ({ default: m.SecretaryDashboard })))
@@ -96,6 +97,7 @@ const CredentialsMgmtPage     = lazy(() => import('./pages/admin/CredentialsMgmt
 const MessagingPage            = lazy(() => import('./pages/shared/MessagingPage').then(m => ({ default: m.MessagingPage })))
 const ProfilePage              = lazy(() => import('./pages/shared/ProfilePage').then(m => ({ default: m.ProfilePage })))
 const SharedEventsPage         = lazy(() => import('./pages/shared/SharedEventsPage').then(m => ({ default: m.SharedEventsPage })))
+const RemarksViewPage          = lazy(() => import('./pages/shared/RemarksViewPage').then(m => ({ default: m.RemarksViewPage })))
 
 // ─── Role → home route ────────────────────────────────────────────────────
 const ROLE_HOME: Record<UserRole, string> = {
@@ -151,6 +153,8 @@ export default function App() {
             <Route path="/principal/messages"             element={<MessagingPage />} />
             <Route path="/principal/announcements"        element={<Navigate to="/principal/messages" replace />} />
             <Route path="/principal/settings"             element={<PrincipalSettingsPage />} />
+            <Route path="/principal/surveys"              element={<DosSurveysPage />} />
+            <Route path="/principal/remarks"              element={<RemarksViewPage />} />
           </Route>
 
           {/* ── Deputy ─────────────────────────────────────────────── */}
@@ -166,6 +170,8 @@ export default function App() {
             <Route path="/deputy/staff"      element={<DeputyStaffPage />} />
             <Route path="/deputy/events"     element={<SharedEventsPage />} />
             <Route path="/deputy/messages"   element={<MessagingPage />} />
+            <Route path="/deputy/surveys"    element={<DosSurveysPage />} />
+            <Route path="/deputy/remarks"    element={<RemarksViewPage />} />
           </Route>
 
           {/* ── DoS ────────────────────────────────────────────────── */}
@@ -182,6 +188,8 @@ export default function App() {
             <Route path="/dos/journals"   element={<DosJournalsPage />} />
             <Route path="/dos/timetable"  element={<DosTimetablePage />} />
             <Route path="/dos/surveys"    element={<DosSurveysPage />} />
+            <Route path="/dos/students"   element={<DosStudentsPage />} />
+            <Route path="/dos/remarks"    element={<RemarksViewPage />} />
             <Route path="/dos/events"     element={<TeacherEventsPage />} />
             <Route path="/dos/messages"   element={<MessagingPage />} />
           </Route>

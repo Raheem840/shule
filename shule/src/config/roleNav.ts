@@ -226,6 +226,7 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
       label: 'Academic',
       items: [
         { label: 'Dashboard',     path: '/dos/dashboard',         svg: SVG.analytics    },
+        { label: 'Students',      path: '/dos/students',          svg: SVG.students     },
         { label: 'Subjects',      path: '/dos/subjects',          svg: SVG.subjects     },
         { label: 'Classes',       path: '/dos/classes',           svg: SVG.classes      },
         { label: 'Teachers',      path: '/dos/teachers',          svg: SVG.teachers     },
