@@ -15,7 +15,9 @@
     "migrate:status": "supabase migration list",
     "db:reset": "supabase db reset",
     "install:school": "bash scripts/apply-migrations.sh",
-    "install:demo": "bash scripts/apply-migrations.sh"
+    "install:demo": "bash scripts/apply-migrations.sh",
+    "build:school": "bash scripts/build-for-school.sh",
+    "usb:prepare": "bash scripts/prepare-usb.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
