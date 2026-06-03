@@ -288,7 +288,7 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
       label: 'System',
       items: [
         { label: 'Dashboard',      path: '/admin/dashboard',     svg: SVG.dashboard        },
-        { label: 'Credentials',    path: '/admin/credentials',   svg: SVG.passwordResets   },
+        { label: 'Credentials',    path: '/admin/credentials',   svg: SVG.credentials      },
         { label: 'Users',          path: '/admin/users',         svg: SVG.users            },
         { label: 'Password Resets',path: '/admin/resets',        svg: SVG.passwordResets   },
       ],
