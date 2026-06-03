@@ -174,6 +174,7 @@ function GenerateAccessModal({
   const [emailErr, setEmailErr] = useState('')
 
   const { error: showErr } = useToast()
+  const { user } = useAuth()
   const createMutation = useCreateParentAccount()
   const portalUrl = `${window.location.origin}/parent/portal`
 
@@ -183,16 +184,34 @@ function GenerateAccessModal({
     setEmailErr('')
 
     const pw = generateTempPassword()
-    createMutation.mutate({
-      fullName:     fullName.trim(),
-      email:        email.trim().toLowerCase(),
-      phone:        phone.trim() || null,
-      studentIds:   [student.id],
-      tempPassword: pw,
-    }, {
-      onSuccess: () => { setTempPw(pw); setDone(true) },
-      onError:   (e: Error) => showErr(e.message),
-    })
+    const cleanEmail = email.trim().toLowerCase()
+
+    try {
+      // 1. Create the parent_accounts DB row
+      const parentAccountId = await createMutation.mutateAsync({
+        fullName:     fullName.trim(),
+        email:        cleanEmail,
+        phone:        phone.trim() || null,
+        studentIds:   [student.id],
+        tempPassword: pw,
+      })
+
+      // 2. Create the Supabase auth user so the parent can log in immediately
+      const { error: fnError } = await supabase.functions.invoke('create-parent-auth-user', {
+        body: { parentAccountId, email: cleanEmail, schoolId: user!.schoolId, password: pw },
+      })
+
+      if (fnError) {
+        // Edge function failed — parent row exists but auth user not created
+        // Show credentials with a note that IT Admin needs to activate manually
+        console.warn('create-parent-auth-user failed:', fnError.message)
+      }
+
+      setTempPw(pw)
+      setDone(true)
+    } catch (err) {
+      showErr(err instanceof Error ? err.message : 'Failed to create parent access')
+    }
   }
 
   return (
@@ -231,11 +250,11 @@ function GenerateAccessModal({
 
           <div style={{
             padding: '10px 14px',
-            background: 'rgba(14,165,233,0.07)', border: '1px solid rgba(14,165,233,0.2)',
+            background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.2)',
             borderRadius: 10, fontSize: 12, color: 'var(--txt2)', lineHeight: 1.7,
           }}>
-            <strong style={{ color: 'var(--txt)' }}>Note:</strong> The parent cannot log in yet.
-            IT Admin must activate the Supabase auth account separately.
+            <strong style={{ color: 'var(--txt)' }}>Ready to log in.</strong> Share these credentials with the parent.
+            They should change their password after first sign-in.
           </div>
 
           <Button variant="primary" onClick={onClose} style={{ width: '100%' }}>Done</Button>

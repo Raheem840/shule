@@ -20,7 +20,7 @@ serve(async (req) => {
       })
     }
 
-    const { parentAccountId, email, schoolId } = await req.json()
+    const { parentAccountId, email, schoolId, password } = await req.json()
 
     if (!parentAccountId || !email || !schoolId) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -68,10 +68,10 @@ serve(async (req) => {
       })
     }
 
-    // Create the auth user with default parent password
+    // Create the auth user — use caller-provided password or fall back to default
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
-      password: 'Parent@2025',
+      password: password ?? 'Parent@2025',
       email_confirm: true,
     })
 
