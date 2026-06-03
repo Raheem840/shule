@@ -32,31 +32,33 @@ coverage/
 .claude/
 supabase/.temp/
 
-# Docker build artifacts (the .tar files are USB deliverables, not source)
-shule-install/*.tar
-shule-install/supabase-images/*.tar
+# ── SENSITIVE: environment files ─────────────────────────────
+# Never commit real env files — use .env.example as the template
+.env
+.env.*
+!.env.example
 
-# Never ignore these — they are source of truth
-# supabase/migrations/   ← always commit
-# supabase/seeds/        ← always commit
-# supabase/functions/    ← always commit
+# ── SENSITIVE: seed data ─────────────────────────────────────
+# Seeds contain school-specific data (UUIDs, student names, credentials).
+# Deliver via USB or apply-migrations.sh — never push to git.
+supabase/seeds/
 
-# Playwright / test artefacts
+# ── SENSITIVE: school build outputs ──────────────────────────
+# .tar images and .env sidecars contain Supabase URLs and anon keys.
+shule-install/
+*.tar
+
+# ── ALWAYS COMMIT (source of truth) ──────────────────────────
+# supabase/migrations/   ← schema history
+# supabase/functions/    ← edge function code
+# supabase/config.toml   ← function routing (no secrets)
+# scripts/               ← automation
+# docs/                  ← documentation
+# .env.example           ← template only
+
+# ── Test / build artefacts ───────────────────────────────────
 test-results/
 playwright-report/
 e2e-results*.txt
 unit-test-results.txt
-
-# Vite PWA dev cache
 dev-dist/
-
-# School build outputs — never commit
-shule-install/
-*.tar
-
-# These must always be committed:
-# supabase/migrations/
-# supabase/seeds/
-# supabase/functions/
-# scripts/
-# docs/
