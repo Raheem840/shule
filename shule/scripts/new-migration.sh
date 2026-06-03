@@ -1,13 +1,9 @@
 #!/bin/bash
-# Usage: ./scripts/new-migration.sh "add_attendance_indexes"
-# Creates a new timestamped migration file ready to edit.
-# Then run: supabase db push --project-ref $PROJECT_REF
-
-set -e
+# Creates a new timestamped migration file
+# Usage: ./scripts/new-migration.sh "description_of_change"
 
 if [ -z "$1" ]; then
-  echo "Error: provide a migration name."
-  echo "Usage: ./scripts/new-migration.sh \"add_attendance_indexes\""
+  echo "Usage: ./scripts/new-migration.sh 'description'"
   exit 1
 fi
 
@@ -15,26 +11,23 @@ TIMESTAMP=$(date +%Y%m%d%H%M%S)
 NAME=$(echo "$1" | tr ' ' '_' | tr '[:upper:]' '[:lower:]')
 FILE="supabase/migrations/${TIMESTAMP}_${NAME}.sql"
 
-mkdir -p supabase/migrations
-
 cat > "$FILE" << EOF
 -- Migration: ${NAME}
 -- Created: $(date)
--- Description: [explain what this migration does and why]
+-- Author: Sinqura Dev Team
+-- Description: ${1}
 
--- ── UP ──────────────────────────────────────────────────────────────────────
+-- ── CHANGES ──────────────────────────────────────────────────
 
 
--- ── VERIFY ──────────────────────────────────────────────────────────────────
--- Confirm the migration worked, e.g.:
--- SELECT COUNT(*) FROM information_schema.columns
---   WHERE table_name = 'your_table' AND column_name = 'new_column';
+-- ── RLS UPDATES (if any) ─────────────────────────────────────
+
+
+-- ── VERIFICATION ─────────────────────────────────────────────
+-- Run after applying to confirm it worked:
+--
 
 EOF
 
-echo "Created: $FILE"
-echo ""
-echo "Next steps:"
-echo "  1. Open $FILE and write your SQL"
-echo "  2. Run: supabase db push"
-echo "     Or:  npm run migrate:push"
+echo "✓ Created: $FILE"
+echo "Write your SQL then run: npm run migrate:push"
