@@ -49,3 +49,14 @@ unit-test-results.txt
 
 # Vite PWA dev cache
 dev-dist/
+
+# School build outputs — never commit
+shule-install/
+*.tar
+
+# These must always be committed:
+# supabase/migrations/
+# supabase/seeds/
+# supabase/functions/
+# scripts/
+# docs/
