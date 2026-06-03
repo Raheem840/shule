@@ -301,20 +301,33 @@ function AssignModal({ target, term, year, periodDefs, onClose, onSaved }: {
   onClose: () => void; onSaved: () => void
 }) {
   const { data: allSubjects = [] } = useSubjects()
-  const { data: teachers = [] }    = useTeachersForTimetable()
+  const { data: allTeachers = [] } = useTeachersForTimetable()
   const createSlot     = useCreateTimetableSlot()
   const checkCollision = useCheckCollision()
   const [teacherId, setTeacherId] = useState('')
   const [subjectId, setSubjectId] = useState('')
   const [err,       setErr]       = useState('')
+  const [search,    setSearch]    = useState('')
 
-  // Resolve start/end time from the predefined period config — read-only
+  // ── Resolve period time (read-only from predefined config) ──
   const periodDef = periodDefs.find(p => p.num === target.period)
   const startTime = periodDef?.startTime ?? ''
   const endTime   = periodDef?.endTime   ?? ''
+  const dayLabel  = DAYS.find(d => d[0] === target.day)?.[1] ?? ''
 
-  const dayLabel        = DAYS.find(d => d[0] === target.day)?.[1] ?? ''
-  const selectedTeacher = teachers.find(t => t.id === teacherId)
+  // ── Filter: ONLY teachers assigned to this class ──────────────
+  const classTeachers = allTeachers.filter(t =>
+    t.classes.includes(target.classId)
+  )
+  // If nobody is assigned yet, fall back to all teachers (better than empty)
+  const teachers = classTeachers.length > 0 ? classTeachers : allTeachers
+  const isFiltered = classTeachers.length > 0
+
+  const visibleTeachers = search.trim()
+    ? teachers.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+    : teachers
+
+  const selectedTeacher  = teachers.find(t => t.id === teacherId)
   const filteredSubjects = selectedTeacher && selectedTeacher.subjects.length > 0
     ? allSubjects.filter(s => selectedTeacher.subjects.includes(s.id))
     : allSubjects
@@ -341,103 +354,160 @@ function AssignModal({ target, term, year, periodDefs, onClose, onSaved }: {
     } catch (ex: any) { setErr(ex.message ?? 'Failed to save') }
   }
 
-  const busy = createSlot.isPending || checkCollision.isPending
+  const busy   = createSlot.isPending || checkCollision.isPending
   const portal = document.querySelector('.ar') as HTMLElement ?? document.body
+  const canSave = teacherId && subjectId && !busy
 
   return createPortal(
     <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.52)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ width: '100%', maxWidth: 520, maxHeight: '90dvh', overflowY: 'auto', background: 'var(--surface)', padding: '24px 24px 28px', borderRadius: 22, boxShadow: '0 24px 80px rgba(0,0,0,.28)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ width: '100%', maxWidth: 640, maxHeight: '92dvh', background: 'var(--surface)', borderRadius: 26, boxShadow: '0 32px 100px rgba(0,0,0,.35)', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'discCenterIn .26s cubic-bezier(.32,.72,0,1) both' }}>
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 14, background: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(139,92,246,.4)', flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 900, fontSize: 17, color: 'var(--txt)', fontFamily: 'var(--font2)', letterSpacing: -.3 }}>Assign Period</div>
-            <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 1 }}>{dayLabel} · Period {target.period}</div>
-          </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: 'var(--surface2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-
-        {/* Teacher picker */}
-        <div>
-          <Lbl required>Teacher</Lbl>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto', paddingRight: 2 }}>
-            {teachers.length === 0 && <div style={{ fontSize: 13, color: 'var(--txt3)', padding: '12px', background: 'var(--surface2)', borderRadius: 10, textAlign: 'center' }}>No teachers found.</div>}
-            {teachers.map(t => {
-              const active = teacherId === t.id
-              const [col, bg] = subjectColor(t.id)
-              return (
-                <div key={t.id} onClick={() => { setTeacherId(t.id); setSubjectId(''); setErr('') }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: `.5px solid ${active ? col : 'var(--border)'}`, background: active ? bg : 'var(--surface2)', cursor: 'pointer', transition: 'all .14s', WebkitTapHighlightColor: 'transparent' }}
-                >
-                  <div style={{ width: 34, height: 34, borderRadius: 11, background: active ? `${col}22` : 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, color: active ? col : 'var(--txt3)', flexShrink: 0, fontFamily: 'var(--font2)', letterSpacing: -.3 }}>{ini(t.name)}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>{t.subjects.length > 0 ? `${t.subjects.length} subject${t.subjects.length !== 1 ? 's' : ''}` : 'No subjects assigned'}</div>
-                  </div>
-                  {active && <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
+        {/* ── Premium gradient header ── */}
+        <div style={{ background: 'linear-gradient(135deg, #2d1b69 0%, #4c1d95 50%, #5b21b6 100%)', padding: '24px 28px 20px', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: -20, left: 80, width: 90, height: 90, borderRadius: '50%', background: 'rgba(255,255,255,.04)', pointerEvents: 'none' }} />
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 14, background: 'rgba(255,255,255,.15)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                 </div>
-              )
-            })}
+                <div>
+                  <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20, color: '#fff', letterSpacing: -.4, lineHeight: 1 }}>Assign Period Slot</div>
+                  <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,.65)', marginTop: 3 }}>{dayLabel} · Period {target.period}</div>
+                </div>
+              </div>
+              {/* Period time chip */}
+              {(startTime || endTime) && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.12)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,.2)', borderRadius: 99, padding: '4px 12px' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.8)" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', fontFamily: 'var(--font3)' }}>{startTime}{endTime ? ` – ${endTime}` : ''}</span>
+                </div>
+              )}
+            </div>
+            <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, border: 'none', background: 'rgba(255,255,255,.12)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,.7)', flexShrink: 0 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
         </div>
 
-        {/* Subject chips */}
-        {teacherId && (
+        {/* ── Body ── */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '22px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          {/* Filter info */}
+          {isFiltered ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, background: 'rgba(13,148,136,.07)', border: '.5px solid rgba(13,148,136,.2)' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              <span style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 700 }}>
+                Showing {classTeachers.length} teacher{classTeachers.length !== 1 ? 's' : ''} assigned to this class
+              </span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, background: 'rgba(245,158,11,.07)', border: '.5px solid rgba(245,158,11,.2)' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span style={{ fontSize: 12, color: 'var(--warning)', fontWeight: 700 }}>
+                No teachers assigned to this class — showing all. Assign teachers in DoS → Teachers first.
+              </span>
+            </div>
+          )}
+
+          {/* Teacher picker */}
           <div>
-            <Lbl required>Subject</Lbl>
-            {noSubjects ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(245,158,11,.08)', border: '.5px solid rgba(245,158,11,.25)', color: 'var(--warning)', fontSize: 12.5, fontWeight: 600 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-                No subjects assigned to this teacher.
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <Lbl required>Teacher</Lbl>
+              <div style={{ position: 'relative' }}>
+                <svg style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: .4 }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--txt)" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
+                  style={{ paddingLeft: 26, paddingRight: 10, paddingTop: 5, paddingBottom: 5, borderRadius: 8, border: '.5px solid var(--border)', fontSize: 12, background: 'var(--surface2)', color: 'var(--txt)', outline: 'none', width: 140 }} />
               </div>
-            ) : (
-              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                {filteredSubjects.map(s => {
-                  const [col, bg] = subjectColor(s.id)
-                  const active = subjectId === s.id
-                  return (
-                    <button key={s.id} type="button" onClick={() => setSubjectId(s.id)}
-                      style={{ padding: '7px 15px', borderRadius: 99, border: `.5px solid ${active ? col : 'var(--border)'}`, background: active ? bg : 'var(--surface2)', color: active ? col : 'var(--txt3)', fontSize: 13, fontWeight: active ? 700 : 600, cursor: 'pointer', transition: 'all .14s', WebkitTapHighlightColor: 'transparent' }}
-                    >{s.name}</button>
-                  )
-                })}
-              </div>
-            )}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto', paddingRight: 2 }}>
+              {visibleTeachers.length === 0 && (
+                <div style={{ fontSize: 13, color: 'var(--txt3)', padding: '16px', background: 'var(--surface2)', borderRadius: 12, textAlign: 'center' }}>
+                  {search ? `No teachers match "${search}"` : 'No teachers available.'}
+                </div>
+              )}
+              {visibleTeachers.map(t => {
+                const active = teacherId === t.id
+                const [col, bg] = subjectColor(t.id)
+                return (
+                  <div key={t.id} onClick={() => { setTeacherId(t.id); setSubjectId(''); setErr('') }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 14, border: `1.5px solid ${active ? col : 'var(--border)'}`, background: active ? bg : 'var(--surface)', cursor: 'pointer', transition: 'all .15s cubic-bezier(.34,1.56,.64,1)', boxShadow: active ? `0 4px 16px ${col}25` : 'none', transform: active ? 'scale(1.01)' : 'none' }}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: 13, background: `linear-gradient(135deg, ${col}, ${col}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: '#fff', flexShrink: 0, fontFamily: 'var(--font2)', boxShadow: `0 3px 10px ${col}40` }}>
+                      {ini(t.name)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font2)' }}>{t.name}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2, display: 'flex', gap: 8 }}>
+                        <span>{t.subjects.length > 0 ? `${t.subjects.length} subject${t.subjects.length !== 1 ? 's' : ''}` : 'No subjects'}</span>
+                        {t.classes.length > 0 && <span style={{ color: 'var(--brand)' }}>{t.classes.length} class{t.classes.length !== 1 ? 'es' : ''}</span>}
+                      </div>
+                    </div>
+                    {active && (
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: col, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
-        )}
 
-        {/* Period time — read-only from predefined period config */}
-        {(startTime || endTime) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, background: 'rgba(139,92,246,.07)', border: '.5px solid rgba(139,92,246,.2)' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--txt2)' }}>Period time:</span>
-            <span style={{ fontSize: 13, fontWeight: 800, color: '#8b5cf6', fontFamily: 'var(--font3)', letterSpacing: .4 }}>
-              {startTime}{endTime ? ` – ${endTime}` : ''}
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--txt3)', marginLeft: 'auto' }}>from period config</span>
-          </div>
-        )}
+          {/* Subject chips */}
+          {teacherId && (
+            <div>
+              <Lbl required>Subject</Lbl>
+              {noSubjects ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderRadius: 12, background: 'rgba(245,158,11,.08)', border: '.5px solid rgba(245,158,11,.25)', color: 'var(--warning)', fontSize: 13, fontWeight: 600 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                  No subjects assigned to this teacher. Assign subjects in DoS → Teachers first.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {filteredSubjects.map(s => {
+                    const [col, bg] = subjectColor(s.id)
+                    const active = subjectId === s.id
+                    return (
+                      <button key={s.id} type="button" onClick={() => setSubjectId(s.id)}
+                        style={{ padding: '8px 18px', borderRadius: 99, border: `1.5px solid ${active ? col : 'var(--border)'}`, background: active ? bg : 'var(--surface2)', color: active ? col : 'var(--txt3)', fontSize: 13.5, fontWeight: active ? 800 : 600, cursor: 'pointer', transition: 'all .15s', boxShadow: active ? `0 2px 10px ${col}30` : 'none' }}
+                      >{s.name}</button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
-        {err && (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(244,63,94,.08)', border: '.5px solid rgba(244,63,94,.22)', color: 'var(--danger)', fontSize: 12.5, fontWeight: 600 }}>
-            <svg width="14" height="14" style={{ flexShrink: 0, marginTop: 1 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            {err}
-          </div>
-        )}
+          {err && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 16px', borderRadius: 12, background: 'rgba(244,63,94,.07)', border: '.5px solid rgba(244,63,94,.22)', color: 'var(--danger)', fontSize: 13, fontWeight: 600 }}>
+              <svg width="16" height="16" style={{ flexShrink: 0, marginTop: 1 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {err}
+            </div>
+          )}
+        </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '11px 0', background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 12, fontWeight: 600, fontSize: 13.5, cursor: 'pointer', color: 'var(--txt2)' }}>Cancel</button>
-          <button disabled={!teacherId || !subjectId || busy} onClick={() => { void save() }}
-            style={{ flex: 2, padding: '11px 0', background: teacherId && subjectId && !busy ? 'linear-gradient(145deg,#8b5cf6,#7c3aed)' : 'var(--border)', color: teacherId && subjectId && !busy ? '#fff' : 'var(--txt3)', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13.5, cursor: teacherId && subjectId && !busy ? 'pointer' : 'default', transition: 'all .18s', boxShadow: teacherId && subjectId && !busy ? '0 4px 14px rgba(139,92,246,.4)' : 'none' }}
-          >{busy ? 'Checking…' : 'Assign Slot'}</button>
+        {/* ── Footer ── */}
+        <div style={{ padding: '16px 28px 22px', borderTop: '.5px solid var(--border)', flexShrink: 0, display: 'flex', gap: 12 }}>
+          <button onClick={onClose}
+            style={{ flex: 1, height: 48, borderRadius: 14, background: 'var(--surface2)', border: '.5px solid var(--border)', fontWeight: 700, fontSize: 14, cursor: 'pointer', color: 'var(--txt2)', transition: 'background .13s' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--border)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface2)')}
+          >Cancel</button>
+          <button disabled={!canSave} onClick={() => { void save() }}
+            style={{ flex: 2, height: 48, borderRadius: 14, border: 'none', background: canSave ? 'linear-gradient(145deg,#8b5cf6,#7c3aed)' : 'var(--border)', color: canSave ? '#fff' : 'var(--txt3)', fontWeight: 800, fontSize: 14, cursor: canSave ? 'pointer' : 'default', transition: 'all .18s', boxShadow: canSave ? '0 6px 20px rgba(139,92,246,.45)' : 'none', letterSpacing: .2 }}
+          >
+            {busy ? (
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff', animation: 'spin .7s linear infinite' }} />
+                Checking…
+              </span>
+            ) : 'Assign Slot'}
+          </button>
         </div>
       </div>
     </div>,
