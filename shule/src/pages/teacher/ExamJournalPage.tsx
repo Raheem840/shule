@@ -178,6 +178,7 @@ function SelectWrap({ label, value, onChange, options, disabled, error }: {
 // ── Create Journal Modal ───────────────────────────────────────
 function CreateJournalModal({ onClose }: { onClose: () => void }) {
   const { user: _user }  = useAuth()
+  const navigate         = useNavigate()
   const create           = useCreateJournal()
   const { data: classes  = [] } = useClasses()
   const { data: subjects = [] } = useSubjects()
@@ -213,7 +214,7 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
   const isDIT = assessmentType === 'dit'
 
   const onSubmit = handleSubmit(async values => {
-    await create.mutateAsync({
+    const journalId = await create.mutateAsync({
       subjectId:        values.subjectId,
       classId:          values.classId,
       streamId:         values.streamId ?? null,
@@ -234,6 +235,8 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
       caLabel:          isCA  ? (caLabel ?? 'C1') : undefined,
     })
     onClose()
+    // Go straight to mark entry after creation — user picks manual entry or import there
+    navigate(`/teacher/exams/${journalId}/marks`)
   })
 
   const modal = (
