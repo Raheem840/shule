@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTermProgress, TERM_EVENT_COLOR } from '../../hooks/useTermProgress'
+import { useAuth } from '../../store/AuthContext'
 import { ErrorBoundary } from './ErrorBoundary'
 import type { TermEvent } from '../../types/week9'
 
@@ -101,10 +103,20 @@ const CSS = `
 
 // ─── Event dot with popover ────────────────────────────────────────────────────
 function EventDot({ event, pct }: { event: TermEvent; pct: number }) {
-  const [open, setOpen] = useState(false)
-  const dotRef = useRef<HTMLDivElement>(null)
-  const past   = new Date(event.date) < new Date()
-  const color  = TERM_EVENT_COLOR[event.type] ?? '#64748b'
+  const [open,    setOpen]    = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const dotRef  = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const past     = new Date(event.date) < new Date()
+  const color    = TERM_EVENT_COLOR[event.type] ?? '#64748b'
+
+  const eventsPath = user?.role === 'teacher' || user?.role === 'class_teacher'
+    ? '/teacher/events'
+    : user?.role === 'dos'     ? '/dos/events'
+    : user?.role === 'deputy'  ? '/deputy/events'
+    : user?.role === 'principal' ? '/principal/events'
+    : null
 
   // Close on outside click
   useEffect(() => {
@@ -116,13 +128,48 @@ function EventDot({ event, pct }: { event: TermEvent; pct: number }) {
     return () => document.removeEventListener('mousedown', handle)
   }, [open])
 
+  function handleClick() {
+    if (eventsPath) {
+      navigate(eventsPath)
+    } else {
+      setOpen(o => !o)
+    }
+  }
+
+  const dateStr = new Date(event.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+
   return (
-    <div ref={dotRef} className="tpt-dot" style={{ left: `${pct}%` }} onClick={() => setOpen(o => !o)}>
+    <div
+      ref={dotRef}
+      className="tpt-dot"
+      style={{ left: `${pct}%` }}
+      onClick={handleClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setOpen(false) }}
+    >
       <div className="tpt-dot-inner" style={{
         background: color,
         opacity: past ? 1 : 0.6,
-        boxShadow: open ? `0 0 0 5px ${color}30, 0 0 12px ${color}60` : `0 0 0 3px ${color}22`,
+        boxShadow: open || hovered ? `0 0 0 5px ${color}30, 0 0 12px ${color}60` : `0 0 0 3px ${color}22`,
       }} />
+
+      {/* Hover tooltip */}
+      {hovered && !open && (
+        <div style={{
+          position: 'absolute', bottom: 26, left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--txt)', color: '#fff',
+          borderRadius: 8, padding: '6px 10px',
+          fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap',
+          boxShadow: '0 4px 16px rgba(0,0,0,.2)',
+          zIndex: 70, pointerEvents: 'none',
+          animation: 'tptPopIn .15s ease both',
+        }}>
+          {event.title}
+          <div style={{ fontSize: 10, fontWeight: 400, opacity: .8, marginTop: 1 }}>{dateStr}</div>
+          <div style={{ position: 'absolute', bottom: -4, left: '50%', transform: 'translateX(-50%)', width: 8, height: 8, background: 'var(--txt)', borderRadius: 1, rotate: '45deg' }} />
+        </div>
+      )}
+
       {open && (
         <div className="tpt-popover" onMouseLeave={() => setOpen(false)}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -131,15 +178,13 @@ function EventDot({ event, pct }: { event: TermEvent; pct: number }) {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 800, color: 'var(--txt)', fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event.title}</div>
-              <div style={{ fontSize: 10.5, color: 'var(--txt3)', marginTop: 1 }}>
-                {new Date(event.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
-              </div>
+              <div style={{ fontSize: 10.5, color: 'var(--txt3)', marginTop: 1 }}>{dateStr}</div>
             </div>
           </div>
           {(event.subjectName || event.className) && (
             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 6 }}>
               {event.subjectName && <span style={{ fontSize: 10.5, color: 'var(--txt2)', background: 'var(--surface2)', padding: '2px 7px', borderRadius: 6 }}>{event.subjectName}</span>}
-              {event.className  && <span style={{ fontSize: 10.5, color: 'var(--txt2)', background: 'var(--surface2)', padding: '2px 7px', borderRadius: 6 }}>{event.className}</span>}
+              {event.className   && <span style={{ fontSize: 10.5, color: 'var(--txt2)', background: 'var(--surface2)', padding: '2px 7px', borderRadius: 6 }}>{event.className}</span>}
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -148,6 +193,14 @@ function EventDot({ event, pct }: { event: TermEvent; pct: number }) {
               <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 10.5, background: 'rgba(13,148,136,.1)', color: 'var(--brand)', fontWeight: 700 }}>Avg {event.classAverage}%</span>
             )}
           </div>
+          {eventsPath && (
+            <button
+              onClick={e => { e.stopPropagation(); navigate(eventsPath) }}
+              style={{ marginTop: 10, width: '100%', padding: '6px 0', borderRadius: 8, border: 'none', background: `${color}15`, color, fontWeight: 700, fontSize: 11.5, cursor: 'pointer' }}
+            >
+              View all events →
+            </button>
+          )}
         </div>
       )}
     </div>
