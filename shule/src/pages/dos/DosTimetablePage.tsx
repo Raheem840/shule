@@ -295,8 +295,9 @@ const Lbl = ({ children, required }: { children: React.ReactNode; required?: boo
   </label>
 )
 
-function AssignModal({ target, term, year, onClose, onSaved }: {
+function AssignModal({ target, term, year, periodDefs, onClose, onSaved }: {
   target: ModalTarget; term: string; year: number
+  periodDefs: PeriodDef[]
   onClose: () => void; onSaved: () => void
 }) {
   const { data: allSubjects = [] } = useSubjects()
@@ -305,9 +306,12 @@ function AssignModal({ target, term, year, onClose, onSaved }: {
   const checkCollision = useCheckCollision()
   const [teacherId, setTeacherId] = useState('')
   const [subjectId, setSubjectId] = useState('')
-  const [startTime, setStartTime] = useState('')
-  const [endTime,   setEndTime]   = useState('')
   const [err,       setErr]       = useState('')
+
+  // Resolve start/end time from the predefined period config — read-only
+  const periodDef = periodDefs.find(p => p.num === target.period)
+  const startTime = periodDef?.startTime ?? ''
+  const endTime   = periodDef?.endTime   ?? ''
 
   const dayLabel        = DAYS.find(d => d[0] === target.day)?.[1] ?? ''
   const selectedTeacher = teachers.find(t => t.id === teacherId)
@@ -410,11 +414,17 @@ function AssignModal({ target, term, year, onClose, onSaved }: {
           </div>
         )}
 
-        {/* Optional times */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div><Lbl>Start Time</Lbl><input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="sui-input" style={{ width: '100%' }} /></div>
-          <div><Lbl>End Time</Lbl><input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="sui-input" style={{ width: '100%' }} /></div>
-        </div>
+        {/* Period time — read-only from predefined period config */}
+        {(startTime || endTime) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, background: 'rgba(139,92,246,.07)', border: '.5px solid rgba(139,92,246,.2)' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--txt2)' }}>Period time:</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#8b5cf6', fontFamily: 'var(--font3)', letterSpacing: .4 }}>
+              {startTime}{endTime ? ` – ${endTime}` : ''}
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--txt3)', marginLeft: 'auto' }}>from period config</span>
+          </div>
+        )}
 
         {err && (
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(244,63,94,.08)', border: '.5px solid rgba(244,63,94,.22)', color: 'var(--danger)', fontSize: 12.5, fontWeight: 600 }}>
@@ -1529,6 +1539,7 @@ export function DosTimetablePage() {
       {assignTarget && (
         <AssignModal
           target={assignTarget} term={term} year={year}
+          periodDefs={periodDefs}
           onClose={() => setAssignTarget(null)}
           onSaved={() => setAssignTarget(null)}
         />

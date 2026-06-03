@@ -63,6 +63,43 @@ export function useTeacherRemarks(params: {
   })
 }
 
+// ── useAllTeacherRemarks ───────────────────────────────────────
+// Read-only hook for principal / deputy / dos — fetches ALL teacher
+// remarks for a given term+year, optionally filtered by student list.
+// Returns a Map<studentId, TeacherRemark[]> (multiple teachers may have
+// written for the same student, so we keep them all).
+export function useAllTeacherRemarks(params: {
+  term:  string | null | undefined
+  year:  number | null | undefined
+}) {
+  const { user } = useAuth()
+  const { term, year } = params
+
+  return useQuery({
+    queryKey: ['all-teacher-remarks', user?.schoolId, term, year],
+    enabled:  !!user && !!term && !!year,
+    queryFn:  async () => {
+      const { data, error } = await supabase
+        .from('teacher_remarks')
+        .select(REMARK_COLS)
+        .eq('school_id', user!.schoolId)
+        .eq('term',       term!)
+        .eq('year',       year!)
+        .order('student_id')
+      if (error) throw error
+
+      const map = new Map<string, TeacherRemark[]>()
+      for (const r of (data ?? [])) {
+        const remark = toRemark(r as unknown as AnyRow)
+        const list = map.get(remark.studentId) ?? []
+        list.push(remark)
+        map.set(remark.studentId, list)
+      }
+      return map
+    },
+  })
+}
+
 // ── RemarkRow ──────────────────────────────────────────────────
 export type RemarkRow = {
   studentId: string
