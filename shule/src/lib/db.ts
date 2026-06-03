@@ -67,6 +67,14 @@ type LocalTimetableSlot = {
   [key: string]: unknown
 }
 
+// ── Generic page data cache (offline fallback) ────────────────────────────
+export type CachedPage = {
+  id?:      number   // Dexie auto-increment PK
+  key:      string   // cache key: {role}/{page}/{schoolId}[/{filters}]
+  data:     string   // JSON.stringify of cached payload
+  cachedAt: number   // Date.now() ms timestamp
+}
+
 // ── Database class ─────────────────────────────────────────────────────────
 class ShuleDatabase extends Dexie {
   students!:         Table<LocalStudent>
@@ -76,6 +84,7 @@ class ShuleDatabase extends Dexie {
   sync_queue!:       Table<SyncQueueItem>
   auth_session!:     Table<CachedAuthSession>
   timetable_slots!:  Table<LocalTimetableSlot>
+  cached_pages!:     Table<CachedPage>
 
   constructor() {
     super('ShuleDB')
@@ -94,6 +103,17 @@ class ShuleDatabase extends Dexie {
       sync_queue:      '++id, tableName, actionType, status, createdAt',
       auth_session:    '&id',
       timetable_slots: '&id, schoolId, classId',
+    })
+    // v3 — generic page-level offline cache
+    this.version(3).stores({
+      students:        '&id, schoolId, admissionNumber',
+      staff:           '&id, schoolId, authUserId',
+      exam_marks:      '&id, schoolId, examJournalId, studentId',
+      attendance:      '&id, schoolId, classId, date',
+      sync_queue:      '++id, tableName, actionType, status, createdAt',
+      auth_session:    '&id',
+      timetable_slots: '&id, schoolId, classId',
+      cached_pages:    '++id, key, cachedAt',
     })
   }
 }

@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(u)
           setAuthError(null)
           await cacheSessionToDb(activeSession, u)
-          void primeOfflineCache(u.schoolId)
+          void primeOfflineCache(u.schoolId, u.role, u.id)
         } else {
           if (import.meta.env.DEV) {
             console.error(
@@ -163,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(u)
             setAuthError(null)
             await cacheSessionToDb(session, u)
-            void primeOfflineCache(u.schoolId)
+            void primeOfflineCache(u.schoolId, u.role, u.id)
           } else if (event === 'SIGNED_IN') {
             setAuthError('Account not linked to a school role. Contact your IT Admin.')
           }
