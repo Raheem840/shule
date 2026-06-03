@@ -253,6 +253,7 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
         { label: 'Discipline',   path: '/deputy/discipline',     svg: SVG.discipline   },
         { label: 'Timetable',    path: '/deputy/timetable',      svg: SVG.timetable    },
         { label: 'Students',     path: '/deputy/students',       svg: SVG.students     },
+        { label: 'Staff',        path: '/deputy/staff',          svg: SVG.teachers     },
         { label: 'Messages',     path: '/deputy/messages',       svg: SVG.messages,    badge: 'alert' },
       ],
     },
