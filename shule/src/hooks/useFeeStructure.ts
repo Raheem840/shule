@@ -213,7 +213,7 @@ export function useAutoChargeFees() {
       return { charged: toCharge.length }
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['fee-payments'] })
+      void qc.invalidateQueries({ queryKey: ['fee-payments', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['bursar-student-fees'] })
       void qc.invalidateQueries({ queryKey: ['bursar-kpis'] })
     },
