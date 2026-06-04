@@ -265,18 +265,30 @@ export function useGenerateReportCards() {
       }
 
       // ── Fetch class + stream names ─────────────────────────
-      const { data: cls } = await supabase
-        .from('classes')
-        .select('name')
-        .eq('id', classId)
-        .single()
+      const [clsRes, strRes] = await Promise.all([
+        supabase.from('classes').select('name').eq('id', classId).single(),
+        streamId
+          ? supabase.from('streams').select('name, class_teacher_id').eq('id', streamId).single()
+          : Promise.resolve({ data: null }),
+      ])
 
-      const { data: str } = streamId
-        ? await supabase.from('streams').select('name').eq('id', streamId).single()
-        : { data: null }
+      const className      = (clsRes.data?.name as string) ?? ''
+      const streamName     = ((strRes.data as Record<string,unknown> | null)?.name as string) ?? ''
+      const classTeacherId = ((strRes.data as Record<string,unknown> | null)?.class_teacher_id as string) ?? null
 
-      const className  = (cls?.name as string) ?? ''
-      const streamName = (str?.name as string) ?? ''
+      // ── Fetch active academic year for term dates ──────────
+      const { data: activeYear } = await supabase
+        .from('academic_years')
+        .select('term1_start,term1_end,term2_start,term2_end,term3_start,term3_end')
+        .eq('school_id', schoolId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      const ay = activeYear as Record<string,string|null> | null
+      const termKey = term === 1 ? ['term1_start','term1_end'] : term === 2 ? ['term2_start','term2_end'] : ['term3_start','term3_end']
+      const termStartDate     = ay?.[termKey[0]] ?? null
+      const termEndDate       = ay?.[termKey[1]] ?? null
+      const nextTermStartDate = term === 1 ? (ay?.term2_start ?? null) : term === 2 ? (ay?.term3_start ?? null) : null
 
       // ── Fetch subject names ────────────────────────────────
       const { data: subjects } = await supabase
@@ -290,10 +302,11 @@ export function useGenerateReportCards() {
       }
 
       // ── Fetch all exam_results for these students ──────────
+      // Include is_absent so absent students are correctly shown as ABS not 0
       const { data: rawResults, error: re } = await supabase
         .from('exam_results')
         .select(`
-          student_id, subject_id, score,
+          student_id, subject_id, score, is_absent,
           exam_journal!inner(
             id, assessment_type, name, ca_label, total_marks
           )
@@ -305,10 +318,35 @@ export function useGenerateReportCards() {
 
       if (re) throw re
 
-      // ── Fetch teacher remarks ──────────────────────────────
+      // ── Fetch class teacher's auth_user_id ─────────────────
+      // Priority: stream's class_teacher_id → staff.role='class_teacher' in this class
+      let classTeacherAuthId: string | null = null
+      if (classTeacherId) {
+        const { data: ct } = await supabase
+          .from('staff')
+          .select('auth_user_id')
+          .eq('id', classTeacherId)
+          .maybeSingle()
+        classTeacherAuthId = (ct as Record<string,unknown> | null)?.auth_user_id as string ?? null
+      }
+      if (!classTeacherAuthId) {
+        // Fallback: find a class_teacher whose classes array contains classId
+        const { data: ct2 } = await supabase
+          .from('staff')
+          .select('auth_user_id, id')
+          .eq('school_id', schoolId)
+          .eq('role', 'class_teacher')
+          .contains('classes', [classId])
+          .not('auth_user_id', 'is', null)
+          .limit(1)
+          .maybeSingle()
+        classTeacherAuthId = (ct2 as Record<string,unknown> | null)?.auth_user_id as string ?? null
+      }
+
+      // ── Fetch teacher remarks — prefer class teacher's remark ─
       const { data: rawRemarks } = await supabase
         .from('teacher_remarks')
-        .select('student_id, remarks')
+        .select('student_id, teacher_id, remarks')
         .eq('school_id', schoolId)
         .in('student_id', studentIds)
         .eq('term', String(term))
@@ -316,7 +354,31 @@ export function useGenerateReportCards() {
 
       const remarkMap = new Map<string, string>()
       for (const r of (rawRemarks ?? [])) {
-        remarkMap.set(r.student_id as string, r.remarks as string)
+        const sid  = r.student_id as string
+        const tid  = r.teacher_id as string
+        const text = r.remarks    as string
+        // Always store; if class teacher's remark comes later, overwrite with theirs
+        if (!remarkMap.has(sid) || tid === classTeacherAuthId) {
+          remarkMap.set(sid, text)
+        }
+      }
+
+      // ── Fetch attendance for this class/term ───────────────
+      // Sum per student: present=1, absent=1 (excused also counts absent for report)
+      const { data: attRows } = await supabase
+        .from('attendance')
+        .select('student_id, status')
+        .eq('school_id', schoolId)
+        .eq('class_id', classId)
+        .in('student_id', studentIds)
+
+      const attendanceMap = new Map<string, { present: number; absent: number }>()
+      for (const a of (attRows ?? [])) {
+        const sid = a.student_id as string
+        const cur = attendanceMap.get(sid) ?? { present: 0, absent: 0 }
+        if ((a.status as string) === 'present') cur.present++
+        else cur.absent++
+        attendanceMap.set(sid, cur)
       }
 
       // ── Fetch student details ──────────────────────────────
@@ -358,7 +420,7 @@ export function useGenerateReportCards() {
           journalName:    ej.name as string,
           caLabel:        (ej.ca_label as string) ?? null,
           score:          (row.score as number) ?? null,
-          isAbsent:       false,
+          isAbsent:       (row.is_absent as boolean) ?? false,
           totalMarks:     ej.total_marks as number,
         }
         const list = resultsByStudent.get(sid) ?? []
@@ -414,15 +476,15 @@ export function useGenerateReportCards() {
             },
             term,
             year,
-            termStartDate:     null,
-            termEndDate:       null,
-            nextTermStartDate: null,
+            termStartDate,
+            termEndDate,
+            nextTermStartDate,
             subjects:          subjectRows,
             totalGradePoints,
             avgGrade,
             avgDescriptor:     descriptors[avgGrade] ?? '',
-            daysPresent:       0,
-            daysAbsent:        0,
+            daysPresent:       attendanceMap.get(studentId)?.present ?? 0,
+            daysAbsent:        attendanceMap.get(studentId)?.absent  ?? 0,
             teacherRemarks:    remarkMap.get(studentId) ?? '',
             principalRemarks:  principalRemarksMap.get(studentId) ?? null,
           }
