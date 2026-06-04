@@ -653,7 +653,7 @@ function MyReportCardsTab({ studentId }: { studentId: string }) {
           </svg>
         }
         title="No Report Cards"
-        body="Your report cards will appear here once the principal releases them."
+        body="Your report cards will appear here once your school releases them."
       />
     )
   }

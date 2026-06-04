@@ -127,13 +127,125 @@ function ApproveModal({ card, studentName, onClose }: {
   )
 }
 
+// ── RC table ───────────────────────────────────────────────────
+type CardTableProps = {
+  cards:          ReportCard[]
+  studentNameMap: Map<string, string>
+  readinessMap:   Map<string, { admissionNumber: string }>
+  onApprove?:     (card: ReportCard, name: string) => void
+  onRelease?:     (card: ReportCard) => void
+  onUnlock?:      (card: ReportCard, name: string) => void
+  releaseLoading?: boolean
+  emptyMessage:   string
+}
+
+function RCTable({
+  cards, studentNameMap, readinessMap,
+  onApprove, onRelease, onUnlock,
+  releaseLoading, emptyMessage,
+}: CardTableProps) {
+  if (cards.length === 0) {
+    return (
+      <div style={{
+        textAlign: 'center', padding: '48px 24px',
+        background: 'var(--surface)', borderRadius: 14,
+        border: '1px dashed var(--border)',
+        color: 'var(--txt3)', fontFamily: 'var(--font2)', fontSize: 14, fontWeight: 500,
+      }}>
+        {emptyMessage}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 160px 120px 200px',
+        padding: '10px 16px', background: 'var(--surface2)',
+        borderBottom: '1px solid var(--border)',
+        fontSize: 11, fontWeight: 700, color: 'var(--txt3)',
+        textTransform: 'uppercase', letterSpacing: 0.5,
+        fontFamily: 'var(--font2)',
+      }}>
+        <div>Student</div>
+        <div>Adm. No</div>
+        <div>PDF</div>
+        <div>Actions</div>
+      </div>
+
+      {cards.map((card, i) => {
+        const name    = studentNameMap.get(card.studentId) ?? card.studentId
+        const readRow = readinessMap.get(card.studentId)
+        const admNo   = (readRow as { admissionNumber?: string } | undefined)?.admissionNumber ?? '—'
+
+        return (
+          <div key={card.id} style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 160px 120px 200px',
+            padding: '12px 16px',
+            borderBottom: i < cards.length - 1 ? '1px solid var(--border)' : 'none',
+            alignItems: 'center',
+          }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--txt)' }}>{name}</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--txt3)' }}>{admNo}</div>
+
+            {/* PDF preview */}
+            <div>
+              {card.pdfUrl ? (
+                <button
+                  onClick={() => window.open(card.pdfUrl!, '_blank')}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--brand)', fontSize: 12, fontWeight: 700 }}
+                >
+                  Preview
+                </button>
+              ) : <span style={{ color: 'var(--txt3)', fontSize: 12 }}>—</span>}
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              {card.status === 'ready' && onApprove && (
+                <Button size="sm" variant="primary"
+                  onClick={() => onApprove(card, name)}>
+                  Approve
+                </Button>
+              )}
+              {card.status === 'approved' && onRelease && (
+                <Button size="sm" variant="primary"
+                  loading={releaseLoading}
+                  onClick={() => onRelease(card)}>
+                  Release
+                </Button>
+              )}
+              {(card.status === 'approved' || card.status === 'released') && onUnlock && (
+                <Button size="sm" variant="danger"
+                  onClick={() => onUnlock(card, name)}>
+                  Unlock
+                </Button>
+              )}
+              {card.principalRemarks && (
+                <span title={card.principalRemarks} style={{ fontSize: 11, color: 'var(--txt3)', cursor: 'default' }}>
+                  Remarks ✓
+                </span>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Main Page ──────────────────────────────────────────────────
+type PrincipalTab = 'awaiting' | 'approved' | 'released'
+
 export function PrincipalReportCardsPage() {
   const [term,     setTerm]     = useState<string>('')
   const [year,     setYear]     = useState<string>(String(new Date().getFullYear()))
   const [classId,  setClassId]  = useState<string>('')
   const [streamId, setStreamId] = useState<string>('')
-  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [activeTab, setActiveTab] = useState<PrincipalTab>('awaiting')
 
   const [unlockCard,  setUnlockCard]  = useState<{ card: ReportCard; name: string } | null>(null)
   const [approveCard, setApproveCard] = useState<{ card: ReportCard; name: string } | null>(null)
@@ -170,39 +282,48 @@ export function PrincipalReportCardsPage() {
 
   const readinessMap = new Map(readiness.map(r => [r.studentId, r]))
 
-  const filteredCards = reportCards.filter(c =>
-    !statusFilter || c.status === statusFilter
-  )
+  // Tab-filtered card sets — draft is excluded from principal view (secretary's concern)
+  const awaitingCards  = reportCards.filter(c => c.status === 'ready')
+  const approvedCards  = reportCards.filter(c => c.status === 'approved')
+  const releasedCards  = reportCards.filter(c => c.status === 'released')
 
   const yearOptions = [0, 1, 2].map(offset => {
     const y = new Date().getFullYear() - offset
     return { value: String(y), label: String(y) }
   })
 
-  // Stats
-  const countByStatus = (status: string) => reportCards.filter(c => c.status === status).length
+  const tabs: { id: PrincipalTab; label: string; count: number; color: string }[] = [
+    { id: 'awaiting',  label: 'Awaiting Approval', count: awaitingCards.length,  color: 'var(--success)' },
+    { id: 'approved',  label: 'Approved',           count: approvedCards.length,  color: 'var(--info)'    },
+    { id: 'released',  label: 'Released',            count: releasedCards.length,  color: 'var(--brand)'   },
+  ]
 
   return (
     <div style={{ padding: 24 }}>
-            <div style={{ display:'flex', alignItems:'flex-start', gap:14, position:'relative', overflow:'hidden' }}>
+      {/* ── Page header ───────────────────────────────────────── */}
+      <div style={{ display:'flex', alignItems:'flex-start', gap:14, position:'relative', overflow:'hidden', marginBottom: 20 }}>
         <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,.18),transparent 70%)', filter:'blur(50px)', pointerEvents:'none' }} />
         <div style={{ width:46, height:46, borderRadius:15, background:'linear-gradient(145deg,#8b5cf6,#7c3aed)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 5px 18px rgba(139,92,246,.45)', flexShrink:0 }}>
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.58-7 8-7s8 3 8 7"/></svg>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
         </div>
         <div>
           <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:22, color:'var(--txt)', margin:0, letterSpacing:-.4 }}>Report Cards</h1>
-          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>Approve and release report cards</p>
+          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>Review, approve, and release report cards to students and parents</p>
         </div>
       </div>
 
-      {/* ── Filters ───────────────────────────────────────────── */}
+      {/* ── Cohort filters ─────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
         <Select value={year} onChange={e => setYear(e.target.value)} options={yearOptions} style={{ minWidth: 110 }} />
         <Select value={term} onChange={e => setTerm(e.target.value)}
           options={[{ value: '', label: 'Select term' }, { value: '1', label: 'Term 1' }, { value: '2', label: 'Term 2' }, { value: '3', label: 'Term 3' }]}
           style={{ minWidth: 120 }}
         />
-        <Select value={classId} onChange={e => setClassId(e.target.value)}
+        <Select value={classId} onChange={e => { setClassId(e.target.value); setStreamId('') }}
           options={[{ value: '', label: 'Select class' }, ...classes.map(c => ({ value: c.id, label: c.name }))]}
           style={{ minWidth: 140 }}
         />
@@ -211,136 +332,96 @@ export function PrincipalReportCardsPage() {
           disabled={!classId}
           style={{ minWidth: 130 }}
         />
-        <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          options={[
-            { value: '',         label: 'All Statuses' },
-            { value: 'ready',    label: 'Ready for Review' },
-            { value: 'approved', label: 'Approved' },
-            { value: 'released', label: 'Released' },
-            { value: 'draft',    label: 'Draft' },
-          ]}
-          style={{ minWidth: 150 }}
-        />
       </div>
 
-      {/* ── Summary chips ─────────────────────────────────────── */}
-      {cohortReady && reportCards.length > 0 && (
-        <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-          {[
-            { label: 'Ready for approval', count: countByStatus('ready'),    variant: 'green' as const },
-            { label: 'Approved',           count: countByStatus('approved'), variant: 'blue' as const },
-            { label: 'Released',           count: countByStatus('released'), variant: 'teal' as const },
-            { label: 'Draft',              count: countByStatus('draft'),    variant: 'muted' as const },
-          ].filter(({ count }) => count > 0).map(({ label, count, variant }) => (
-            <div key={label} style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '6px 12px', borderRadius: 99,
-              background: 'var(--surface2)', border: '1px solid var(--border)',
-              fontSize: 12, fontWeight: 700,
-            }}>
-              <Badge variant={variant}>{label}</Badge>
-              <span style={{ color: 'var(--txt)', fontFamily: 'var(--mono)' }}>{count}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Table ─────────────────────────────────────────────── */}
+      {/* ── Content ────────────────────────────────────────────── */}
       {!cohortReady ? (
         <div style={{
           textAlign: 'center', padding: '64px 24px',
           color: 'var(--txt3)', fontFamily: 'var(--font2)',
+          background: 'var(--surface)', borderRadius: 14, border: '1px dashed var(--border)',
         }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Select a term and class to view report cards</div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Select a term and class to view report cards</div>
         </div>
       ) : rcLoading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
           <LoadingSpinner size={28} />
         </div>
-      ) : filteredCards.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--txt3)', fontFamily: 'var(--font2)' }}>
-          No report cards found for the selected filters.
-        </div>
       ) : (
-        <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden' }}>
-          {/* Header */}
+        <>
+          {/* Tab navigation */}
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 160px 140px 120px 240px',
-            padding: '10px 16px', background: 'var(--surface2)',
-            borderBottom: '1px solid var(--border)',
-            fontSize: 11, fontWeight: 700, color: 'var(--txt3)',
-            textTransform: 'uppercase', letterSpacing: 0.5,
-            fontFamily: 'var(--font2)',
+            display: 'flex', gap: 4, background: 'var(--surface)',
+            borderRadius: 12, padding: 4, border: '1px solid var(--border)',
+            marginBottom: 16, width: 'fit-content',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
           }}>
-            <div>Student</div>
-            <div>Adm. No</div>
-            <div>Status</div>
-            <div>PDF</div>
-            <div>Actions</div>
-          </div>
-
-          {filteredCards.map((card, i) => {
-            const name    = studentNameMap.get(card.studentId) ?? card.studentId
-            const readRow = readinessMap.get(card.studentId)
-            const admNo   = readRow?.admissionNumber ?? '—'
-
-            return (
-              <div key={card.id} style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 160px 140px 120px 240px',
-                padding: '12px 16px',
-                borderBottom: i < filteredCards.length - 1 ? '1px solid var(--border)' : 'none',
-                alignItems: 'center',
-              }}>
-                <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--txt)' }}>{name}</div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--txt3)' }}>{admNo}</div>
-                <div><RCStatusBadge status={card.status} /></div>
-
-                {/* PDF link */}
-                <div>
-                  {card.pdfUrl ? (
-                    <button
-                      onClick={() => window.open(card.pdfUrl!, '_blank')}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--brand)', fontSize: 12, fontWeight: 700 }}
-                    >
-                      Preview
-                    </button>
-                  ) : <span style={{ color: 'var(--txt3)', fontSize: 12 }}>—</span>}
-                </div>
-
-                {/* Action buttons */}
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  {card.status === 'ready' && (
-                    <Button size="sm" variant="primary"
-                      onClick={() => setApproveCard({ card, name })}>
-                      Approve
-                    </Button>
-                  )}
-                  {card.status === 'approved' && (
-                    <Button size="sm" variant="primary"
-                      loading={release.isPending}
-                      onClick={() => release.mutateAsync({ reportCardId: card.id })}>
-                      Release
-                    </Button>
-                  )}
-                  {(card.status === 'approved' || card.status === 'released') && (
-                    <Button size="sm" variant="danger"
-                      onClick={() => setUnlockCard({ card, name })}>
-                      Unlock
-                    </Button>
-                  )}
-                  {card.principalRemarks && (
-                    <span title={card.principalRemarks} style={{ fontSize: 11, color: 'var(--txt3)', cursor: 'default' }}>
-                      Remarks ✓
+            {tabs.map(tab => {
+              const active = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    padding: '7px 16px', borderRadius: 9, border: 'none',
+                    fontSize: 13, fontWeight: 700, fontFamily: 'var(--font2)',
+                    cursor: 'pointer', transition: 'all 0.18s',
+                    background: active ? 'linear-gradient(135deg, var(--brand), var(--info))' : 'transparent',
+                    color: active ? '#fff' : 'var(--txt2)',
+                    boxShadow: active ? '0 2px 10px rgba(13,148,136,0.3)' : 'none',
+                    display: 'flex', alignItems: 'center', gap: 7,
+                  }}
+                >
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <span style={{
+                      background: active ? 'rgba(255,255,255,0.25)' : 'var(--surface2)',
+                      color: active ? '#fff' : 'var(--txt3)',
+                      borderRadius: 99, padding: '1px 7px', fontSize: 11, fontWeight: 700,
+                    }}>
+                      {tab.count}
                     </span>
                   )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Tab: Awaiting Approval (status = 'ready' only) */}
+          {activeTab === 'awaiting' && (
+            <RCTable
+              cards={awaitingCards}
+              studentNameMap={studentNameMap}
+              readinessMap={readinessMap}
+              onApprove={(card, name) => setApproveCard({ card, name })}
+              emptyMessage="No report cards are awaiting approval. The secretary must generate and submit cards first."
+            />
+          )}
+
+          {/* Tab: Approved (status = 'approved') */}
+          {activeTab === 'approved' && (
+            <RCTable
+              cards={approvedCards}
+              studentNameMap={studentNameMap}
+              readinessMap={readinessMap}
+              onRelease={card => release.mutateAsync({ reportCardId: card.id })}
+              onUnlock={(card, name) => setUnlockCard({ card, name })}
+              releaseLoading={release.isPending}
+              emptyMessage="No approved report cards yet. Approve cards from the 'Awaiting Approval' tab."
+            />
+          )}
+
+          {/* Tab: Released (status = 'released') */}
+          {activeTab === 'released' && (
+            <RCTable
+              cards={releasedCards}
+              studentNameMap={studentNameMap}
+              readinessMap={readinessMap}
+              onUnlock={(card, name) => setUnlockCard({ card, name })}
+              emptyMessage="No released report cards yet. Release cards from the 'Approved' tab."
+            />
+          )}
+        </>
       )}
 
       {/* ── Modals ────────────────────────────────────────────── */}

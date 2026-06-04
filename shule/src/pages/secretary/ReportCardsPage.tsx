@@ -336,7 +336,8 @@ export function ReportCardsPage() {
   const [feeFilter,  setFeeFilter]  = useState<FeeFilter>('all')
   const [customPct,  setCustomPct]  = useState<number>(60)
 
-  const [selected,  setSelected]  = useState<Set<string>>(new Set())
+  const [selected,      setSelected]      = useState<Set<string>>(new Set())
+  const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set())
   const [progress,  setProgress]  = useState<{ done: number; total: number } | null>(null)
   const [genResult, setGenResult] = useState<{ success: number; failed: number } | null>(null)
 
@@ -419,13 +420,11 @@ export function ReportCardsPage() {
   }
 
   async function handleDownloadAll() {
-    const readyCards = reportCards.filter(c =>
-      ['ready', 'approved', 'released'].includes(c.status) && c.pdfUrl
-    )
-    if (readyCards.length === 0) return
+    const allCards = reportCards.filter(c => c.pdfUrl)
+    if (allCards.length === 0) return
 
     const zip = new JSZip()
-    await Promise.all(readyCards.map(async card => {
+    await Promise.all(allCards.map(async card => {
       const resp = await fetch(card.pdfUrl!)
       const blob = await resp.blob()
       const studentRow = readiness.find(r => r.studentId === card.studentId)
@@ -444,6 +443,46 @@ export function ReportCardsPage() {
     URL.revokeObjectURL(url)
   }
 
+  async function handleDownloadSelected() {
+    const cards = reportCards.filter(c => selectedCards.has(c.id) && c.pdfUrl)
+    if (cards.length === 0) return
+
+    const zip = new JSZip()
+    await Promise.all(cards.map(async card => {
+      const resp = await fetch(card.pdfUrl!)
+      const blob = await resp.blob()
+      const studentRow = readiness.find(r => r.studentId === card.studentId)
+      const name = studentRow
+        ? `${studentRow.lastName}_${studentRow.firstName}.pdf`
+        : `${card.studentId}.pdf`
+      zip.file(name, blob)
+    }))
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' })
+    const url     = URL.createObjectURL(zipBlob)
+    const a       = document.createElement('a')
+    a.href        = url
+    a.download    = `selected_report_cards_term${term}_${year}.zip`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function toggleCardSelect(id: string) {
+    setSelectedCards(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function selectAllCards() {
+    setSelectedCards(new Set(filteredCards.map(c => c.id)))
+  }
+
+  function clearCardSelection() {
+    setSelectedCards(new Set())
+  }
+
   async function handleSendForApproval() {
     const count = reportCards.filter(c => c.status === 'ready').length
     if (count === 0) return
@@ -460,7 +499,7 @@ export function ReportCardsPage() {
     ? reportCards
     : reportCards.filter(c => c.status === cardStatus)
 
-  const hasDownloads = reportCards.some(c => ['ready', 'approved', 'released'].includes(c.status) && c.pdfUrl)
+  const hasDownloads = reportCards.some(c => c.pdfUrl)
   const readyCount   = reportCards.filter(c => c.status === 'ready').length
 
   return (
@@ -947,23 +986,68 @@ export function ReportCardsPage() {
                   Track report cards through the approval pipeline
                 </p>
               </div>
-              {hasDownloads && (
-                <button
-                  onClick={handleDownloadAll}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 7,
-                    background: 'var(--surface)', border: '1.5px solid var(--border)',
-                    borderRadius: 10, padding: '8px 16px',
-                    fontSize: 13, fontWeight: 700, fontFamily: 'var(--font2)',
-                    color: 'var(--txt2)', cursor: 'pointer',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  <IconDownload />
-                  Download All Released (ZIP)
-                </button>
-              )}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {filteredCards.length > 0 && (
+                  <>
+                    <button
+                      onClick={selectAllCards}
+                      style={{
+                        background: 'var(--surface)', border: '1.5px solid var(--border)',
+                        borderRadius: 9, padding: '6px 13px', fontSize: 12,
+                        fontWeight: 700, fontFamily: 'var(--font2)', color: 'var(--txt2)', cursor: 'pointer',
+                      }}
+                    >
+                      Select All ({filteredCards.length})
+                    </button>
+                    {selectedCards.size > 0 && (
+                      <button
+                        onClick={clearCardSelection}
+                        style={{
+                          background: 'transparent', border: '1.5px solid var(--border)',
+                          borderRadius: 9, padding: '6px 13px', fontSize: 12,
+                          fontWeight: 700, color: 'var(--txt3)', cursor: 'pointer',
+                        }}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </>
+                )}
+                {selectedCards.size > 0 && (
+                  <button
+                    onClick={handleDownloadSelected}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 7,
+                      background: 'linear-gradient(135deg, var(--brand), var(--info))',
+                      border: 'none', borderRadius: 10, padding: '8px 16px',
+                      fontSize: 13, fontWeight: 700, fontFamily: 'var(--font2)',
+                      color: '#fff', cursor: 'pointer',
+                      boxShadow: '0 2px 10px rgba(13,148,136,0.3)',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <IconDownload />
+                    Download Selected ({selectedCards.size}) (ZIP)
+                  </button>
+                )}
+                {hasDownloads && (
+                  <button
+                    onClick={handleDownloadAll}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 7,
+                      background: 'var(--surface)', border: '1.5px solid var(--border)',
+                      borderRadius: 10, padding: '8px 16px',
+                      fontSize: 13, fontWeight: 700, fontFamily: 'var(--font2)',
+                      color: 'var(--txt2)', cursor: 'pointer',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <IconDownload />
+                    Download All PDFs (ZIP)
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Status pill filter */}
@@ -1018,37 +1102,60 @@ export function ReportCardsPage() {
                 gap: 12,
               }} className="stagger-cards">
                 {filteredCards.map((card: ReportCard) => {
-                  const studentRow = readiness.find(r => r.studentId === card.studentId)
-                  const name       = studentRow ? `${studentRow.firstName} ${studentRow.lastName}` : 'Unknown Student'
-                  const firstName  = studentRow?.firstName ?? 'U'
-                  const lastName   = studentRow?.lastName  ?? 'S'
+                  const studentRow    = readiness.find(r => r.studentId === card.studentId)
+                  const name          = studentRow ? `${studentRow.firstName} ${studentRow.lastName}` : 'Unknown Student'
+                  const firstName     = studentRow?.firstName ?? 'U'
+                  const lastName      = studentRow?.lastName  ?? 'S'
                   const generatedDate = card.generatedAt
                     ? new Date(card.generatedAt).toLocaleDateString('en-UG', { day: 'numeric', month: 'short', year: 'numeric' })
                     : null
+                  const isCardSelected = selectedCards.has(card.id)
 
                   return (
                     <div
                       key={card.id}
                       style={{
-                        background: 'var(--surface)', borderRadius: 14,
-                        border: '1px solid var(--border)',
+                        background: isCardSelected ? 'rgba(13,148,136,0.04)' : 'var(--surface)',
+                        borderRadius: 14,
+                        border: isCardSelected ? '1.5px solid rgba(13,148,136,0.35)' : '1px solid var(--border)',
                         padding: '16px 18px',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                        transition: 'box-shadow 0.15s, transform 0.15s',
+                        boxShadow: isCardSelected ? '0 0 0 3px rgba(13,148,136,0.1)' : '0 1px 4px rgba(0,0,0,0.04)',
+                        transition: 'box-shadow 0.15s, transform 0.15s, border-color 0.15s',
                         display: 'flex', flexDirection: 'column', gap: 12,
+                        position: 'relative',
                       }}
                       onMouseEnter={e => {
-                        const el = e.currentTarget as HTMLDivElement
-                        el.style.boxShadow = '0 4px 16px rgba(0,0,0,0.1)'
-                        el.style.transform = 'translateY(-1px)'
+                        if (!isCardSelected) {
+                          const el = e.currentTarget as HTMLDivElement
+                          el.style.boxShadow = '0 4px 16px rgba(0,0,0,0.1)'
+                          el.style.transform = 'translateY(-1px)'
+                        }
                       }}
                       onMouseLeave={e => {
-                        const el = e.currentTarget as HTMLDivElement
-                        el.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
-                        el.style.transform = 'translateY(0)'
+                        if (!isCardSelected) {
+                          const el = e.currentTarget as HTMLDivElement
+                          el.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
+                          el.style.transform = 'translateY(0)'
+                        }
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      {/* Checkbox top-left */}
+                      <div
+                        onClick={() => toggleCardSelect(card.id)}
+                        style={{
+                          position: 'absolute', top: 12, left: 14,
+                          width: 18, height: 18, borderRadius: 5,
+                          border: isCardSelected ? 'none' : '2px solid var(--border)',
+                          background: isCardSelected ? 'var(--brand)' : 'transparent',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', cursor: 'pointer',
+                          transition: 'all 0.15s', zIndex: 1,
+                        }}
+                      >
+                        {isCardSelected && <IconCheck />}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingLeft: 26 }}>
                         <InitialsAvatar firstName={firstName} lastName={lastName} size={40} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', fontFamily: 'var(--font2)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1068,20 +1175,44 @@ export function ReportCardsPage() {
                           {generatedDate ? `Generated ${generatedDate}` : 'Not yet generated'}
                         </span>
                         {card.pdfUrl && (
-                          <button
-                            onClick={() => window.open(card.pdfUrl!, '_blank')}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 4,
-                              background: card.status === 'released' ? 'rgba(13,148,136,0.1)' : 'var(--surface2)',
-                              border: `1px solid ${card.status === 'released' ? 'rgba(13,148,136,0.25)' : 'var(--border)'}`,
-                              borderRadius: 7, padding: '5px 10px',
-                              color: card.status === 'released' ? 'var(--brand)' : 'var(--txt2)',
-                              cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font2)',
-                            }}
-                          >
-                            <IconDownload />
-                            {card.status === 'released' ? 'Download' : 'Preview'}
-                          </button>
+                          <div style={{ display: 'flex', gap: 5 }}>
+                            {/* Print button — opens PDF in new tab for browser print */}
+                            <button
+                              onClick={() => window.open(card.pdfUrl!, '_blank')}
+                              title="Open PDF to print"
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 4,
+                                background: 'var(--surface2)',
+                                border: '1px solid var(--border)',
+                                borderRadius: 7, padding: '5px 9px',
+                                color: 'var(--txt2)',
+                                cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font2)',
+                              }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
+                                <rect x="6" y="14" width="12" height="8"/>
+                              </svg>
+                              Print
+                            </button>
+                            {/* Download button — always available for secretary */}
+                            <a
+                              href={card.pdfUrl!}
+                              download
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 4,
+                                background: 'rgba(13,148,136,0.1)',
+                                border: '1px solid rgba(13,148,136,0.25)',
+                                borderRadius: 7, padding: '5px 9px',
+                                color: 'var(--brand)',
+                                cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font2)',
+                                textDecoration: 'none',
+                              }}
+                            >
+                              <IconDownload />
+                              Download
+                            </a>
+                          </div>
                         )}
                       </div>
                     </div>
