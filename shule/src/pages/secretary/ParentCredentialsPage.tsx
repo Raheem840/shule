@@ -158,6 +158,22 @@ function CredFieldRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+// ── Guardian type ─────────────────────────────────────────────
+type Guardian = {
+  id:           string
+  full_name:    string | null
+  relationship: string | null
+  email:        string | null
+  phone:        string | null
+  is_primary:   boolean
+}
+
+type GeneratedResult = {
+  guardianName: string
+  email:        string
+  tempPassword: string
+}
+
 // ── GenerateAccessModal ───────────────────────────────────────
 function GenerateAccessModal({
   student,
@@ -166,191 +182,253 @@ function GenerateAccessModal({
   student: Student
   onClose: () => void
 }) {
-  const [fullName, setFullName] = useState('')
-  const [email,    setEmail]    = useState('')
-  const [phone,    setPhone]    = useState('')
-  const [done,     setDone]     = useState(false)
-  const [tempPw,   setTempPw]   = useState('')
-  const [emailErr, setEmailErr] = useState('')
-
   const { error: showErr } = useToast()
   const { user } = useAuth()
   const createMutation = useCreateParentAccount()
   const portalUrl = `${window.location.origin}/parent/portal`
+  const qc = useQueryClient()
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!email.includes('@')) { setEmailErr('Enter a valid email address'); return }
-    setEmailErr('')
+  // emails typed by secretary for guardians missing one
+  const [emailInputs, setEmailInputs] = useState<Record<string, string>>({})
+  const [selected,    setSelected]    = useState<Set<string>>(new Set())
+  const [results,     setResults]     = useState<GeneratedResult[]>([])
+  const [busy,        setBusy]        = useState(false)
 
-    const pw = generateTempPassword()
-    const cleanEmail = email.trim().toLowerCase()
+  // Load guardians from student_guardians
+  const { data: guardians = [], isLoading: loadingGuardians } = useQuery({
+    queryKey: ['student-guardians-modal', student.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('student_guardians')
+        .select('id, full_name, relationship, email, phone, is_primary, do_not_contact')
+        .eq('student_id', student.id)
+        .eq('school_id', user!.schoolId)
+        .eq('do_not_contact', false)
+        .order('is_primary', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as Guardian[]
+    },
+  })
+
+  // Pre-select all guardians once loaded
+  useEffect(() => {
+    if (guardians.length > 0) {
+      setSelected(new Set(guardians.map(g => g.id)))
+    }
+  }, [guardians])
+
+  function toggleGuardian(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function handleGenerate() {
+    const targets = guardians.filter(g => selected.has(g.id))
+    if (targets.length === 0) return
+
+    // Validate: all selected must have an email
+    for (const g of targets) {
+      const email = g.email?.trim() || emailInputs[g.id]?.trim()
+      if (!email || !email.includes('@')) {
+        showErr(`Enter a valid email for ${g.full_name ?? 'guardian'}`)
+        return
+      }
+    }
+
+    setBusy(true)
+    const generated: GeneratedResult[] = []
 
     try {
-      // 1. Create the parent_accounts DB row
-      const parentAccountId = await createMutation.mutateAsync({
-        fullName:     fullName.trim(),
-        email:        cleanEmail,
-        phone:        phone.trim() || null,
-        studentIds:   [student.id],
-        tempPassword: pw,
-      })
+      for (const g of targets) {
+        const email  = (g.email?.trim() || emailInputs[g.id]?.trim() || '').toLowerCase()
+        const pw     = generateTempPassword()
+        const name   = g.full_name ?? 'Guardian'
 
-      // 2. Create the Supabase auth user so the parent can log in immediately
-      const { error: fnError } = await supabase.functions.invoke('create-parent-auth-user', {
-        body: { parentAccountId, email: cleanEmail, schoolId: user!.schoolId, password: pw },
-      })
+        // Check if a parent_account already exists for this email
+        const { data: existing } = await supabase
+          .from('parent_accounts')
+          .select('id, student_ids')
+          .eq('school_id', user!.schoolId)
+          .eq('email', email)
+          .maybeSingle()
 
-      if (fnError) {
-        // Edge function failed — parent row exists but auth user not created
-        // Show credentials with a note that IT Admin needs to activate manually
-        console.warn('create-parent-auth-user failed:', fnError.message)
+        let parentAccountId: string
+
+        if (existing) {
+          // Add this student to the existing account if not already linked
+          const ids = (existing.student_ids as string[]) ?? []
+          if (!ids.includes(student.id)) {
+            await supabase.from('parent_accounts')
+              .update({ student_ids: [...ids, student.id] })
+              .eq('id', existing.id)
+          }
+          parentAccountId = existing.id
+        } else {
+          parentAccountId = await createMutation.mutateAsync({
+            fullName:     name,
+            email,
+            phone:        g.phone ?? null,
+            studentIds:   [student.id],
+            tempPassword: pw,
+          })
+        }
+
+        // Create / link auth user
+        const { data: fnData, error: fnError } = await supabase.functions.invoke('create-parent-auth-user', {
+          body: { parentAccountId, email, schoolId: user!.schoolId, password: pw },
+        })
+
+        if (fnError) {
+          const detail = (fnData as { error?: string } | null)?.error ?? fnError.message
+          throw new Error(`Failed to activate login for ${name}: ${detail}`)
+        }
+
+        generated.push({ guardianName: name, email, tempPassword: pw })
       }
 
-      setTempPw(pw)
-      setDone(true)
+      qc.invalidateQueries({ queryKey: ['parent-accounts'] })
+      setResults(generated)
     } catch (err) {
       showErr(err instanceof Error ? err.message : 'Failed to create parent access')
+    } finally {
+      setBusy(false)
     }
   }
+
+  const done = results.length > 0
 
   return (
     <Modal open onClose={onClose} title={done ? 'Access Generated' : 'Generate Parent Access'} size="md">
       {done ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '14px 16px',
-            background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(13,148,136,0.07))',
-            border: '1px solid rgba(16,185,129,0.25)',
-            borderRadius: 12,
-          }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: '50%',
-              background: 'rgba(16,185,129,0.15)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Success header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'linear-gradient(135deg,rgba(16,185,129,.1),rgba(13,148,136,.06))', border: '1px solid rgba(16,185,129,.25)', borderRadius: 12 }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(16,185,129,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
             <div>
               <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: 'var(--success)' }}>
-                Account created for {student.firstName} {student.lastName}
+                {results.length === 1 ? '1 account created' : `${results.length} accounts created`} for {student.firstName} {student.lastName}
               </div>
-              <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2 }}>
-                Share these credentials with the parent. They can log in once IT Admin activates the account.
-              </div>
+              <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>Active immediately — share credentials below</div>
             </div>
           </div>
 
-          <CredFieldRow label="Login Email"        value={email.trim().toLowerCase()} />
-          <CredFieldRow label="Temporary Password" value={tempPw} />
-          <CredFieldRow label="Portal URL"         value={portalUrl} />
+          {/* One credential card per guardian */}
+          {results.map((r, i) => (
+            <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ padding: '8px 14px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, color: 'var(--txt2)' }}>
+                {r.guardianName}
+              </div>
+              <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <CredFieldRow label="Login Email"        value={r.email} />
+                <CredFieldRow label="Temporary Password" value={r.tempPassword} />
+              </div>
+            </div>
+          ))}
 
-          <div style={{
-            padding: '10px 14px',
-            background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.2)',
-            borderRadius: 10, fontSize: 12, color: 'var(--txt2)', lineHeight: 1.7,
-          }}>
-            <strong style={{ color: 'var(--txt)' }}>Ready to log in.</strong> Share these credentials with the parent.
-            They should change their password after first sign-in.
-          </div>
-
+          <CredFieldRow label="Portal URL" value={portalUrl} />
           <Button variant="primary" onClick={onClose} style={{ width: '100%' }}>Done</Button>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '10px 14px',
-            background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12,
-          }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--brand), var(--brand-dark))',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 13, color: '#fff', flexShrink: 0,
-            }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Student chip */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'linear-gradient(135deg,var(--brand),var(--brand-dark))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, color: '#fff', flexShrink: 0 }}>
               {student.firstName[0]}{student.lastName[0]}
             </div>
             <div>
-              <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
-                {student.firstName} {student.lastName}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginTop: 1 }}>
-                {student.admissionNumber}
-              </div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>{student.firstName} {student.lastName}</div>
+              <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>{student.admissionNumber}</div>
             </div>
           </div>
 
-          <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', display: 'block', marginBottom: 5 }}>
-              Parent / Guardian Full Name *
-            </label>
-            <input
-              className="sui-input"
-              placeholder="e.g. Nakato Sarah"
-              value={fullName}
-              onChange={e => setFullName(e.target.value)}
-              required
-              style={{ width: '100%' }}
-            />
-          </div>
-
-          <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', display: 'block', marginBottom: 5 }}>
-              Email Address *
-            </label>
-            <input
-              className="sui-input"
-              type="email"
-              placeholder="parent@email.com"
-              value={email}
-              onChange={e => { setEmail(e.target.value); setEmailErr('') }}
-              required
-              style={{ width: '100%', borderColor: emailErr ? 'var(--danger)' : undefined }}
-            />
-            {emailErr && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 4 }}>{emailErr}</div>}
-            <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 4 }}>
-              This becomes their login — must be unique
+          {/* Guardians list */}
+          {loadingGuardians ? (
+            <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>Loading guardians…</div>
+          ) : guardians.length === 0 ? (
+            <div style={{ padding: '14px', background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.25)', borderRadius: 10, fontSize: 12.5, color: 'var(--txt2)', lineHeight: 1.6 }}>
+              No guardians on file for this student. Add them first via the student registration/edit page, then generate access here.
             </div>
-          </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5 }}>
+                Select guardians to generate access for
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {guardians.map(g => {
+                  const isSel  = selected.has(g.id)
+                  const email  = g.email?.trim() || emailInputs[g.id] || ''
+                  const needsEmail = !g.email?.trim()
+                  return (
+                    <div
+                      key={g.id}
+                      style={{ border: `1px solid ${isSel ? 'rgba(13,148,136,.35)' : 'var(--border)'}`, borderRadius: 12, overflow: 'hidden', background: isSel ? 'rgba(13,148,136,.03)' : 'var(--surface)', transition: 'all .15s' }}
+                    >
+                      {/* Guardian header row */}
+                      <div
+                        onClick={() => toggleGuardian(g.id)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', cursor: 'pointer' }}
+                      >
+                        <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${isSel ? 'var(--brand)' : 'var(--border)'}`, background: isSel ? 'var(--brand)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
+                          {isSel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                        </div>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,var(--violet),var(--info))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11, color: '#fff', flexShrink: 0 }}>
+                          {(g.full_name ?? 'G').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
+                            {g.full_name ?? 'Unknown'}
+                            {g.is_primary && <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 99, background: 'rgba(13,148,136,.12)', color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: .4 }}>Primary</span>}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>
+                            {g.relationship ?? 'Guardian'}{g.phone ? ` · ${g.phone}` : ''}
+                          </div>
+                          {g.email && <div style={{ fontSize: 11, color: 'var(--brand)', fontFamily: 'var(--font3)', marginTop: 1 }}>{g.email}</div>}
+                        </div>
+                      </div>
 
-          <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', display: 'block', marginBottom: 5 }}>
-              Phone (optional)
-            </label>
-            <input
-              className="sui-input"
-              type="tel"
-              placeholder="+256 700 000 000"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              style={{ width: '100%' }}
-            />
-          </div>
+                      {/* Email input if guardian has no email */}
+                      {isSel && needsEmail && (
+                        <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5 }}>Email address required *</label>
+                          <input
+                            className="sui-input"
+                            type="email"
+                            placeholder="guardian@email.com"
+                            value={emailInputs[g.id] ?? ''}
+                            onChange={e => setEmailInputs(prev => ({ ...prev, [g.id]: e.target.value }))}
+                            onClick={e => e.stopPropagation()}
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
 
-          <div style={{
-            padding: '10px 14px',
-            background: 'var(--surface2)', border: '1px solid var(--border)',
-            borderRadius: 10, fontSize: 11.5, color: 'var(--txt3)',
-          }}>
-            A temporary password will be generated automatically.
+          <div style={{ padding: '9px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 9, fontSize: 11.5, color: 'var(--txt3)' }}>
+            A temporary password is generated for each guardian automatically.
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
             <Button
               variant="primary"
-              type="submit"
-              loading={createMutation.isPending}
-              disabled={!fullName.trim() || !email.trim()}
+              loading={busy}
+              disabled={selected.size === 0 || guardians.length === 0}
+              onClick={() => { void handleGenerate() }}
             >
-              Generate Access
+              Generate Access {selected.size > 1 ? `(${selected.size})` : ''}
             </Button>
           </div>
-        </form>
+        </div>
       )}
     </Modal>
   )
