@@ -144,6 +144,32 @@ export function useSaveRemarks() {
           })
         if (error) throw error
       }
+
+      // Notify parents of students who received remarks
+      const studentIds = rows.map(r => r.studentId)
+      if (studentIds.length > 0) {
+        const teacherName = user!.name ?? 'Your child\'s teacher'
+        // Find parent accounts linked to these students
+        const { data: parentAccounts } = await supabase
+          .from('parent_accounts')
+          .select('auth_user_id, student_ids')
+          .eq('school_id', user!.schoolId)
+          .not('auth_user_id', 'is', null)
+        for (const pa of (parentAccounts ?? [])) {
+          const linked = ((pa as Record<string, unknown>).student_ids as string[]) ?? []
+          if (linked.some(sid => studentIds.includes(sid))) {
+            void supabase.from('notifications').insert({
+              school_id:  user!.schoolId,
+              user_id:    (pa as Record<string, unknown>).auth_user_id as string,
+              type:       'message',
+              title:      teacherName,
+              body:       `A new teacher remark has been added for Term ${term}, ${year}. Tap to view.`,
+              from_user:  user!.id,
+              target_role: 'parent',
+            })
+          }
+        }
+      }
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({

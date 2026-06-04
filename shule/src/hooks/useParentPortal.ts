@@ -191,7 +191,8 @@ export function useStudentFeeBalance(studentId: string | null) {
       return ((data ?? []) as AnyRow[]).map(r => {
         const amtDue  = Number(r.amount_due)  || 0
         const amtPaid = Number(r.amount_paid) || 0
-        const balance = Number(r.balance)     ?? (amtDue - amtPaid)
+        // Always recompute balance — never trust the stored column which can be stale
+        const balance = Math.max(0, amtDue - amtPaid)
         return {
           id:            r.id as string,
           termLabel:     `Term ${r.term}`,
@@ -200,7 +201,7 @@ export function useStudentFeeBalance(studentId: string | null) {
           balance,
           paymentDate:   (r.payment_date as string) ?? null,
           receiptNumber: (r.receipt_number as string) ?? null,
-          status:        calcFeeStatus(amtPaid, balance),
+          status:        calcFeeStatus(amtDue, amtPaid),
         } satisfies StudentFeeRecord
       })
     },
@@ -208,7 +209,16 @@ export function useStudentFeeBalance(studentId: string | null) {
 }
 
 // ── useSchoolNotices ──────────────────────────────────────────
-// Returns the last 20 school-wide announcements (messages marked is_announcement=true).
+// Returns the last 30 school events visible to parents, ordered by event_date DESC.
+export type SchoolNotice = {
+  id:        string
+  title:     string
+  body:      string | null
+  link:      null
+  createdAt: string
+  eventType: string | null
+}
+
 export function useSchoolNotices() {
   const { user } = useAuth()
 
@@ -218,21 +228,299 @@ export function useSchoolNotices() {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('messages')
-        .select('id, body, sent_at')
-        .eq('school_id',     user!.schoolId)
-        .eq('is_announcement', true)
-        .order('sent_at', { ascending: false })
-        .limit(20)
+        .from('school_events')
+        .select('id, title, description, event_date, event_type')
+        .eq('school_id',          user!.schoolId)
+        .eq('visible_to_parents', true)
+        .order('event_date', { ascending: false })
+        .limit(30)
 
       if (error) throw error
 
       return ((data ?? []) as AnyRow[]).map(r => ({
         id:        r.id as string,
-        body:      r.body as string,
+        title:     (r.title as string) ?? '',
+        body:      (r.description as string) ?? null,
         link:      null,
-        createdAt: r.sent_at as string,
-      }))
+        createdAt: r.event_date as string,
+        eventType: (r.event_type as string) ?? null,
+      } satisfies SchoolNotice))
+    },
+  })
+}
+
+// ── useFindBursar ─────────────────────────────────────────────
+// Finds the school bursar's auth user id, name.
+export type BursarInfo = {
+  authUserId: string
+  firstName:  string
+  lastName:   string
+}
+
+export function useFindBursar() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['find-bursar', user?.schoolId],
+    enabled:  !!user?.schoolId,
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('staff')
+        .select('auth_user_id, first_name, last_name')
+        .eq('school_id', user!.schoolId)
+        .eq('role',      'bursar')
+        .not('auth_user_id', 'is', null)
+        .limit(1)
+        .maybeSingle()
+
+      if (error) throw error
+      if (!data) return null
+
+      const r = data as AnyRow
+      return {
+        authUserId: r.auth_user_id as string,
+        firstName:  r.first_name as string,
+        lastName:   r.last_name as string,
+      } satisfies BursarInfo
+    },
+  })
+}
+
+// ── Message type ──────────────────────────────────────────────
+export type PortalMessage = {
+  id:         string
+  fromUserId: string
+  toUserId:   string
+  body:       string
+  sentAt:     string
+}
+
+// ── useParentMessagesWithBursar ───────────────────────────────
+// Fetches all messages between the current parent and the bursar/secretary.
+export function useParentMessagesWithBursar() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['parent-bursar-messages', user?.schoolId, user?.id],
+    enabled:  !!user?.schoolId && !!user?.id,
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id, from_user_id, to_user_id, body, sent_at')
+        .eq('school_id', user!.schoolId)
+        .eq('is_announcement', false)
+        .or(`from_user_id.eq.${user!.id},to_user_id.eq.${user!.id}`)
+        .order('sent_at', { ascending: true })
+
+      if (error) throw error
+
+      return ((data ?? []) as AnyRow[]).map(r => ({
+        id:         r.id as string,
+        fromUserId: r.from_user_id as string,
+        toUserId:   r.to_user_id as string,
+        body:       r.body as string,
+        sentAt:     r.sent_at as string,
+      } satisfies PortalMessage))
+    },
+  })
+}
+
+// ── useSendMessageToBursar ────────────────────────────────────
+export function useSendMessageToBursar() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ bursarAuthUserId, body }: { bursarAuthUserId: string; body: string }) => {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          school_id:      user!.schoolId,
+          from_user_id:   user!.id,
+          to_user_id:     bursarAuthUserId,
+          body,
+          is_announcement: false,
+        })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['parent-bursar-messages', user?.schoolId, user?.id] })
+    },
+  })
+}
+
+// ── useFindClassTeacher ───────────────────────────────────────
+// Finds the class teacher for a student's class (stream class_teacher_id first,
+// then staff with class in their classes array).
+export type StaffContact = {
+  authUserId: string
+  firstName:  string
+  lastName:   string
+  role:       string
+}
+
+export function useFindClassTeacher(classId: string | null | undefined) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['find-class-teacher', user?.schoolId, classId],
+    enabled:  !!user?.schoolId && !!classId,
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      // Try streams first for a class_teacher_id link
+      const { data: streamData } = await supabase
+        .from('streams')
+        .select('class_teacher_id')
+        .eq('school_id', user!.schoolId)
+        .eq('class_id',  classId!)
+        .not('class_teacher_id', 'is', null)
+        .limit(1)
+        .maybeSingle()
+
+      const teacherStaffId = (streamData as AnyRow | null)?.class_teacher_id as string | null
+
+      if (teacherStaffId) {
+        const { data } = await supabase
+          .from('staff')
+          .select('auth_user_id, first_name, last_name, role')
+          .eq('id', teacherStaffId)
+          .not('auth_user_id', 'is', null)
+          .maybeSingle()
+        if (data) {
+          const r = data as AnyRow
+          return { authUserId: r.auth_user_id as string, firstName: r.first_name as string, lastName: r.last_name as string, role: 'class_teacher' } satisfies StaffContact
+        }
+      }
+
+      // Fallback: staff with this class in their classes array and role class_teacher
+      const { data: fallback } = await supabase
+        .from('staff')
+        .select('auth_user_id, first_name, last_name, role')
+        .eq('school_id', user!.schoolId)
+        .eq('role', 'class_teacher')
+        .contains('classes', [classId!])
+        .not('auth_user_id', 'is', null)
+        .limit(1)
+        .maybeSingle()
+
+      if (!fallback) return null
+      const r = fallback as AnyRow
+      return { authUserId: r.auth_user_id as string, firstName: r.first_name as string, lastName: r.last_name as string, role: 'class_teacher' } satisfies StaffContact
+    },
+  })
+}
+
+// ── useParentMessagesWithContact ──────────────────────────────
+// Messages between the parent and ONE specific contact (bursar or teacher).
+export function useParentMessagesWithContact(contactAuthUserId: string | null | undefined) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['parent-contact-messages', user?.schoolId, user?.id, contactAuthUserId],
+    enabled:  !!user?.schoolId && !!user?.id && !!contactAuthUserId,
+    refetchInterval: 10_000,
+    queryFn: async () => {
+      const me      = user!.id
+      const contact = contactAuthUserId!
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id, from_user_id, to_user_id, body, sent_at')
+        .eq('school_id', user!.schoolId)
+        .eq('is_announcement', false)
+        .or(`and(from_user_id.eq.${me},to_user_id.eq.${contact}),and(from_user_id.eq.${contact},to_user_id.eq.${me})`)
+        .order('sent_at', { ascending: true })
+      if (error) throw error
+      return ((data ?? []) as AnyRow[]).map(r => ({
+        id:         r.id as string,
+        fromUserId: r.from_user_id as string,
+        toUserId:   r.to_user_id as string,
+        body:       r.body as string,
+        sentAt:     r.sent_at as string,
+      } satisfies PortalMessage))
+    },
+  })
+}
+
+// ── useSendMessageToContact ───────────────────────────────────
+export function useSendMessageToContact() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ contactAuthUserId, body }: { contactAuthUserId: string; body: string }) => {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          school_id:       user!.schoolId,
+          from_user_id:    user!.id,
+          to_user_id:      contactAuthUserId,
+          body,
+          is_announcement: false,
+        })
+      if (error) throw error
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['parent-contact-messages', user?.schoolId, user?.id, vars.contactAuthUserId] })
+    },
+  })
+}
+
+// ── useParentTeacherRemarks ───────────────────────────────────
+// Teacher remarks saved for a specific student — visible to parents.
+export type ParentRemark = {
+  id:          string
+  teacherName: string
+  term:        string
+  year:        number
+  remarks:     string
+  createdAt:   string
+}
+
+export function useParentTeacherRemarks(studentId: string | null | undefined) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['parent-teacher-remarks', user?.schoolId, studentId],
+    enabled:  !!studentId && !!user?.schoolId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('teacher_remarks')
+        .select('id, teacher_id, term, year, remarks, created_at')
+        .eq('school_id',  user!.schoolId)
+        .eq('student_id', studentId!)
+        .order('year',       { ascending: false })
+        .order('term',       { ascending: false })
+        .order('created_at', { ascending: false })
+      if (error) throw error
+
+      const rows = (data ?? []) as AnyRow[]
+      if (rows.length === 0) return []
+
+      // Resolve teacher names
+      const teacherIds = [...new Set(rows.map(r => r.teacher_id as string).filter(Boolean))]
+      const { data: staffRows } = await supabase
+        .from('staff')
+        .select('auth_user_id, id, first_name, last_name')
+        .eq('school_id', user!.schoolId)
+        .or(teacherIds.map(id => `auth_user_id.eq.${id},id.eq.${id}`).join(','))
+
+      const teacherMap = new Map<string, string>()
+      for (const s of (staffRows ?? []) as AnyRow[]) {
+        const name = `${s.first_name} ${s.last_name}`
+        if (s.auth_user_id) teacherMap.set(s.auth_user_id as string, name)
+        if (s.id) teacherMap.set(s.id as string, name)
+      }
+
+      return rows.map(r => ({
+        id:          r.id as string,
+        teacherName: teacherMap.get(r.teacher_id as string) ?? 'Teacher',
+        term:        r.term as string,
+        year:        r.year as number,
+        remarks:     r.remarks as string,
+        createdAt:   r.created_at as string,
+      } satisfies ParentRemark))
     },
   })
 }

@@ -5,7 +5,13 @@ import {
   useStudentExamSummary,
   useStudentFeeBalance,
   useSchoolNotices,
+  useFindBursar,
+  useFindClassTeacher,
+  useParentMessagesWithContact,
+  useSendMessageToContact,
+  useParentTeacherRemarks,
 } from '../../hooks/useParentPortal'
+import type { StaffContact } from '../../hooks/useParentPortal'
 import { useAttendanceSummary, useStudentAttendanceHistory } from '../../hooks/useAttendance'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useAuth } from '../../store/AuthContext'
@@ -732,6 +738,25 @@ function ReportCardsTab({ studentId }: { studentId: string }) {
   )
 }
 
+// ── Event type pill ───────────────────────────────────────────────
+function EventTypePill({ eventType }: { eventType: string | null }) {
+  if (!eventType) return null
+  let color = 'var(--info)'
+  let bg    = 'rgba(14,165,233,0.12)'
+  if (eventType === 'pta_meeting') { color = 'var(--brand)'; bg = 'rgba(13,148,136,0.12)' }
+  else if (eventType === 'fee_reminder') { color = 'var(--warning)'; bg = 'rgba(245,158,11,0.12)' }
+  const label = eventType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  return (
+    <span style={{
+      fontSize: 10.5, fontWeight: 800, fontFamily: 'var(--font2)',
+      color, background: bg,
+      padding: '2px 8px', borderRadius: 99, whiteSpace: 'nowrap', flexShrink: 0,
+    }}>
+      {label}
+    </span>
+  )
+}
+
 // ── Notices tab ───────────────────────────────────────────────────
 function NoticesTab() {
   const { data: notices = [], isLoading } = useSchoolNotices()
@@ -754,8 +779,8 @@ function NoticesTab() {
     return (
       <EmptyState
         icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M22 17H2a3 3 0 000 6h20a3 3 0 000-6z"/><path d="M17 11V5a2 2 0 00-4 0v6"/><path d="M5 11V5a2 2 0 014 0v6"/><path d="M11 11V5"/></svg>}
-        title="No school notices"
-        body="School announcements and notices will appear here."
+        title="No school announcements"
+        body="School events and notices visible to parents will appear here."
       />
     )
   }
@@ -795,19 +820,32 @@ function NoticesTab() {
                 }} />
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
+                {/* Title — prominent */}
                 <div style={{
-                  fontSize: 13.5, color: 'var(--txt)', fontFamily: 'var(--font2)', fontWeight: 700,
+                  fontSize: 13.5, color: 'var(--txt)', fontFamily: 'var(--font2)', fontWeight: 800,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: isOpen ? 'normal' : 'nowrap',
-                  lineHeight: 1.4,
+                  lineHeight: 1.4, marginBottom: 3,
                 }}>
-                  {n.body}
+                  {n.title}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 3 }}>
-                  {new Date(n.createdAt).toLocaleString('en-UG', {
-                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                {/* Body — secondary */}
+                {n.body && (
+                  <div style={{
+                    fontSize: 12.5, color: 'var(--txt2)',
+                    overflow: 'hidden', textOverflow: 'ellipsis',
+                    whiteSpace: isOpen ? 'normal' : 'nowrap',
+                    lineHeight: 1.5, marginBottom: 4,
+                  }}>
+                    {n.body}
+                  </div>
+                )}
+                <div style={{ fontSize: 11, color: 'var(--txt3)' }}>
+                  {new Date(n.createdAt).toLocaleDateString('en-UG', {
+                    day: '2-digit', month: 'short', year: 'numeric',
                   })}
                 </div>
               </div>
+              <EventTypePill eventType={n.eventType} />
               <svg
                 width="14" height="14" viewBox="0 0 24 24" fill="none"
                 stroke="var(--txt3)" strokeWidth="2.5"
@@ -816,17 +854,6 @@ function NoticesTab() {
                 <path d="M6 9l6 6 6-6"/>
               </svg>
             </button>
-
-            {isOpen && n.link && (
-              <div style={{ padding: '0 1.1rem 0.9rem' }}>
-                <a href={n.link} target="_blank" rel="noreferrer" style={{
-                  fontSize: 12, color: 'var(--brand)', fontFamily: 'var(--font2)', fontWeight: 700,
-                  textDecoration: 'none',
-                }}>
-                  View link →
-                </a>
-              </div>
-            )}
           </div>
         )
       })}
@@ -834,8 +861,220 @@ function NoticesTab() {
   )
 }
 
+// ── Chat thread component (reused for both contacts) ─────────────────────────
+function ChatThread({ contact, parentId }: { contact: StaffContact; parentId: string }) {
+  const { data: messages = [], isLoading } = useParentMessagesWithContact(contact.authUserId)
+  const sendMsg = useSendMessageToContact()
+  const [draft, setDraft] = useState('')
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length])
+
+  async function handleSend() {
+    const text = draft.trim()
+    if (!text) return
+    setDraft('')
+    await sendMsg.mutateAsync({ contactAuthUserId: contact.authUserId, body: text })
+  }
+
+  const roleLabel = contact.role === 'class_teacher' ? 'Class Teacher' : contact.role === 'bursar' ? 'School Bursar' : contact.role
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Contact header */}
+      <div style={{ padding: '0.75rem 1.25rem', background: 'linear-gradient(135deg,rgba(13,148,136,.08),rgba(14,165,233,.06))', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,var(--brand),var(--info))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 13, flexShrink: 0 }}>
+          {contact.firstName[0]}{contact.lastName[0]}
+        </div>
+        <div>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: 'var(--txt)' }}>{contact.firstName} {contact.lastName}</div>
+          <div style={{ fontSize: 10.5, color: 'var(--brand)', fontWeight: 700 }}>{roleLabel}</div>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)' }} />
+          <span style={{ fontSize: 10.5, color: 'var(--txt3)', fontWeight: 600 }}>Active</span>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+        {isLoading && [0,1,2].map(i => (
+          <div key={i} style={{ display: 'flex', justifyContent: i % 2 === 0 ? 'flex-end' : 'flex-start' }}>
+            <div style={{ width: '55%', height: 44, borderRadius: 14, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+          </div>
+        ))}
+        {!isLoading && messages.length === 0 && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '2rem', textAlign: 'center' }}>
+            <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(13,148,136,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt2)' }}>Start the conversation</div>
+            <div style={{ fontSize: 12, color: 'var(--txt3)' }}>Send a message to {contact.firstName} below.</div>
+          </div>
+        )}
+        {messages.map(msg => {
+          const isOwn = msg.fromUserId === parentId
+          return (
+            <div key={msg.id} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start' }}>
+              <div style={{ maxWidth: '78%', background: isOwn ? 'linear-gradient(135deg,var(--brand),var(--info))' : 'var(--surface2)', color: isOwn ? '#fff' : 'var(--txt)', borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px', padding: '0.65rem 1rem', boxShadow: isOwn ? '0 4px 14px rgba(13,148,136,.3)' : '0 1px 3px rgba(0,0,0,.08)' }}>
+                <div style={{ fontSize: 13.5, lineHeight: 1.55, wordBreak: 'break-word' }}>{msg.body}</div>
+                <div style={{ fontSize: 10, marginTop: 4, color: isOwn ? 'rgba(255,255,255,.6)' : 'var(--txt3)', textAlign: 'right' }}>
+                  {new Date(msg.sentAt).toLocaleTimeString('en-UG', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+        <textarea
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend() } }}
+          placeholder={`Message ${contact.firstName}…`}
+          rows={1}
+          style={{ flex: 1, resize: 'none', border: '1.5px solid var(--border)', borderRadius: 14, padding: '10px 14px', fontSize: 13.5, fontFamily: 'var(--font)', color: 'var(--txt)', background: 'var(--surface2)', outline: 'none', lineHeight: 1.5, maxHeight: 120, overflowY: 'auto' }}
+        />
+        <button
+          onClick={() => { void handleSend() }}
+          disabled={!draft.trim() || sendMsg.isPending}
+          style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: draft.trim() ? 'linear-gradient(135deg,var(--brand),var(--info))' : 'var(--surface2)', color: draft.trim() ? '#fff' : 'var(--txt3)', cursor: draft.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .2s', boxShadow: draft.trim() ? '0 4px 12px rgba(13,148,136,.4)' : 'none' }}
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: 'rotate(90deg)' }}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Messages tab (parent ↔ bursar / class teacher) ────────────────────────
+function MessagesTab({ classId }: { classId: string | null }) {
+  const { user } = useAuth()
+  const { data: bursar,   isLoading: bursarLoad   } = useFindBursar()
+  const { data: teacher,  isLoading: teacherLoad  } = useFindClassTeacher(classId)
+  const [selectedContact, setSelectedContact] = useState<StaffContact | null>(null)
+
+  // Auto-select bursar when loaded if nothing selected
+  useEffect(() => {
+    if (!selectedContact && bursar) setSelectedContact(bursar as StaffContact)
+  }, [bursar, selectedContact])
+
+  const contacts: StaffContact[] = []
+  if (bursar)  contacts.push({ ...bursar,  role: 'bursar'        })
+  if (teacher) contacts.push({ ...teacher, role: 'class_teacher' })
+
+  if (bursarLoad || teacherLoad) {
+    return <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', color: 'var(--txt3)', fontSize: 13 }}>Loading contacts…</div>
+  }
+
+  if (contacts.length === 0) {
+    return (
+      <div style={{ padding: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt2)' }}>No contacts available</div>
+        <div style={{ fontSize: 12.5, color: 'var(--txt3)' }}>The school bursar and class teacher are not yet set up. Contact the school office.</div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', height: '65vh', minHeight: 480, overflow: 'hidden' }}>
+      {/* Contact sidebar */}
+      <div style={{ width: 180, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--surface2)' }}>
+        <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5 }}>Contacts</div>
+        {contacts.map(c => {
+          const isSel = selectedContact?.authUserId === c.authUserId
+          const roleLabel = c.role === 'class_teacher' ? 'Class Teacher' : 'School Bursar'
+          return (
+            <button key={c.authUserId} onClick={() => setSelectedContact(c)}
+              style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 12px', border: 'none', cursor: 'pointer', background: isSel ? 'rgba(13,148,136,.1)' : 'transparent', borderLeft: `3px solid ${isSel ? 'var(--brand)' : 'transparent'}`, textAlign: 'left', transition: 'all .15s' }}>
+              <div style={{ width: 34, height: 34, borderRadius: '50%', background: isSel ? 'linear-gradient(135deg,var(--brand),var(--info))' : 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isSel ? '#fff' : 'var(--txt2)', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
+                {c.firstName[0]}{c.lastName[0]}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: isSel ? 'var(--brand)' : 'var(--txt)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.firstName}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--txt3)', fontWeight: 600 }}>{roleLabel}</div>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Thread */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {selectedContact
+          ? <ChatThread contact={selectedContact} parentId={user!.id} />
+          : <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)', fontSize: 13 }}>Select a contact</div>
+        }
+      </div>
+    </div>
+  )
+}
+
+// ── Teacher Remarks tab ───────────────────────────────────────────────────
+function RemarksTab({ studentId }: { studentId: string }) {
+  const { data: remarks = [], isLoading } = useParentTeacherRemarks(studentId)
+
+  if (isLoading) {
+    return (
+      <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {[0,1,2].map(i => <div key={i} style={{ height: 80, borderRadius: 12, background: 'var(--surface2)', animation: 'pulse 1.5s ease-in-out infinite' }} />)}
+      </div>
+    )
+  }
+
+  if (remarks.length === 0) {
+    return (
+      <div style={{ padding: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
+        <div style={{ width: 60, height: 60, borderRadius: 18, background: 'rgba(13,148,136,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 15, color: 'var(--txt)' }}>No Remarks Yet</div>
+        <div style={{ fontSize: 13, color: 'var(--txt3)', maxWidth: 260 }}>Your child's teacher hasn't added any remarks for this term yet.</div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      {remarks.map(r => (
+        <div key={r.id} style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+          <div style={{ padding: '10px 16px', background: 'linear-gradient(135deg,rgba(13,148,136,.06),rgba(14,165,233,.04))', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,var(--brand),var(--info))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 11 }}>
+                {r.teacherName.split(' ').map(w => w[0]).slice(0,2).join('')}
+              </div>
+              <div>
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>{r.teacherName}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--txt3)' }}>Class Teacher</div>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand)' }}>Term {r.term} · {r.year}</div>
+              <div style={{ fontSize: 10, color: 'var(--txt3)' }}>{new Date(r.createdAt).toLocaleDateString('en-UG', { day: '2-digit', month: 'short' })}</div>
+            </div>
+          </div>
+          <div style={{ padding: '14px 16px', fontSize: 13.5, color: 'var(--txt)', lineHeight: 1.65, fontStyle: 'italic' }}>
+            "{r.remarks}"
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function _removedOldMessagesTabPlaceholder() {
+  // intentionally empty — replaced by MessagesTab above
+  void useAuth
+}
+
 // ── Tab bar ───────────────────────────────────────────────────────
-const TABS = ['Results', 'Fee Balance', 'Attendance', 'Report Cards', 'Notices'] as const
+const TABS = ['Results', 'Fee Balance', 'Attendance', 'Report Cards', 'Notices', 'Remarks', 'Messages'] as const
 type TabName = typeof TABS[number]
 
 const TAB_ICONS: Record<TabName, React.ReactNode> = {
@@ -864,6 +1103,17 @@ const TAB_ICONS: Record<TabName, React.ReactNode> = {
   Notices: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>
+    </svg>
+  ),
+  Remarks: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+    </svg>
+  ),
+  Messages: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
     </svg>
   ),
 }
@@ -1308,6 +1558,8 @@ export function ParentPortalPage() {
             {activeTab === 'Attendance'   && <AttendanceTab  studentId={selectedChild.id} />}
             {activeTab === 'Report Cards' && <ReportCardsTab studentId={selectedChild.id} />}
             {activeTab === 'Notices'      && <NoticesTab />}
+            {activeTab === 'Remarks'      && <RemarksTab     studentId={selectedChild.id} />}
+            {activeTab === 'Messages'     && <MessagesTab    classId={selectedChild.classId ?? null} />}
           </div>
         )}
       </div>
