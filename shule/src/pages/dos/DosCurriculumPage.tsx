@@ -48,10 +48,34 @@ export function DosCurriculumPage() {
           <div style={{ width: 46, height: 46, borderRadius: 15, background: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 18px rgba(139,92,246,.45)', flexShrink: 0 }}>
             <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><line x1="12" y1="7" x2="12" y2="13"/><line x1="9" y1="10" x2="15" y2="10"/></svg>
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>Curriculum Plan</h1>
             <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>Track topic coverage across subjects and classes.</p>
           </div>
+          {filtered.length > 0 && (
+            <button
+              onClick={() => {
+                const cls  = classes.find(c => c.id === classId)?.name ?? ''
+                const subj = subjects.find(s => s.id === subjectId)?.name ?? ''
+                const header = 'Class,Subject,Term,Topic,Planned Date,Covered Date,Status\n'
+                const rows = filtered.map(t =>
+                  `"${cls}","${subj}","${t.term}","${(t.topicName ?? '').replace(/"/g,'""')}","${t.plannedDate ?? ''}","${t.coveredAt ? String(t.coveredAt).slice(0,10) : ''}","${t.coveredAt ? 'Covered' : 'Pending'}"`
+                ).join('\n')
+                const blob = new Blob([header + rows], { type: 'text/csv' })
+                const a = document.createElement('a')
+                a.href = URL.createObjectURL(blob)
+                a.download = `curriculum-${cls.replace(/\s+/g,'-')}-${subj.replace(/\s+/g,'-')}.csv`
+                a.click()
+                URL.revokeObjectURL(a.href)
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', flexShrink: 0, transition: 'all .15s' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#8b5cf6'; e.currentTarget.style.color = '#8b5cf6' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--txt2)' }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export CSV
+            </button>
+          )}
         </div>
       </div>
 

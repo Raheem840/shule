@@ -96,6 +96,22 @@ export function TeacherRemarksPage() {
 
   const canSave = ready && !saveRemarks.isPending
 
+  function exportCsv() {
+    const header = 'Name,Admission No,Class,Stream,Term,Remarks\n'
+    const rows = students.map(s => {
+      const cls  = classes.find(c => c.id === classId)?.name ?? ''
+      const strm = streams.find(st => st.id === streamId)?.name ?? ''
+      const rem  = (remarks.get(s.id) ?? '').replace(/"/g, '""')
+      return `"${s.firstName} ${s.lastName}","${s.admissionNumber}","${cls}","${strm}","Term ${term}","${rem}"`
+    }).join('\n')
+    const blob = new Blob([header + rows], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `remarks-T${term}-${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
 
@@ -112,6 +128,16 @@ export function TeacherRemarksPage() {
               <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>Write a remark for each student before report cards are generated.</p>
             </div>
           </div>
+          {ready && students.length > 0 && (
+            <button onClick={exportCsv}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all .15s', flexShrink: 0 }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--txt2)' }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export CSV
+            </button>
+          )}
           <button disabled={!canSave} onClick={() => { void handleSaveAll() }}
             style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 11, border: 'none', background: canSave ? 'linear-gradient(145deg,#0d9488,#0f766e)' : 'var(--surface2)', color: canSave ? '#fff' : 'var(--txt3)', fontWeight: 700, fontSize: 13.5, cursor: canSave ? 'pointer' : 'default', boxShadow: canSave ? '0 4px 14px rgba(13,148,136,.4)' : 'none', transition: 'all .18s', flexShrink: 0 }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>

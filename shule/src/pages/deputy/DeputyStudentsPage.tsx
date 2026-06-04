@@ -111,7 +111,7 @@ export function DeputyStudentsPage() {
         <div style={{ width: 48, height: 48, borderRadius: 16, background: 'linear-gradient(145deg,var(--brand),var(--brand-dark))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(13,148,136,.38)', flexShrink: 0 }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></svg>
         </div>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>Students</h1>
             {students.length > 0 && (
@@ -122,6 +122,24 @@ export function DeputyStudentsPage() {
           </div>
           <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: 0 }}>Read-only student directory</p>
         </div>
+        {rows.length > 0 && (
+          <button
+            onClick={() => {
+              const header = 'Name,Admission No,Class,Stream,Gender,Type,Status\n'
+              const csv = rows.map(s =>
+                `"${s.firstName} ${s.lastName}","${s.admissionNumber}","${classMap.get(s.classId ?? '') ?? ''}","${streamMap.get(s.streamId ?? '') ?? ''}","${s.gender}","${s.studentType ?? ''}","${s.status}"`
+              ).join('\n')
+              const blob = new Blob([header + csv], { type: 'text/csv' })
+              const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `students-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href)
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', flexShrink: 0, transition: 'all .15s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--txt2)' }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
+          </button>
+        )}
       </div>
 
       {/* ── Filters ── */}

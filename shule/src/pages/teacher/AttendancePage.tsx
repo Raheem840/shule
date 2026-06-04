@@ -184,6 +184,30 @@ export function AttendancePage() {
         </div>
         {hasClass && studentCount > 0 && (
           <button
+            onClick={() => {
+              const className = classes.data?.find((c: any) => c.id === classId)?.name ?? ''
+              const header = 'Name,Admission No,Status,Date\n'
+              const rows = students.map(s => {
+                const status = marks.get(s.id) ?? 'present'
+                return `"${s.firstName} ${s.lastName}","${s.admissionNumber}","${status}","${date}"`
+              }).join('\n')
+              const blob = new Blob([header + rows], { type: 'text/csv' })
+              const a = document.createElement('a')
+              a.href = URL.createObjectURL(blob)
+              a.download = `attendance-${className.replace(/\s+/g,'-')}-${date}.csv`
+              a.click()
+              URL.revokeObjectURL(a.href)
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all .15s', flexShrink: 0 }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--txt2)' }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
+          </button>
+        )}
+        {hasClass && studentCount > 0 && (
+          <button
             onClick={handleSave}
             disabled={saveMutation.isPending}
             style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 11, border: 'none', background: saved ? 'linear-gradient(145deg,#10b981,#059669)' : 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', boxShadow: saved ? '0 4px 14px rgba(16,185,129,.4)' : '0 4px 14px rgba(13,148,136,.4)', transition: 'all .18s', flexShrink: 0 }}

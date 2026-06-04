@@ -272,7 +272,7 @@ export function DeputyStaffPage() {
         <div style={{ width: 48, height: 48, borderRadius: 16, background: 'linear-gradient(145deg,#8b5cf6,#6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(139,92,246,.38)', flexShrink: 0 }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" /><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" /></svg>
         </div>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>Staff</h1>
             {staffList.length > 0 && (
@@ -283,6 +283,24 @@ export function DeputyStaffPage() {
           </div>
           <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: 0 }}>Read-only staff directory</p>
         </div>
+        {rows.length > 0 && (
+          <button
+            onClick={() => {
+              const header = 'Name,Staff Number,Role,Email,Phone,Department\n'
+              const csv = rows.map(s =>
+                `"${s.name}","${s.staffNumber}","${s.role}","${s.email ?? ''}","${s.phone ?? ''}","${s.department ?? ''}"`
+              ).join('\n')
+              const blob = new Blob([header + csv], { type: 'text/csv' })
+              const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `staff-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href)
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', flexShrink: 0, transition: 'all .15s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#8b5cf6'; e.currentTarget.style.color = '#8b5cf6' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--txt2)' }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
+          </button>
+        )}
       </div>
 
       {/* ── Filters ── */}
