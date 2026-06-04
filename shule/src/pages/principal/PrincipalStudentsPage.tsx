@@ -127,11 +127,11 @@ function StudentCard({ student, className, classLevel, streamName, onView }: {
   const [menuPos,  setMenuPos]  = useState({ top: 0, left: 0 })
   const menuBtnRef = useRef<HTMLButtonElement>(null)
   const status = (student.status ?? 'active') as StudentStatus
-  const [col]  = pal(`${student.firstName}${student.lastName}`)
+  const [col, colBg]  = pal(`${student.firstName}${student.lastName}`)
   const accent = levelColor(classLevel)
   const inits  = ini(student.firstName, student.lastName)
-  const gender = student.gender === 'male' ? 'M' : student.gender === 'female' ? 'F' : null
-  const boarderLabel = student.studentType === 'boarder' ? 'Boarder' : student.studentType === 'day' ? 'Day' : null
+  const gender = student.gender === 'male' ? 'Male' : student.gender === 'female' ? 'Female' : null
+  const boarderLabel = student.studentType === 'boarder' ? 'Boarder' : student.studentType === 'day' ? 'Day Scholar' : null
 
   useEffect(() => {
     if (!menuOpen) return
@@ -143,112 +143,125 @@ function StudentCard({ student, className, classLevel, streamName, onView }: {
   return (
     <div
       style={{
-        borderRadius: 16, border: '1px solid var(--border)', background: 'var(--surface)',
-        overflow: 'hidden', position: 'relative',
-        transition: 'transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s',
-        transform: hovered ? 'translateY(-3px)' : 'none',
-        boxShadow: hovered ? '0 12px 40px rgba(0,0,0,.10)' : '0 1px 6px rgba(0,0,0,.06)',
+        borderRadius: 18, border: `1px solid ${hovered ? accent + '45' : 'var(--border)'}`,
+        background: 'var(--surface)', overflow: 'hidden', position: 'relative',
+        transition: 'transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s, border-color 0.2s',
+        transform: hovered ? 'translateY(-4px)' : 'none',
+        boxShadow: hovered
+          ? `0 20px 52px ${accent}1a, 0 6px 20px rgba(0,0,0,.09)`
+          : '0 1px 6px rgba(0,0,0,.06)',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Class-level accent strip */}
-      <div style={{ height: 4, width: '100%', background: `linear-gradient(90deg, ${accent}, ${accent}99)` }} />
-
-      <div style={{ padding: '16px 16px 14px' }}>
-        {/* Avatar + name */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
-          <div style={{ flexShrink: 0 }}>
+      {/* Gradient header */}
+      <div style={{
+        background: `linear-gradient(135deg, ${accent}20 0%, ${accent}08 100%)`,
+        borderBottom: `1px solid ${accent}22`,
+        padding: '16px 16px 12px',
+        display: 'flex', alignItems: 'flex-start', gap: 13,
+      }}>
+        {/* Avatar — rounded square */}
+        <div style={{ flexShrink: 0 }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: 15,
+            background: colBg,
+            border: `2px solid ${col}28`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 17, fontWeight: 900, color: col, fontFamily: 'var(--font2)', userSelect: 'none',
+            position: 'relative',
+          }}>
+            {inits}
             <div style={{
-              width: 52, height: 52, borderRadius: '50%',
-              background: `linear-gradient(135deg, ${col}, ${col}88)`,
-              padding: 2.5, position: 'relative',
-            }}>
-              <div style={{
-                width: '100%', height: '100%', borderRadius: '50%', background: 'var(--surface)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 14, fontWeight: 900, color: col, fontFamily: 'var(--font2)', userSelect: 'none',
-              }}>
-                {inits}
-              </div>
-              <div style={{
-                position: 'absolute', bottom: 1, right: 1,
-                width: 12, height: 12, borderRadius: '50%',
-                background: STATUS_META[status]?.color ?? '#94a3b8',
-                border: '2px solid var(--surface)',
-              }} />
-            </div>
-          </div>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontWeight: 700, fontSize: 14.5, color: 'var(--txt)',
-              lineHeight: 1.3, marginBottom: 5,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {student.firstName} {student.lastName}
-            </div>
-            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-              {className && (
-                <span style={{
-                  padding: '2px 8px', borderRadius: 7,
-                  background: `${accent}18`, color: accent,
-                  border: `1px solid ${accent}30`,
-                  fontSize: 10.5, fontWeight: 800, fontFamily: 'var(--font2)',
-                }}>
-                  {className}
-                </span>
-              )}
-              <span style={{
-                padding: '2px 8px', borderRadius: 7, fontSize: 10, fontWeight: 700,
-                background: STATUS_META[status]?.bg ?? 'var(--surface2)',
-                color: STATUS_META[status]?.color ?? 'var(--txt3)',
-              }}>
-                {STATUS_META[status]?.label ?? status}
-              </span>
-            </div>
-            <div style={{ fontSize: 10.5, color: 'var(--txt3)', marginTop: 4, fontFamily: 'var(--font3)', letterSpacing: .3 }}>
-              {student.admissionNumber}
-            </div>
+              position: 'absolute', bottom: -3, right: -3,
+              width: 14, height: 14, borderRadius: '50%',
+              background: STATUS_META[status]?.color ?? '#94a3b8',
+              border: '2.5px solid var(--surface)',
+            }} />
           </div>
         </div>
 
-        {/* Stream + gender */}
-        {(streamName || gender || boarderLabel) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-            {streamName && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontWeight: 800, fontSize: 14.5, color: 'var(--txt)',
+            lineHeight: 1.25, marginBottom: 6,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            fontFamily: 'var(--font2)', letterSpacing: -.2,
+          }}>
+            {student.firstName} {student.lastName}
+          </div>
+
+          {/* Class badge — prominent and always present */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, flexWrap: 'wrap' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '3px 10px', borderRadius: 8,
+              background: className ? `${accent}1e` : 'var(--surface2)',
+              color: className ? accent : 'var(--txt3)',
+              border: `1.5px solid ${className ? accent + '35' : 'var(--border)'}`,
+              fontSize: 11, fontWeight: 900, fontFamily: 'var(--font2)',
+            }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+              </svg>
+              {className
+                ? `${className}${streamName ? ` · ${streamName}` : ''}`
+                : 'No class assigned'}
+            </div>
+            <span style={{
+              padding: '2px 8px', borderRadius: 7, fontSize: 9.5, fontWeight: 800,
+              background: STATUS_META[status]?.bg ?? 'var(--surface2)',
+              color: STATUS_META[status]?.color ?? 'var(--txt3)',
+              textTransform: 'uppercase', letterSpacing: .4,
+              fontFamily: 'var(--font2)',
+            }}>
+              {STATUS_META[status]?.label ?? status}
+            </span>
+          </div>
+
+          <div style={{ fontSize: 10.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', letterSpacing: .3 }}>
+            {student.admissionNumber}
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: '10px 16px 14px' }}>
+        {/* Meta row */}
+        {(gender || boarderLabel) && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+            {gender && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2">
+                  <circle cx="12" cy="8" r="4"/><path d="M6 20c0-3.31 2.69-6 6-6s6 2.69 6 6"/>
+                </svg>
+                <span style={{ fontSize: 11, color: 'var(--txt2)', fontWeight: 600 }}>{gender}</span>
+              </div>
+            )}
+            {boarderLabel && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2">
                   <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                   <polyline points="9,22 9,12 15,12 15,22"/>
                 </svg>
-                <span style={{ fontSize: 11.5, color: 'var(--txt2)', fontWeight: 600 }}>{streamName}</span>
+                <span style={{ fontSize: 11, color: 'var(--txt2)', fontWeight: 600 }}>{boarderLabel}</span>
               </div>
-            )}
-            {gender && (
-              <span style={{ padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 700, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--txt3)' }}>
-                {gender}
-              </span>
-            )}
-            {boarderLabel && (
-              <span style={{ padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 700, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--txt3)' }}>
-                {boarderLabel}
-              </span>
             )}
           </div>
         )}
 
         {/* Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: '.5px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button
             onClick={onView}
             style={{
-              padding: '4px 11px', borderRadius: 7, fontSize: 11, fontWeight: 700,
-              background: 'var(--brand-light)', color: 'var(--brand)',
-              border: '1px solid rgba(13,148,136,.2)', cursor: 'pointer', transition: 'all .13s',
+              padding: '7px 16px', borderRadius: 10, fontSize: 11.5, fontWeight: 800,
+              background: `linear-gradient(135deg, ${accent}, ${accent}cc)`,
+              color: '#fff', border: 'none', cursor: 'pointer', transition: 'opacity .15s',
+              boxShadow: `0 3px 10px ${accent}35`, fontFamily: 'var(--font2)',
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(13,148,136,.15)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-light)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '.82' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '1' }}
           >
             View Profile
           </button>
@@ -265,8 +278,8 @@ function StudentCard({ student, className, classLevel, streamName, onView }: {
                 setMenuOpen(v => !v)
               }}
               style={{
-                width: 28, height: 28, borderRadius: 7,
-                border: '1px solid var(--border)',
+                width: 32, height: 32, borderRadius: 9,
+                border: '1.5px solid var(--border)',
                 background: menuOpen ? 'var(--surface2)' : 'transparent',
                 cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: 'var(--txt3)', transition: 'all .13s',
@@ -274,7 +287,7 @@ function StudentCard({ student, className, classLevel, streamName, onView }: {
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface2)' }}
               onMouseLeave={e => { if (!menuOpen) (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <circle cx="12" cy="5" r="1" fill="currentColor" stroke="none"/>
                 <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
                 <circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/>
@@ -361,47 +374,60 @@ export function PrincipalStudentsPage() {
 
         {/* ── Hero Band ─────────────────────────────────────────────── */}
         <div style={{
-          borderRadius: 18, overflow: 'hidden',
-          background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-          padding: '28px 28px 24px', position: 'relative',
+          borderRadius: 20, overflow: 'hidden',
+          background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 55%, #b45309 100%)',
+          padding: '28px 28px 26px', position: 'relative',
         }}>
-          <div style={{ position: 'absolute', top: -30, right: -30, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,.08)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', bottom: -20, right: 60, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,.06)', pointerEvents: 'none' }} />
+          {/* Decorative circles */}
+          <div style={{ position: 'absolute', top: -40, right: -40, width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,.07)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: -30, right: 80,  width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,.05)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: 10, right: 180, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,.04)', pointerEvents: 'none' }} />
 
           <div style={{ position: 'relative', zIndex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: 13, background: 'rgba(255,255,255,.20)',
-                backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
-                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                  <circle cx="9" cy="7" r="4"/>
-                  <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-                </svg>
+            {/* Title row */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 16, background: 'rgba(255,255,255,.20)',
+                  backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 4px 16px rgba(0,0,0,.15)',
+                }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
+                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+                  </svg>
+                </div>
+                <div>
+                  <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 26, color: '#fff', margin: 0, letterSpacing: -.5, lineHeight: 1 }}>
+                    Students
+                  </h1>
+                  <p style={{ color: 'rgba(255,255,255,.72)', fontSize: 12.5, margin: '4px 0 0', fontWeight: 500 }}>
+                    {isLoading ? 'Loading…' : 'Enrolled student register'}
+                  </p>
+                </div>
               </div>
-              <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 24, color: '#fff', margin: 0, letterSpacing: -.4 }}>
-                Students
-              </h1>
             </div>
-            <p style={{ color: 'rgba(255,255,255,.75)', fontSize: 13, margin: '0 0 20px', fontWeight: 500 }}>
-              {isLoading ? 'Loading students…' : 'Enrolled student register'}
-            </p>
 
+            {/* KPI stat chips — larger */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {[
-                { label: 'Total',     value: isLoading ? '—' : base.length },
-                { label: 'Active',    value: isLoading ? '—' : countActive },
-                { label: 'Suspended', value: isLoading ? '—' : countSuspended },
-                { label: 'Expelled',  value: isLoading ? '—' : countExpelled },
+                { label: 'Total Enrolled', value: isLoading ? '—' : base.length,      accent: 'rgba(255,255,255,.22)' },
+                { label: 'Active',         value: isLoading ? '—' : countActive,      accent: 'rgba(16,185,129,.40)'  },
+                { label: 'Suspended',      value: isLoading ? '—' : countSuspended,   accent: 'rgba(245,158,11,.40)'  },
+                { label: 'Expelled',       value: isLoading ? '—' : countExpelled,    accent: 'rgba(244,63,94,.40)'   },
               ].map(stat => (
                 <div key={stat.label} style={{
-                  background: 'rgba(255,255,255,.18)', backdropFilter: 'blur(8px)',
-                  border: '.5px solid rgba(255,255,255,.28)', borderRadius: 12,
-                  padding: '10px 16px', minWidth: 80,
+                  background: stat.accent, backdropFilter: 'blur(8px)',
+                  border: '.5px solid rgba(255,255,255,.30)',
+                  borderRadius: 14, padding: '12px 20px', minWidth: 90,
                 }}>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)', lineHeight: 1 }}>{stat.value}</div>
-                  <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,.72)', marginTop: 3, fontWeight: 600, letterSpacing: .3 }}>{stat.label}</div>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)', lineHeight: 1, letterSpacing: -.5 }}>
+                    {stat.value}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,.75)', marginTop: 4, fontWeight: 700, letterSpacing: .4, textTransform: 'uppercase' }}>
+                    {stat.label}
+                  </div>
                 </div>
               ))}
             </div>
@@ -445,7 +471,26 @@ export function PrincipalStudentsPage() {
               </select>
             </div>
 
-            {/* Status pills */}
+            {/* Export + Status pills */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              {filtered.length > 0 && (
+                <button
+                  onClick={() => {
+                    const header = 'Name,Admission No,Class,Gender,Type,Status\n'
+                    const csv = filtered.map(s => {
+                      const cls = classes.find(c => c.id === s.classId)?.name ?? ''
+                      return `"${s.firstName} ${s.lastName}","${s.admissionNumber}","${cls}","${s.gender}","${s.studentType ?? ''}","${s.status}"`
+                    }).join('\n')
+                    const blob = new Blob([header + csv], { type: 'text/csv' })
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `students-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href)
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 99, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(255,255,255,.16)', color: '#fff', border: '.5px solid rgba(255,255,255,.35)' }}
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Export CSV
+                </button>
+              )}
+            </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {([
                 { key: '' as const,         label: 'All' },
