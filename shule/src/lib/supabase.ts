@@ -22,4 +22,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // supabase.auth.signIn() — authenticate users
 // supabase.storage.from('photos') — upload files
 // The anon key is safe to expose in frontend — RLS policies enforce security
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession:   true,   // keep session in localStorage — survives browser close
+    autoRefreshToken: true,   // silently refresh before expiry — stays logged in for weeks
+    detectSessionInUrl: true, // needed for password reset + OAuth callbacks
+  },
+})

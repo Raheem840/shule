@@ -164,6 +164,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setAuthError(null)
             await cacheSessionToDb(session, u)
             void primeOfflineCache(u.schoolId, u.role, u.id)
+            // Request push notification permission on fresh sign-in
+            if (event === 'SIGNED_IN') {
+              import('../lib/pushNotifications').then(({ requestPushPermission }) => {
+                void requestPushPermission(u.id, u.schoolId)
+              })
+            }
           } else if (event === 'SIGNED_IN') {
             setAuthError('Account not linked to a school role. Contact your IT Admin.')
           }

@@ -8,8 +8,12 @@ export default defineConfig(({ mode }) => ({
     ...(mode !== 'test' ? [
       VitePWA({
         registerType: 'autoUpdate',
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
         devOptions: {
           enabled: false,
+          type: 'module',
         },
         manifest: {
           name: 'Shule — School Management',
@@ -31,40 +35,8 @@ export default defineConfig(({ mode }) => ({
             { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           ],
         },
-        workbox: {
-          skipWaiting: true,
-          clientsClaim: true,
-          cleanupOutdatedCaches: true,
+        injectManifest: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-          navigateFallback: 'index.html',
-          navigateFallbackDenylist: [/^\/api/],
-          runtimeCaching: [
-            {
-              urlPattern: /^https:\/\/.*\.supabase\.co\/rest/,
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'supabase-rest',
-                networkTimeoutSeconds: 5,
-                expiration: { maxEntries: 100, maxAgeSeconds: 86400 },
-              },
-            },
-            {
-              urlPattern: /^https:\/\/.*\.supabase\.co\/auth/,
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'supabase-auth',
-                networkTimeoutSeconds: 3,
-              },
-            },
-            {
-              urlPattern: /^https:\/\/.*\.supabase\.co\/storage/,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'supabase-storage',
-                expiration: { maxEntries: 200, maxAgeSeconds: 604800 },
-              },
-            },
-          ],
         },
       }),
     ] : []),
