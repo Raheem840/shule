@@ -973,7 +973,7 @@ function NoticesTab() {
       }))
     }
     return school.map(n => ({
-      id: n.id, body: n.body, createdAt: n.createdAt,
+      id: n.id, body: n.body ?? n.title, createdAt: n.createdAt,
       link: n.link, isPersonal: false, isRead: true,
     }))
   }, [personal, school])

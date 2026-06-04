@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import JSZip from 'jszip'
 import {
   useReportCards,
@@ -8,6 +8,9 @@ import {
 } from '../../hooks/useReportCards'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useToast } from '../../components/ui/Toast'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../store/AuthContext'
+import { useQuery } from '@tanstack/react-query'
 import type { ReadinessStatus, StudentReadiness } from '../../hooks/useReportCards'
 import type { ReportCard } from '../../types/app'
 
@@ -282,6 +285,46 @@ function StatChip({ label, value, color = '#fff' }: { label: string; value: numb
   )
 }
 
+// ── Fee filter type ────────────────────────────────────────────
+type FeeFilter = 'all' | '60pct' | 'custom'
+
+// ── useFeeCompletion ───────────────────────────────────────────
+// Fetches fee_payments for the given student IDs and year, returns a map of studentId → pct paid.
+function useFeeCompletion(studentIds: string[], year: number | null) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['fee-completion', user?.schoolId, year, studentIds.join(',')],
+    enabled:  !!user?.schoolId && !!year && studentIds.length > 0,
+    staleTime: 2 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('fee_payments')
+        .select('student_id, amount_due, amount_paid, academic_year_id')
+        .eq('school_id', user!.schoolId)
+        .in('student_id', studentIds)
+
+      if (error) throw error
+
+      const totals = new Map<string, { due: number; paid: number }>()
+      for (const row of (data ?? []) as { student_id: string; amount_due: number; amount_paid: number }[]) {
+        const prev = totals.get(row.student_id) ?? { due: 0, paid: 0 }
+        totals.set(row.student_id, {
+          due:  prev.due  + (Number(row.amount_due)  || 0),
+          paid: prev.paid + (Number(row.amount_paid) || 0),
+        })
+      }
+
+      // Convert to pct map
+      const pctMap = new Map<string, number>()
+      for (const [id, { due, paid }] of totals) {
+        pctMap.set(id, due > 0 ? Math.round((paid / due) * 100) : 100)
+      }
+      return pctMap
+    },
+  })
+}
+
 // ── Main Page ──────────────────────────────────────────────────
 export function ReportCardsPage() {
   const [activeTab, setActiveTab] = useState<'readiness' | 'cards'>('readiness')
@@ -290,6 +333,8 @@ export function ReportCardsPage() {
   const [classId,  setClassId]  = useState<string>('')
   const [streamId, setStreamId] = useState<string>('')
   const [cardStatus, setCardStatus] = useState<string>('all')
+  const [feeFilter,  setFeeFilter]  = useState<FeeFilter>('all')
+  const [customPct,  setCustomPct]  = useState<number>(60)
 
   const [selected,  setSelected]  = useState<Set<string>>(new Set())
   const [progress,  setProgress]  = useState<{ done: number; total: number } | null>(null)
@@ -319,13 +364,24 @@ export function ReportCardsPage() {
     streamId: streamId || undefined,
   }, cohortReady)
 
+  // Fee completion map — fetched once for all students in cohort
+  const studentIds = useMemo(() => readiness.map(r => r.studentId), [readiness])
+  const { data: feeCompletionMap = new Map<string, number>() } = useFeeCompletion(studentIds, cohortReady ? Number(year) : null)
+
+  // Apply fee filter to readiness list (client-side)
+  const thresholdPct = feeFilter === 'custom' ? customPct : feeFilter === '60pct' ? 60 : 0
+  const filteredReadiness = useMemo(() => {
+    if (feeFilter === 'all') return readiness
+    return readiness.filter(r => (feeCompletionMap.get(r.studentId) ?? 0) >= thresholdPct)
+  }, [readiness, feeFilter, feeCompletionMap, thresholdPct])
+
   const rcMap = new Map(reportCards.map(c => [c.studentId, c]))
 
-  const readyStudents  = readiness.filter(r => r.status === 'ready')
-  const selectedReady  = Array.from(selected).filter(id => readiness.find(r => r.studentId === id && r.status === 'ready'))
+  const readyStudents  = filteredReadiness.filter(r => r.status === 'ready')
+  const selectedReady  = Array.from(selected).filter(id => filteredReadiness.find(r => r.studentId === id && r.status === 'ready'))
 
   // Hero stats
-  const totalStudents   = readiness.length
+  const totalStudents   = filteredReadiness.length
   const readyToGenerate = readyStudents.length
   const generatedCount  = reportCards.length
   const releasedCount   = reportCards.filter(c => c.status === 'released').length
@@ -338,7 +394,7 @@ export function ReportCardsPage() {
     })
   }
 
-  function selectAllReady() { setSelected(new Set(readyStudents.map(r => r.studentId))) }
+  function selectAllReady() { setSelected(new Set(filteredReadiness.filter(r => r.status === 'ready').map(r => r.studentId))) }
   function clearSelection()  { setSelected(new Set()) }
 
   async function handleGenerate() {
@@ -550,6 +606,62 @@ export function ReportCardsPage() {
           )}
         </div>
 
+        {/* ── Fee filter ────────────────────────────────────────── */}
+        <div style={{
+          background: 'var(--surface)', borderRadius: 14,
+          border: '1px solid var(--border)', padding: '12px 20px',
+          marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', fontFamily: 'var(--font2)', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+            Fee Filter
+          </span>
+          {([
+            { value: 'all',    label: 'All students' },
+            { value: '60pct',  label: '60%+ paid only' },
+            { value: 'custom', label: 'Custom %' },
+          ] as { value: FeeFilter; label: string }[]).map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setFeeFilter(opt.value)}
+              style={{
+                padding: '5px 14px', borderRadius: 99, fontSize: 12,
+                fontWeight: 700, fontFamily: 'var(--font2)',
+                border: feeFilter === opt.value ? 'none' : '1.5px solid var(--border)',
+                background: feeFilter === opt.value ? 'linear-gradient(135deg, var(--brand), var(--info))' : 'var(--surface)',
+                color: feeFilter === opt.value ? '#fff' : 'var(--txt2)',
+                cursor: 'pointer', transition: 'all 0.15s',
+                boxShadow: feeFilter === opt.value ? '0 2px 8px rgba(13,148,136,0.25)' : 'none',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+          {feeFilter === 'custom' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={customPct}
+                onChange={e => setCustomPct(Math.min(100, Math.max(0, Number(e.target.value))))}
+                style={{
+                  width: 64, padding: '5px 10px', borderRadius: 8,
+                  border: '1px solid var(--border)', fontSize: 13,
+                  fontFamily: 'var(--font3)', color: 'var(--txt)',
+                  background: 'var(--surface)', outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font2)' }}>% minimum paid</span>
+            </div>
+          )}
+          {feeFilter !== 'all' && readiness.length > 0 && (
+            <span style={{ fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font2)', marginLeft: 4 }}>
+              Showing {filteredReadiness.length} of {readiness.length} students
+            </span>
+          )}
+        </div>
+
         {/* ── Pill tab navigation ────────────────────────────────── */}
         <div style={{
           display: 'flex', gap: 6, background: 'var(--surface)',
@@ -599,9 +711,14 @@ export function ReportCardsPage() {
                 <h2 style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, color: 'var(--txt)', margin: 0 }}>
                   Student Readiness
                 </h2>
-                {readiness.length > 0 && (
+                {filteredReadiness.length > 0 && (
                   <p style={{ fontSize: 12, color: 'var(--txt3)', margin: '3px 0 0' }}>
-                    {readyStudents.length} of {readiness.length} students ready to generate
+                    {readyStudents.length} of {filteredReadiness.length} students ready to generate
+                    {feeFilter !== 'all' && readiness.length !== filteredReadiness.length && (
+                      <span style={{ color: 'var(--warning)', marginLeft: 6 }}>
+                        ({readiness.length - filteredReadiness.length} filtered by fee)
+                      </span>
+                    )}
                   </p>
                 )}
               </div>
@@ -634,7 +751,7 @@ export function ReportCardsPage() {
             </div>
 
             {/* Overall readiness progress bar */}
-            {readiness.length > 0 && (
+            {filteredReadiness.length > 0 && (
               <div style={{
                 background: 'var(--surface)', borderRadius: 14, padding: '14px 20px',
                 border: '1px solid var(--border)', marginBottom: 14,
@@ -643,14 +760,14 @@ export function ReportCardsPage() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt2)' }}>Overall Readiness</span>
                   <span style={{ fontSize: 13, fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--success)' }}>
-                    {readyStudents.length}/{readiness.length}
+                    {readyStudents.length}/{filteredReadiness.length}
                   </span>
                 </div>
                 <div style={{ height: 8, background: 'var(--surface2)', borderRadius: 99, overflow: 'hidden' }}>
                   <div style={{
                     height: '100%', borderRadius: 99,
                     background: 'linear-gradient(90deg, var(--success), var(--brand))',
-                    width: readiness.length > 0 ? `${(readyStudents.length / readiness.length) * 100}%` : '0%',
+                    width: filteredReadiness.length > 0 ? `${(readyStudents.length / filteredReadiness.length) * 100}%` : '0%',
                     transition: 'width 0.5s cubic-bezier(0.4,0,0.2,1)',
                   }} />
                 </div>
@@ -676,21 +793,23 @@ export function ReportCardsPage() {
                   <div key={i} className="shule-skeleton" style={{ height: 76, borderRadius: 14 }} />
                 ))}
               </div>
-            ) : readiness.length === 0 ? (
+            ) : filteredReadiness.length === 0 ? (
               <div style={{
                 background: 'var(--surface)', borderRadius: 14, border: '1px dashed var(--border)',
                 padding: '48px 24px', textAlign: 'center',
               }}>
                 <p style={{ fontSize: 14, color: 'var(--txt3)', fontWeight: 500, margin: 0 }}>
-                  No students found in this cohort.
+                  {readiness.length === 0 ? 'No students found in this cohort.' : 'No students match the current fee filter.'}
                 </p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} className="stagger-cards">
-                {readiness.map((row: StudentReadiness) => {
+                {filteredReadiness.map((row: StudentReadiness) => {
                   const isReady   = row.status === 'ready'
                   const isChecked = selected.has(row.studentId)
                   const rc        = rcMap.get(row.studentId)
+                  const feePct    = feeCompletionMap.get(row.studentId) ?? null
+                  const feeBelowThreshold = feeFilter === 'all' && feePct !== null && feePct < 60
 
                   return (
                     <div
@@ -731,6 +850,18 @@ export function ReportCardsPage() {
                         {row.issues.length > 0 && (
                           <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3, fontWeight: 600 }}>
                             {row.issues.join(' · ')}
+                          </div>
+                        )}
+                        {feeBelowThreshold && (
+                          <div style={{ fontSize: 11, marginTop: 3, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{
+                              fontWeight: 700, color: 'var(--danger)',
+                              background: 'rgba(244,63,94,0.1)',
+                              padding: '1px 7px', borderRadius: 99,
+                              fontFamily: 'var(--font2)',
+                            }}>
+                              Fees {feePct}% paid
+                            </span>
                           </div>
                         )}
                       </div>
