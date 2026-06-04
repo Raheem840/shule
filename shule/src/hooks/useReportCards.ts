@@ -228,13 +228,41 @@ export function useGenerateReportCards() {
       const { studentIds, term, year, classId, streamId, onProgress } = input
       const schoolId = user!.schoolId
 
-      // ── Fetch school profile ───────────────────────────────
+      // ── Fetch school profile (including template URL) ─────────
       const { data: school, error: se } = await supabase
         .from('school_profile')
-        .select('school_name, motto, logo_url')
+        .select('school_name, motto, logo_url, report_template_url')
         .eq('id', schoolId)
         .single()
       if (se) throw se
+
+      // ── Load template image as base64 if one has been uploaded ─
+      // report_template_url stores the storage PATH (e.g. "school-id/report.png")
+      // We download it through Supabase storage so private bucket auth is handled.
+      let templateBase64:   string | null = null
+      let templateMimeType: string        = 'image/png'
+      const templatePath = (school as Record<string, unknown>).report_template_url as string | null
+      if (templatePath) {
+        try {
+          const { data: blob, error: dlErr } = await supabase.storage
+            .from('templates')
+            .download(templatePath)
+          if (!dlErr && blob) {
+            templateMimeType = blob.type || 'image/png'
+            const reader = await new Promise<string>((resolve, reject) => {
+              const fr = new FileReader()
+              fr.onload  = () => resolve(fr.result as string)
+              fr.onerror = reject
+              fr.readAsDataURL(blob)
+            })
+            // jsPDF addImage expects raw base64 without the data-URL prefix
+            templateBase64 = reader.split(',')[1] ?? null
+          }
+        } catch {
+          // Template load failed — fall back to text header silently
+          templateBase64 = null
+        }
+      }
 
       // ── Fetch class + stream names ─────────────────────────
       const { data: cls } = await supabase
@@ -370,9 +398,11 @@ export function useGenerateReportCards() {
 
           const pdfData = {
             school: {
-              name:    school.school_name as string,
-              motto:   (school.motto as string) ?? null,
-              logoUrl: (school.logo_url as string) ?? null,
+              name:             school.school_name as string,
+              motto:            (school.motto as string) ?? null,
+              logoUrl:          (school.logo_url as string) ?? null,
+              templateBase64,
+              templateMimeType,
             },
             student: {
               firstName:       stu.first_name as string,

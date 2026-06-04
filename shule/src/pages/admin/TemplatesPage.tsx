@@ -3,6 +3,7 @@ import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../store/AuthContext'
 import { uploadTemplate, getSignedUrl, BUCKETS } from '../../lib/storage'
 import { validateFile } from '../../lib/fileValidation'
+import { supabase } from '../../lib/supabase'
 
 export function TemplatesPage() {
   const { user }       = useAuth()
@@ -28,7 +29,15 @@ export function TemplatesPage() {
       const path = await uploadTemplate(user.schoolId, file)
       setFileName(file.name)
       setSuccess(true)
-      // Generate a signed URL so the upload can be previewed
+
+      // Save the storage path into school_profile.report_template_url
+      // so the PDF generator can find and download it when generating report cards
+      await supabase
+        .from('school_profile')
+        .update({ report_template_url: path })
+        .eq('id', user.schoolId)
+
+      // Generate a short-lived signed URL for the preview only
       const signed = await getSignedUrl(BUCKETS.TEMPLATES, path, 300)
       setPreviewUrl(signed)
     } catch (e: unknown) {

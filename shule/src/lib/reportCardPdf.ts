@@ -19,9 +19,11 @@ export type SubjectPdfRow = {
 
 export type ReportCardPdfData = {
   school: {
-    name:    string
-    motto:   string | null
-    logoUrl: string | null
+    name:              string
+    motto:             string | null
+    logoUrl:           string | null
+    templateBase64:    string | null  // PNG/JPG letterhead — used as page header if present
+    templateMimeType:  string         // 'image/png' | 'image/jpeg'
   }
   student: {
     firstName:       string
@@ -87,33 +89,60 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
   const col2 = W / 2
   let y      = 14
 
-  // ── Header ──────────────────────────────────────────────────
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(15)
-  doc.text(d.school.name.toUpperCase(), col2, y, { align: 'center' })
-  y += 6
+  // ── Header — uploaded template OR text fallback ───────────────
+  if (d.school.templateBase64) {
+    // Place the school's uploaded letterhead image as the header
+    // Fit it full-width; height is proportional (we cap at 60mm)
+    const imgProps = doc.getImageProperties(d.school.templateBase64)
+    const imgW     = W - M * 2
+    const imgH     = Math.min(60, (imgProps.height / imgProps.width) * imgW)
+    doc.addImage(d.school.templateBase64, d.school.templateMimeType, M, y, imgW, imgH)
+    y += imgH + 4
 
-  if (d.school.motto) {
-    doc.setFont('helvetica', 'italic')
+    // Thin teal rule below the template image
+    doc.setDrawColor(13, 148, 136)
+    doc.setLineWidth(0.6)
+    doc.line(M, y, W - M, y)
+    y += 4
+
+    // Title + term still needed below the image
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.text('STUDENT REPORT CARD', col2, y, { align: 'center' })
+    y += 5
+    doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
-    doc.text(`"${d.school.motto}"`, col2, y, { align: 'center' })
+    doc.text(`Term ${d.term}  ·  Academic Year ${d.year}`, col2, y, { align: 'center' })
+    y += 6
+  } else {
+    // Text-only fallback (no template uploaded)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(15)
+    doc.text(d.school.name.toUpperCase(), col2, y, { align: 'center' })
+    y += 6
+
+    if (d.school.motto) {
+      doc.setFont('helvetica', 'italic')
+      doc.setFontSize(9)
+      doc.text(`"${d.school.motto}"`, col2, y, { align: 'center' })
+      y += 5
+    }
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.text('STUDENT REPORT CARD', col2, y, { align: 'center' })
+    y += 5
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.text(`Term ${d.term}  ·  Academic Year ${d.year}`, col2, y, { align: 'center' })
+    y += 6
+
+    doc.setDrawColor(13, 148, 136)
+    doc.setLineWidth(0.6)
+    doc.line(M, y, W - M, y)
     y += 5
   }
-
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.text('STUDENT REPORT CARD', col2, y, { align: 'center' })
-  y += 5
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  doc.text(`Term ${d.term}  ·  Academic Year ${d.year}`, col2, y, { align: 'center' })
-  y += 6
-
-  doc.setDrawColor(13, 148, 136)
-  doc.setLineWidth(0.6)
-  doc.line(M, y, W - M, y)
-  y += 5
 
   // ── Student info ─────────────────────────────────────────────
   doc.setFont('helvetica', 'bold')
