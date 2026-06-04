@@ -225,7 +225,13 @@ CREATE TABLE IF NOT EXISTS "public"."fee_structure" (
     "academic_year_id" "uuid" NOT NULL,
     "is_active" boolean DEFAULT true NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "fee_structure_applies_to_check" CHECK (("applies_to" = ANY (ARRAY['all'::"text", 'day'::"text", 'boarder'::"text"]))),
+    "class_id" "uuid",
+    "is_compulsory" boolean DEFAULT true NOT NULL,
+    CONSTRAINT "fee_structure_applies_to_check" CHECK (("applies_to" = ANY (ARRAY[
+        'all'::"text",
+        'day_scholars'::"text",
+        'boarders'::"text"
+    ]))),
     CONSTRAINT "fee_structure_term_check" CHECK (("term" = ANY (ARRAY[1, 2, 3])))
 );
 ALTER TABLE "public"."fee_structure" OWNER TO "postgres";
@@ -683,8 +689,16 @@ CREATE UNIQUE INDEX "attendance_student_date_idx"         ON "public"."attendanc
 CREATE UNIQUE INDEX "classes_school_year_name_idx"        ON "public"."classes"         USING "btree" ("school_id", "academic_year_id", "name");
 CREATE UNIQUE INDEX "departments_school_name_idx"         ON "public"."departments"     USING "btree" ("school_id", "name");
 CREATE UNIQUE INDEX "exam_results_journal_student_idx"    ON "public"."exam_results"    USING "btree" ("exam_journal_id", "student_id");
-CREATE UNIQUE INDEX "fee_payments_student_fee_term_idx"   ON "public"."fee_payments"    USING "btree" ("student_id", "fee_structure_id", "term", "academic_year_id");
-CREATE UNIQUE INDEX "fee_structure_school_term_name_idx"  ON "public"."fee_structure"   USING "btree" ("school_id", "academic_year_id", "term", "name");
+-- fee_payments: partial unique index — only constrains structured (non-imported) rows
+CREATE UNIQUE INDEX "fee_payments_struct_student_term_idx"
+  ON "public"."fee_payments" ("student_id", "fee_structure_id", "term", "academic_year_id")
+  WHERE "fee_structure_id" IS NOT NULL;
+-- fee_structure: includes class_id so same fee name can exist per class
+CREATE UNIQUE INDEX "fee_structure_school_term_name_class_idx"
+  ON "public"."fee_structure" USING "btree" (
+    "school_id", "academic_year_id", "term", "name",
+    COALESCE("class_id"::text, '——global——')
+  );
 CREATE UNIQUE INDEX "streams_class_name_idx"              ON "public"."streams"         USING "btree" ("class_id", "name");
 CREATE UNIQUE INDEX "students_school_admission_idx"       ON "public"."students"        USING "btree" ("school_id", "admission_number");
 CREATE UNIQUE INDEX "subjects_school_name_idx"            ON "public"."subjects"        USING "btree" ("school_id", "name");
@@ -729,6 +743,7 @@ ALTER TABLE ONLY "public"."fee_payments"      ADD CONSTRAINT "fee_payments_schoo
 ALTER TABLE ONLY "public"."fee_payments"      ADD CONSTRAINT "fee_payments_student_id_fkey"            FOREIGN KEY ("student_id")       REFERENCES "public"."students"("id")       ON DELETE CASCADE;
 ALTER TABLE ONLY "public"."fee_structure"     ADD CONSTRAINT "fee_structure_academic_year_id_fkey"     FOREIGN KEY ("academic_year_id") REFERENCES "public"."academic_years"("id") ON DELETE CASCADE;
 ALTER TABLE ONLY "public"."fee_structure"     ADD CONSTRAINT "fee_structure_school_id_fkey"            FOREIGN KEY ("school_id")        REFERENCES "public"."school_profile"("id") ON DELETE CASCADE;
+ALTER TABLE ONLY "public"."fee_structure"     ADD CONSTRAINT "fee_structure_class_id_fkey"             FOREIGN KEY ("class_id")         REFERENCES "public"."classes"("id")         ON DELETE SET NULL;
 ALTER TABLE ONLY "public"."messages"          ADD CONSTRAINT "messages_from_user_id_fkey"              FOREIGN KEY ("from_user_id")     REFERENCES "auth"."users"("id")            ON DELETE CASCADE;
 ALTER TABLE ONLY "public"."messages"          ADD CONSTRAINT "messages_school_id_fkey"                 FOREIGN KEY ("school_id")        REFERENCES "public"."school_profile"("id") ON DELETE CASCADE;
 ALTER TABLE ONLY "public"."messages"          ADD CONSTRAINT "messages_to_user_id_fkey"                FOREIGN KEY ("to_user_id")       REFERENCES "auth"."users"("id")            ON DELETE SET NULL;

@@ -109,24 +109,58 @@ GRANT ALL ON FUNCTION "public"."calculate_cbc_grade"("total_points" integer, "as
 GRANT ALL ON FUNCTION "public"."calculate_cbc_grade"("total_points" integer, "assessed" integer, "exam_out_of_80" numeric) TO "service_role";
 
 
--- JWT hook: injects school_id + user_role into every token
+-- JWT hook: injects school_id + user_role + staff_id + full_name into every token
 -- Wire in: Dashboard → Auth → Hooks → custom_access_token_hook
+-- Handles: staff (all roles) → students → parents
 CREATE OR REPLACE FUNCTION "public"."custom_access_token_hook"("event" "jsonb") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
 DECLARE
-  v_role       TEXT;
-  v_school_id  UUID;
+  v_user_id   UUID;
+  v_role      TEXT;
+  v_school_id UUID;
+  v_staff_id  TEXT;
+  v_name      TEXT;
 BEGIN
-  SELECT s.role, s.school_id
-  INTO v_role, v_school_id
-  FROM public.staff s
-  WHERE s.auth_user_id = (event->>'user_id')::uuid;
+  v_user_id := (event->>'user_id')::uuid;
 
+  -- 1. Check staff table first (principal, deputy, dos, secretary, bursar, teacher, etc.)
+  SELECT s.role::text, s.school_id, s.id::text,
+         (s.first_name || ' ' || s.last_name)
+  INTO   v_role, v_school_id, v_staff_id, v_name
+  FROM   public.staff s
+  WHERE  s.auth_user_id = v_user_id
+  LIMIT  1;
+
+  -- 2. Check students table
+  IF v_role IS NULL THEN
+    SELECT 'student', st.school_id, NULL, (st.first_name || ' ' || st.last_name)
+    INTO   v_role, v_school_id, v_staff_id, v_name
+    FROM   public.students st
+    WHERE  st.auth_user_id = v_user_id
+    LIMIT  1;
+  END IF;
+
+  -- 3. Check parent_accounts table
+  IF v_role IS NULL THEN
+    SELECT 'parent', pa.school_id, NULL, pa.full_name
+    INTO   v_role, v_school_id, v_staff_id, v_name
+    FROM   public.parent_accounts pa
+    WHERE  pa.auth_user_id = v_user_id
+    LIMIT  1;
+  END IF;
+
+  -- Inject claims if a role was found
   IF v_role IS NOT NULL THEN
     event := jsonb_set(event, '{claims,user_role}', to_jsonb(v_role));
     event := jsonb_set(event, '{claims,school_id}', to_jsonb(v_school_id::text));
+    IF v_name IS NOT NULL THEN
+      event := jsonb_set(event, '{claims,full_name}', to_jsonb(v_name));
+    END IF;
+    IF v_staff_id IS NOT NULL THEN
+      event := jsonb_set(event, '{claims,staff_id}', to_jsonb(v_staff_id));
+    END IF;
   END IF;
 
   RETURN event;
