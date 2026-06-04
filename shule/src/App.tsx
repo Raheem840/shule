@@ -10,6 +10,7 @@ import type { UserRole } from './store/AuthContext'
 
 // ─── Lazy page imports ─────────────────────────────────────────────────────
 const LoginPage               = lazy(() => import('./pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
+const ParentLoginPage         = lazy(() => import('./pages/auth/ParentLoginPage').then(m => ({ default: m.ParentLoginPage })))
 
 // Principal
 const PrincipalDashboard       = lazy(() => import('./pages/principal/PrincipalDashboard').then(m => ({ default: m.PrincipalDashboard })))
@@ -130,8 +131,9 @@ export default function App() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* ── Public ─────────────────────────────────────────────── */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/"      element={<RoleRedirect />} />
+          <Route path="/login"         element={<LoginPage />} />
+          <Route path="/parent/login"  element={<ParentLoginPage />} />
+          <Route path="/"              element={<RoleRedirect />} />
 
           {/* ── Principal ──────────────────────────────────────────── */}
           <Route element={

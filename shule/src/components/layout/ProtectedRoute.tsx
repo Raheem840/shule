@@ -11,7 +11,11 @@ export function ProtectedRoute({ allowedRoles, children }: Props) {
   const { user, loading } = useAuth()
 
   if (loading) return <LoadingSpinner />
-  if (!user)   return <Navigate to="/login" replace />
+  if (!user) {
+    // Parent routes → dedicated parent login; everything else → staff login
+    const isParentRoute = allowedRoles.length === 1 && allowedRoles[0] === 'parent'
+    return <Navigate to={isParentRoute ? '/parent/login' : '/login'} replace />
+  }
 
   if (!allowedRoles.includes(user.role)) return <AccessDenied />
 
