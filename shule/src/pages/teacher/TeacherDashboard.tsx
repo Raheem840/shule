@@ -47,20 +47,20 @@ function useTeacherKpis() {
       const currentTerm = month <= 4 ? '1' : month <= 8 ? '2' : '3'
       const currentYear = new Date().getFullYear()
 
-      // Step 2: Journals this term (use auth_user_id as teacher_id per hook pattern)
+      // Step 2: Journals this term — teacher_id FK references staff.id, not auth.users.id
       let journalsThisTerm = 0
-      const { count: jCount } = await supabase
-        .from('exam_journal')
-        .select('id', { count: 'exact', head: true })
-        .eq('school_id', user!.schoolId)
-        .eq('teacher_id', user!.id)
-        .eq('term', currentTerm)
-        .eq('year', currentYear)
-      journalsThisTerm = jCount ?? 0
+      if (staffId) {
+        const { count: jCount } = await supabase
+          .from('exam_journal')
+          .select('id', { count: 'exact', head: true })
+          .eq('school_id', user!.schoolId)
+          .eq('teacher_id', staffId)
+          .eq('term', currentTerm)
+          .eq('year', currentYear)
+        journalsThisTerm = jCount ?? 0
+      }
 
-      // Step 3: Topics covered by this teacher (filter by covered_by auth user id,
-      // since curriculum_plan has no teacher_id column)
-      void staffId
+      // Step 3: Topics covered by this teacher
       const { count: tCount } = await supabase
         .from('curriculum_plan')
         .select('id', { count: 'exact', head: true })

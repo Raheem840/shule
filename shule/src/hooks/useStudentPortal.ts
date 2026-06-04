@@ -21,7 +21,7 @@ export function useMyStudentRecord() {
       // DB NEEDS: ALTER TABLE students ADD COLUMN auth_user_id UUID REFERENCES auth.users(id)
       const { data, error } = await supabase
         .from('students')
-        .select('id, school_id, admission_number, first_name, last_name, dob, gender, class_id, stream_id, photo_url, status, enrolled_at')
+        .select('id, school_id, admission_number, first_name, last_name, dob, gender, class_id, stream_id, photo_url, status, enrolled_at, student_type, classes(name)')
         .eq('auth_user_id', user!.id)
         .eq('school_id', user!.schoolId)
         .maybeSingle()
@@ -43,14 +43,16 @@ export function useMyStudentRecord() {
         religion:       null,
         classId:        (r.class_id as string) ?? null,
         streamId:       (r.stream_id as string) ?? null,
-        studentType:    null,
+        studentType:    ((r.student_type as Student['studentType']) ?? null),
         previousSchool: null,
         photoUrl:       (r.photo_url as string) ?? null,
         medicalNotes:   null,
         status:         r.status as Student['status'],
         enrolledAt:     r.enrolled_at as string,
         createdBy:      null,
-      } satisfies Student
+        // Extra field not in Student type — used for display only
+        className:      ((r.classes as any)?.name as string) ?? null,
+      } as Student & { className: string | null }
     },
   })
 }
@@ -97,7 +99,7 @@ export function useMyExamResults(studentId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('exam_results')
-        .select('score, grade, term, year, exam_journal_id')
+        .select('score, grade, term, year, exam_journal_id, is_absent')
         .eq('school_id',  user!.schoolId)
         .eq('student_id', studentId!)
         .order('year', { ascending: false })
@@ -139,7 +141,7 @@ export function useMyExamResults(studentId: string | null) {
           totalMarks:     (j?.total_marks as number) ?? 0,
           term:           r.term as string,
           year:           r.year as number,
-          isAbsent:       false,
+          isAbsent:       (r.is_absent as boolean) ?? false,
         } satisfies ExamResultRow
       })
     },

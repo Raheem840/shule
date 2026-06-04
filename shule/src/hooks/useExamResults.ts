@@ -96,7 +96,7 @@ export function useSaveMarks() {
           exam_journal_id: journalId,
           student_id:      m.studentId,
           subject_id:      subjectId,
-          teacher_id:      user!.id,
+          teacher_id:      user!.staffId ?? user!.id,
           score:           m.isAbsent ? null : m.score,
           grade,
           term,

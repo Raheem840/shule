@@ -206,7 +206,9 @@ department_id, subjects(text[]), classes(uuid[]),
 qualification_level, qualification_title, institution, graduation_year,
 employment_type, employment_date, join_date,
 photo_url, is_active(bool DEFAULT true),
-email, phone, national_id, address, date_of_birth, gender, last_login_at, created_at
+email, phone, national_id, address, date_of_birth, gender, last_login_at,
+temp_password(text) *** last issued password — stored by create-staff-auth-user + reset-staff-password edge fns ***,
+created_at
 
 TABLE: staff_documents | RLS: ON
 id, school_id, staff_id, doc_type, file_url, file_name, uploaded_by, uploaded_at
@@ -230,7 +232,10 @@ id, school_id, class_id, stream_id, academic_year_id, admission_number,
 first_name, last_name, dob, gender, nationality(DEFAULT 'Ugandan'),
 religion, photo_url, medical_notes, student_type('day'|'boarder'),
 previous_school, status('active'|'suspended'|'expelled'),
-auth_user_id, enrolled_at, created_by, created_at, updated_at
+auth_user_id,
+auth_email(text) *** exact email used in Supabase auth — stored by create-student-auth-user ***,
+temp_password(text) *** last issued password — stored by create-student-auth-user + reset-student-password ***,
+enrolled_at, created_by, created_at, updated_at
 
 TABLE: subjects | RLS: ON
 id, school_id, department_id, name, curriculum_code,
@@ -271,9 +276,12 @@ term(text), year(int), is_published(bool DEFAULT false)
 - [x] PWA: service worker, NetworkFirst/CacheFirst, offline sync queue
 - [x] Report cards: generate PDF, approve, release, parent download
 - [x] Admin: system KPIs, user management, school settings, templates stub
-- [x] Tests: 423 passing (39 test files)
+- [x] Tests: 390 passing (40 test files) — 33 pre-existing failures pending fix
 - [x] Storage bucket wiring — complete (Session 013)
 - [x] Test suite upgrade + MSW integration layer — complete (Session 015)
+- [x] Credentials page: staff/student/parent temp_password stored + displayed (Session 018)
+- [x] Teacher dashboard journal count fixed (staffId not auth UUID) — Session 018
+- [x] Student portal isAbsent reads from DB — Session 018
 
 ---
 

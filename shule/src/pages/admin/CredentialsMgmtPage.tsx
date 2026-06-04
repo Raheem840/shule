@@ -34,6 +34,8 @@ type StudentRow = {
   id: string
   school_id: string
   auth_user_id: string | null
+  auth_email: string | null
+  temp_password: string | null
   first_name: string
   last_name: string
   admission_number: string
@@ -300,13 +302,11 @@ function StudentLinks({ studentIds, studentMap }: { studentIds: string[]; studen
 function exportStudentsCsv(rows: StudentRow[], classMap: Map<string, string>, schoolShortName: string) {
   const lines = ['Name,Admission Number,Class,Generated Email,Status']
   rows.forEach(r => {
-    const name    = `${r.first_name} ${r.last_name}`
-    const cls     = r.class_id ? (classMap.get(r.class_id) ?? '') : ''
-    const admSeq  = r.admission_number.replace(/\D/g, '').slice(-4).replace(/^0+(?=\d)/, '') || '1'
-    const fi      = (r.first_name[0] ?? '').toLowerCase()
-    const li      = (r.last_name[0]  ?? '').toLowerCase()
-    const sn      = schoolShortName.toLowerCase().replace(/[^a-z0-9]/g, '')
-    const email   = `${fi}${li}${admSeq}@${sn}.ug`
+    const name     = `${r.first_name} ${r.last_name}`
+    const cls      = r.class_id ? (classMap.get(r.class_id) ?? '') : ''
+    const admEmail = r.admission_number.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'student'
+    const sn       = schoolShortName.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const email    = `${admEmail}@${sn}.ug`
     const status  = r.auth_user_id ? 'Active' : 'Pending'
     lines.push(`"${name}","${r.admission_number}","${cls}","${email}","${status}"`)
   })
@@ -336,11 +336,12 @@ function StaffPanel({
   const activate = useActivateStaffLogin()
   const resetPw  = useResetStaffPassword()
 
-  const [search,   setSearch]   = useState('')
-  const [selected, setSelected] = useState<BulkSelection>(new Set())
-  const [busyIds,  setBusyIds]  = useState<Set<string>>(new Set())
-  const [confirm,  setConfirm]  = useState<{ title: string; body: string; onConfirm: () => void } | null>(null)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [search,     setSearch]     = useState('')
+  const [selected,   setSelected]   = useState<BulkSelection>(new Set())
+  const [busyIds,    setBusyIds]    = useState<Set<string>>(new Set())
+  const [confirm,    setConfirm]    = useState<{ title: string; body: string; onConfirm: () => void } | null>(null)
+  const [copiedId,   setCopiedId]   = useState<string | null>(null)
+  const [copiedPwId, setCopiedPwId] = useState<string | null>(null)
 
   // Detect duplicate emails
   const emailCounts = useMemo(() => {
@@ -371,16 +372,25 @@ function StaffPanel({
       const name  = staff ? `${staff.firstName} ${staff.lastName}` : 'Staff'
       onPasswordResult({ id: staffId, name, email: r.email, password: r.tempPassword, type: 'staff' })
       ok('Login activated')
-    } catch (e) { err(e instanceof Error ? e.message : 'Activation failed') }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Activation failed'
+      if (msg.includes('already activated')) {
+        err('This staff member already has a login — use "Reset PW" to issue new credentials, or "Unlink" first if the account is broken.')
+        void qc.invalidateQueries({ queryKey: ['staff', schoolId] })
+      } else {
+        err(msg)
+      }
+    }
     finally { setBusy(staffId, false) }
   }
 
   async function handleReset(staff: typeof allStaff[0]) {
-    if (!staff.authUserId || !staff.email) return
+    if (!staff.authUserId) return
     setBusy(staff.id, true)
     try {
-      const r = await resetPw.mutateAsync({ authUserId: staff.authUserId, staffId: staff.id, email: staff.email, name: `${staff.firstName} ${staff.lastName}` })
-      onPasswordResult({ id: staff.id, name: `${staff.firstName} ${staff.lastName}`, email: staff.email, password: r.tempPassword, type: 'staff' })
+      const r = await resetPw.mutateAsync({ authUserId: staff.authUserId, staffId: staff.id, email: staff.email ?? '', name: `${staff.firstName} ${staff.lastName}` })
+      const displayEmail = staff.email ?? '(email not set — check staff profile)'
+      onPasswordResult({ id: staff.id, name: `${staff.firstName} ${staff.lastName}`, email: displayEmail, password: r.tempPassword, type: 'staff' })
       ok('Password reset')
     } catch (e) { err(e instanceof Error ? e.message : 'Reset failed') }
     finally { setBusy(staff.id, false) }
@@ -476,6 +486,12 @@ function StaffPanel({
                     {s.email ?? <em style={{ fontStyle: 'italic', fontFamily: 'var(--font)' }}>No email on file</em>}
                     {s.staffNumber && <span style={{ marginLeft: 8, opacity: .65 }}>{s.staffNumber}</span>}
                   </div>
+                  {s.tempPassword && s.authUserId && (
+                    <div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5 }}>Stored PW:</span>
+                      <ParentPasswordReveal password={s.tempPassword} />
+                    </div>
+                  )}
                 </div>
                 {/* Status */}
                 <StatusPill authUserId={s.authUserId} isActive={s.isActive} />
@@ -484,13 +500,21 @@ function StaffPanel({
                   {!s.authUserId ? (
                     <ActionBtn onClick={() => void handleActivate(s.id)} disabled={!s.email || isBusy} label={isBusy ? 'Activating…' : 'Activate'} icon={<IcoKey />} variant="brand" />
                   ) : (
-                    <ActionBtn onClick={() => void handleReset(s)} disabled={isBusy || !s.email} label={isBusy ? 'Resetting…' : 'Reset PW'} icon={<IcoRefresh />} variant="warning" />
+                    <ActionBtn onClick={() => void handleReset(s)} disabled={isBusy} label={isBusy ? 'Resetting…' : 'Reset PW'} icon={<IcoRefresh />} variant="warning" />
                   )}
                   {s.email && (
                     <ActionBtn
                       onClick={() => { copy(s.email!, () => { setCopiedId(s.id); setTimeout(() => setCopiedId(null), 2000) }) }}
                       label={copiedId === s.id ? 'Copied' : 'Email'}
                       icon={copiedId === s.id ? <IcoCheck /> : <IcoMail />}
+                      variant="ghost"
+                    />
+                  )}
+                  {s.tempPassword && s.authUserId && (
+                    <ActionBtn
+                      onClick={() => { copy(s.tempPassword!, () => { setCopiedPwId(s.id); setTimeout(() => setCopiedPwId(null), 2000) }) }}
+                      label={copiedPwId === s.id ? 'Copied!' : 'Copy PW'}
+                      icon={copiedPwId === s.id ? <IcoCheck /> : <IcoKey />}
                       variant="ghost"
                     />
                   )}
@@ -535,6 +559,7 @@ function StudentsPanel({
   onPasswordResult: (r: PasswordResult) => void
 }) {
   const { success: ok, error: err } = useToast()
+  const qc = useQueryClient()
   const { data: classes = [] } = useClasses()
   const classMap = useMemo(() => new Map(classes.map(c => [c.id, c.name])), [classes])
 
@@ -557,7 +582,7 @@ function StudentsPanel({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
-        .select('id, school_id, auth_user_id, first_name, last_name, admission_number, class_id')
+        .select('id, school_id, auth_user_id, auth_email, temp_password, first_name, last_name, admission_number, class_id')
         .eq('school_id', schoolId)
         .order('last_name', { ascending: true })
       if (error) throw error
@@ -584,13 +609,12 @@ function StudentsPanel({
   }
 
   function derivedEmail(s: StudentRow) {
-    const pending = localPending[s.id]
-    if (pending) return pending.email
-    const admSeq = s.admission_number.replace(/\D/g, '').slice(-4).replace(/^0+(?=\d)/, '') || '1'
-    const fi     = (s.first_name[0] ?? '').toLowerCase()
-    const li     = (s.last_name[0]  ?? '').toLowerCase()
-    const sn     = schoolShortName.toLowerCase().replace(/[^a-z0-9]/g, '')
-    return `${fi}${li}${admSeq}@${sn}.ug`
+    // Use the stored auth_email when available — it's the exact email in Supabase auth
+    if (s.auth_email) return s.auth_email
+    // No auth account yet — derive from admission number for preview
+    const admEmail = s.admission_number.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'student'
+    const sn       = schoolShortName.toLowerCase().replace(/[^a-z0-9]/g, '')
+    return `${admEmail}@${sn}.ug`
   }
 
   async function handleActivate(s: StudentRow) {
@@ -600,7 +624,16 @@ function StudentsPanel({
       onPasswordResult({ id: s.id, name: `${s.first_name} ${s.last_name}`, email: r.email, password: r.tempPassword, type: 'students' })
       setLocalPendingVersion(v => v + 1)
       ok('Login created')
-    } catch (e) { err(e instanceof Error ? e.message : 'Failed') }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed'
+      if (msg.includes('already activated')) {
+        err('This student already has a login — use "Reset PW" to issue new credentials, or "Unlink" first if the account is broken.')
+        // Refresh list so the correct status + Reset PW button appear
+        void qc.invalidateQueries({ queryKey: ['students-creds', schoolId] })
+      } else {
+        err(msg)
+      }
+    }
     finally { setBusy(s.id, false) }
   }
 
@@ -708,18 +741,26 @@ function StudentsPanel({
                   <div style={{ fontSize: 11, color: 'var(--brand)', fontFamily: 'var(--font3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {email}
                   </div>
-                  {/* Temp password stored in localStorage — show reveal + clear */}
-                  {pending && (
+                  {/* Password display — always show DB temp_password when available;
+                      fall back to localStorage pending if that's all we have */}
+                  {(s.temp_password || pending) && (
                     <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5 }}>Temp PW:</span>
-                      <ParentPasswordReveal password={pending.tempPassword} />
-                      <button
-                        onClick={() => handleClearPending(s.id)}
-                        title="Mark as saved and clear from this device"
-                        style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--txt3)', fontSize: 10, fontWeight: 700, padding: '2px 7px', display: 'flex', alignItems: 'center', gap: 3 }}
-                      >
-                        <IcoCheck /><span>Saved</span>
-                      </button>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5,
+                        color: s.temp_password ? 'var(--brand)' : 'var(--txt3)',
+                      }}>
+                        {s.temp_password ? 'Stored PW:' : 'Temp PW:'}
+                      </span>
+                      <ParentPasswordReveal password={s.temp_password ?? pending?.tempPassword ?? ''} />
+                      {pending && !s.temp_password && (
+                        <button
+                          onClick={() => handleClearPending(s.id)}
+                          title="Mark as saved and clear from this device"
+                          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--txt3)', fontSize: 10, fontWeight: 700, padding: '2px 7px', display: 'flex', alignItems: 'center', gap: 3 }}
+                        >
+                          <IcoCheck /><span>Saved</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -739,9 +780,12 @@ function StudentsPanel({
                         />
                       </>
                     )}
-                    {pending ? (
+                    {(s.temp_password || pending) ? (
                       <ActionBtn
-                        onClick={() => { copy(pending.tempPassword, () => { setCopiedPwId(s.id); setTimeout(() => setCopiedPwId(null), 2000) }) }}
+                        onClick={() => {
+                          const pw = s.temp_password ?? pending?.tempPassword ?? ''
+                          copy(pw, () => { setCopiedPwId(s.id); setTimeout(() => setCopiedPwId(null), 2000) })
+                        }}
                         label={copiedPwId === s.id ? 'Copied!' : 'Copy PW'}
                         icon={copiedPwId === s.id ? <IcoCheck /> : <IcoKey />}
                         variant="ghost"
@@ -853,9 +897,10 @@ function ParentsPanel({
     setBusy(p.id, true)
     try {
       const newPw = generateRandomPassword()
-      // Use reset-staff-password edge function since it accepts email + newPassword pattern
-      const { error: fnError } = await supabase.functions.invoke('reset-staff-password', {
-        body: { email: p.email, newPassword: newPw, schoolId },
+      if (!p.auth_user_id) throw new Error('Parent has no active login to reset')
+      // Use reset-parent-password which sets app_metadata correctly for parent role
+      const { error: fnError } = await supabase.functions.invoke('reset-parent-password', {
+        body: { userId: p.auth_user_id, newPassword: newPw, schoolId },
       })
       if (fnError) throw new Error(fnError.message)
 
@@ -988,7 +1033,7 @@ export function CredentialsMgmtPage() {
   const { user }          = useAuth()
   const { data: school }  = useSchoolSettings()
   const schoolId          = user?.schoolId ?? ''
-  const schoolShortName   = school?.shortName ?? school?.schoolName ?? 'school'
+  const schoolShortName   = school?.shortName || school?.schoolName || 'school'
 
   const [activeTab, setActiveTab] = useState<TabId>('staff')
   const [pwResult,  setPwResult]  = useState<PasswordResult | null>(null)
@@ -1143,7 +1188,7 @@ export function CredentialsMgmtPage() {
 
       {/* Footer note */}
       <div style={{ fontSize: 11.5, color: 'var(--txt3)', textAlign: 'center', paddingBottom: 8 }}>
-        All credential actions are recorded in the audit log. Passwords are never stored in plain text after delivery.
+        All credential actions are recorded in the audit log. Stored passwords are the last password issued — they become stale if a user self-resets.
       </div>
     </div>
   )

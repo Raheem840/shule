@@ -5,7 +5,7 @@ const ALLOWED_ROLES = ['secretary', 'it_admin', 'principal']
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 function json(data: unknown, status = 200): Response {
@@ -15,11 +15,14 @@ function json(data: unknown, status = 200): Response {
   })
 }
 
-function generatePassword(): string {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-  const arr = new Uint8Array(12)
-  crypto.getRandomValues(arr)
-  return Array.from(arr, b => chars[b % chars.length]).join('')
+function decodeJwtPayload(token: string): Record<string, unknown> {
+  try {
+    const b64 = token.split('.')[1]
+    const padded = b64.padEnd(b64.length + (4 - b64.length % 4) % 4, '=')
+    return JSON.parse(atob(padded.replace(/-/g, '+').replace(/_/g, '/')))
+  } catch {
+    return {}
+  }
 }
 
 serve(async (req) => {
@@ -29,6 +32,11 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return json({ error: 'Missing authorization header' }, 401)
 
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+
     const anonClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -37,45 +45,67 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await anonClient.auth.getUser(token)
     if (authError || !user) return json({ error: 'Invalid session' }, 401)
 
-    const userRole = (user.app_metadata?.user_role ?? '') as string
+    // Role check — JWT payload first (DB hook), then app_metadata, then staff table
+    const jwtPayload = decodeJwtPayload(token)
+    let userRole =
+      (jwtPayload.user_role as string | undefined) ??
+      (user.app_metadata?.user_role as string | undefined) ??
+      ''
+
+    if (!userRole || !ALLOWED_ROLES.includes(userRole)) {
+      const { data: callerStaff } = await serviceClient
+        .from('staff')
+        .select('role')
+        .eq('auth_user_id', user.id)
+        .maybeSingle()
+      userRole = (callerStaff?.role as string | undefined) ?? userRole
+    }
+
     if (!ALLOWED_ROLES.includes(userRole)) {
-      return json({ error: 'Insufficient permissions' }, 403)
+      return json({ error: 'Insufficient permissions — Secretary, IT Admin, or Principal required' }, 403)
     }
 
-    const body = await req.json() as { authUserId?: string; parentAccountId?: string; schoolId?: string }
-    const { authUserId, parentAccountId, schoolId } = body
+    const body = await req.json() as { userId?: string; newPassword?: string; schoolId?: string }
+    const { userId, newPassword, schoolId } = body
 
-    if (!authUserId || !schoolId) {
-      return json({ error: 'authUserId and schoolId are required' }, 400)
+    if (!userId || !newPassword || !schoolId) {
+      return json({ error: 'userId, newPassword and schoolId are required' }, 400)
+    }
+    if (newPassword.length < 8) {
+      return json({ error: 'Password must be at least 8 characters' }, 400)
     }
 
-    const serviceClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
+    // Fetch parent's school_id for app_metadata
+    const { data: parentRow } = await serviceClient
+      .from('parent_accounts')
+      .select('school_id')
+      .eq('auth_user_id', userId)
+      .maybeSingle()
 
-    const newPassword = generatePassword()
+    const effectiveSchoolId = parentRow?.school_id ?? schoolId
 
-    const { error: updateError } = await serviceClient.auth.admin.updateUserById(authUserId, {
+    const { error: updateError } = await serviceClient.auth.admin.updateUserById(userId, {
       password: newPassword,
+      app_metadata: {
+        user_role: 'parent',
+        school_id: effectiveSchoolId,
+      },
     })
 
     if (updateError) {
       return json({ error: 'Failed to reset password', detail: updateError.message }, 500)
     }
 
-    // Store new temp_password in parent_accounts if we have the ID
-    if (parentAccountId) {
-      await serviceClient
-        .from('parent_accounts')
-        .update({ temp_password: newPassword })
-        .eq('id', parentAccountId)
-        .eq('school_id', schoolId)
-    }
+    // Persist new temp_password on parent_accounts so IT admin credentials page stays accurate
+    await serviceClient
+      .from('parent_accounts')
+      .update({ temp_password: newPassword })
+      .eq('auth_user_id', userId)
+      .eq('school_id', effectiveSchoolId)
 
-    return json({ success: true, tempPassword: newPassword })
+    return json({ success: true })
 
   } catch (err) {
-    return json({ error: 'Internal server error' }, 500)
+    return json({ error: 'Internal server error', detail: String(err) }, 500)
   }
 })

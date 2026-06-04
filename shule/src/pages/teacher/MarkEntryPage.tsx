@@ -804,7 +804,7 @@ export function MarkEntryPage() {
         school_id:       user.schoolId,
         exam_journal_id: journal.id,
         student_id:      r.studentId,
-        teacher_id:      user.id,
+        teacher_id:      user.staffId ?? user.id,
         subject_id:      journal.subjectId,
         score:           r.isAbsent ? null : r.score,
         is_absent:       r.isAbsent,

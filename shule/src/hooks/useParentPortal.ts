@@ -302,7 +302,14 @@ export function useGenerateParentAccess() {
       const shortName = ((school?.short_name as string) ?? 'school')
         .toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')
 
-      const TEMP_PASSWORD = 'Parent@2025'
+      // Generate a real random password so the IT admin credentials page shows a working one
+      function generateParentPassword(): string {
+        const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$'
+        const arr = new Uint8Array(12)
+        crypto.getRandomValues(arr)
+        return Array.from(arr, b => chars[b % chars.length]).join('')
+      }
+      const TEMP_PASSWORD = generateParentPassword()
 
       // ── 2. Fetch student's guardians ─────────────────────────
       const { data: guardianRows } = await supabase
@@ -351,6 +358,7 @@ export function useGenerateParentAccess() {
               parentAccountId: existing.id as string,
               email:           loginEmail,
               schoolId:        user!.schoolId,
+              password:        TEMP_PASSWORD,
             },
           }).catch(() => { /* Edge Function not deployed yet — auth_user_id stays null */ })
         }
@@ -404,6 +412,7 @@ export function useGenerateParentAccess() {
           parentAccountId: (newAccount as AnyRow).id as string,
           email:           loginEmail,
           schoolId:        user!.schoolId,
+          password:        TEMP_PASSWORD,
         },
       }).catch(() => { /* Edge Function not deployed — auth_user_id stays null for now */ })
 

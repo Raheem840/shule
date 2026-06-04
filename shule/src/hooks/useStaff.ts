@@ -22,7 +22,7 @@ type AnyRow = Record<string, unknown>
 const LIST_COLS = [
   'id', 'school_id', 'auth_user_id', 'staff_number', 'first_name', 'last_name',
   'role', 'department_id', 'phone', 'email', 'join_date',
-  'employment_type', 'photo_url', 'is_active',
+  'employment_type', 'photo_url', 'is_active', 'temp_password',
 ].join(', ')
 
 // qualification_title, institution, graduation_year, date_of_birth, gender
@@ -54,6 +54,7 @@ function toStaff(r: AnyRow): Staff {
     employmentType:     (r.employment_type as Staff['employmentType']) ?? null,
     photoUrl:           (r.photo_url as string) ?? null,
     isActive:           (r.is_active as boolean) ?? true,
+    tempPassword:       (r.temp_password as string) ?? null,
     salaryBand:         null,
     address:            null,
     // DB NEEDS: qualification_title, institution, graduation_year, date_of_birth, gender
@@ -128,7 +129,7 @@ export function useStaffById(id: string | null | undefined) {
           .single(),
         supabase
           .from('staff_documents')
-          .select('id, school_id, staff_id, document_type, file_name, file_url, uploaded_by, uploaded_at')
+          .select('id, school_id, staff_id, doc_type, file_name, file_url, uploaded_by, uploaded_at')
           .eq('staff_id', id!)
           .order('uploaded_at', { ascending: false }),
       ])
@@ -139,7 +140,7 @@ export function useStaffById(id: string | null | undefined) {
         id:           r.id as string,
         schoolId:     r.school_id as string,
         staffId:      r.staff_id as string,
-        documentType: r.document_type as string,
+        documentType: r.doc_type as string,
         fileName:     r.file_name as string,
         fileUrl:      r.file_url as string,
         uploadedBy:   r.uploaded_by as string,

@@ -22,21 +22,19 @@ serve(async (req) => {
 
     const { parentAccountId, email, schoolId, password } = await req.json()
 
-    if (!parentAccountId || !email || !schoolId) {
+    if (!parentAccountId || !email || !schoolId || !password) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // Use service role to create auth user — bypasses RLS intentionally
     const adminClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       { auth: { autoRefreshToken: false, persistSession: false } },
     )
 
-    // Verify the caller is secretary, principal, or it_admin
     const userClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -51,11 +49,12 @@ serve(async (req) => {
       })
     }
 
+    // maybeSingle — returns null instead of throwing when staff row not found
     const { data: callerStaff } = await adminClient
       .from('staff')
       .select('role, school_id')
       .eq('auth_user_id', caller.id)
-      .single()
+      .maybeSingle()
 
     if (
       !callerStaff ||
@@ -68,43 +67,98 @@ serve(async (req) => {
       })
     }
 
-    // Create the auth user — use caller-provided password or fall back to default
+    // Helper: find user by email across all pages (handles > 50 users)
+    async function findUserByEmail(emailToFind: string) {
+      let page = 1
+      while (true) {
+        const { data } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 })
+        const found = (data?.users ?? []).find((u) => u.email === emailToFind)
+        if (found) return found
+        if ((data?.users ?? []).length < 1000) return null
+        page++
+      }
+    }
+
+    // Fetch parent account to include full_name and student_ids in JWT claims
+    const { data: parentRow } = await adminClient
+      .from('parent_accounts')
+      .select('full_name, student_ids')
+      .eq('id', parentAccountId)
+      .eq('school_id', schoolId)
+      .maybeSingle()
+
+    const fullName   = (parentRow as any)?.full_name   ?? null
+    const studentIds = (parentRow as any)?.student_ids ?? []
+
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
-      password: password ?? 'Parent@2025',
+      password,
       email_confirm: true,
-      app_metadata: { user_role: 'parent', school_id: schoolId },
+      app_metadata: {
+        user_role:   'parent',
+        school_id:   schoolId,
+        full_name:   fullName,
+        student_ids: studentIds,
+      },
     })
 
     if (createError) {
-      // If user already exists, link the existing auth user
-      if (createError.message.includes('already been registered')) {
-        const { data: existingUsers } = await adminClient.auth.admin.listUsers()
-        const existing = existingUsers?.users.find((u) => u.email === email)
-        if (existing) {
-          await adminClient
-            .from('parent_accounts')
-            .update({ auth_user_id: existing.id })
-            .eq('id', parentAccountId)
-            .eq('school_id', schoolId)
-
-          await adminClient.auth.admin.updateUserById(existing.id, {
-            app_metadata: { user_role: 'parent', school_id: schoolId },
+      // Auth user already exists — update password + app_metadata and re-link
+      if (createError.message.includes('already been registered') || createError.message.includes('already exists')) {
+        const existing = await findUserByEmail(email)
+        if (!existing) {
+          return new Response(JSON.stringify({ error: 'User exists but could not be located' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           })
-
-          return new Response(
-            JSON.stringify({ success: true, authUserId: existing.id, alreadyExisted: true }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-          )
         }
+
+        // Update password AND app_metadata so shown credentials actually work
+        const { error: updateErr } = await adminClient.auth.admin.updateUserById(existing.id, {
+          password,
+          app_metadata: { user_role: 'parent', school_id: schoolId },
+        })
+        if (updateErr) {
+          return new Response(JSON.stringify({ error: 'Failed to update existing user', detail: updateErr.message }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        // Re-fetch parent row (may not have been fetched yet if createError path hit first)
+        const { data: parentRowExist } = await adminClient
+          .from('parent_accounts')
+          .select('full_name, student_ids')
+          .eq('id', parentAccountId)
+          .eq('school_id', schoolId)
+          .maybeSingle()
+
+        await adminClient.auth.admin.updateUserById(existing.id, {
+          app_metadata: {
+            user_role:   'parent',
+            school_id:   schoolId,
+            full_name:   (parentRowExist as any)?.full_name   ?? null,
+            student_ids: (parentRowExist as any)?.student_ids ?? [],
+          },
+        })
+
+        await adminClient
+          .from('parent_accounts')
+          .update({ auth_user_id: existing.id, temp_password: password })
+          .eq('id', parentAccountId)
+          .eq('school_id', schoolId)
+
+        return new Response(
+          JSON.stringify({ success: true, authUserId: existing.id, alreadyExisted: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
       }
       throw createError
     }
 
-    // Link auth user to parent_accounts row
     await adminClient
       .from('parent_accounts')
-      .update({ auth_user_id: newUser.user.id })
+      .update({ auth_user_id: newUser.user.id, temp_password: password })
       .eq('id', parentAccountId)
       .eq('school_id', schoolId)
 

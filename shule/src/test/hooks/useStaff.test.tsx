@@ -251,7 +251,7 @@ describe('useStaffById (with data)', () => {
     setResponse('staff_documents', {
       data: [{
         id: 'doc-1', school_id: 'school-1', staff_id: 'staff-1',
-        document_type: 'national_id', file_name: 'nid.pdf',
+        doc_type: 'national_id', file_name: 'nid.pdf',
         file_url: 'https://storage/nid.pdf', uploaded_by: 'user-1',
         uploaded_at: '2025-01-01T10:00:00Z',
       }],

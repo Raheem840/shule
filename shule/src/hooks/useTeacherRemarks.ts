@@ -47,7 +47,7 @@ export function useTeacherRemarks(params: {
         .from('teacher_remarks')
         .select(REMARK_COLS)
         .eq('school_id', user!.schoolId)
-        .eq('teacher_id', user!.id)
+        .eq('teacher_id', user!.staffId ?? user!.id)
         .eq('term',       term!)
         .eq('year',       year!)
       if (error) throw error
@@ -129,7 +129,7 @@ export function useSaveRemarks() {
       const records = rows.map(r => ({
         school_id:  user!.schoolId,
         student_id: r.studentId,
-        teacher_id: user!.id,
+        teacher_id: user!.staffId ?? user!.id,
         term,
         year,
         remarks:    r.remarks,

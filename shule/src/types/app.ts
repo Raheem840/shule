@@ -135,6 +135,7 @@ export type Staff = {
   graduationYear: number | null
   dateOfBirth: string | null
   gender: 'male' | 'female' | null
+  tempPassword: string | null
 }
 
 // ── STAFF DOCUMENT ─────────────────────────────────────────────────────────
