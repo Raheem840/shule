@@ -77,7 +77,7 @@ function useCreateParentAccount() {
           phone:         input.phone,
           temp_password: input.tempPassword,
           student_ids:   input.studentIds,
-          created_by:    user!.id,
+          created_by:    user!.staffId ?? user!.id,
         })
         .select('id')
         .single()
@@ -1031,6 +1031,8 @@ function RightPanel({
 // ═══════════════════════════════════════════════════════════════
 export function ParentCredentialsPage() {
   const [search,       setSearch]       = useState('')
+  const [classFilter,  setClassFilter]  = useState<string>('all')
+  const [accessFilter, setAccessFilter] = useState<'all' | 'with' | 'without'>('all')
   const [selectedId,   setSelectedId]   = useState<string | null>(null)
   const [showGenerate, setShowGenerate] = useState(false)
   const [viewCreds,    setViewCreds]    = useState<ParentAccount | null>(null)
@@ -1052,15 +1054,20 @@ export function ParentCredentialsPage() {
   }, [accounts])
 
   const searchTerm = search.trim().toLowerCase()
-  const filtered   = useMemo(() => searchTerm
-    ? students.filter(s =>
+  const filtered   = useMemo(() => {
+    let out = students
+    if (searchTerm) {
+      out = out.filter(s =>
         s.firstName.toLowerCase().includes(searchTerm) ||
         s.lastName.toLowerCase().includes(searchTerm)  ||
         s.admissionNumber.toLowerCase().includes(searchTerm)
       )
-    : students,
-    [students, searchTerm]
-  )
+    }
+    if (classFilter !== 'all') out = out.filter(s => s.classId === classFilter)
+    if (accessFilter === 'with')    out = out.filter(s => parentByStudentId.has(s.id))
+    if (accessFilter === 'without') out = out.filter(s => !parentByStudentId.has(s.id))
+    return out
+  }, [students, searchTerm, classFilter, accessFilter, parentByStudentId])
 
   const selectedStudent = selectedId ? students.find(s => s.id === selectedId) ?? null : null
   const selectedAccount = selectedId ? (parentByStudentId.get(selectedId) ?? null) : null
@@ -1141,22 +1148,54 @@ export function ParentCredentialsPage() {
           background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: 16, overflow: 'hidden',
         }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Search */}
             <div style={{ position: 'relative' }}>
-              <svg
-                style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2"
-              >
+              <svg style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
-              <input
-                className="sui-input"
-                placeholder="Search students…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                style={{ paddingLeft: 34, width: '100%' }}
-              />
+              <input className="sui-input" placeholder="Search students…" value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: 34, width: '100%' }} />
             </div>
+            {/* Access filter pills */}
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+              {([
+                { key: 'all',     label: 'All' },
+                { key: 'with',    label: '✓ Has Access' },
+                { key: 'without', label: '○ No Access' },
+              ] as const).map(f => (
+                <button
+                  key={f.key}
+                  onClick={() => setAccessFilter(f.key)}
+                  style={{
+                    padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none', transition: 'all .15s',
+                    background: accessFilter === f.key ? 'var(--brand)' : 'var(--surface2)',
+                    color:      accessFilter === f.key ? '#fff' : 'var(--txt3)',
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            {/* Class filter pills */}
+            {classes.length > 0 && (
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setClassFilter('all')}
+                  style={{ padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none', transition: 'all .15s', background: classFilter === 'all' ? 'var(--info)' : 'var(--surface2)', color: classFilter === 'all' ? '#fff' : 'var(--txt3)' }}
+                >
+                  All Classes
+                </button>
+                {classes.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => setClassFilter(c.id)}
+                    style={{ padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none', transition: 'all .15s', background: classFilter === c.id ? 'var(--info)' : 'var(--surface2)', color: classFilter === c.id ? '#fff' : 'var(--txt3)' }}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {isLoading ? (
@@ -1167,7 +1206,7 @@ export function ParentCredentialsPage() {
             </div>
           ) : filtered.length === 0 ? (
             <div style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>
-              {search ? 'No students match your search' : 'No students registered yet'}
+              {(search || classFilter !== 'all' || accessFilter !== 'all') ? 'No students match your filters' : 'No students registered yet'}
             </div>
           ) : (
             <div style={{ maxHeight: 560, overflowY: 'auto' }}>

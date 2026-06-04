@@ -219,7 +219,7 @@ export function useSchoolNotices() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('messages')
-        .select('id, body, link, sent_at')
+        .select('id, body, sent_at')
         .eq('school_id',     user!.schoolId)
         .eq('is_announcement', true)
         .order('sent_at', { ascending: false })
@@ -230,7 +230,7 @@ export function useSchoolNotices() {
       return ((data ?? []) as AnyRow[]).map(r => ({
         id:        r.id as string,
         body:      r.body as string,
-        link:      (r.link as string) ?? null,
+        link:      null,
         createdAt: r.sent_at as string,
       }))
     },
@@ -399,7 +399,7 @@ export function useGenerateParentAccess() {
           phone:         (primaryGuardian as AnyRow)?.phone as string ?? null,
           temp_password: TEMP_PASSWORD,
           student_ids:   [student.id],
-          created_by:    user!.id,
+          created_by:    user!.staffId ?? user!.id,
         })
         .select('id')
         .single()
