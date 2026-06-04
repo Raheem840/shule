@@ -18,10 +18,12 @@ export type Notification = {
   schoolId: string
   userId: string              // recipient auth user ID
   type: NotificationType
+  title: string | null        // short notification title (e.g. sender name)
   body: string
   link: string | null         // route to navigate when clicked
   readAt: string | null
   createdAt: string
+  fromUser?: string | null    // auth user ID of sender (for messages)
 }
 
 // ── DISCIPLINE RECORD ──────────────────────────────────────────────────────

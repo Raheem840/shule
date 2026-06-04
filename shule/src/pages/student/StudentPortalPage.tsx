@@ -338,6 +338,32 @@ function MyFeesTab({ studentId }: { studentId: string }) {
     )
   }
 
+  if (!isLoading && data.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{
+          ...card,
+          padding: '2rem 1.5rem', textAlign: 'center',
+          background: 'linear-gradient(160deg, var(--surface2) 0%, var(--surface) 100%)',
+        }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: 18, margin: '0 auto 1rem',
+            background: 'rgba(148,163,184,.12)', border: '1.5px solid rgba(148,163,184,.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5">
+              <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
+            </svg>
+          </div>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 15, color: 'var(--txt2)', marginBottom: 6 }}>No Fee Records Yet</div>
+          <div style={{ fontSize: 12.5, color: 'var(--txt3)', lineHeight: 1.6, maxWidth: 280, margin: '0 auto' }}>
+            The bursar hasn't recorded any fee payments for you yet. Check back later or contact the school office.
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {/* Summary + gauge */}
@@ -375,18 +401,7 @@ function MyFeesTab({ studentId }: { studentId: string }) {
       </div>
 
       {/* Per-term breakdown */}
-      {data.length === 0 ? (
-        <EmptyState
-          icon={
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.8">
-              <rect x="2" y="5" width="20" height="14" rx="2" />
-              <line x1="2" y1="10" x2="22" y2="10" />
-            </svg>
-          }
-          title="No Fee Records"
-          body="No fee records have been recorded for you yet."
-        />
-      ) : (
+      {(
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={sectionLabel}>Term Breakdown</div>
           {data.map(r => {
@@ -769,6 +784,7 @@ function StarRating({ value, onChange }: { value: number; onChange: (n: number) 
 
 // ─── Survey tab ────────────────────────────────────────────────────────────────
 function SurveyTab({ studentId }: { studentId: string }) {
+  const { data: surveyActive, isLoading: surveyLoading } = useIsEndOfTermSurveyActive()
   const submitSurvey = useSubmitSurvey()
   const [rating,    setRating]    = useState(0)
   const [enjoyed,   setEnjoyed]   = useState('')
@@ -793,6 +809,40 @@ function SurveyTab({ studentId }: { studentId: string }) {
     } catch (err: any) {
       setError(err.message ?? 'Survey temporarily unavailable — please try again.')
     }
+  }
+
+  if (surveyLoading) {
+    return (
+      <div style={{ ...card, padding: '3rem 1.5rem', textAlign: 'center' }}>
+        <div style={{ color: 'var(--txt3)', fontSize: 13 }}>Loading survey status…</div>
+      </div>
+    )
+  }
+
+  if (!surveyActive) {
+    return (
+      <div style={{
+        ...card, padding: '3rem 1.5rem', textAlign: 'center',
+        background: 'linear-gradient(160deg, var(--surface2) 0%, var(--surface) 100%)',
+      }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: 20, margin: '0 auto 1.25rem',
+          background: 'rgba(148,163,184,.12)', border: '2px solid rgba(148,163,184,.2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--txt2)', marginBottom: 8 }}>
+          Survey Not Yet Open
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--txt3)', lineHeight: 1.65, maxWidth: 320, margin: '0 auto' }}>
+          The end-of-term survey hasn't been opened yet. Your school administrator will
+          announce when it's available. Check back later.
+        </div>
+      </div>
+    )
   }
 
   if (submitted) {
@@ -1296,9 +1346,9 @@ export function StudentPortalPage() {
   const tabs: TabName[] = useMemo(() => {
     const base: TabName[] = [...BASE_TABS]
     base.push('Notices')
-    if (surveyActive) base.push('Survey')
+    base.push('Survey')  // always show; SurveyTab handles inactive state
     return base
-  }, [surveyActive])
+  }, [])
 
   const [activeTab, setActiveTab] = useState<TabName>('My Results')
 
@@ -1354,144 +1404,177 @@ export function StudentPortalPage() {
 
   return (
     <div className="sui-page-enter">
-      {/* ── Hero ── */}
+      {/* ── Premium Hero ── */}
       <div style={{
-        background: 'linear-gradient(135deg, #0f172a 0%, #1a2744 100%)',
-        padding: '1.25rem 1.25rem 0',
+        background: 'linear-gradient(145deg, #051018 0%, #0c2236 40%, #0d3d52 100%)',
+        padding: '0 0 0',
         position: 'relative',
         overflow: 'hidden',
       }}>
-        {/* Subtle background geometry */}
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          backgroundImage: `radial-gradient(circle at 80% 20%, rgba(13,148,136,.12) 0%, transparent 50%)`,
-        }} />
+        {/* Decorative glow blobs */}
+        <div style={{ position: 'absolute', top: -60, right: -60, width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(13,148,136,.25) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: 0, left: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(14,165,233,.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: 40, left: '40%', width: 160, height: 160, borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-        {/* Student identity row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.1rem', position: 'relative' }}>
-          <Avatar
-            photoPath={student.photoUrl}
-            bucket="student-photos"
-            name={fullName}
-            size="xl"
-            style={{ border: '3px solid rgba(255,255,255,.12)', boxShadow: '0 8px 32px rgba(0,0,0,.4)' }}
-          />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h1 style={{
-              margin: 0, fontSize: 'clamp(18px, 4vw, 26px)',
-              fontWeight: 900, fontFamily: 'var(--font2)',
-              color: '#fff', lineHeight: 1.15,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {fullName}
-            </h1>
-            <div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <span style={{
-                fontSize: 11, fontFamily: 'var(--font3)', fontWeight: 700,
-                color: 'rgba(255,255,255,.45)',
-                background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)',
-                borderRadius: 6, padding: '2px 8px',
+        <div style={{ position: 'relative', zIndex: 1, padding: '1.5rem 1.5rem 0' }}>
+          {/* Student identity */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.25rem' }}>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <Avatar
+                photoPath={student.photoUrl}
+                bucket="student-photos"
+                name={fullName}
+                size="xl"
+                style={{
+                  border: '3px solid rgba(13,148,136,.5)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,.5), 0 0 0 6px rgba(13,148,136,.1)',
+                }}
+              />
+              {/* Status dot */}
+              <div style={{
+                position: 'absolute', bottom: 2, right: 2,
+                width: 16, height: 16, borderRadius: '50%',
+                background: student.status === 'active' ? '#10b981' : '#f43f5e',
+                border: '2.5px solid #051018',
+              }} />
+            </div>
+
+            <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
+              <h1 style={{
+                margin: 0, fontSize: 'clamp(19px, 4vw, 27px)',
+                fontWeight: 900, fontFamily: 'var(--font2)',
+                color: '#fff', lineHeight: 1.15, letterSpacing: -.5,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
-                {student.admissionNumber}
-              </span>
-              <span style={{
-                fontSize: 10, fontWeight: 700, fontFamily: 'var(--font2)',
-                background: student.status === 'active' ? 'rgba(16,185,129,.2)' : 'rgba(244,63,94,.2)',
-                color: student.status === 'active' ? '#6ee7b7' : '#fda4af',
-                border: `1px solid ${student.status === 'active' ? 'rgba(16,185,129,.35)' : 'rgba(244,63,94,.35)'}`,
-                borderRadius: 99, padding: '2px 9px', textTransform: 'capitalize',
-              }}>
-                {student.status}
-              </span>
-              {student.studentType && (
-                <span style={{
-                  fontSize: 10, fontWeight: 700, fontFamily: 'var(--font2)',
-                  background: 'rgba(255,255,255,.07)', color: 'rgba(255,255,255,.5)',
-                  border: '1px solid rgba(255,255,255,.1)', borderRadius: 99, padding: '2px 9px',
-                  textTransform: 'capitalize',
+                {fullName}
+              </h1>
+
+              {/* Class badge */}
+              {student.className && (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  marginTop: 5, marginBottom: 6,
+                  padding: '3px 10px', borderRadius: 8,
+                  background: 'rgba(13,148,136,.25)', border: '1px solid rgba(13,148,136,.4)',
+                  fontSize: 11.5, fontWeight: 800, color: '#5eead4',
+                  fontFamily: 'var(--font2)',
                 }}>
-                  {student.studentType}
-                </span>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+                    <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+                  </svg>
+                  {student.className}
+                </div>
               )}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{
+                  fontSize: 10.5, fontFamily: 'var(--font3)', fontWeight: 700,
+                  color: 'rgba(255,255,255,.4)',
+                  background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)',
+                  borderRadius: 6, padding: '2px 8px',
+                }}>
+                  {student.admissionNumber}
+                </span>
+                {student.studentType && (
+                  <span style={{
+                    fontSize: 9.5, fontWeight: 800, fontFamily: 'var(--font2)',
+                    background: student.studentType === 'boarder' ? 'rgba(139,92,246,.2)' : 'rgba(14,165,233,.2)',
+                    color: student.studentType === 'boarder' ? '#c4b5fd' : '#7dd3fc',
+                    border: `1px solid ${student.studentType === 'boarder' ? 'rgba(139,92,246,.3)' : 'rgba(14,165,233,.3)'}`,
+                    borderRadius: 99, padding: '2px 9px', textTransform: 'capitalize',
+                  }}>
+                    {student.studentType === 'boarder' ? 'Boarder' : 'Day Scholar'}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Quick KPI strip */}
-        {(passRate != null || attendance || totalBal >= 0) && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: '1rem' }}>
+          {/* Premium KPI chips */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: '1.25rem', flexWrap: 'wrap' }}>
             {passRate != null && (
-              <StatPill
-                label="Pass Rate"
-                value={`${passRate}%`}
-                color={passRate >= 70 ? '#6ee7b7' : passRate >= 50 ? '#fde68a' : '#fda4af'}
-              />
+              <div style={{
+                flex: '1 1 0', minWidth: 80,
+                background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)',
+                backdropFilter: 'blur(8px)', borderRadius: 14, padding: '10px 14px',
+              }}>
+                <div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', fontFamily: 'var(--font2)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>Pass Rate</div>
+                <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--font2)', color: passRate >= 70 ? '#6ee7b7' : passRate >= 50 ? '#fde68a' : '#fda4af', lineHeight: 1, letterSpacing: -.5 }}>{passRate}%</div>
+              </div>
             )}
             {attendance && (
-              <StatPill
-                label="Attendance"
-                value={`${attendance.rate}%`}
-                color={attendance.isBelowThreshold ? '#fda4af' : '#6ee7b7'}
-              />
+              <div style={{
+                flex: '1 1 0', minWidth: 80,
+                background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)',
+                backdropFilter: 'blur(8px)', borderRadius: 14, padding: '10px 14px',
+              }}>
+                <div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', fontFamily: 'var(--font2)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>Attendance</div>
+                <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--font2)', color: attendance.isBelowThreshold ? '#fda4af' : '#6ee7b7', lineHeight: 1, letterSpacing: -.5 }}>{attendance.rate}%</div>
+              </div>
             )}
-            <StatPill
-              label="Balance"
-              value={totalBal > 0 ? `UGX ${(totalBal / 1000).toFixed(0)}k` : 'Cleared'}
-              color={totalBal > 0 ? '#fda4af' : '#6ee7b7'}
-            />
+            <div style={{
+              flex: '1 1 0', minWidth: 80,
+              background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)',
+              backdropFilter: 'blur(8px)', borderRadius: 14, padding: '10px 14px',
+            }}>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', fontFamily: 'var(--font2)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>Balance</div>
+              <div style={{
+                fontSize: fees.length === 0 ? 13 : 22, fontWeight: 900, fontFamily: 'var(--font2)',
+                color: fees.length === 0 ? 'rgba(255,255,255,.35)' : totalBal > 0 ? '#fda4af' : '#6ee7b7',
+                lineHeight: 1, letterSpacing: fees.length === 0 ? 0 : -.5,
+              }}>
+                {fees.length === 0 ? '—' : totalBal > 0 ? `${(totalBal / 1000).toFixed(0)}k` : 'Clear'}
+              </div>
+            </div>
           </div>
-        )}
 
-        {/* Pill tab bar */}
-        <div style={{
-          background: 'rgba(255,255,255,.06)',
-          border: '1px solid rgba(255,255,255,.1)',
-          borderRadius: '14px 14px 0 0',
-          padding: '6px 6px 0',
-          display: 'flex', gap: 2, overflowX: 'auto',
-        }}>
-          {tabs.map(t => {
-            const isActive = activeTab === t
-            const isSurvey = t === 'Survey'
-            return (
-              <button
-                key={t}
-                onClick={() => setActiveTab(t)}
-                style={{
-                  flex: '0 0 auto',
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '0.45rem 0.8rem 0.5rem',
-                  borderRadius: '10px 10px 0 0',
-                  border: 'none',
-                  background: isActive ? 'var(--surface)' : 'transparent',
-                  color: isActive
-                    ? (isSurvey ? 'var(--violet)' : 'var(--brand)')
-                    : 'rgba(255,255,255,.45)',
-                  fontSize: 11.5, fontWeight: 700, fontFamily: 'var(--font2)',
-                  cursor: 'pointer', transition: 'all 0.15s',
-                  whiteSpace: 'nowrap',
-                  boxShadow: isActive ? '0 -2px 8px rgba(0,0,0,.1)' : undefined,
-                }}
-              >
-                <span style={{ opacity: isActive ? 1 : 0.7 }}>
-                  {TAB_ICONS[t]}
-                </span>
-                {t}
-                {isSurvey && (
-                  <span style={{
-                    width: 6, height: 6, borderRadius: '50%',
-                    background: isSurvey ? 'var(--violet)' : 'transparent',
-                    flexShrink: 0,
-                  }} />
-                )}
-              </button>
-            )
-          })}
+          {/* Tab bar */}
+          <div style={{
+            display: 'flex', gap: 2, overflowX: 'auto',
+            scrollbarWidth: 'none',
+            borderBottom: '1px solid rgba(255,255,255,.08)',
+          }}>
+            {tabs.map(t => {
+              const isActive = activeTab === t
+              const isSurvey = t === 'Survey'
+              return (
+                <button
+                  key={t}
+                  onClick={() => setActiveTab(t)}
+                  style={{
+                    flex: '0 0 auto',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '0.55rem 0.9rem',
+                    border: 'none',
+                    borderBottom: isActive ? '2.5px solid var(--brand)' : '2.5px solid transparent',
+                    background: 'transparent',
+                    color: isActive ? '#fff' : 'rgba(255,255,255,.4)',
+                    fontSize: 12, fontWeight: isActive ? 800 : 600, fontFamily: 'var(--font2)',
+                    cursor: 'pointer', transition: 'all 0.15s',
+                    whiteSpace: 'nowrap',
+                    marginBottom: -1,
+                  }}
+                >
+                  <span style={{ opacity: isActive ? 1 : 0.65 }}>
+                    {TAB_ICONS[t]}
+                  </span>
+                  {t}
+                  {isSurvey && surveyActive && (
+                    <span style={{
+                      width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                      background: '#8b5cf6', boxShadow: '0 0 6px #8b5cf680',
+                    }} />
+                  )}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
       {/* ── Tab content ── */}
-      <div style={{ padding: '1.25rem' }}>
+      <div style={{ padding: '1.25rem', background: 'var(--bg)', minHeight: '60vh' }}>
         {activeTab === 'Timetable'      && <MyTimetableTab   classId={student.classId} streamId={student.streamId ?? null} />}
         {activeTab === 'My Results'     && <MyResultsTab     studentId={student.id} />}
         {activeTab === 'My Fees'        && <MyFeesTab        studentId={student.id} />}
