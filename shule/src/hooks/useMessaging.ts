@@ -199,15 +199,19 @@ export function useSendMessage() {
       const { error } = await supabase.from('messages').insert(row)
       if (error) throw new Error(error.message)
 
-      // Fire push notification to recipient with sender name preview
+      // In-app notification
+      const msgPreview = input.body.length > 80 ? input.body.slice(0, 80) + '…' : input.body
       void supabase.from('notifications').insert({
         school_id: user.schoolId,
         user_id:   input.toUserId,
         type:      'message',
         title:     user.name,
-        body:      input.body.length > 80 ? input.body.slice(0, 80) + '…' : input.body,
-        link:      '/messages',
+        body:      msgPreview,
         from_user: user.id,
+      })
+      // Background push — fires even when recipient's tab is closed
+      void supabase.functions.invoke('send-push', {
+        body: { userId: input.toUserId, schoolId: user.schoolId, title: user.name, body: msgPreview, url: '/messages' },
       })
     },
     onSuccess: (_data, vars) => {
@@ -337,17 +341,23 @@ export function usePostAnnouncement() {
 
       if (recipientIds.length > 0) {
         const preview = input.body.length > 80 ? input.body.slice(0, 80) + '…' : input.body
+        const announceTitle = `${user.name} (Announcement)`
         void supabase.from('notifications').insert(
           recipientIds.map(uid => ({
             school_id: user.schoolId,
             user_id:   uid,
             type:      'announcement',
-            title:     `${user.name} (Announcement)`,
+            title:     announceTitle,
             body:      preview,
-            link:      '/messages',
             from_user: user.id,
           }))
         )
+        // Background push to all recipients
+        for (const uid of recipientIds) {
+          void supabase.functions.invoke('send-push', {
+            body: { userId: uid, schoolId: user.schoolId, title: announceTitle, body: preview, url: '/messages' },
+          })
+        }
       }
     },
     onSuccess: () => {

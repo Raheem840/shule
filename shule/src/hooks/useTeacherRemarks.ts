@@ -158,14 +158,20 @@ export function useSaveRemarks() {
         for (const pa of (parentAccounts ?? [])) {
           const linked = ((pa as Record<string, unknown>).student_ids as string[]) ?? []
           if (linked.some(sid => studentIds.includes(sid))) {
+            const parentUserId = (pa as Record<string, unknown>).auth_user_id as string
+            const notifBody = `A new remark has been added for Term ${term}, ${year}. Tap to view.`
             void supabase.from('notifications').insert({
               school_id:  user!.schoolId,
-              user_id:    (pa as Record<string, unknown>).auth_user_id as string,
+              user_id:    parentUserId,
               type:       'message',
               title:      teacherName,
-              body:       `A new teacher remark has been added for Term ${term}, ${year}. Tap to view.`,
+              body:       notifBody,
               from_user:  user!.id,
               target_role: 'parent',
+            })
+            // Also fire background push so parent sees it even when app is closed
+            void supabase.functions.invoke('send-push', {
+              body: { userId: parentUserId, schoolId: user!.schoolId, title: teacherName, body: notifBody, url: '/parent/portal' },
             })
           }
         }
