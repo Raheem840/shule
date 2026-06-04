@@ -30,7 +30,7 @@ serve(async (req) => {
     // Get API credentials from school_profile
     const { data: school } = await adminClient
       .from('school_profile')
-      .select('at_api_key, at_username, at_sender_id')
+      .select('at_api_key, at_username, at_sender_id, sms_environment')
       .eq('id', schoolId)
       .single()
 
@@ -41,20 +41,35 @@ serve(async (req) => {
       })
     }
 
+    // Normalise a Uganda phone to +256XXXXXXXXX (AT requires international format)
+    function normPhone(raw: string): string {
+      const digits = raw.replace(/\D/g, '')
+      if (digits.startsWith('256')) return '+' + digits
+      if (digits.startsWith('0'))  return '+256' + digits.slice(1)
+      if (digits.length === 9)     return '+256' + digits
+      return '+' + digits  // already international without +
+    }
+
     const results = []
 
     for (const recipient of recipients) {
       try {
+        const phone = normPhone(recipient.phone)
         const formData = new URLSearchParams()
-        formData.append('username', school.at_username)
-        formData.append('to', recipient.phone)
+        formData.append('username', school.at_username ?? '')
+        formData.append('to', phone)
         formData.append('message', recipient.message)
         if (school.at_sender_id) {
           formData.append('from', school.at_sender_id)
         }
 
-        const response = await fetch(
-          'https://api.africastalking.com/version1/messaging',
+        // Use sandbox URL when sms_environment = 'sandbox' or username = 'sandbox'
+        const isSandbox = school.sms_environment === 'sandbox' || school.at_username === 'sandbox'
+        const atBaseUrl = isSandbox
+          ? 'https://api.sandbox.africastalking.com/version1/messaging'
+          : 'https://api.africastalking.com/version1/messaging'
+
+        const response = await fetch(atBaseUrl,
           {
             method: 'POST',
             headers: {
@@ -91,7 +106,7 @@ serve(async (req) => {
           sent_at: new Date().toISOString()
         })
 
-        results.push({ phone: recipient.phone, success, result })
+        results.push({ phone, success, result })
       } catch (err) {
         results.push({ phone: recipient.phone, success: false, error: err.message })
       }

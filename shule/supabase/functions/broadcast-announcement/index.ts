@@ -72,11 +72,12 @@ serve(async (req) => {
       .eq('status', 'active')
       .not('auth_user_id', 'is', null)
 
-    // Fetch all parent account user_ids
+    // Fetch all parent account auth_user_ids (must use auth_user_id, not table PK)
     const { data: parents } = await adminClient
       .from('parent_accounts')
-      .select('id')
+      .select('auth_user_id')
       .eq('school_id', schoolId)
+      .not('auth_user_id', 'is', null)
 
     const notifications = [
       ...(students ?? []).map(s => ({
@@ -86,9 +87,9 @@ serve(async (req) => {
         body,
         read: false
       })),
-      ...(parents ?? []).map(p => ({
+      ...(parents ?? []).filter(p => p.auth_user_id).map(p => ({
         school_id: schoolId,
-        user_id: p.id,
+        user_id: p.auth_user_id,
         type: 'announcement',
         body,
         read: false

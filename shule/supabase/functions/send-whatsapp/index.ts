@@ -40,10 +40,20 @@ serve(async (req) => {
       })
     }
 
+    // Normalise to international format WITHOUT + (WhatsApp Cloud API requirement)
+    function normPhone(raw: string): string {
+      const digits = raw.replace(/\D/g, '')
+      if (digits.startsWith('256')) return digits
+      if (digits.startsWith('0'))   return '256' + digits.slice(1)
+      if (digits.length === 9)      return '256' + digits
+      return digits
+    }
+
     const results = []
 
     for (const recipient of recipients) {
       try {
+        const phone = normPhone(recipient.phone)
         const response = await fetch(
           `https://graph.facebook.com/v18.0/${school.wa_phone_number_id}/messages`,
           {
@@ -54,7 +64,7 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               messaging_product: 'whatsapp',
-              to: recipient.phone,
+              to: phone,
               type: 'text',
               text: { body: recipient.message }
             })
@@ -84,7 +94,7 @@ serve(async (req) => {
           sent_at: new Date().toISOString()
         })
 
-        results.push({ phone: recipient.phone, success, result })
+        results.push({ phone, success, result })
       } catch (err) {
         results.push({ phone: recipient.phone, success: false, error: err.message })
       }

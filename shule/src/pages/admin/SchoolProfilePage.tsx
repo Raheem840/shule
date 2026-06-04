@@ -24,7 +24,7 @@ const PAGE_CSS = `
 `
 
 export function SchoolProfilePage() {
-  const { data, isLoading } = useSchoolSettings()
+  const { data, isLoading, isError, error } = useSchoolSettings()
   const save = useSaveSchoolSettings()
   const { success: ok, error: err } = useToast()
   const { user } = useAuth()
@@ -47,7 +47,9 @@ export function SchoolProfilePage() {
       setPrimaryColor(data.primaryColor ?? '#0d9488')
       setLogoUrl(data.logoUrl ?? null)
       setLogoPreview(data.logoUrl ?? null)
-      setEditMode(false)
+      // Auto-open edit mode when school name hasn't been configured yet
+      if (!data.schoolName) setEditMode(true)
+      else setEditMode(false)
     }
   }, [data])
 
@@ -96,6 +98,18 @@ export function SchoolProfilePage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 80, gap: 10, color: 'var(--txt3)' }}>
         <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--brand)', animation: 'spg-spin 0.7s linear infinite' }} />
         Loading…
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 80, gap: 12, color: 'var(--txt3)' }}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt2)' }}>Could not load school profile</div>
+        <div style={{ fontSize: 12, color: 'var(--txt3)', maxWidth: 400, textAlign: 'center' }}>
+          {(error as Error)?.message ?? 'An unexpected error occurred. Please refresh the page.'}
+        </div>
       </div>
     )
   }
@@ -166,11 +180,10 @@ export function SchoolProfilePage() {
                   <>
                     <div style={{
                       fontSize: 26, fontWeight: 900, fontFamily: 'var(--font2)',
-                      background: `linear-gradient(135deg, var(--txt) 0%, ${primaryColor} 100%)`,
-                      WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+                      color: 'var(--txt)',
                       lineHeight: 1.2, marginBottom: 4,
                     }}>
-                      {schoolName || 'Your School Name'}
+                      {schoolName || <span style={{ color: 'var(--txt3)', fontWeight: 600, fontSize: 18 }}>Not configured — click Edit Profile</span>}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       {shortName && (

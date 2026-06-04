@@ -22,21 +22,19 @@ serve(async (req) => {
 
     const { studentId, email, schoolId, password } = await req.json()
 
-    if (!studentId || !email || !schoolId) {
+    if (!studentId || !email || !schoolId || !password) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // Use service role to create auth user — bypasses RLS intentionally
     const adminClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       { auth: { autoRefreshToken: false, persistSession: false } },
     )
 
-    // Verify the caller is secretary, principal, or it_admin
     const userClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -55,7 +53,7 @@ serve(async (req) => {
       .from('staff')
       .select('role, school_id')
       .eq('auth_user_id', caller.id)
-      .single()
+      .maybeSingle()
 
     if (
       !callerStaff ||
@@ -68,43 +66,90 @@ serve(async (req) => {
       })
     }
 
-    // Create the auth user — use caller-provided password or fall back to default
+    // Helper: find a user by email across all pages
+    async function findUserByEmail(emailToFind: string) {
+      let page = 1
+      while (true) {
+        const { data } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 })
+        const found = (data?.users ?? []).find((u) => u.email === emailToFind)
+        if (found) return found
+        if ((data?.users ?? []).length < 1000) return null
+        page++
+      }
+    }
+
+    // Try to create a fresh auth user
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
-      password: password ?? 'Shule@2025',
+      password,
       email_confirm: true,
       app_metadata: { user_role: 'student', school_id: schoolId },
     })
 
     if (createError) {
-      // If user already exists, link the existing auth user
-      if (createError.message.includes('already been registered')) {
-        const { data: existingUsers } = await adminClient.auth.admin.listUsers()
-        const existing = existingUsers?.users.find((u) => u.email === email)
-        if (existing) {
+      // Auth user already exists — DO NOT reset their password.
+      // Just fix the link and preserve the password already stored in the students row.
+      if (createError.message.includes('already been registered') || createError.message.includes('already exists')) {
+        const existing = await findUserByEmail(email)
+        if (!existing) {
+          return new Response(JSON.stringify({ error: 'User exists but could not be located' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        // Only update app_metadata — never touch the password here to avoid mismatch
+        await adminClient.auth.admin.updateUserById(existing.id, {
+          app_metadata: { user_role: 'student', school_id: schoolId },
+        })
+
+        // Fetch the temp_password already stored in the students row (if any)
+        const { data: existingRow } = await adminClient
+          .from('students')
+          .select('temp_password')
+          .eq('id', studentId)
+          .eq('school_id', schoolId)
+          .maybeSingle()
+
+        const storedPassword = (existingRow as any)?.temp_password ?? null
+
+        // Re-link auth_user_id only (keep existing temp_password — do NOT overwrite it)
+        await adminClient
+          .from('students')
+          .update({ auth_user_id: existing.id, auth_email: email })
+          .eq('id', studentId)
+          .eq('school_id', schoolId)
+
+        // If there was no stored password, store the new one so the admin has something to show
+        if (!storedPassword) {
           await adminClient
             .from('students')
-            .update({ auth_user_id: existing.id })
+            .update({ temp_password: password })
             .eq('id', studentId)
             .eq('school_id', schoolId)
 
-          await adminClient.auth.admin.updateUserById(existing.id, {
-            app_metadata: { user_role: 'student', school_id: schoolId },
-          })
-
-          return new Response(
-            JSON.stringify({ success: true, authUserId: existing.id, alreadyExisted: true }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-          )
+          // Also set the actual auth password so it matches what we'll display
+          await adminClient.auth.admin.updateUserById(existing.id, { password })
         }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            authUserId: existing.id,
+            alreadyExisted: true,
+            // Return the password that is actually in the DB so the caller can show it
+            actualPassword: storedPassword ?? password,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
       }
       throw createError
     }
 
-    // Link auth user to student row
+    // Fresh user created — store password and link
     await adminClient
       .from('students')
-      .update({ auth_user_id: newUser.user.id })
+      .update({ auth_user_id: newUser.user.id, auth_email: email, temp_password: password })
       .eq('id', studentId)
       .eq('school_id', schoolId)
 
