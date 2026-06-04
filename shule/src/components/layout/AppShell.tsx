@@ -207,8 +207,8 @@ export function AppShell() {
         roleLabel={label}
         currentPath={location.pathname}
         onSignOut={signOut}
-        schoolName={schoolSettings?.schoolName ?? null}
-        schoolMotto={schoolSettings?.motto ?? null}
+        schoolName={schoolSettings?.schoolName || null}
+        schoolMotto={schoolSettings?.motto || null}
         schoolLogoUrl={schoolSettings?.logoUrl ?? null}
         drawerOpen={drawerOpen}
         onClose={() => setDrawer(false)}
@@ -443,7 +443,7 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
     refetchInterval: 2 * 60_000,
   })
 
-  const displayName   = schoolName ?? 'My School'
+  const displayName   = schoolName || 'My School'
   const schoolInitial = displayName.trim()[0]?.toUpperCase() ?? 'S'
 
   return (

@@ -14,7 +14,7 @@ export function useNotifications() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notifications')
-        .select('id, school_id, user_id, type, body, link, read_at, created_at')
+        .select('id, school_id, user_id, type, title, body, link, read_at, created_at, from_user')
         .eq('school_id', user!.schoolId)
         .eq('user_id', user!.id)
         .is('read_at', null)
@@ -28,10 +28,12 @@ export function useNotifications() {
         schoolId:  r['school_id'] as string,
         userId:    r['user_id'] as string,
         type:      r['type'] as Notification['type'],
+        title:     (r['title'] as string | null) ?? null,
         body:      r['body'] as string,
         link:      r['link'] as string | null,
         readAt:    r['read_at'] as string | null,
         createdAt: r['created_at'] as string,
+        fromUser:  (r['from_user'] as string | null) ?? null,
       } satisfies Notification))
     },
     staleTime: 30_000,
@@ -50,7 +52,7 @@ export function usePortalNotifications() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notifications')
-        .select('id, school_id, user_id, type, body, link, read_at, created_at')
+        .select('id, school_id, user_id, type, title, body, link, read_at, created_at, from_user')
         .eq('school_id', user!.schoolId)
         .eq('user_id', user!.id)
         .order('created_at', { ascending: false })
@@ -64,10 +66,12 @@ export function usePortalNotifications() {
         schoolId:  r['school_id'] as string,
         userId:    r['user_id'] as string,
         type:      r['type'] as Notification['type'],
+        title:     (r['title'] as string | null) ?? null,
         body:      r['body'] as string,
         link:      r['link'] as string | null,
         readAt:    r['read_at'] as string | null,
         createdAt: r['created_at'] as string,
+        fromUser:  (r['from_user'] as string | null) ?? null,
       } satisfies Notification))
     },
     staleTime: 30_000,

@@ -198,6 +198,17 @@ export function useSendMessage() {
 
       const { error } = await supabase.from('messages').insert(row)
       if (error) throw new Error(error.message)
+
+      // Fire push notification to recipient with sender name preview
+      void supabase.from('notifications').insert({
+        school_id: user.schoolId,
+        user_id:   input.toUserId,
+        type:      'message',
+        title:     user.name,
+        body:      input.body.length > 80 ? input.body.slice(0, 80) + '…' : input.body,
+        link:      '/messages',
+        from_user: user.id,
+      })
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['messages', user?.id, vars.toUserId] })
@@ -311,6 +322,33 @@ export function usePostAnnouncement() {
         })
 
       if (error) throw new Error(error.message)
+
+      // Send notification to all staff in the school for announcements
+      const { data: staffMembers } = await supabase
+        .from('staff')
+        .select('auth_user_id')
+        .eq('school_id', user.schoolId)
+        .eq('is_active', true)
+        .not('auth_user_id', 'is', null)
+
+      const recipientIds = ((staffMembers ?? []) as any[])
+        .map(s => s.auth_user_id as string)
+        .filter(id => id && id !== user.id)
+
+      if (recipientIds.length > 0) {
+        const preview = input.body.length > 80 ? input.body.slice(0, 80) + '…' : input.body
+        void supabase.from('notifications').insert(
+          recipientIds.map(uid => ({
+            school_id: user.schoolId,
+            user_id:   uid,
+            type:      'announcement',
+            title:     `${user.name} (Announcement)`,
+            body:      preview,
+            link:      '/messages',
+            from_user: user.id,
+          }))
+        )
+      }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['announcements', user?.schoolId] })
