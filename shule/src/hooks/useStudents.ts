@@ -436,11 +436,6 @@ function generateStudentTempPassword(): string {
 }
 
 // ── useCreateStudentLogin ───────────────────────────────────────
-// Secretary one-click: auto-generate an auth user for a student.
-// Email format: student.{sanitised_admNo}@{shortName}.ug
-// Tries the Edge Function first; falls back gracefully if not deployed.
-// Returns { email, tempPassword, manual } — manual=true means the IT admin
-// must create the auth user manually using the returned credentials.
 export function useCreateStudentLogin() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -449,10 +444,10 @@ export function useCreateStudentLogin() {
     mutationFn: async (studentId: string): Promise<StudentLoginResult> => {
       if (!user) throw new Error('Not authenticated')
 
-      // 1. Fetch student row — needs auth_user_id to check if already activated
+      // 1. Fetch student row including auth_email (stores the exact email in Supabase auth)
       const { data: studentRow, error: studentErr } = await supabase
         .from('students')
-        .select('id, school_id, admission_number, first_name, last_name, auth_user_id')
+        .select('id, school_id, admission_number, first_name, last_name, auth_user_id, auth_email')
         .eq('id', studentId)
         .eq('school_id', user.schoolId)
         .single()
@@ -461,48 +456,56 @@ export function useCreateStudentLogin() {
       if (!studentRow) throw new Error('Student not found')
 
       const row = studentRow as AnyRow
-      if (row.auth_user_id) throw new Error('Login already activated')
 
-      // 2. Fetch school short_name
-      const { data: school } = await supabase
-        .from('school_profile')
-        .select('short_name')
-        .eq('id', user.schoolId)
-        .single()
-
-      const shortName  = ((school?.short_name as string) ?? 'school').toLowerCase().replace(/[^a-z0-9]/g, '')
-      const firstInit  = ((row.first_name as string)?.[0] ?? '').toLowerCase()
-      const lastInit   = ((row.last_name  as string)?.[0] ?? '').toLowerCase()
-      // Extract numeric suffix from admission number for uniqueness (e.g. KJA/2025/0049 → '049')
-      const admSeq     = ((row.admission_number as string) ?? '').replace(/\D/g, '').slice(-4).replace(/^0+(?=\d)/, '') || '1'
-      const email      = `${firstInit}${lastInit}${admSeq}@${shortName}.ug`
-      const tempPassword = generateStudentTempPassword()
-
-      // 3. Try the Edge Function (may not be deployed yet)
-      try {
-        const { error: fnError } = await supabase.functions.invoke('create-student-auth-user', {
-          body: { studentId, email, schoolId: user.schoolId, password: tempPassword },
-        })
-        if (!fnError) return { email, tempPassword, manual: false }
-        // Edge function returned an error — fall through to manual mode
-      } catch {
-        // Network error or function not deployed — fall through to manual mode
+      // Guard: if auth already set, throw instead of overwriting the working password
+      if (row.auth_user_id) {
+        throw new Error('Login already exists for this student. Use "Reset PW" to generate a new password.')
       }
 
-      // 4. Graceful fallback: store credentials so IT Admin can activate later
-      const name = `${row.first_name as string} ${row.last_name as string}`
-      setPendingStudentActivation({
-        studentId,
-        email,
-        tempPassword,
-        name,
-        admissionNumber: row.admission_number as string,
-        storedAt: new Date().toISOString(),
+      // 2. Determine the email to use
+      //    Priority: stored auth_email (exact email already in Supabase) > derive fresh
+      //    Using auth_email avoids formula-change mismatches for existing accounts
+      let email = (row.auth_email as string | null) ?? null
+
+      if (!email) {
+        // No previous account — derive a new email
+        const { data: school } = await supabase
+          .from('school_profile')
+          .select('short_name, school_name')
+          .eq('id', user.schoolId)
+          .maybeSingle()
+
+        // Use same fallback order as the credentials panel display
+        const rawDomain = (school?.short_name as string | null)
+          || (school?.school_name as string | null)
+          || 'school'
+        const shortName = rawDomain.toLowerCase().replace(/[^a-z0-9]/g, '')
+        const admEmail  = ((row.admission_number as string) ?? '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'student'
+        email = `${admEmail}@${shortName}.ug`
+      }
+
+      const tempPassword = generateStudentTempPassword()
+
+      // 3. Call edge function — throws on any failure so no fake credentials are ever shown
+      const { data: fnData, error: fnError } = await supabase.functions.invoke('create-student-auth-user', {
+        body: { studentId, email, schoolId: user.schoolId, password: tempPassword },
       })
-      return { email, tempPassword, manual: true }
+
+      if (fnError) {
+        const detail = (fnData as { error?: string } | null)?.error ?? fnError.message
+        throw new Error(`Failed to create login: ${detail}`)
+      }
+
+      // If the auth user already existed, the edge function preserves the stored password
+      // and returns actualPassword so we show the correct one (not the newly generated one)
+      const fn = fnData as { actualPassword?: string } | null
+      const displayPassword = fn?.actualPassword ?? tempPassword
+
+      return { email, tempPassword: displayPassword, manual: false }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['students-creds', user?.schoolId] })
     },
   })
 }
@@ -522,25 +525,21 @@ export function useResetStudentPassword() {
 
       const tempPassword = generateStudentTempPassword()
 
-      const { error: fnError } = await supabase.functions.invoke('reset-student-password', {
-        body: { userId: authUserId, newPassword: tempPassword },
+      const { data: fnData, error: fnError } = await supabase.functions.invoke('reset-student-password', {
+        body: { userId: authUserId, newPassword: tempPassword, schoolId: user.schoolId, studentId },
       })
 
-      if (!fnError) return { email, tempPassword, manual: false }
+      if (fnError) {
+        // Surface the real error — don't show credentials that won't work
+        const detail = (fnData as { error?: string } | null)?.error ?? fnError.message
+        throw new Error(`Password reset failed: ${detail}`)
+      }
 
-      // Edge Function not deployed — store for manual update
-      setPendingStudentActivation({
-        studentId,
-        email,
-        tempPassword,
-        name,
-        admissionNumber,
-        storedAt: new Date().toISOString(),
-      })
-      return { email, tempPassword, manual: true }
+      return { email, tempPassword, manual: false }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['students-creds', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['students-active-login', user?.schoolId] })
     },
   })

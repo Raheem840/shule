@@ -335,10 +335,10 @@ export function useTimetable(classId?: string | null) {
     enabled: !!user,
     queryFn: async (): Promise<TimetablePeriod[]> => {
       let q = supabase
-        .from('timetable')
+        .from('timetable_slots')
         .select(
-          'id, school_id, class_id, subject_id, teacher_id,' +
-          ' day_of_week, period_number, start_time, end_time, term, year'
+          'id, school_id, class_id, stream_id, subject_id, teacher_id,' +
+          ' day_of_week, period_number, start_time, end_time, term, year, is_published'
         )
         .eq('school_id', user!.schoolId)
         .order('day_of_week', { ascending: true })

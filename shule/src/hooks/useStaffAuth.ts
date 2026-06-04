@@ -71,31 +71,31 @@ export function useActivateStaffLogin() {
       if (!email) {
         const { data: school } = await supabase
           .from('school_profile')
-          .select('short_name')
+          .select('short_name, school_name')
           .eq('id', user.schoolId)
-          .single()
-        const shortName  = ((school?.short_name as string) ?? 'school').toLowerCase().replace(/\s+/g, '')
-        const staffNum   = ((staff as any).staff_number as string).toLowerCase().replace(/\//g, '-').replace(/\s+/g, '')
+          .maybeSingle()
+        const rawDomain = (school?.short_name as string | null)
+          || (school?.school_name as string | null)
+          || 'school'
+        const shortName = rawDomain.toLowerCase().replace(/[^a-z0-9]/g, '')
+        const staffNum  = ((staff as any).staff_number as string ?? '').toLowerCase().replace(/[^a-z0-9]/g, '-')
         email = `staff.${staffNum}@${shortName}.ug`
       }
 
       const name  = `${(staff as any).first_name} ${(staff as any).last_name}`
 
-      // The Edge Function sets 'Shule@2025' as the initial password.
-      // We use the same value here so the credential slip matches.
-      const tempPassword = 'Shule@2025'
+      const tempPassword = generateTempPassword()
 
       const { data: fnData, error: fnError } = await supabase.functions.invoke('create-staff-auth-user', {
         body: { staffId, email, schoolId: user.schoolId, password: tempPassword },
       })
 
-      if (!fnError && (fnData as any)?.success) {
-        return { email, tempPassword, manual: false }
+      if (fnError || !(fnData as any)?.success) {
+        const detail = (fnData as { error?: string } | null)?.error ?? fnError?.message ?? 'Unknown error'
+        throw new Error(`Failed to activate login: ${detail}`)
       }
 
-      // Edge Function not deployed — store for manual creation
-      setPendingActivation({ staffId, email, tempPassword, name, storedAt: new Date().toISOString() })
-      return { email, tempPassword, manual: true }
+      return { email, tempPassword, manual: false }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
@@ -167,8 +167,8 @@ export function useResetStaffPassword() {
 
       if (!fnError) return { tempPassword, manual: false }
 
-      setPendingActivation({ staffId, email, tempPassword, name, storedAt: new Date().toISOString() })
-      return { tempPassword, manual: true }
+      // Surface the actual error — don't show credentials that won't work
+      throw new Error(`Password reset failed: ${fnError.message}`)
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })

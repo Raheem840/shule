@@ -135,13 +135,15 @@ export function useSchoolSettings() {
     queryKey: ['school-settings', user?.schoolId],
     enabled: !!user,
     queryFn: async (): Promise<SchoolSettings> => {
+      // maybeSingle() returns null (not error) when the row doesn't exist
       const { data, error } = await supabase
         .from('school_profile')
         .select('id, school_name, short_name, motto, logo_url, primary_color')
         .eq('id', user!.schoolId)
-        .single()
+        .maybeSingle()
 
       if (error) throw new Error(error.message)
+      if (!data) throw new Error('School profile not found for this account. Contact your system administrator.')
 
       return {
         id:           data.id,
@@ -150,7 +152,7 @@ export function useSchoolSettings() {
         motto:        data.motto,
         logoUrl:      data.logo_url,
         primaryColor: data.primary_color ?? '#0d9488',
-        currency:     'UGX',  // DB NEEDS: ALTER TABLE school_profile ADD COLUMN currency TEXT DEFAULT 'UGX'
+        currency:     'UGX',
       }
     },
     staleTime: 10 * 60_000,
