@@ -9,6 +9,8 @@ import {
   type SmsFilters, type SmsStudentRow, type ReminderLogRow,
 } from '../../hooks/useSmsReminders'
 import { ugx } from '../../hooks/useFeePayments'
+import { useSchoolSettings } from '../../hooks/useAdmin'
+import { useAuth } from '../../store/AuthContext'
 import type { SmsChannel } from '../../types/app'
 import { supabase } from '../../lib/supabase'
 
@@ -36,11 +38,11 @@ const TEMPLATE_VARS = [
 ]
 
 // ── Render a message with real data ───────────────────────────
-function renderMessage(template: string, student: SmsStudentRow, term: number) {
+function renderMessage(template: string, student: SmsStudentRow, term: number, schoolName: string) {
   return template
     .replace(/{student_name}/g, `${student.firstName} ${student.lastName}`)
     .replace(/{balance}/g,      ugx(student.balance))
-    .replace(/{school_name}/g,  'Your School')
+    .replace(/{school_name}/g,  schoolName || 'Your School')
     .replace(/{term}/g,         `Term ${term}`)
 }
 
@@ -94,6 +96,10 @@ export function SmsReminderPage() {
   const [channel, setChannel] = useState<SmsChannel>('sms')
   const [showPreview, setShowPreview] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const { user } = useAuth()
+  const { data: schoolSettings } = useSchoolSettings()
+  const schoolName = schoolSettings?.schoolName || schoolSettings?.shortName || 'Your School'
 
   const { data: classes } = useClasses()
   const { data: streams } = useStreams(smsFilters.classId ?? null)
@@ -150,21 +156,31 @@ export function SmsReminderPage() {
       studentId:     s.studentId,
       guardianPhone: s.guardianPhone,
       channel,
-      message:       renderMessage(message, s, smsFilters.term),
+      message:       renderMessage(message, s, smsFilters.term, schoolName),
     }))
 
     await sendReminders.mutateAsync(reminders)
     setSelectedIds(new Set())
 
-    // Fire-and-forget: call the appropriate Edge Function for immediate delivery.
-    // The queue insert above is the durable record; this is the real-time dispatch.
+    // Fire-and-forget: real-time dispatch via Edge Functions.
+    // Map internal reminders format to the { recipients, schoolId } format the functions expect.
+    const toRecipients = (items: typeof reminders) => items.map(r => ({
+      phone:     r.guardianPhone,
+      message:   r.message,
+      studentId: r.studentId,
+    }))
+
     const smsItems = reminders.filter(r => r.channel === 'sms')
     const waItems  = reminders.filter(r => r.channel === 'whatsapp')
     if (smsItems.length > 0) {
-      void supabase.functions.invoke('send-sms', { body: { reminders: smsItems } })
+      void supabase.functions.invoke('send-sms', {
+        body: { recipients: toRecipients(smsItems), schoolId: user?.schoolId },
+      })
     }
     if (waItems.length > 0) {
-      void supabase.functions.invoke('send-whatsapp', { body: { reminders: waItems } })
+      void supabase.functions.invoke('send-whatsapp', {
+        body: { recipients: toRecipients(waItems), schoolId: user?.schoolId },
+      })
     }
   }
 
@@ -420,7 +436,7 @@ export function SmsReminderPage() {
                 </button>
                 {showPreview && (
                   <div style={{ marginTop: 6, padding: '0.65rem 0.85rem', background: 'var(--surface2)', borderRadius: 'var(--r)', fontSize: 13, color: 'var(--txt)', lineHeight: 1.6, border: '1px solid var(--border)' }}>
-                    {renderMessage(message, firstSelected, smsFilters.term)}
+                    {renderMessage(message, firstSelected, smsFilters.term, schoolName)}
                   </div>
                 )}
               </div>

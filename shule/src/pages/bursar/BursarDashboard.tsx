@@ -1,46 +1,76 @@
 import { useState } from 'react'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend,
 } from 'recharts'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import {
-  useBursarKpis, useFeeCollectionByClass, useRecentPayments, useSmsCount,
-  ugx,
+  useBursarKpis, useFeeCollectionByClass, useRecentPayments,
+  useSmsCount, useFeeCollectionOverTime, ugx,
 } from '../../hooks/useFeePayments'
-import { SafeTermProgressTimeline } from '../../components/shared/TermProgressTimeline'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
 
-// ── UGX compact formatter for chart axis ──────────────────────
+// ── Axis formatter ────────────────────────────────────────────
 function ugxCompact(v: number) {
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
   if (v >= 1_000)     return `${(v / 1_000).toFixed(0)}K`
   return String(v)
 }
 
+// ── Class palette — up to 8 classes ──────────────────────────
+const CLASS_COLORS = [
+  '#0d9488', '#8b5cf6', '#0ea5e9', '#f59e0b',
+  '#f43f5e', '#10b981', '#6366f1', '#ec4899',
+]
+
+// ── Custom tooltip ────────────────────────────────────────────
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  const total = payload.reduce((s: number, e: any) => s + (Number(e.value) || 0), 0)
+  return (
+    <div style={{
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 12, padding: '12px 16px', minWidth: 180,
+      boxShadow: '0 8px 32px rgba(0,0,0,.18)',
+    }}>
+      <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 12, color: 'var(--txt)', marginBottom: 8 }}>
+        {label}
+      </div>
+      {payload.map((e: any) => (
+        <div key={e.dataKey} style={{ display: 'flex', justifyContent: 'space-between', gap: 24, marginBottom: 3 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: e.color, display: 'inline-block', flexShrink: 0 }} />
+            <span style={{ fontSize: 11.5, color: 'var(--txt2)', fontFamily: 'var(--font2)' }}>{e.dataKey}</span>
+          </div>
+          <span style={{ fontSize: 11.5, color: 'var(--txt)', fontFamily: 'var(--font3)', fontWeight: 700 }}>
+            {ugxCompact(Number(e.value) || 0)}
+          </span>
+        </div>
+      ))}
+      <div style={{ borderTop: '1px solid var(--border)', marginTop: 6, paddingTop: 6, display: 'flex', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--txt2)', fontFamily: 'var(--font2)', textTransform: 'uppercase', letterSpacing: .4 }}>Total</span>
+        <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--brand)', fontFamily: 'var(--font3)' }}>{ugxCompact(total)}</span>
+      </div>
+    </div>
+  )
+}
+
 // ── KPI card ──────────────────────────────────────────────────
-const BURSAR_KPI_ICONS: Record<string, string> = {
+const KPI_PATHS: Record<string, string> = {
   brand:   'M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6',
   success: 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3',
   danger:  'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01',
   violet:  'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z',
-  info:    'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75',
   warning: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
 }
-
-function KpiCard({
-  label, value, sub, accent,
-}: {
-  label:   string
-  value:   string
-  sub?:    string
-  accent?: 'brand' | 'danger' | 'warning' | 'violet' | 'info' | 'success'
+function KpiCard({ label, value, sub, accent = 'brand' }: {
+  label: string; value: string; sub?: string; accent?: 'brand' | 'success' | 'danger' | 'warning' | 'violet'
 }) {
-  const effectiveAccent = accent ?? 'brand'
   return (
-    <div className={`sui-kpi-v2 sui-kpi-accent-${effectiveAccent}`} style={{ flex: 1, minWidth: 140 }}>
-      <div className={`sui-kpi-icon sui-kpi-icon-${effectiveAccent}`}>
+    <div className={`sui-kpi-v2 sui-kpi-accent-${accent}`} style={{ flex: 1, minWidth: 130 }}>
+      <div className={`sui-kpi-icon sui-kpi-icon-${accent}`}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d={BURSAR_KPI_ICONS[effectiveAccent] ?? BURSAR_KPI_ICONS.brand} />
+          <path d={KPI_PATHS[accent] ?? KPI_PATHS.brand} />
         </svg>
       </div>
       <div className="sui-kpi-label">{label}</div>
@@ -54,206 +84,274 @@ function KpiCard({
 function PaymentRow({ p }: { p: ReturnType<typeof useRecentPayments>['data'] extends (infer T)[] | undefined ? T : never }) {
   return (
     <tr className="sui-tr">
-      <td style={{ padding: '0.65rem 1rem' }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>
-          {p.firstName} {p.lastName}
-        </div>
+      <td style={{ padding: '0.6rem 1rem' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>{p.firstName} {p.lastName}</div>
         <div style={{ fontSize: 11, color: 'var(--txt3)' }}>{p.className}</div>
       </td>
-      <td style={{ padding: '0.65rem 1rem', fontFamily: 'var(--font3)', fontWeight: 600, color: 'var(--brand)', fontSize: 13 }}>
+      <td style={{ padding: '0.6rem 1rem', fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)', fontSize: 13 }}>
         {ugx(p.amountPaid)}
       </td>
-      <td style={{ padding: '0.65rem 1rem', fontSize: 12, color: 'var(--txt2)' }}>
-        {p.paymentDate ?? '—'}
-      </td>
-      <td style={{ padding: '0.65rem 1rem', fontFamily: 'var(--font3)', fontSize: 12, color: 'var(--txt3)' }}>
-        {p.receiptNumber ?? '—'}
-      </td>
+      <td style={{ padding: '0.6rem 1rem', fontSize: 12, color: 'var(--txt2)' }}>{p.paymentDate ?? '—'}</td>
+      <td style={{ padding: '0.6rem 1rem', fontFamily: 'var(--font3)', fontSize: 12, color: 'var(--txt3)' }}>{p.receiptNumber ?? '—'}</td>
     </tr>
   )
 }
 
-// ── Main page ─────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 const CURRENT_YEAR = new Date().getFullYear()
 
 export function BursarDashboard() {
-  const [term, setTerm] = useState<1 | 2 | 3>(1)
-  const [year, setYear] = useState(CURRENT_YEAR)
+  const [term, setTerm]           = useState<1 | 2 | 3>(1)
+  const [academicYearId, setAcademicYearId] = useState<string | null>(null)
 
-  const kpis      = useBursarKpis(term, year)
-  const chartData = useFeeCollectionByClass(term, year)
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeYear = academicYears.find(y => y.isActive) ?? academicYears[0]
+  const effectiveYearId = academicYearId ?? activeYear?.id ?? null
+
+  const kpis      = useBursarKpis(term, CURRENT_YEAR)
+  const byClass   = useFeeCollectionByClass(term, CURRENT_YEAR)
+  const overTime  = useFeeCollectionOverTime()
   const recent    = useRecentPayments(10)
   const smsCount  = useSmsCount()
 
   const K = kpis.data
+  const { points = [], classes: classNames = [] } = overTime.data ?? {}
+
+  // Compute total collected from byClass for the chart sub-header
+  const totalCollected = (byClass.data ?? []).reduce((s, c) => s + c.collected, 0)
+  const totalOutstanding = (byClass.data ?? []).reduce((s, c) => s + c.outstanding, 0)
+  const collectionPct = totalCollected + totalOutstanding > 0
+    ? Math.round((totalCollected / (totalCollected + totalOutstanding)) * 100)
+    : 0
 
   return (
-    <div className="sui-page-enter" style={{ padding: '1.5rem 2rem', maxWidth: 1200 }}>
-            <div style={{ display:'flex', alignItems:'flex-start', gap:14, position:'relative', overflow:'hidden' }}>
-        <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(16,185,129,.18),transparent 70%)', filter:'blur(50px)', pointerEvents:'none' }} />
-        <div style={{ width:46, height:46, borderRadius:15, background:'linear-gradient(145deg,#10b981,#059669)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 5px 18px rgba(16,185,129,.45)', flexShrink:0 }}>
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.58-7 8-7s8 3 8 7"/></svg>
-        </div>
-        <div>
-          <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:22, color:'var(--txt)', margin:0, letterSpacing:-.4 }}>Finance Overview</h1>
-          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>Fee collection, balances and recent payments</p>
-        </div>
-      </div>
-      <SafeTermProgressTimeline />
+    <div className="sui-page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* ── Term selector ─────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: '1.5rem' }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Term</span>
-        {([1, 2, 3] as const).map(t => (
-          <button
-            key={t}
-            onClick={() => setTerm(t)}
-            style={{
-              padding: '0.3rem 1rem', border: 'none', borderRadius: 20,
-              background: term === t ? 'var(--brand)' : 'var(--surface2)',
-              color: term === t ? '#fff' : 'var(--txt2)',
-              fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13,
-              cursor: 'pointer',
-            }}
-          >
-            Term {t}
-          </button>
-        ))}
-        <input
-          type="number"
-          value={year}
-          onChange={e => setYear(Number(e.target.value))}
-          aria-label="Academic year"
-          style={{
-            marginLeft: 8, width: 80, padding: '0.3rem 0.6rem',
-            border: '1.5px solid var(--border)', borderRadius: 'var(--r)',
-            background: 'var(--surface)', color: 'var(--txt)',
-            fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13,
-            outline: 'none',
-          }}
-        />
-      </div>
-
-      {/* ── KPI grid ──────────────────────────────────────── */}
-      {kpis.isLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
-          <LoadingSpinner size="md" />
-        </div>
-      ) : (
-        <div className="stagger-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
-          <KpiCard
-            label="Total Expected"
-            value={K ? ugx(K.expected) : '—'}
-            sub={`Term ${term} · ${year}`}
-            accent="brand"
-          />
-          <KpiCard
-            label="Total Collected"
-            value={K ? ugx(K.collected) : '—'}
-            accent="brand"
-          />
-          <KpiCard
-            label="Outstanding"
-            value={K ? ugx(K.outstanding) : '—'}
-            accent="danger"
-          />
-          <KpiCard
-            label="Fully Unpaid"
-            value={K ? String(K.unpaidCount) : '—'}
-            sub="students"
-            accent="warning"
-          />
-          <KpiCard
-            label="Reminders Queued"
-            value={smsCount.data != null ? String(smsCount.data) : '—'}
-            sub="all time"
-            accent="violet"
-          />
-        </div>
-      )}
-
-      {/* ── Chart + Recent payments ────────────────────────── */}
-      <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 420px', gap: '1.5rem' }}>
-
-        {/* Bar chart */}
-        <div style={{
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--r-lg)', padding: '1.25rem',
-        }}>
-          <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: 'var(--txt)', marginBottom: '1rem' }}>
-            Collection by Class — Term {term} {year}
+      {/* ── Hero band ─────────────────────────────────────────── */}
+      <div style={{
+        borderRadius: 18, overflow: 'hidden',
+        background: 'linear-gradient(135deg,#0f172a 0%,#1e293b 55%,#0c2a28 100%)',
+        padding: '26px 28px 22px', position: 'relative',
+      }}>
+        <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(13,148,136,.12)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -30, left: 60, width: 140, height: 140, borderRadius: '50%', background: 'rgba(139,92,246,.1)', pointerEvents: 'none' }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 13, background: 'rgba(13,148,136,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0dd9c4" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+            </div>
+            <div>
+              <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: '#fff', margin: 0, letterSpacing: -.4 }}>Finance Overview</h1>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', margin: '1px 0 0' }}>Fee collection, balances and payment trends</p>
+            </div>
           </div>
-          {chartData.isLoading ? (
-            <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        </div>
+      </div>
+
+      {/* ── Term selector ─────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5, marginRight: 4 }}>Term</span>
+        {([1, 2, 3] as const).map(t => (
+          <button key={t} onClick={() => setTerm(t)} style={{
+            padding: '5px 16px', border: 'none', borderRadius: 20,
+            background: term === t ? 'var(--brand)' : 'var(--surface2)',
+            color: term === t ? '#fff' : 'var(--txt2)',
+            fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 12.5, cursor: 'pointer',
+            boxShadow: term === t ? '0 2px 8px rgba(13,148,136,.35)' : 'none',
+            transition: 'all .18s',
+          }}>T{t}</button>
+        ))}
+        {academicYears.length > 0 && (
+          <select
+            value={effectiveYearId ?? ''}
+            onChange={e => setAcademicYearId(e.target.value || null)}
+            style={{ height: 32, padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontSize: 12, cursor: 'pointer', outline: 'none', marginLeft: 8 }}
+          >
+            {academicYears.map(y => <option key={y.id} value={y.id}>{y.name}{y.isActive ? ' (Active)' : ''}</option>)}
+          </select>
+        )}
+      </div>
+
+      {/* ── KPI grid ──────────────────────────────────────────── */}
+      <div className="stagger-cards" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <KpiCard label="Total Expected"   value={K ? ugx(K.expected)    : '—'} sub={`Term ${term}`} accent="brand" />
+        <KpiCard label="Total Collected"  value={K ? ugx(K.collected)   : '—'} accent="success" />
+        <KpiCard label="Outstanding"      value={K ? ugx(K.outstanding) : '—'} accent="danger" />
+        <KpiCard label="Fully Unpaid"     value={K ? String(K.unpaidCount) : '—'} sub="students" accent="warning" />
+        <KpiCard label="SMS Reminders"    value={smsCount.data != null ? String(smsCount.data) : '—'} sub="queued" accent="violet" />
+      </div>
+
+      {/* ── PREMIUM FEE COLLECTION CHART ──────────────────────── */}
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--border)',
+        borderRadius: 18, overflow: 'hidden',
+      }}>
+        {/* Chart header */}
+        <div style={{
+          padding: '18px 24px 16px',
+          background: 'linear-gradient(135deg,rgba(13,148,136,.06) 0%,rgba(139,92,246,.04) 100%)',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12,
+        }}>
+          <div>
+            <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 15, color: 'var(--txt)', letterSpacing: -.3 }}>
+              Fee Collection by Class — Over Time
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2 }}>
+              Monthly payments received per class across all terms
+            </div>
+          </div>
+          {/* Collection progress pill */}
+          {totalCollected + totalOutstanding > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ fontSize: 11, color: 'var(--txt3)', fontWeight: 700, fontFamily: 'var(--font2)' }}>
+                Term {term} progress
+              </div>
+              <div style={{ position: 'relative', width: 120, height: 8, borderRadius: 99, background: 'var(--surface2)', overflow: 'hidden' }}>
+                <div style={{
+                  position: 'absolute', left: 0, top: 0, height: '100%',
+                  width: `${collectionPct}%`,
+                  background: collectionPct >= 80 ? 'var(--success)' : collectionPct >= 50 ? 'var(--brand)' : 'var(--warning)',
+                  borderRadius: 99, transition: 'width .6s ease',
+                }} />
+              </div>
+              <div style={{ fontFamily: 'var(--font3)', fontWeight: 800, fontSize: 13, color: 'var(--brand)' }}>
+                {collectionPct}%
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Chart body */}
+        <div style={{ padding: '20px 20px 16px' }}>
+          {overTime.isLoading ? (
+            <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <LoadingSpinner size="md" />
             </div>
-          ) : (chartData.data?.length ?? 0) === 0 ? (
-            <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)', fontSize: 13 }}>
-              No fee data for this term
+          ) : points.length === 0 ? (
+            <div style={{ height: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+              <div style={{ fontSize: 13, color: 'var(--txt3)', fontWeight: 600 }}>No payment data yet</div>
+              <div style={{ fontSize: 12, color: 'var(--txt3)' }}>Payments with dates will appear here as a trend chart</div>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={chartData.data} margin={{ top: 0, right: 10, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="className" tick={{ fontSize: 11, fill: 'var(--txt3)', fontFamily: 'var(--font2)' }} />
-                <YAxis tickFormatter={ugxCompact} tick={{ fontSize: 11, fill: 'var(--txt3)' }} />
-                <Tooltip
-                  formatter={(v) => ugx(Number(v))}
-                  contentStyle={{
-                    background: 'var(--surface)', border: '1px solid var(--border)',
-                    borderRadius: 8, fontSize: 12,
-                  }}
+            <ResponsiveContainer width="100%" height={320}>
+              <AreaChart data={points} margin={{ top: 10, right: 16, left: 8, bottom: 0 }}>
+                <defs>
+                  {classNames.slice(0, 8).map((cls, i) => (
+                    <linearGradient key={cls} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor={CLASS_COLORS[i % CLASS_COLORS.length]} stopOpacity={0.25} />
+                      <stop offset="95%" stopColor={CLASS_COLORS[i % CLASS_COLORS.length]} stopOpacity={0.02} />
+                    </linearGradient>
+                  ))}
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 11, fill: 'var(--txt3)', fontFamily: 'var(--font2)' }}
+                  axisLine={false} tickLine={false}
                 />
-                <Legend wrapperStyle={{ fontSize: 12, fontFamily: 'var(--font2)' }} />
-                <Bar dataKey="collected"   name="Collected"   fill="#0d9488" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="outstanding" name="Outstanding" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <YAxis
+                  tickFormatter={ugxCompact}
+                  tick={{ fontSize: 11, fill: 'var(--txt3)' }}
+                  axisLine={false} tickLine={false} width={52}
+                />
+                <Tooltip content={<ChartTooltip />} />
+                <Legend
+                  wrapperStyle={{ fontSize: 12, fontFamily: 'var(--font2)', paddingTop: 12 }}
+                />
+                {classNames.slice(0, 8).map((cls, i) => (
+                  <Area
+                    key={cls}
+                    type="monotone"
+                    dataKey={cls}
+                    stroke={CLASS_COLORS[i % CLASS_COLORS.length]}
+                    strokeWidth={2.5}
+                    fill={`url(#grad-${i})`}
+                    dot={false}
+                    activeDot={{ r: 5, strokeWidth: 2 }}
+                  />
+                ))}
+              </AreaChart>
             </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      {/* ── Class breakdown bar + Recent payments ─────────────── */}
+      <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 16 }}>
+
+        {/* Class breakdown — current term */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: 'var(--txt)' }}>
+            Term {term} — Collection by Class
+          </div>
+          {byClass.isLoading ? (
+            <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LoadingSpinner size="sm" /></div>
+          ) : (byClass.data?.length ?? 0) === 0 ? (
+            <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)', fontSize: 12 }}>No fee data for this term</div>
+          ) : (
+            <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {byClass.data?.map((c, i) => {
+                const total = c.collected + c.outstanding
+                const pct   = total > 0 ? Math.round((c.collected / total) * 100) : 0
+                return (
+                  <div key={c.className}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: CLASS_COLORS[i % CLASS_COLORS.length], display: 'inline-block' }} />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>{c.className}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                        <span style={{ fontSize: 11.5, color: 'var(--success)', fontFamily: 'var(--font3)', fontWeight: 700 }}>{ugxCompact(c.collected)}</span>
+                        <span style={{ fontSize: 10, color: 'var(--txt3)', fontWeight: 700 }}>{pct}%</span>
+                      </div>
+                    </div>
+                    <div style={{ height: 6, borderRadius: 99, background: 'var(--surface2)', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', borderRadius: 99,
+                        width: `${pct}%`,
+                        background: `linear-gradient(90deg,${CLASS_COLORS[i % CLASS_COLORS.length]},${CLASS_COLORS[(i + 1) % CLASS_COLORS.length]})`,
+                        transition: 'width .6s ease',
+                      }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
 
         {/* Recent payments */}
-        <div style={{
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--r-lg)', overflow: 'hidden',
-        }}>
-          <div style={{
-            padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)',
-            fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: 'var(--txt)',
-          }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: 'var(--txt)' }}>
             Recent Payments
           </div>
           {recent.isLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
-              <LoadingSpinner size="sm" />
-            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}><LoadingSpinner size="sm" /></div>
           ) : (
-            <div className="mob-cards">
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: 'var(--surface2)' }}>
-                  {['Student', 'Amount', 'Date', 'Receipt'].map(h => (
-                    <th key={h} style={{
-                      textAlign: 'left', fontSize: 10, fontWeight: 700,
-                      color: 'var(--txt3)', padding: '0.5rem 1rem',
-                      textTransform: 'uppercase', letterSpacing: 0.8,
-                      fontFamily: 'var(--font2)', borderBottom: '1px solid var(--border)',
-                    }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recent.data?.length === 0 ? (
-                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--txt3)', fontSize: 12 }}>No payments yet</td></tr>
-                ) : (
-                  recent.data?.map(p => <PaymentRow key={p.id} p={p} />)
-                )}
-              </tbody>
-            </table>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface2)' }}>
+                    {['Student', 'Amount', 'Date', 'Receipt'].map(h => (
+                      <th key={h} style={{ textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--txt3)', padding: '0.5rem 1rem', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'var(--font2)', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {!recent.data?.length ? (
+                    <tr><td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--txt3)', fontSize: 12 }}>No payments yet</td></tr>
+                  ) : (
+                    recent.data.map(p => <PaymentRow key={p.id} p={p} />)
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
       </div>
+
     </div>
   )
 }

@@ -218,6 +218,87 @@ export function useRecentPayments(limit = 10) {
   })
 }
 
+// ── Fee collection over time — monthly by class ───────────────
+export type MonthlyClassPoint = {
+  month:   string   // e.g. "Jan 26"
+  [cls: string]: number | string
+}
+
+export function useFeeCollectionOverTime() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['fee-over-time', user?.schoolId],
+    enabled:  !!user?.schoolId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const [paymentsRes, studentsRes, classesRes] = await Promise.all([
+        supabase
+          .from('fee_payments')
+          .select('student_id, amount_paid, payment_date')
+          .eq('school_id', user!.schoolId)
+          .not('payment_date', 'is', null)
+          .order('payment_date', { ascending: true }),
+        supabase
+          .from('students')
+          .select('id, class_id')
+          .eq('school_id', user!.schoolId),
+        supabase
+          .from('classes')
+          .select('id, name')
+          .eq('school_id', user!.schoolId)
+          .order('name', { ascending: true }),
+      ])
+
+      if (paymentsRes.error) throw paymentsRes.error
+      if (studentsRes.error) throw studentsRes.error
+      if (classesRes.error)  throw classesRes.error
+
+      const studentClass = new Map<string, string>()
+      for (const s of studentsRes.data ?? []) {
+        if (s.class_id) studentClass.set(s.id as string, s.class_id as string)
+      }
+
+      const classNames = new Map<string, string>()
+      const allClasses: string[] = []
+      for (const c of classesRes.data ?? []) {
+        classNames.set(c.id as string, c.name as string)
+        allClasses.push(c.name as string)
+      }
+
+      // Bucket: monthKey → classId → amount
+      const bucket = new Map<string, Map<string, number>>()
+
+      for (const p of paymentsRes.data ?? []) {
+        const cid = studentClass.get(p.student_id as string)
+        if (!cid) continue
+        const date = new Date(p.payment_date as string)
+        if (isNaN(date.getTime())) continue
+        const monthKey = date.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })
+        if (!bucket.has(monthKey)) bucket.set(monthKey, new Map())
+        const m = bucket.get(monthKey)!
+        m.set(cid, (m.get(cid) ?? 0) + (Number(p.amount_paid) || 0))
+      }
+
+      // Build sorted month series
+      const points: MonthlyClassPoint[] = Array.from(bucket.entries()).map(([month, classMap]) => {
+        const point: MonthlyClassPoint = { month }
+        for (const [cid, amount] of classMap.entries()) {
+          const name = classNames.get(cid) ?? cid
+          point[name] = amount
+        }
+        // Zero-fill missing classes
+        for (const name of allClasses) {
+          if (!(name in point)) point[name] = 0
+        }
+        return point
+      })
+
+      return { points, classes: allClasses }
+    },
+  })
+}
+
 // ── Fee ledger (full list with filters) ───────────────────────
 export type LedgerRow = FeePayment & {
   admissionNumber: string

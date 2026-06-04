@@ -3,7 +3,7 @@
  * Features: hero KPI band, filter bar, virtualized student cards,
  *           quick payment modal, payment history modal, Excel export.
  */
-import { useState, useMemo, useRef, useCallback } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -11,6 +11,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { useClasses, useStreams } from '../../hooks/useClasses'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
 import { ugx } from '../../hooks/useFeePayments'
 import ExcelJS from 'exceljs'
 
@@ -64,14 +65,14 @@ interface FeeStructureItem {
 // ─────────────────────────────────────────────────────────────
 
 function useBursarStudentFees(
-  classId:  string | null,
-  streamId: string | null,
-  term:     number,
-  year:     number,
+  classId:        string | null,
+  streamId:       string | null,
+  term:           number,
+  academicYearId: string | null,
 ) {
   const { user } = useAuth()
   return useQuery({
-    queryKey: ['bursar-student-fees', user?.schoolId, classId, streamId, term, year],
+    queryKey: ['bursar-student-fees', user?.schoolId, classId, streamId, term, academicYearId],
     enabled:  !!user && !!classId,
     staleTime: 30_000,
     queryFn: async (): Promise<StudentFeeRow[]> => {
@@ -95,22 +96,35 @@ function useBursarStudentFees(
       const studentIds   = safeStudents.map(s => s.id)
       if (studentIds.length === 0) return []
 
-      // 2. Fetch fee_payments for this term / year
+      // 2. Fetch fee_payments for this term / academic year
       type RawPayment = {
         id: string; student_id: string; fee_structure_id: string | null
         amount_due: number; amount_paid: number; balance: number
         payment_date: string | null; receipt_number: string | null; notes: string | null
       }
-      const { data: payments, error: payErr } = await supabase
+      let payQ = supabase
         .from('fee_payments')
         .select('id, student_id, fee_structure_id, amount_due, amount_paid, balance, payment_date, receipt_number, notes')
         .eq('school_id', user!.schoolId)
         .eq('term', term)
-        .eq('year', year)
         .in('student_id', studentIds)
+      if (academicYearId) payQ = payQ.eq('academic_year_id', academicYearId)
+      const { data: payments, error: payErr } = await payQ
       if (payErr) throw payErr
 
-      // 3. Aggregate per student
+      // 3. Fetch fee structures so students with no payment rows show as "Unpaid"
+      type RawFS = { id: string; name: string; amount: number; applies_to: string; class_id: string | null }
+      let fsQ = supabase
+        .from('fee_structure')
+        .select('id, name, amount, applies_to, class_id')
+        .eq('school_id', user!.schoolId)
+        .eq('is_active', true)
+        .eq('term', term)
+      if (academicYearId) fsQ = fsQ.eq('academic_year_id', academicYearId)
+      const { data: feeStructures } = await fsQ
+      const safeFS = (feeStructures ?? []) as unknown as RawFS[]
+
+      // 4. Aggregate payments per student
       const payMap = new Map<string, { due: number; paid: number; bal: number; rows: PaymentDetailRow[] }>()
       for (const p of (payments ?? []) as unknown as RawPayment[]) {
         const sid  = p.student_id
@@ -132,7 +146,38 @@ function useBursarStudentFees(
       }
 
       return safeStudents.map(s => {
-        const fees   = payMap.get(s.id) ?? { due: 0, paid: 0, bal: 0, rows: [] }
+        const fees = payMap.get(s.id)
+
+        // If no payment rows exist, compute expected fee from structures → show as Unpaid
+        if (!fees) {
+          const studentType = s.student_type === 'boarder' ? 'boarder' : 'day'
+          const applicable  = safeFS.filter(fs =>
+            (fs.class_id === null || fs.class_id === s.class_id) &&
+            (fs.applies_to === 'all' ||
+             (fs.applies_to === 'day_scholars' && studentType === 'day') ||
+             (fs.applies_to === 'boarders'     && studentType === 'boarder'))
+          )
+          const expectedDue = applicable.reduce((sum, fs) => sum + (Number(fs.amount) || 0), 0)
+          return {
+            id:              s.id,
+            admissionNumber: s.admission_number,
+            firstName:       s.first_name,
+            lastName:        s.last_name,
+            gender:          s.gender,
+            studentType:     studentType as 'day' | 'boarder',
+            classId:         s.class_id,
+            streamId:        s.stream_id,
+            className:       s.classes?.name ?? '',
+            streamName:      s.streams?.name ?? null,
+            amountDue:       expectedDue,
+            amountPaid:      0,
+            balance:         expectedDue,
+            pct:             0,
+            status:          expectedDue > 0 ? 'unpaid' : 'no_fees',
+            paymentRows:     [],
+          } satisfies StudentFeeRow
+        }
+
         const pct    = fees.due > 0 ? Math.round((fees.paid / fees.due) * 100) : 0
         const status: FeeStatusEx =
           fees.due === 0    ? 'no_fees'
@@ -157,27 +202,28 @@ function useBursarStudentFees(
           pct,
           status,
           paymentRows:     fees.rows,
-        }
+        } satisfies StudentFeeRow
       })
     },
   })
 }
 
-function useFeeStructures(term: number, year: number) {
+function useFeeStructures(term: number, academicYearId: string | null) {
   const { user } = useAuth()
   return useQuery({
-    queryKey: ['fee-structure-list', user?.schoolId, term, year],
+    queryKey: ['fee-structure-list', user?.schoolId, term, academicYearId],
     enabled:  !!user?.schoolId,
     staleTime: 60_000,
     queryFn: async (): Promise<FeeStructureItem[]> => {
       type RawFS = { id: string; name: string; amount: number; applies_to: string; term: number }
-      const { data, error } = await supabase
+      let q = supabase
         .from('fee_structure')
         .select('id, name, amount, applies_to, term')
         .eq('school_id', user!.schoolId)
-        .eq('academic_year_id', year)
         .eq('is_active', true)
         .order('name')
+      if (academicYearId) q = q.eq('academic_year_id', academicYearId)
+      const { data, error } = await q
       if (error) throw error
       return ((data ?? []) as unknown as RawFS[]).map(r => ({
         id:        r.id,
@@ -212,25 +258,25 @@ function useRecordPayment() {
   const qc       = useQueryClient()
   return useMutation({
     mutationFn: async (input: {
-      studentId:      string
-      feeStructureId: string | null
-      term:           number
-      year:           number
-      amountDue:      number
-      amountPaid:     number
-      paymentDate:    string
-      receiptNumber:  string | null
-      notes:          string | null
+      studentId:       string
+      feeStructureId:  string | null
+      academicYearId:  string | null
+      term:            number
+      amountDue:       number
+      amountPaid:      number
+      paymentDate:     string
+      receiptNumber:   string | null
+      notes:           string | null
     }) => {
-      // Check for existing record this student/term/year (any fee structure)
-      const { data: existing } = await supabase
+      // Check for existing record this student/term/academic_year
+      let existQ = supabase
         .from('fee_payments')
         .select('id, amount_paid, amount_due')
         .eq('school_id', user!.schoolId)
         .eq('student_id', input.studentId)
         .eq('term', input.term)
-        .eq('year', input.year)
-        .maybeSingle()
+      if (input.academicYearId) existQ = existQ.eq('academic_year_id', input.academicYearId)
+      const { data: existing } = await existQ.maybeSingle()
 
       if (existing) {
         type Ex = { id: string; amount_paid: number; amount_due: number }
@@ -253,8 +299,8 @@ function useRecordPayment() {
           school_id:        user!.schoolId,
           student_id:       input.studentId,
           fee_structure_id: input.feeStructureId,
+          academic_year_id: input.academicYearId,
           term:             input.term,
-          year:             input.year,
           amount_due:       input.amountDue,
           amount_paid:      input.amountPaid,
           balance:          bal,
@@ -358,13 +404,13 @@ const LABEL_STYLE: React.CSSProperties = {
 // ─────────────────────────────────────────────────────────────
 
 function QuickPaymentModal({
-  student, term, year, feeStructures, onClose,
+  student, term, academicYearId, feeStructures, onClose,
 }: {
-  student:       StudentFeeRow
-  term:          number
-  year:          number
-  feeStructures: FeeStructureItem[]
-  onClose:       () => void
+  student:        StudentFeeRow
+  term:           number
+  academicYearId: string | null
+  feeStructures:  FeeStructureItem[]
+  onClose:        () => void
 }) {
   const toast      = useToast()
   const record     = useRecordPayment()
@@ -397,7 +443,8 @@ function QuickPaymentModal({
       await record.mutateAsync({
         studentId:      student.id,
         feeStructureId: feeStructureId || null,
-        term, year,
+        academicYearId,
+        term,
         amountDue:      due,
         amountPaid:     paid,
         paymentDate,
@@ -1062,7 +1109,7 @@ function ActionBtn({
 async function exportToExcel(
   rows:       StudentFeeRow[],
   term:       number,
-  year:       number,
+  year:       string,
   schoolName: string,
   userName:   string,
 ) {
@@ -1250,20 +1297,35 @@ export function BursarStudentsPage() {
   const [classId,   setClassId]   = useState<string | null>(null)
   const [streamId,  setStreamId]  = useState<string | null>(null)
   const [term,      setTerm]      = useState<1 | 2 | 3>(1)
-  const [year,      setYear]      = useState(CURRENT_YEAR)
+  const [academicYearId, setAcademicYearId] = useState<string | null>(null)
   const [search,    setSearch]    = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
   const [payStudent,     setPayStudent]     = useState<StudentFeeRow | null>(null)
   const [historyStudent, setHistoryStudent] = useState<StudentFeeRow | null>(null)
 
-  const { data: classes } = useClasses()
-  const { data: streams } = useStreams(classId)
-  const { data: feeStructures = [] } = useFeeStructures(term, year)
+  const { data: classes }       = useClasses()
+  const { data: academicYears } = useAcademicYears()
+  const { data: streams }       = useStreams(classId)
+  const { data: feeStructures = [] } = useFeeStructures(term, academicYearId)
   const { data: schoolProfile }      = useSchoolProfile()
 
+  // Auto-select active academic year and first class on load
+  useEffect(() => {
+    if (academicYears && academicYears.length > 0 && !academicYearId) {
+      const active = academicYears.find(y => y.isActive) ?? academicYears[0]
+      setAcademicYearId(active.id)
+    }
+  }, [academicYears, academicYearId])
+
+  useEffect(() => {
+    if (classes && classes.length > 0 && !classId) {
+      setClassId(classes[0].id)
+    }
+  }, [classes, classId])
+
   const { data: students = [], isLoading, error } = useBursarStudentFees(
-    classId, streamId, term, year,
+    classId, streamId, term, academicYearId,
   )
 
   // ── Filtered list ─────────────────────────────────────────
@@ -1311,8 +1373,9 @@ export function BursarStudentsPage() {
       return
     }
     try {
+      const yearLabel = (academicYears ?? []).find(y => y.id === academicYearId)?.name ?? String(new Date().getFullYear())
       await exportToExcel(
-        filtered, term, year,
+        filtered, term, yearLabel,
         schoolProfile?.school_name ?? 'School',
         user?.name ?? 'Bursar',
       )
@@ -1449,14 +1512,18 @@ export function BursarStudentsPage() {
           ))}
         </div>
 
-        {/* Year */}
-        <input
-          type="number"
-          value={year}
-          onChange={e => setYear(Number(e.target.value))}
-          aria-label="Year"
-          style={{ ...selectStyle, width: 80, padding: '0.38rem 0.6rem', fontFamily: 'var(--font3)', fontWeight: 700 }}
-        />
+        {/* Academic Year */}
+        <select
+          value={academicYearId ?? ''}
+          onChange={e => setAcademicYearId(e.target.value || null)}
+          aria-label="Academic Year"
+          style={selectStyle}
+        >
+          <option value="">All Years</option>
+          {(academicYears ?? []).map(y => (
+            <option key={y.id} value={y.id}>{y.name}{y.isActive ? ' (Active)' : ''}</option>
+          ))}
+        </select>
 
         {/* Class */}
         <select
@@ -1552,7 +1619,7 @@ export function BursarStudentsPage() {
               </div>
               <div style={{ fontSize: 13, color: 'var(--txt3)', maxWidth: 340, lineHeight: 1.6 }}>
                 Choose a class from the filter bar above to view student fee records
-                for Term {term}, {year}.
+                for Term {term}.
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -1647,7 +1714,7 @@ export function BursarStudentsPage() {
         <QuickPaymentModal
           student={payStudent}
           term={term}
-          year={year}
+          academicYearId={academicYearId}
           feeStructures={feeStructures}
           onClose={() => setPayStudent(null)}
         />
