@@ -1114,22 +1114,6 @@ function MyTimetableTab({ classId, streamId }: { classId: string | null; streamI
     return Array.from({ length: max - min + 1 }, (_, i) => min + i)
   }, [slots, periodDefs])
 
-  if (!classId) {
-    return (
-      <EmptyState
-        icon={
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.8">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <line x1="3" y1="9" x2="21" y2="9" />
-            <line x1="9" y1="21" x2="9" y2="9" />
-          </svg>
-        }
-        title="No Class Assigned"
-        body="Your class has not been assigned yet. Contact the Secretary."
-      />
-    )
-  }
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Term / year selector */}
@@ -1140,13 +1124,27 @@ function MyTimetableTab({ classId, streamId }: { classId: string | null; streamI
         <input type="number" value={year} onChange={e => setYear(parseInt(e.target.value))} className="sui-input" style={{ width: 84 }} />
       </div>
 
-      {isLoading && (
+      {!classId && (
+        <EmptyState
+          icon={
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.8">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <line x1="3" y1="9" x2="21" y2="9" />
+              <line x1="9" y1="21" x2="9" y2="9" />
+            </svg>
+          }
+          title="No Class Assigned"
+          body="Your class has not been assigned yet. Contact the Secretary."
+        />
+      )}
+
+      {classId && isLoading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[1, 2, 3, 4].map(i => <Skeleton key={i} h={64} r={12} />)}
         </div>
       )}
 
-      {!isLoading && slots.length === 0 && (
+      {classId && !isLoading && slots.length === 0 && (
         <EmptyState
           icon={
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.8">
@@ -1159,7 +1157,7 @@ function MyTimetableTab({ classId, streamId }: { classId: string | null; streamI
         />
       )}
 
-      {!isLoading && slots.length > 0 && (
+      {classId && !isLoading && slots.length > 0 && (
         <>
           {/* Day pill tabs */}
           <div style={{
