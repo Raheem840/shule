@@ -78,13 +78,42 @@ function triggerCsvDownload(filename: string, content: string): void {
 }
 
 export function generateImportTemplate(type: TemplateType): void {
-  if (type === 'students') {
-    const csv = buildCsv(STUDENT_TEMPLATE.headers, STUDENT_TEMPLATE.rows)
-    triggerCsvDownload('shule_student_import_template.csv', csv)
-  } else {
-    const csv = buildCsv(STAFF_TEMPLATE.headers, STAFF_TEMPLATE.rows)
-    triggerCsvDownload('shule_staff_import_template.csv', csv)
-  }
+  // Use pre-built static templates with 15-25 realistic Ugandan records
+  const staticFile = type === 'students'
+    ? '/templates/students_import_template.csv'
+    : '/templates/staff_import_template.csv'
+  const filename = type === 'students'
+    ? 'shule_student_import_template.csv'
+    : 'shule_staff_import_template.csv'
+
+  const a = document.createElement('a')
+  a.href     = staticFile
+  a.download = filename
+  a.click()
+}
+
+/** Download the pre-built fee payments template (25 rows across all classes) */
+export function downloadFeeTemplate(): void {
+  const a = document.createElement('a')
+  a.href     = '/templates/fee_payments_import_template.csv'
+  a.download = 'shule_fee_payments_template.csv'
+  a.click()
+}
+
+/** Download the pre-built exam marks template (20 rows, one class) */
+export function downloadExamMarksTemplate(): void {
+  const a = document.createElement('a')
+  a.href     = '/templates/exam_marks_import_template.csv'
+  a.download = 'shule_exam_marks_template.csv'
+  a.click()
+}
+
+/** Download the pre-built attendance template (20 rows, two days) */
+export function downloadAttendanceTemplate(): void {
+  const a = document.createElement('a')
+  a.href     = '/templates/attendance_import_template.csv'
+  a.download = 'shule_attendance_template.csv'
+  a.click()
 }
 
 // ── Shared xlsx helpers ───────────────────────────────────────

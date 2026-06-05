@@ -3,7 +3,7 @@ import { ImportWizard } from '../../components/shared/ImportWizard'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { generateFeeTemplate } from '../../lib/importTemplates'
+import { downloadFeeTemplate } from '../../lib/importTemplates'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import type { ColumnSpec, ParsedRow, ImportResult } from '../../components/shared/ImportWizard'
@@ -403,11 +403,11 @@ export function BursarImportPage() {
             Upload a spreadsheet · student names + class names accepted · admission numbers optional
           </p>
           <button
-            onClick={() => void generateFeeTemplate()}
+            onClick={() => downloadFeeTemplate()}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 10, border: '1.5px solid rgba(255,255,255,.35)', background: 'rgba(255,255,255,.12)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', backdropFilter: 'blur(8px)' }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Download Template (.xlsx)
+            Download Template (.csv)
           </button>
         </div>
       </div>

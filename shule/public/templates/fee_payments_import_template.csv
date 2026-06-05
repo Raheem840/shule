@@ -1,0 +1,26 @@
+student_name,class_name,stream_name,term,year,amount_paid,amount_due,payment_date,receipt_number,notes
+Amara Nakato,S.1,East,1,2026,250000,450000,2026-02-03,REC-001,Term 1 partial payment
+Brian Ssemwanga,S.1,East,1,2026,450000,450000,2026-02-01,REC-002,Term 1 full payment
+Christine Aber,S.1,West,1,2026,0,450000,,,Bursary case - payment pending
+David Okello,S.1,West,1,2026,200000,450000,2026-02-05,REC-003,Term 1 partial
+Esther Namukasa,S.1,East,1,2026,450000,450000,2026-01-28,REC-004,
+Frank Ochieng,S.1,West,1,2026,300000,450000,2026-02-10,REC-005,Balance outstanding
+Grace Atim,S.2,East,1,2026,500000,500000,2026-02-02,REC-006,Full payment
+Henry Mubiru,S.2,East,1,2026,250000,500000,2026-02-07,REC-007,Instalment 1 of 2
+Irene Nalwoga,S.2,West,1,2026,500000,500000,2026-01-30,REC-008,
+James Byarugaba,S.2,West,1,2026,0,500000,,,Government bursary student
+Josephine Auma,S.3,East,1,2026,550000,550000,2026-02-04,REC-009,
+Kenneth Turyahabwe,S.3,East,1,2026,275000,550000,2026-02-06,REC-010,Half payment
+Lydia Nassazi,S.3,West,1,2026,550000,550000,2026-02-01,REC-011,
+Michael Ocen,S.3,West,1,2026,100000,550000,2026-02-15,REC-012,Token payment - balance owed
+Naomi Kisakye,S.4,East,1,2026,600000,600000,2026-01-29,REC-013,
+Patrick Ssali,S.4,East,1,2026,600000,600000,2026-02-03,REC-014,Full payment
+Rachel Achola,S.4,West,1,2026,300000,600000,2026-02-08,REC-015,Instalment 1
+Samuel Waweru,S.4,West,1,2026,0,600000,,,International student - invoice sent
+Tabitha Nekesa,S.5,,1,2026,650000,650000,2026-02-02,REC-016,
+Umar Ddumba,S.5,,1,2026,325000,650000,2026-02-11,REC-017,Half payment
+Vivian Nankya,S.5,,1,2026,650000,650000,2026-01-31,REC-018,
+William Opio,S.6,,1,2026,700000,700000,2026-02-01,REC-019,
+Xenia Nabirye,S.6,,1,2026,700000,700000,2026-02-05,REC-020,
+Yusuf Sentamu,S.6,,1,2026,350000,700000,2026-02-09,REC-021,Instalment 1
+Zoe Atuhaire,S.6,,1,2026,700000,700000,2026-01-27,REC-022,Early payment
