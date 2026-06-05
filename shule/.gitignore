@@ -62,3 +62,6 @@ playwright-report/
 e2e-results*.txt
 unit-test-results.txt
 dev-dist/
+.env.*.local
+.supabase-demo-ref
+Thumbs.db
