@@ -177,7 +177,8 @@ pdf_url, unlock_reason, unlock_count(int DEFAULT 0), created_at, updated_at
 TABLE: school_events | RLS: ON
 id, school_id, title, event_date, event_type, description,
 subject_id, class_id, stream_id, total_marks, pass_mark,
-journaled(bool), journal_id, term(text), year(int), created_by, created_at
+journaled(bool), journal_id, term(text), year(int), created_by, created_at,
+visible_to_parents(bool DEFAULT false) *** column name is visible_to_parents — NOT viewable_by_parents ***
 
 TABLE: school_profile | RLS: OFF (readable by all)
 id, school_name, short_name, logo_url, motto, primary_color,
@@ -185,7 +186,9 @@ curriculum, deployment_mode, currency,
 at_api_key, at_username, at_sender_id *** use these for Africa's Talking ***,
 sms_api_key, sms_username, sms_sender_id, sms_environment,
 wa_phone_number_id, wa_access_token, wa_business_account_id,
-report_template_url, timezone, language, created_at
+report_template_url, timezone, language,
+parent_portal_open(bool NOT NULL DEFAULT true) *** controls parent portal access — toggled by IT admin + principal ***,
+created_at
 
 TABLE: school_registry | RLS: ON (deny all school JWTs)
 id, school_id, contact_name, contact_email, contact_phone,
@@ -201,6 +204,7 @@ id, school_id, student_id, parent_phone, channel, message,
 status, sent_at, delivered_at, created_at
 
 TABLE: staff | RLS: OFF ⚠ MUST ENABLE — see useStaff.ts for SQL
+-- staff_number auto-generated as {short_name}/STAFF/{seq} by trg_gen_staff_number when blank on INSERT
 id, school_id, auth_user_id, staff_number, first_name, last_name, role,
 department_id, subjects(text[]), classes(uuid[]),
 qualification_level, qualification_title, institution, graduation_year,
@@ -228,6 +232,7 @@ rating(1-5), hardest_subject_id, favourite_subject_id,
 teacher_rating(1-5), suggestions, submitted_at
 
 TABLE: students | RLS: ON
+-- admission_number auto-generated as {short_name}/{YYYY}/{seq} by trg_gen_admission_number when blank on INSERT
 id, school_id, class_id, stream_id, academic_year_id, admission_number,
 first_name, last_name, dob, gender, nationality(DEFAULT 'Ugandan'),
 religion, photo_url, medical_notes, student_type('day'|'boarder'),
