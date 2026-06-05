@@ -39,3 +39,12 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_unread
 CREATE INDEX IF NOT EXISTS idx_sync_queue_pending
   ON public.sync_queue(school_id, status, created_at)
   WHERE status = 'pending';
+
+-- School events: created_by lookup (teacher view)
+CREATE INDEX IF NOT EXISTS idx_school_events_created_by
+  ON public.school_events(school_id, created_by);
+
+-- School events: parent portal visibility filter
+CREATE INDEX IF NOT EXISTS idx_school_events_visible_parents
+  ON public.school_events(school_id, visible_to_parents, event_date)
+  WHERE visible_to_parents = true;
