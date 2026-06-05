@@ -14,6 +14,7 @@ import { uploadDocument } from '../../lib/storage'
 import { uploadStaffPhoto } from '../../lib/uploadStaffPhoto'
 import { validateFile } from '../../lib/fileValidation'
 import { useAuth } from '../../store/AuthContext'
+import { capitalizeName, normalizeEmail, normalizePhone } from '../../lib/validators'
 import type { UserRole } from '../../types/app'
 
 // ── Image compression ─────────────────────────────────────────
@@ -238,6 +239,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
   const [step,         setStep]         = useState(1)
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null)
   const [uploading,    setUploading]    = useState<Record<number, boolean>>({})
+  const [phoneWarning, setPhoneWarning] = useState<string>('')
   // Auth account activation is IT Admin's responsibility — no credential state here
   const photoRef = useRef<HTMLInputElement>(null)
 
@@ -295,7 +297,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
   }, [step, nextNum])
 
   useEffect(() => {
-    if (!open) { reset(); setStep(1); setPhotoDataUrl(null); setUploading({}) }
+    if (!open) { reset(); setStep(1); setPhotoDataUrl(null); setUploading({}); setPhoneWarning('') }
   }, [open])
 
   // When toggling mode, reset to step 1 so we never land on an invalid step
@@ -518,21 +520,66 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
 
             {/* Name row — always shown */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <Input label="First Name *" {...register('firstName')} error={errors.firstName?.message} placeholder="e.g. Kigongo" />
-              <Input label="Last Name *"  {...register('lastName')}  error={errors.lastName?.message}  placeholder="e.g. Nakato" />
+              <Input
+                label="First Name *"
+                {...register('firstName')}
+                onBlur={e => { const v = capitalizeName(e.target.value); if (v !== e.target.value) setValue('firstName', v) }}
+                error={errors.firstName?.message}
+                placeholder="e.g. Kigongo"
+              />
+              <Input
+                label="Last Name *"
+                {...register('lastName')}
+                onBlur={e => { const v = capitalizeName(e.target.value); if (v !== e.target.value) setValue('lastName', v) }}
+                error={errors.lastName?.message}
+                placeholder="e.g. Nakato"
+              />
             </div>
 
             {/* Existing staff: simplified fields */}
             {isExisting ? (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <Input label="Email *" type="email" {...register('email')} error={errors.email?.message} placeholder="name@school.ac.ug" />
-                  <Input label="Phone" type="tel" {...register('phone')} placeholder="+256 700 000 000" />
+                  <Input
+                    label="Email *"
+                    type="email"
+                    {...register('email')}
+                    onBlur={e => { const v = normalizeEmail(e.target.value); if (v !== e.target.value) setValue('email', v) }}
+                    error={errors.email?.message}
+                    placeholder="name@school.ac.ug"
+                  />
+                  <div>
+                    <Input
+                      label="Phone"
+                      type="tel"
+                      {...register('phone')}
+                      onBlur={e => {
+                        const result = normalizePhone(e.target.value)
+                        if (result.normalized !== e.target.value) setValue('phone', result.normalized)
+                        setPhoneWarning(result.warning ?? '')
+                      }}
+                      placeholder="+256 700 000 000"
+                    />
+                    {phoneWarning && (
+                      <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        {phoneWarning}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <Select label="Gender" {...register('gender')} placeholder="Select (optional)"
                     options={[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }]} />
-                  <Input label="National ID" {...register('nationalId')} placeholder="Optional — add later" />
+                  <Input
+                    label="National ID"
+                    {...register('nationalId')}
+                    onBlur={e => { const v = e.target.value.trim().toUpperCase(); if (v !== e.target.value) setValue('nationalId', v) }}
+                    placeholder="Optional — add later"
+                  />
                 </div>
               </>
             ) : (
@@ -545,11 +592,45 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <Input label="Nationality" {...register('nationality')} placeholder="e.g. Ugandan" />
-                  <Input label="National ID Number *" {...register('nationalId')} error={errors.nationalId?.message} placeholder="CM86010012345XXXX" />
+                  <Input
+                    label="National ID Number *"
+                    {...register('nationalId')}
+                    onBlur={e => { const v = e.target.value.trim().toUpperCase(); if (v !== e.target.value) setValue('nationalId', v) }}
+                    error={errors.nationalId?.message}
+                    placeholder="CM86010012345XXXX"
+                  />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <Input label="Phone" type="tel" {...register('phone')} placeholder="+256 700 000 000" />
-                  <Input label="Email" type="email" {...register('email')} error={errors.email?.message} placeholder="name@school.ac.ug" />
+                  <div>
+                    <Input
+                      label="Phone"
+                      type="tel"
+                      {...register('phone')}
+                      onBlur={e => {
+                        const result = normalizePhone(e.target.value)
+                        if (result.normalized !== e.target.value) setValue('phone', result.normalized)
+                        setPhoneWarning(result.warning ?? '')
+                      }}
+                      placeholder="+256 700 000 000"
+                    />
+                    {phoneWarning && (
+                      <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        {phoneWarning}
+                      </div>
+                    )}
+                  </div>
+                  <Input
+                    label="Email"
+                    type="email"
+                    {...register('email')}
+                    onBlur={e => { const v = normalizeEmail(e.target.value); if (v !== e.target.value) setValue('email', v) }}
+                    error={errors.email?.message}
+                    placeholder="name@school.ac.ug"
+                  />
                 </div>
                 <Input label="Address" {...register('address')} placeholder="e.g. Kampala, Nakawa Division" />
               </>

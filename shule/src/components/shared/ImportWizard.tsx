@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import ExcelJS from 'exceljs'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
+import type { RowWarning } from '../../lib/validators'
 
 // ── Public types ──────────────────────────────────────────────
 export type ImportContext = 'students' | 'staff' | 'fees' | 'marks'
@@ -29,6 +30,8 @@ interface ImportWizardProps {
   optionalFields: ColumnSpec[]
   onComplete:     (rows: ParsedRow[], strategy: ConflictStrategy) => Promise<ImportResult>
   onClose?:       () => void
+  /** Optional per-row validator — if provided, preview shows error/warning indicators */
+  validateRow?:   (row: Record<string, unknown>) => RowWarning[]
 }
 
 // ── Internal types ────────────────────────────────────────────
@@ -207,7 +210,7 @@ function WizardSteps({ current }: { current: number }) {
 }
 
 // ── Main component ────────────────────────────────────────────
-export function ImportWizard({ context, requiredFields, optionalFields, onComplete, onClose }: ImportWizardProps) {
+export function ImportWizard({ context, requiredFields, optionalFields, onComplete, onClose, validateRow }: ImportWizardProps) {
   const allFields = [...requiredFields, ...optionalFields]
 
   const [step,       setStep]       = useState(1)
@@ -291,6 +294,13 @@ export function ImportWizard({ context, requiredFields, optionalFields, onComple
   const validCount   = validated.filter(r => r.status === 'valid').length
   const errorCount   = validated.filter(r => r.status === 'error').length
   const requiredMapped = requiredFields.every(f => Object.values(mapping).includes(f.key))
+
+  // ── Per-row warnings from external validateRow prop ──────────
+  const rowWarnings: RowWarning[][] = validateRow
+    ? validated.map(row => validateRow(row.data as Record<string, unknown>))
+    : validated.map(() => [])
+  const extErrorCount   = rowWarnings.filter(w => w.some(x => x.severity === 'error')).length
+  const extWarningCount = rowWarnings.filter(w => w.some(x => x.severity === 'warning') && !w.some(x => x.severity === 'error')).length
 
   // ── Render ─────────────────────────────────────────────────
   return (
@@ -434,6 +444,26 @@ export function ImportWizard({ context, requiredFields, optionalFields, onComple
             <Badge variant="muted">{validated.length} total rows</Badge>
           </div>
 
+          {/* External validator summary banner */}
+          {validateRow && (extErrorCount > 0 || extWarningCount > 0) && (
+            <div style={{
+              padding: '0.6rem 0.85rem',
+              background: extErrorCount > 0 ? 'rgba(244,63,94,0.06)' : 'rgba(245,158,11,0.06)',
+              border: `1px solid ${extErrorCount > 0 ? 'rgba(244,63,94,0.25)' : 'rgba(245,158,11,0.3)'}`,
+              borderRadius: 'var(--r)', fontSize: 12.5, fontWeight: 600,
+              color: extErrorCount > 0 ? 'var(--danger)' : 'var(--warning)',
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              {extErrorCount > 0 && <span>{extErrorCount} row{extErrorCount > 1 ? 's' : ''} have errors</span>}
+              {extErrorCount > 0 && extWarningCount > 0 && <span style={{ color: 'var(--txt3)' }}>·</span>}
+              {extWarningCount > 0 && <span style={{ color: 'var(--warning)' }}>{extWarningCount} row{extWarningCount > 1 ? 's' : ''} have warnings</span>}
+            </div>
+          )}
+
           {/* Preview table */}
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 340, border: '1px solid var(--border)', borderRadius: 'var(--r)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -444,24 +474,42 @@ export function ImportWizard({ context, requiredFields, optionalFields, onComple
                   {allFields.filter(f => Object.values(mapping).includes(f.key)).map(f => (
                     <th key={f.key} style={thStyle}>{f.label}</th>
                   ))}
+                  {validateRow && <th style={{ ...thStyle, width: 72 }}>Issues</th>}
                 </tr>
               </thead>
               <tbody>
-                {validated.map((row, i) => (
-                  <tr key={i} style={{ background: row.status === 'error' ? 'rgba(244,63,94,0.05)' : row.status === 'warning' ? 'rgba(245,158,11,0.05)' : 'transparent' }}>
-                    <td style={tdStyle}>{i + 1}</td>
-                    <td style={tdStyle}>
-                      <Badge variant={row.status === 'error' ? 'red' : row.status === 'warning' ? 'amber' : 'green'} dot>
-                        {row.status}
-                      </Badge>
-                    </td>
-                    {allFields.filter(f => Object.values(mapping).includes(f.key)).map(f => (
-                      <td key={f.key} style={{ ...tdStyle, color: row.errors.some(e => e.includes(f.label)) ? 'var(--danger)' : 'var(--txt2)' }}>
-                        {row.data[f.key] || <span style={{ color: 'var(--txt3)' }}>—</span>}
+                {validated.map((row, i) => {
+                  const extWarns   = rowWarnings[i] ?? []
+                  const hasExtErr  = extWarns.some(w => w.severity === 'error')
+                  const hasExtWarn = extWarns.some(w => w.severity === 'warning')
+                  const leftBorder = row.status === 'error' || hasExtErr
+                    ? '3px solid var(--danger)'
+                    : hasExtWarn ? '3px solid var(--warning)' : '3px solid transparent'
+                  const rowBg = row.status === 'error' || hasExtErr
+                    ? 'rgba(244,63,94,0.05)'
+                    : hasExtWarn ? 'rgba(245,158,11,0.05)' : 'transparent'
+                  return (
+                    <tr key={i} style={{ background: rowBg, borderLeft: leftBorder }}>
+                      <td style={tdStyle}>{i + 1}</td>
+                      <td style={tdStyle}>
+                        <Badge variant={row.status === 'error' ? 'red' : row.status === 'warning' ? 'amber' : 'green'} dot>
+                          {row.status}
+                        </Badge>
                       </td>
-                    ))}
-                  </tr>
-                ))}
+                      {allFields.filter(f => Object.values(mapping).includes(f.key)).map(f => (
+                        <td key={f.key} style={{ ...tdStyle, color: row.errors.some(e => e.includes(f.label)) ? 'var(--danger)' : 'var(--txt2)' }}>
+                          {row.data[f.key] || <span style={{ color: 'var(--txt3)' }}>—</span>}
+                        </td>
+                      ))}
+                      {validateRow && (
+                        <td style={tdStyle}>
+                          {hasExtErr && <span style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11 }}>● {extWarns.filter(w => w.severity === 'error').length} err</span>}
+                          {!hasExtErr && hasExtWarn && <span style={{ color: 'var(--warning)', fontWeight: 700, fontSize: 11 }}>● {extWarns.length} warn</span>}
+                        </td>
+                      )}
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

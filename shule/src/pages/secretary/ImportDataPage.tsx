@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { ImportWizard } from '../../components/shared/ImportWizard'
 import { generateImportTemplate } from '../../lib/importTemplates'
 import type { ColumnSpec, ParsedRow, ImportResult } from '../../components/shared/ImportWizard'
+import { validateStudentRow, validateStaffRow } from '../../lib/validators'
 
 // ── Column specs ─────────────────────────────────────────────────────────────
 // admission_number is OPTIONAL — the DB trigger auto-generates it when blank
@@ -486,6 +487,7 @@ export function ImportDataPage() {
         requiredFields={mode === 'students' ? STUDENT_REQUIRED : STAFF_REQUIRED}
         optionalFields={mode === 'students' ? STUDENT_OPTIONAL : STAFF_OPTIONAL}
         onComplete={mode === 'students' ? handleStudentImport : handleStaffImport}
+        validateRow={mode === 'students' ? validateStudentRow : validateStaffRow}
       />
 
       {/* Post-import: student activation notice + assigned numbers */}

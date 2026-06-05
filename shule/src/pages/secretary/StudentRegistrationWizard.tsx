@@ -15,6 +15,7 @@ import { useClasses, useStreams } from '../../hooks/useClasses'
 import { supabase } from '../../lib/supabase'
 import { uploadFile, BUCKETS } from '../../lib/storage'
 import { useAuth } from '../../store/AuthContext'
+import { capitalizeName, capitalizeFirst, normalizePhone } from '../../lib/validators'
 import type { Class, Stream } from '../../types/app'
 
 // ── Image compression ─────────────────────────────────────────
@@ -219,9 +220,10 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 // ── Main wizard ───────────────────────────────────────────────
 export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
-  const [step,         setStep]         = useState(1)
-  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null)
-  const [submitting,   setSubmitting]   = useState(false)
+  const [step,              setStep]              = useState(1)
+  const [photoDataUrl,      setPhotoDataUrl]      = useState<string | null>(null)
+  const [submitting,        setSubmitting]        = useState(false)
+  const [guardianPhoneWarn, setGuardianPhoneWarn] = useState<Record<number, string>>({})
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   const { user }               = useAuth()
@@ -259,6 +261,7 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
       setStep(1)
       setPhotoDataUrl(null)
       setSubmitting(false)
+      setGuardianPhoneWarn({})
     }
   }, [open])
 
@@ -436,8 +439,20 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <Input label="First Name *" {...register('firstName')} error={errors.firstName?.message} placeholder="e.g. Amara" />
-                <Input label="Last Name *"  {...register('lastName')}  error={errors.lastName?.message}  placeholder="e.g. Nakato" />
+                <Input
+                  label="First Name *"
+                  {...register('firstName')}
+                  onBlur={e => { const v = capitalizeName(e.target.value); if (v !== e.target.value) setValue('firstName', v) }}
+                  error={errors.firstName?.message}
+                  placeholder="e.g. Amara"
+                />
+                <Input
+                  label="Last Name *"
+                  {...register('lastName')}
+                  onBlur={e => { const v = capitalizeName(e.target.value); if (v !== e.target.value) setValue('lastName', v) }}
+                  error={errors.lastName?.message}
+                  placeholder="e.g. Nakato"
+                />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
@@ -452,8 +467,18 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <Input label="Nationality" {...register('nationality')} placeholder="e.g. Ugandan" />
-                <Input label="Religion"    {...register('religion')}    placeholder="e.g. Christian" />
+                <Input
+                  label="Nationality"
+                  {...register('nationality')}
+                  onBlur={e => { const v = capitalizeFirst(e.target.value); if (v !== e.target.value) setValue('nationality', v) }}
+                  placeholder="e.g. Ugandan"
+                />
+                <Input
+                  label="Religion"
+                  {...register('religion')}
+                  onBlur={e => { const v = capitalizeFirst(e.target.value); if (v !== e.target.value) setValue('religion', v) }}
+                  placeholder="e.g. Christian"
+                />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -520,7 +545,12 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
                 </div>
               </div>
 
-              <Input label="Previous School" {...register('previousSchool')} placeholder="Name of previous school (optional)" />
+              <Input
+                label="Previous School"
+                {...register('previousSchool')}
+                onBlur={e => { const v = capitalizeFirst(e.target.value); if (v !== e.target.value) setValue('previousSchool', v) }}
+                placeholder="Name of previous school (optional)"
+              />
             </div>
           )}
 
@@ -582,7 +612,13 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
                     {/* Fields */}
                     <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                        <Input label="Full Name *" {...register(`guardians.${idx}.guardianName`)} error={errors.guardians?.[idx]?.guardianName?.message} placeholder="Guardian's full name" />
+                        <Input
+                          label="Full Name *"
+                          {...register(`guardians.${idx}.guardianName`)}
+                          onBlur={e => { const v = capitalizeName(e.target.value); if (v !== e.target.value) setValue(`guardians.${idx}.guardianName`, v) }}
+                          error={errors.guardians?.[idx]?.guardianName?.message}
+                          placeholder="Guardian's full name"
+                        />
                         <Select
                           label="Relationship *"
                           {...register(`guardians.${idx}.relationship`)}
@@ -602,7 +638,29 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                        <Input label="Phone *" type="tel" {...register(`guardians.${idx}.phone`)} error={errors.guardians?.[idx]?.phone?.message} placeholder="+256 700 000 000" />
+                        <div>
+                          <Input
+                            label="Phone *"
+                            type="tel"
+                            {...register(`guardians.${idx}.phone`)}
+                            onBlur={e => {
+                              const result = normalizePhone(e.target.value)
+                              if (result.normalized !== e.target.value) setValue(`guardians.${idx}.phone`, result.normalized)
+                              setGuardianPhoneWarn(prev => ({ ...prev, [idx]: result.warning ?? '' }))
+                            }}
+                            error={errors.guardians?.[idx]?.phone?.message}
+                            placeholder="+256 700 000 000"
+                          />
+                          {guardianPhoneWarn[idx] && (
+                            <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                              </svg>
+                              {guardianPhoneWarn[idx]}
+                            </div>
+                          )}
+                        </div>
                         <Input label="Email"   type="email" {...register(`guardians.${idx}.email`)} error={errors.guardians?.[idx]?.email?.message} placeholder="guardian@email.com" />
                       </div>
 
