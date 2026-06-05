@@ -40,6 +40,7 @@ interface MatchedRow {
   candidates:  StudentRec[]   // full class pool for close-match dropdown
   chosenId:    string | null  // null = not yet resolved
   skipped:     boolean
+  dbClassName: string         // DB-stored class name (e.g. "S.3 East") — used as bucket key
 }
 
 type ImportStage = 'wizard' | 'matching' | 'preview' | 'importing' | 'done'
@@ -206,7 +207,8 @@ export function BursarImportPage() {
 
         // Path A: admission_number provided — direct lookup
         if (admNo) {
-          const found = students.find(s => String(s.admission_number ?? '').trim() === admNo)
+          const found      = students.find(s => String(s.admission_number ?? '').trim() === admNo)
+          const foundClass = found ? classes.find(c => c.id === found.class_id) : null
           return {
             rowIndex:    idx,
             rawRow:      row,
@@ -215,6 +217,7 @@ export function BursarImportPage() {
             candidates:  [],
             chosenId:    found ? found.id : null,
             skipped:     !found,
+            dbClassName: foundClass?.name ?? String(row.class_name ?? 'Unknown').trim(),
           }
         }
 
@@ -252,19 +255,21 @@ export function BursarImportPage() {
         const rawStudentName = String(row.student_name ?? '').trim()
         const normInput      = normalizeName(rawStudentName)
 
+        const dbClass = matchedClass?.name ?? String(row.class_name ?? 'Unknown').trim()
+
         // Exact full-name match
         const exact = pool.find(s => normalizeName(`${s.first_name} ${s.last_name}`) === normInput)
         if (exact) {
-          return { rowIndex: idx, rawRow: row, matchStatus: 'matched', student: exact, candidates: [], chosenId: exact.id, skipped: false }
+          return { rowIndex: idx, rawRow: row, matchStatus: 'matched', student: exact, candidates: [], chosenId: exact.id, skipped: false, dbClassName: dbClass }
         }
 
         // Levenshtein ≤ 2
         const close = pool.filter(s => levenshtein(normInput, normalizeName(`${s.first_name} ${s.last_name}`)) <= 2)
         if (close.length > 0) {
-          return { rowIndex: idx, rawRow: row, matchStatus: 'close', student: close[0], candidates: pool, chosenId: null, skipped: false }
+          return { rowIndex: idx, rawRow: row, matchStatus: 'close', student: close[0], candidates: pool, chosenId: null, skipped: false, dbClassName: dbClass }
         }
 
-        return { rowIndex: idx, rawRow: row, matchStatus: 'unmatched', student: null, candidates: pool, chosenId: null, skipped: true }
+        return { rowIndex: idx, rawRow: row, matchStatus: 'unmatched', student: null, candidates: pool, chosenId: null, skipped: true, dbClassName: dbClass }
       })
 
       setMatchedRows(matched)
@@ -372,9 +377,10 @@ export function BursarImportPage() {
   const canImport      = pendingClose === 0 && willImport > 0
 
   // Group rows by class name for preview
+  // Group by DB class name so headers always show the school's canonical format (e.g. "S.3 East")
   const classBuckets = new Map<string, MatchedRow[]>()
   matchedRows.forEach(m => {
-    const key = String(m.rawRow.class_name ?? 'Unknown Class').trim()
+    const key = m.dbClassName || String(m.rawRow.class_name ?? 'Unknown Class').trim()
     const arr = classBuckets.get(key) ?? []
     arr.push(m)
     classBuckets.set(key, arr)
