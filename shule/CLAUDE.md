@@ -153,7 +153,8 @@ created_by, created_at, updated_at
 
 TABLE: fee_structure | RLS: ON
 id, school_id, name, amount, applies_to, term(int), academic_year_id,
-is_active(bool), created_at
+is_active(bool), is_compulsory(bool DEFAULT true), class_id(uuid nullable), created_at
+-- fee_payments has NO year column — academic_year_id is the year reference
 
 TABLE: messages | RLS: ON
 id, school_id, from_user_id, to_user_id, is_announcement(bool),
