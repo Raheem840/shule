@@ -420,6 +420,7 @@ export function usePromoteStudents() {
             await supabase
               .from('students')
               .update({ status: 'completed', class_id: null, stream_id: null })
+              .eq('school_id', user!.schoolId)
               .eq('id', s.id)
             completed++
           } else {
@@ -428,6 +429,7 @@ export function usePromoteStudents() {
               await supabase
                 .from('students')
                 .update({ class_id: nextId, stream_id: null })
+                .eq('school_id', user!.schoolId)
                 .eq('id', s.id)
               promoted++
             }
@@ -596,6 +598,7 @@ export function useSelectivePromote() {
             await supabase
               .from('students')
               .update({ status: 'completed', class_id: null, stream_id: null })
+              .eq('school_id', sid)
               .eq('id', s.id)
             completed++
           } else {
@@ -604,6 +607,7 @@ export function useSelectivePromote() {
               await supabase
                 .from('students')
                 .update({ class_id: nextId, stream_id: null })
+                .eq('school_id', sid)
                 .eq('id', s.id)
               promoted++
             }
