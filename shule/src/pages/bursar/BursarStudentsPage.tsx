@@ -3,7 +3,7 @@
  * Features: hero KPI band, filter bar, virtualized student cards,
  *           quick payment modal, payment history modal, Excel export.
  */
-import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -347,8 +347,6 @@ function useUpdatePaymentAmount() {
 // Helpers
 // ─────────────────────────────────────────────────────────────
 
-const CURRENT_YEAR = new Date().getFullYear()
-
 function nameHash(name: string): number {
   let h = 0
   for (let i = 0; i < name.length; i++) h = ((h << 5) - h) + name.charCodeAt(i)
@@ -365,7 +363,7 @@ const AVATAR_COLORS = [
 ]
 
 function avatarColor(name: string): [string, string] {
-  return AVATAR_COLORS[nameHash(name) % AVATAR_COLORS.length]
+  return AVATAR_COLORS[nameHash(name) % AVATAR_COLORS.length] as [string, string]
 }
 
 const STATUS_CONFIG: Record<FeeStatusEx, { label: string; color: string; stripe: string; glow: string }> = {
@@ -1081,7 +1079,7 @@ function ActionBtn({
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 5,
-        padding: '5px 12px', border: 'none', borderRadius: 8,
+        padding: '5px 12px', borderRadius: 8,
         fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 11.5,
         cursor: 'pointer', transition: 'all .15s',
         background: primary

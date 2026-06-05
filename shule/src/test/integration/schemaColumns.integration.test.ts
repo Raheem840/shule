@@ -3,7 +3,6 @@
  * Uses real Supabase client + MSW to verify the correct column names
  * reach the network. These tests catch column renames that vi.mock bypasses.
  */
-import { describe, it, expect, beforeEach } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { server } from '../mocks/server'
 

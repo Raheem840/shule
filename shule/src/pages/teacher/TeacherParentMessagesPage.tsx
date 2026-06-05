@@ -527,7 +527,7 @@ function ContactList({ convs, loading, onSelect, activeId, classNameMap }: {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-        {loading && Array.from({ length: 4 }).map((_, i) => (
+        {loading && Array.from({ length: 4 }).map((_item, _i) => (
           <div key={i} style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '12px 18px', minHeight: 76 }}>
             <div className="shule-skeleton" style={{ width: 52, height: 52, borderRadius: '50%', flexShrink: 0, opacity: 'var(--ms-skeleton-op)' as any }} />
             <div style={{ flex: 1 }}>

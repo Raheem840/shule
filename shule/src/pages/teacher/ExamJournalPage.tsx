@@ -1,3 +1,4 @@
+import { useSubjects, useStreams, useMyAssignedClasses } from '../../hooks/useClasses'
 import { useState, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -11,7 +12,6 @@ import {
   ResponsiveContainer, Cell,
 } from 'recharts'
 import { useExamJournals, useCreateJournal, useNextCALabel } from '../../hooks/useExamJournal'
-import { useClasses, useStreams, useSubjects, useMyAssignedClasses } from '../../hooks/useClasses'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { calculateCBCGrade } from '../../types/app'

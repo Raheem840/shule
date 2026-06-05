@@ -4,8 +4,6 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { useStudents } from '../../hooks/useStudents'
-import { useStreams } from '../../hooks/useClasses'
-import { useSubjects } from '../../hooks/useClasses'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
 // ── useMyTeachingClasses ─────────────────────────────────────────────────────

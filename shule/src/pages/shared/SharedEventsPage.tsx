@@ -471,14 +471,14 @@ export function SharedEventsPage() {
       {presentTypes.length > 0 && (
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, scrollbarWidth: 'none' }}>
           <button onClick={() => setTypeFilter('all')}
-            style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 99, border: 'none', cursor: 'pointer', fontWeight: typeFilter === 'all' ? 800 : 600, fontSize: 12, background: typeFilter === 'all' ? 'var(--txt)' : 'var(--surface2)', color: typeFilter === 'all' ? 'var(--surface)' : 'var(--txt3)', border: `.5px solid ${typeFilter === 'all' ? 'var(--txt)' : 'var(--border)'}`, transition: 'all .16s', whiteSpace: 'nowrap' }}>
+            style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 99, cursor: 'pointer', fontWeight: typeFilter === 'all' ? 800 : 600, fontSize: 12, background: typeFilter === 'all' ? 'var(--txt)' : 'var(--surface2)', color: typeFilter === 'all' ? 'var(--surface)' : 'var(--txt3)', border: `.5px solid ${typeFilter === 'all' ? 'var(--txt)' : 'var(--border)'}`, transition: 'all .16s', whiteSpace: 'nowrap' }}>
             All types
           </button>
           {presentTypes.map(t => {
             const on = typeFilter === t.value
             return (
               <button key={t.value} onClick={() => setTypeFilter(on ? 'all' : t.value)}
-                style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 99, border: 'none', cursor: 'pointer', fontWeight: on ? 800 : 600, fontSize: 12, background: on ? t.color : 'var(--surface2)', color: on ? '#fff' : 'var(--txt3)', border: `.5px solid ${on ? t.color : 'var(--border)'}`, transition: 'all .16s', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
+                style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 99, cursor: 'pointer', fontWeight: on ? 800 : 600, fontSize: 12, background: on ? t.color : 'var(--surface2)', color: on ? '#fff' : 'var(--txt3)', border: `.5px solid ${on ? t.color : 'var(--border)'}`, transition: 'all .16s', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: on ? 'rgba(255,255,255,.8)' : t.color, flexShrink: 0 }} />
                 {t.label}
               </button>

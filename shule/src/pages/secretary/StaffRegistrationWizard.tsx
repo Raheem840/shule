@@ -211,29 +211,6 @@ function ChipSelect({
   )
 }
 
-// ── Copyable credential row ───────────────────────────────────
-function CredRow({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false)
-  function copy() {
-    navigator.clipboard.writeText(value).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid rgba(16,185,129,0.15)' }}>
-      <div>
-        <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: '0.4px', fontFamily: 'var(--font2)', marginRight: 8 }}>{label}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt)', fontFamily: 'var(--font-mono)' }}>{value}</span>
-      </div>
-      <button type="button" onClick={copy}
-        style={{ border: 'none', background: copied ? 'var(--success)' : 'var(--surface)', color: copied ? '#fff' : 'var(--brand)', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font2)' }}>
-        {copied ? 'Copied' : 'Copy'}
-      </button>
-    </div>
-  )
-}
-
 // ── Main wizard ───────────────────────────────────────────────
 export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
   const [step,         setStep]         = useState(1)

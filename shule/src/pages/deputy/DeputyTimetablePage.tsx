@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useClasses, useStreams } from '../../hooks/useClasses'
+import { useClasses } from '../../hooks/useClasses'
 import { useTimetableSlots } from '../../hooks/useTimetableSlots'
 import { useAuth } from '../../store/AuthContext'
 import { useIsMobile } from '../../hooks/useIsMobile'

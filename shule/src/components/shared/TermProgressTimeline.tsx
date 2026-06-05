@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTermProgress, TERM_EVENT_COLOR } from '../../hooks/useTermProgress'
 import { useAuth } from '../../store/AuthContext'
 import { ErrorBoundary } from './ErrorBoundary'
-import type { TermEvent } from '../../types/week9'
+import type { TermEvent, TermEventType } from '../../types/week9'
 
 // ─── Premium CSS ──────────────────────────────────────────────────────────────
 const CSS = `
@@ -299,7 +299,7 @@ export function TermProgressTimeline() {
             {presentTypes.length > 0 && (
               <div className="tpt-legend" style={{ gap: 6 }}>
                 {(Object.entries(TERM_EVENT_COLOR) as [string, string][]).map(([type, color]) =>
-                  presentTypes.includes(type) ? (
+                  presentTypes.includes(type as TermEventType) ? (
                     <div key={type} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                       <div className="tpt-legend-dot" style={{ background: color }} />
                       <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--txt3)', textTransform: 'capitalize' }}>{type}</span>

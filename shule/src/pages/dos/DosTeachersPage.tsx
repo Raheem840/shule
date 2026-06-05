@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useDosTeacherPerformance, useAssignClassTeacher, useAssignTeacherSubjects, useAssignTeacherClasses } from '../../hooks/useDos'
 import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
 import { useToast } from '../../components/ui/Toast'
@@ -446,12 +445,6 @@ function TeacherDetailModal({ teacher, onClose }: { teacher: TeacherPerfRow; onC
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
-const ROLE_META: Record<string, { color: string; bg: string }> = {
-  passRate:  { color: '#10b981', bg: 'rgba(16,185,129,.1)' },
-  coverage:  { color: '#0ea5e9', bg: 'rgba(14,165,233,.1)' },
-  name:      { color: '#8b5cf6', bg: 'rgba(139,92,246,.1)' },
-}
-
 // ── Teacher performance card ──────────────────────────────────────────────────
 function TeacherCard({ t, onManage }: { t: TeacherPerfRow; onManage: () => void }) {
   const [hovered, setHovered] = useState(false)

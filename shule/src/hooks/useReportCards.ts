@@ -400,7 +400,7 @@ export function useGenerateReportCards() {
         .select('student_id, principal_remarks')
         .eq('school_id', schoolId)
         .in('student_id', studentIds)
-        .eq('term', term)
+        .eq('term', String(term))
         .eq('year', year)
 
       const principalRemarksMap = new Map<string, string | null>()

@@ -70,10 +70,10 @@ function useClassStudents(streamId: string | null | undefined, classId: string |
         lastName:        r.last_name as string,
         admissionNumber: r.admission_number as string,
         photoUrl:        r.photo_url as string | null,
-        gender:          r.gender as string | null,
+        gender: r.gender as "male" | "female" | null,
         dob:             r.dob as string | null,
-        studentType:     r.student_type as string,
-        status:          r.status as string,
+        studentType: r.student_type as "day" | "boarder",
+        status: r.status as "active" | "suspended" | "expelled",
         classId:         r.class_id as string | null,
         streamId:        r.stream_id as string | null,
       } satisfies Partial<Student> & { id: string; firstName: string; lastName: string; admissionNumber: string; photoUrl: string | null; gender: string | null; dob: string | null; studentType: string; status: string; classId: string | null; streamId: string | null }))
@@ -318,7 +318,7 @@ function StudentCard({ student, streamName, className, onClick }: {
 export function ClassTeacherStudentsPage() {
   const streamQ   = useMyStream()
   const studentsQ = useClassStudents(streamQ.data?.streamId, streamQ.data?.classId)
-  const [selected, setSelected] = useState<(typeof studentsQ.data)[number] | null>(null)
+  const [selected, setSelected] = useState<NonNullable<typeof studentsQ.data>[number] | null>(null)
   const [search, setSearch] = useState('')
 
   const stream = streamQ.data

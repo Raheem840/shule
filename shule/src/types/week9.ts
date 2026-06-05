@@ -217,7 +217,8 @@ export type SchoolSettings = {
   motto: string | null
   logoUrl: string | null
   primaryColor: string
-  currency: string  // DB NEEDS: ADD COLUMN currency TEXT — hardcoded 'UGX' until then
+  currency: string
+  curriculum: string | null
 }
 
 export type ApiConfig = {

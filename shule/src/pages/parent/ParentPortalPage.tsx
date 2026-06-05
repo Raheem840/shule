@@ -1070,11 +1070,6 @@ function RemarksTab({ studentId }: { studentId: string }) {
   )
 }
 
-function _removedOldMessagesTabPlaceholder() {
-  // intentionally empty — replaced by MessagesTab above
-  void useAuth
-}
-
 // ── Tab bar ───────────────────────────────────────────────────────
 const TABS = ['Results', 'Fee Balance', 'Attendance', 'Report Cards', 'Notices', 'Remarks', 'Messages'] as const
 type TabName = typeof TABS[number]
@@ -1163,7 +1158,7 @@ function TabBar({ active, onChange }: { active: TabName; onChange: (t: TabName) 
 
 // ── Child selector card ───────────────────────────────────────────
 function ChildCard({
-  child, isSelected, onClick, classes, streams,
+  child, isSelected, onClick, classes, streams: _streams,
 }: {
   child: Student
   isSelected: boolean

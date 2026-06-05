@@ -641,7 +641,7 @@ export function FeeLedgerPage() {
         <button
           onClick={() => setAbove60(v => !v)}
           style={{
-            padding: '0.3rem 0.9rem', border: 'none', borderRadius: 20, cursor: 'pointer',
+            padding: '0.3rem 0.9rem', borderRadius: 20, cursor: 'pointer',
             fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 11, whiteSpace: 'nowrap',
             background: above60
               ? 'linear-gradient(135deg,#10b981,#059669)'

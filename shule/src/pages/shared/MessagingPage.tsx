@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useStaffPhotoUrl } from '../../hooks/useStaffPhotoUrl'
 import { supabase } from '../../lib/supabase'

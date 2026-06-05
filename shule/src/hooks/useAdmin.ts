@@ -138,7 +138,7 @@ export function useSchoolSettings() {
       // maybeSingle() returns null (not error) when the row doesn't exist
       const { data, error } = await supabase
         .from('school_profile')
-        .select('id, school_name, short_name, motto, logo_url, primary_color')
+        .select('id, school_name, short_name, motto, logo_url, primary_color, curriculum')
         .eq('id', user!.schoolId)
         .maybeSingle()
 
@@ -153,6 +153,7 @@ export function useSchoolSettings() {
         logoUrl:      data.logo_url,
         primaryColor: data.primary_color ?? '#0d9488',
         currency:     'UGX',
+        curriculum:   (data as any).curriculum ?? null,
       }
     },
     staleTime: 10 * 60_000,

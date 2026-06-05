@@ -55,9 +55,7 @@ function toStaff(r: AnyRow): Staff {
     photoUrl:           (r.photo_url as string) ?? null,
     isActive:           (r.is_active as boolean) ?? true,
     tempPassword:       (r.temp_password as string) ?? null,
-    salaryBand:         null,
     address:            null,
-    // DB NEEDS: qualification_title, institution, graduation_year, date_of_birth, gender
     qualificationTitle: null,
     institution:        null,
     graduationYear:     null,

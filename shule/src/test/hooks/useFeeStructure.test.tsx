@@ -123,6 +123,8 @@ describe('useAddFeeType', () => {
         appliesTo: 'boarders',
         term: 2,
         academicYearId: 'year-1',
+        classId: null,
+        isCompulsory: false,
       })
     })
 
@@ -138,7 +140,7 @@ describe('useAddFeeType', () => {
       await expect(
         result.current.mutateAsync({
           name: 'School Fees', amount: 400_000,
-          appliesTo: 'all', term: 1, academicYearId: 'year-1',
+          appliesTo: 'all', term: 1, academicYearId: 'year-1', classId: null, isCompulsory: false,
         })
       ).rejects.toEqual({ message: 'Duplicate fee type' })
     })

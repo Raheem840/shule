@@ -361,7 +361,6 @@ function GenerateAccessModal({
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {guardians.map(g => {
                   const isSel  = selected.has(g.id)
-                  const email  = g.email?.trim() || emailInputs[g.id] || ''
                   const needsEmail = !g.email?.trim()
                   return (
                     <div

@@ -137,23 +137,6 @@ function EmptyState({ icon, title, body }: { icon: React.ReactNode; title: strin
   )
 }
 
-// ─── Mini stat pill ────────────────────────────────────────────────────────────
-function StatPill({ label, value, color }: { label: string; value: string | number; color: string }) {
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-      background: 'rgba(255,255,255,.08)',
-      border: '1px solid rgba(255,255,255,.12)',
-      borderRadius: 12, padding: '0.55rem 1rem', flex: 1, minWidth: 80,
-    }}>
-      <span style={{ fontSize: 16, fontWeight: 900, fontFamily: 'var(--font2)', color }}>{value}</span>
-      <span style={{ fontSize: 10, color: 'rgba(255,255,255,.55)', fontFamily: 'var(--font2)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px', textAlign: 'center' }}>
-        {label}
-      </span>
-    </div>
-  )
-}
-
 // ─── My Results tab ────────────────────────────────────────────────────────────
 function MyResultsTab({ studentId }: { studentId: string }) {
   const { data = [], isLoading } = useMyExamResults(studentId)
@@ -1182,7 +1165,7 @@ function MyTimetableTab({ classId, streamId }: { classId: string | null; streamI
           <div style={{
             display: 'flex', gap: 5, overflowX: 'auto', padding: '2px 0',
           }}>
-            {DAYS_TT.map(([d, short, full]) => {
+            {DAYS_TT.map(([d, short, _full]) => {
               const isToday = d === todayCol
               const isActive = mobileDay === d
               return (

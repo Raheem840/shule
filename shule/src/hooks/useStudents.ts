@@ -518,8 +518,8 @@ export function useResetStudentPassword() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ studentId, authUserId, email, name, admissionNumber }: {
-      studentId: string; authUserId: string; email: string; name: string; admissionNumber: string
+    mutationFn: async ({ studentId, authUserId, email }: {
+      studentId: string; authUserId: string; email: string; name?: string; admissionNumber?: string
     }): Promise<{ email: string; tempPassword: string; manual: boolean }> => {
       if (!user) throw new Error('Not authenticated')
 

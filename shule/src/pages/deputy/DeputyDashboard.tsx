@@ -97,11 +97,6 @@ function RecentDisciplinePanel() {
 function AttendancePanel() {
   const { data: classSummaries=[], isLoading } = useDeputyOverview()
 
-  // Only show classes that have actual attendance data
-  const withData = classSummaries.filter(c => {
-    // We can't easily tell total from this hook but isBelowThreshold=false & rate=0 means no data
-    return true
-  })
   const below = classSummaries.filter(c=>c.isBelowThreshold).sort((a,b)=>a.attendanceRate-b.attendanceRate)
   const hasAnyData = classSummaries.some(c=>c.attendanceRate>0||c.isBelowThreshold)
 

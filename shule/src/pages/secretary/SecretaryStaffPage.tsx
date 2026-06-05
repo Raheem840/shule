@@ -4,7 +4,6 @@ import { useDepartments } from '../../hooks/useClasses'
 import { StaffRegistrationWizard } from './StaffRegistrationWizard'
 import { Avatar } from '../../components/shared/Avatar'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { useAuth } from '../../store/AuthContext'
 import type { Staff, UserRole } from '../../types/app'
 
 // ── Role metadata ─────────────────────────────────────────────────────────────

@@ -507,7 +507,6 @@ function useMessageLog(dateFrom: string, dateTo: string) {
 
   return useQuery({
     queryKey: ['message-log', user?.schoolId, dateFrom, dateTo],
-    enabled: !!user,
     queryFn: async (): Promise<MessageLogRow[]> => {
       let q = supabase
         .from('messages')

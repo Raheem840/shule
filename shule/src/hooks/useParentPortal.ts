@@ -77,6 +77,7 @@ export function useParentStudents() {
         status:         r.status as Student['status'],
         enrolledAt:     r.enrolled_at as string,
         createdBy:      null,
+        authUserId:     (r.auth_user_id as string) ?? null,
       } satisfies Student))
     },
   })

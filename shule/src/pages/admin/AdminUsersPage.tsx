@@ -85,7 +85,7 @@ function CredentialDeliveryPanel({ cred, schoolName, onDismiss }: {
   cred: CredInfo; schoolName: string; onDismiss: () => void
 }) {
   const sendSms = useSendCredentialsSms()
-  const { ok, err } = useToast()
+  const { success: ok, error: err } = useToast()
   const [copied, setCopied]   = useState<string | null>(null)
   const [smsSent, setSmsSent] = useState(false)
   const [smsBusy, setSmsBusy] = useState(false)
@@ -196,7 +196,7 @@ function CredentialDeliveryPanel({ cred, schoolName, onDismiss }: {
 function LinkAuthModal({ staffId, staffName, onClose }: { staffId: string; staffName: string; onClose: () => void }) {
   const [uuid, setUuid] = useState('')
   const link = useLinkAuthUser()
-  const { ok, err } = useToast()
+  const { success: ok, error: err } = useToast()
   async function handleLink() {
     try { await link.mutateAsync({ staffId, authUserId: uuid }); ok(`${staffName} linked`); onClose() }
     catch (e) { err(e instanceof Error ? e.message : 'Link failed') }
@@ -229,12 +229,12 @@ function LinkAuthModal({ staffId, staffName, onClose }: { staffId: string; staff
 function PendingCard({ staff, deptName, onActivated }: { staff: Staff; deptName: string | null; onActivated: (c: CredInfo) => void }) {
   const [c1, c2] = roleGrad(staff.role)
   const activate = useActivateStaffLogin()
-  const { err }  = useToast()
+  const { error: err }  = useToast()
   const hasEmail = !!staff.email
 
   async function handleActivate() {
     try {
-      const r = await activate.mutateAsync(staff.id)
+      const r = await activate.mutateAsync({ staffId: staff.id })
       onActivated({ staffId: staff.id, staffName: `${staff.firstName} ${staff.lastName}`, role: staff.role, deptName, email: r.email, password: r.tempPassword, phone: staff.phone, manual: r.manual })
     } catch (e) { err(e instanceof Error ? e.message : 'Activation failed') }
   }
@@ -288,7 +288,7 @@ function PendingCard({ staff, deptName, onActivated }: { staff: Staff; deptName:
 function ActiveCard({ staff, deptName, onReset, onLink }: { staff: Staff; deptName: string | null; onReset: (c: CredInfo) => void; onLink: (staffId: string, name: string) => void }) {
   const [c1, c2] = roleGrad(staff.role)
   const reset    = useResetStaffPassword()
-  const { err }  = useToast()
+  const { error: err }  = useToast()
 
   async function handleReset() {
     if (!staff.authUserId || !staff.email) return
@@ -697,7 +697,7 @@ function StudentPendingCard({ student, className, pending, schoolId, onActivated
   onActivated: (c: StudentCredInfo) => void
 }) {
   const createLogin = useCreateStudentLogin()
-  const { ok, err } = useToast()
+  const { success: ok, error: err } = useToast()
   const [busy, setBusy] = useState(false)
   const name = `${student.first_name} ${student.last_name}`
 
@@ -814,7 +814,7 @@ function StudentActiveCard({ student, className, onReset }: {
   onReset:   (c: StudentCredInfo) => void
 }) {
   const reset       = useResetStudentPassword()
-  const { err }     = useToast()
+  const { error: err }     = useToast()
   const name        = `${student.first_name} ${student.last_name}`
 
   async function handleReset() {

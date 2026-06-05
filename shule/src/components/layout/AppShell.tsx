@@ -620,7 +620,7 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
 }
 
 // ─── Mobile notification bell (compact) ─────────────────────────────────────
-function MobileNotifBell({ role }: { role: UserRole }) {
+function MobileNotifBell({ role: _role }: { role: UserRole }) {
   const { data: notifications = [] } = useNotifications()
   const { mutate: markAllRead }       = useMarkNotificationsRead()
   const navigate = useNavigate()

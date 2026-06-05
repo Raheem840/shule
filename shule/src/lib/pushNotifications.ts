@@ -20,7 +20,7 @@ export async function requestPushPermission(authUserId: string, schoolId: string
   if (!('Notification' in window) || !('serviceWorker' in navigator)) return false
   if (Notification.permission === 'denied') return false
 
-  let permission = Notification.permission
+  let permission: string = Notification.permission
   if (permission === 'default') {
     permission = await Notification.requestPermission()
   }
@@ -41,9 +41,10 @@ export async function requestPushPermission(authUserId: string, schoolId: string
       return true
     }
 
+    const vapidKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
     const subscription = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      applicationServerKey: vapidKey.buffer as ArrayBuffer,
     })
 
     await storePushSubscription(authUserId, schoolId, subscription)

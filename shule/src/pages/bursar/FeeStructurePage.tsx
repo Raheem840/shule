@@ -15,7 +15,7 @@ import { useToast } from '../../components/ui/Toast'
 import type { FeeStructure } from '../../types/app'
 
 // ─── Zod schema ───────────────────────────────────────────────────────────────
-const AddFeeSchema = z.object({
+export const AddFeeSchema = z.object({
   name:           z.string().min(2, 'Name is required'),
   amount:         z.coerce.number().positive('Must be > 0'),
   appliesTo:      z.enum(['all', 'boarders', 'day_scholars']),
@@ -35,7 +35,6 @@ const APPLIES_LABEL: Record<FeeStructure['appliesTo'], string> = {
 }
 
 function portal() { return (document.querySelector('.ar') as HTMLElement) ?? document.body }
-function ini(name: string) { return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) }
 
 // ─── Inline editable amount ───────────────────────────────────────────────────
 function AmountCell({ fee }: { fee: FeeStructure }) {
@@ -162,7 +161,7 @@ function AddFeeModal({ onClose }: { onClose: () => void }) {
   const activeYear = years.find(y => y.isActive) ?? years[0]
 
   const { control, register, watch, handleSubmit, formState: { errors } } = useForm<AddFeeForm>({
-    resolver: zodResolver(AddFeeSchema),
+    resolver: zodResolver(AddFeeSchema) as any,
     defaultValues: {
       name: '', amount: 0,
       appliesTo: 'all', term: 1,

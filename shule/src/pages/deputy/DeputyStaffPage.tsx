@@ -288,7 +288,7 @@ export function DeputyStaffPage() {
             onClick={() => {
               const header = 'Name,Staff Number,Role,Email,Phone,Department\n'
               const csv = rows.map(s =>
-                `"${s.name}","${s.staffNumber}","${s.role}","${s.email ?? ''}","${s.phone ?? ''}","${s.department ?? ''}"`
+                `"${s.name}","${s.staffNumber}","${s.role}","${s.email ?? ''}","${s.phone ?? ''}",""`
               ).join('\n')
               const blob = new Blob([header + csv], { type: 'text/csv' })
               const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `staff-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href)

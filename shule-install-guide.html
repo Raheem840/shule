@@ -1,0 +1,2141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shule — Complete Installation Playbook</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Raleway:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ─── THEMES ─── */
+:root {
+  --transition: 0.3s ease;
+}
+
+/* DARK — TOJI */
+[data-theme="dark"] {
+  --bg-base:        #0a0c0f;
+  --bg-surface:     rgba(18,22,28,0.85);
+  --bg-glass:       rgba(255,255,255,0.04);
+  --bg-glass-hover: rgba(255,255,255,0.07);
+  --border:         rgba(255,255,255,0.08);
+  --border-strong:  rgba(255,255,255,0.15);
+  --accent:         #c8a96e;
+  --accent2:        #8b6f47;
+  --accent-dim:     rgba(200,169,110,0.12);
+  --accent-glow:    rgba(200,169,110,0.2);
+  --green:          #4ade80;
+  --green-dim:      rgba(74,222,128,0.1);
+  --amber:          #fbbf24;
+  --amber-dim:      rgba(251,191,36,0.1);
+  --red:            #f87171;
+  --red-dim:        rgba(248,113,113,0.1);
+  --blue:           #60a5fa;
+  --blue-dim:       rgba(96,165,250,0.1);
+  --text:           #e8e0d4;
+  --text2:          #9a9080;
+  --text3:          #5c5248;
+  --code-bg:        rgba(0,0,0,0.4);
+  --code-text:      #a8c4a0;
+  --sidebar-bg:     rgba(10,12,15,0.95);
+  --topbar-bg:      rgba(10,12,15,0.9);
+  --scratch-line:   rgba(255,255,255,0.03);
+}
+
+/* LIGHT — GOJO */
+[data-theme="light"] {
+  --bg-base:        #f0f4ff;
+  --bg-surface:     rgba(255,255,255,0.75);
+  --bg-glass:       rgba(255,255,255,0.6);
+  --bg-glass-hover: rgba(255,255,255,0.85);
+  --border:         rgba(100,120,200,0.15);
+  --border-strong:  rgba(100,120,200,0.3);
+  --accent:         #4f46e5;
+  --accent2:        #6d66f5;
+  --accent-dim:     rgba(79,70,229,0.08);
+  --accent-glow:    rgba(79,70,229,0.15);
+  --green:          #059669;
+  --green-dim:      rgba(5,150,105,0.08);
+  --amber:          #d97706;
+  --amber-dim:      rgba(217,119,6,0.08);
+  --red:            #dc2626;
+  --red-dim:        rgba(220,38,38,0.08);
+  --blue:           #2563eb;
+  --blue-dim:       rgba(37,99,235,0.08);
+  --text:           #1e1b4b;
+  --text2:          #4338ca;
+  --text3:          #818cf8;
+  --code-bg:        rgba(238,242,255,0.9);
+  --code-text:      #3730a3;
+  --sidebar-bg:     rgba(238,242,255,0.95);
+  --topbar-bg:      rgba(240,244,255,0.9);
+  --scratch-line:   rgba(79,70,229,0.03);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Raleway', sans-serif;
+  background: var(--bg-base);
+  color: var(--text);
+  line-height: 1.7;
+  font-size: 14px;
+  min-height: 100vh;
+  transition: background var(--transition), color var(--transition);
+}
+
+/* Background texture */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, var(--scratch-line) 0px, var(--scratch-line) 1px, transparent 1px, transparent 60px),
+    repeating-linear-gradient(90deg, var(--scratch-line) 0px, var(--scratch-line) 1px, transparent 1px, transparent 80px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-theme="dark"] body::after {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -20%;
+  width: 60%;
+  height: 80%;
+  background: radial-gradient(ellipse, rgba(200,169,110,0.03) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-theme="light"] body::after {
+  content: '';
+  position: fixed;
+  top: -30%;
+  right: -10%;
+  width: 70%;
+  height: 80%;
+  background: radial-gradient(ellipse, rgba(79,70,229,0.04) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── LAYOUT ─── */
+.layout {
+  display: flex;
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── SIDEBAR ─── */
+.sidebar {
+  width: 272px;
+  min-width: 272px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow-y: auto;
+  background: var(--sidebar-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  transition: background var(--transition);
+}
+
+.sidebar-head {
+  padding: 24px 20px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--accent);
+  letter-spacing: 1px;
+  transition: all var(--transition);
+}
+
+.brand-name {
+  font-family: 'Cinzel', serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 2px;
+  transition: color var(--transition);
+}
+
+.brand-sub {
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding-left: 44px;
+}
+
+.theme-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.theme-label {
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: 1px;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.theme-btn {
+  padding: 4px 10px;
+  border-radius: 15px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: 'Raleway', sans-serif;
+  color: var(--text3);
+  background: transparent;
+}
+
+.theme-btn.active {
+  background: var(--accent);
+  color: var(--bg-base);
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 12px 0 20px;
+  overflow-y: auto;
+}
+
+.nav-group {
+  margin-bottom: 4px;
+}
+
+.nav-group-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 10px 20px 5px;
+  transition: color var(--transition);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 20px;
+  font-size: 12.5px;
+  color: var(--text2);
+  text-decoration: none;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: all 0.15s ease;
+  position: relative;
+  font-weight: 400;
+  letter-spacing: 0.3px;
+}
+
+.nav-item:hover {
+  color: var(--text);
+  background: var(--bg-glass);
+  border-left-color: var(--border-strong);
+}
+
+.nav-item.active {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-left-color: var(--accent);
+  font-weight: 500;
+}
+
+.nav-icon {
+  font-size: 13px;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.nav-sub {
+  font-size: 11px;
+  color: var(--text3);
+  padding: 5px 20px 5px 45px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: all 0.15s;
+  display: block;
+}
+
+.nav-sub:hover {
+  color: var(--text2);
+  background: var(--bg-glass);
+}
+
+.nav-sub.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+
+.sidebar-foot {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.sidebar-foot a { color: var(--accent); text-decoration: none; }
+
+/* ─── MAIN ─── */
+.main { flex: 1; min-width: 0; }
+
+/* ─── TOPBAR ─── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--topbar-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background var(--transition);
+}
+
+.progress-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text3);
+}
+
+.prog-bar-wrap {
+  width: 160px;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.prog-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.4s ease;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pct-badge {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-glow);
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.btn-print {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text2);
+  font-family: 'Raleway', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-print:hover {
+  background: var(--bg-glass-hover);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* ─── SCROLL INDICATOR ─── */
+#scroll-prog {
+  position: fixed;
+  top: 0;
+  left: 272px;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  transform-origin: left;
+  transform: scaleX(0);
+  z-index: 200;
+  transition: transform 0.08s linear;
+}
+
+/* ─── CONTENT ─── */
+.content {
+  padding: 44px 44px 100px;
+  max-width: 880px;
+}
+
+/* ─── HERO ─── */
+.hero {
+  margin-bottom: 52px;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-glow);
+  padding: 5px 12px;
+  border-radius: 20px;
+  margin-bottom: 20px;
+}
+
+.hero-badge::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: blink 2s infinite;
+}
+
+@keyframes blink {
+  0%,100% { opacity:1; }
+  50% { opacity: 0.3; }
+}
+
+.hero h1 {
+  font-family: 'Cinzel', serif;
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+  color: var(--text);
+  margin-bottom: 14px;
+  transition: color var(--transition);
+}
+
+.hero h1 em {
+  font-style: italic;
+  color: var(--accent);
+}
+
+.hero-desc {
+  font-size: 14px;
+  color: var(--text2);
+  max-width: 560px;
+  line-height: 1.8;
+  margin-bottom: 26px;
+  transition: color var(--transition);
+}
+
+.hero-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hero-pill {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text3);
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  padding: 4px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+}
+
+/* ─── PART HEADER ─── */
+.part-hdr {
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px 24px;
+  margin-bottom: 28px;
+  position: relative;
+  overflow: hidden;
+  scroll-margin-top: 72px;
+  transition: all var(--transition);
+}
+
+.part-hdr::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent), transparent 60%);
+}
+
+.part-hdr-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.part-big-num {
+  font-family: 'Cinzel', serif;
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--border-strong);
+  letter-spacing: -2px;
+  flex-shrink: 0;
+  min-width: 54px;
+  transition: color var(--transition);
+}
+
+.part-body { flex: 1; }
+
+.part-eyebrow {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 4px;
+}
+
+.part-title {
+  font-family: 'Cinzel', serif;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+  transition: color var(--transition);
+}
+
+.part-desc {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.6;
+  transition: color var(--transition);
+}
+
+.part-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid;
+  flex-shrink: 0;
+  align-self: flex-start;
+  letter-spacing: 0.5px;
+}
+
+.tag-amber { color: var(--amber); background: var(--amber-dim); border-color: rgba(251,191,36,0.25); }
+.tag-red   { color: var(--red);   background: var(--red-dim);   border-color: rgba(248,113,113,0.25); }
+.tag-blue  { color: var(--blue);  background: var(--blue-dim);  border-color: rgba(96,165,250,0.25); }
+.tag-green { color: var(--green); background: var(--green-dim); border-color: rgba(74,222,128,0.25); }
+.tag-acc   { color: var(--accent);background: var(--accent-dim);border-color: var(--accent-glow); }
+
+/* ─── SECTION ─── */
+.section {
+  margin-bottom: 36px;
+  scroll-margin-top: 72px;
+  animation: riseIn 0.35s ease both;
+  animation-play-state: paused;
+}
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.section-title {
+  font-family: 'Cinzel', serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 14px;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: color var(--transition);
+}
+
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.sec-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-glow);
+  border-radius: 5px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* ─── GLASS CARD ─── */
+.glass-card {
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 10px;
+  transition: all var(--transition);
+}
+
+.glass-card:hover {
+  background: var(--bg-glass-hover);
+  border-color: var(--border-strong);
+}
+
+/* ─── STEP ITEMS ─── */
+.steps { display: flex; flex-direction: column; gap: 8px; }
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.step:hover {
+  background: var(--bg-glass-hover);
+  border-color: var(--border-strong);
+  transform: translateX(2px);
+}
+
+.step.done {
+  background: var(--green-dim);
+  border-color: rgba(74,222,128,0.2);
+}
+
+[data-theme="light"] .step.done {
+  background: rgba(5,150,105,0.06);
+  border-color: rgba(5,150,105,0.2);
+}
+
+.step.done .step-txt {
+  text-decoration: line-through;
+  color: var(--text3);
+}
+
+.chk {
+  width: 19px;
+  height: 19px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s ease;
+  background: transparent;
+}
+
+.step:hover .chk { border-color: var(--green); }
+
+.step.done .chk {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.step.done .chk::after {
+  content: '✓';
+  font-size: 10px;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+}
+
+[data-theme="light"] .step.done .chk::after { color: #fff; }
+
+.step-txt {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.6;
+  flex: 1;
+  transition: all 0.18s;
+}
+
+.step-txt strong { color: var(--text); font-weight: 600; }
+
+/* ─── CODE ─── */
+.code-wrap {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+
+.code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.code-lang-tag {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text3);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.copy-btn {
+  font-size: 11px;
+  color: var(--text3);
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-family: 'Raleway', sans-serif;
+  transition: all 0.15s;
+}
+
+.copy-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent-glow);
+  background: var(--accent-dim);
+}
+
+.code-body {
+  padding: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--code-text);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.cm { color: var(--text3); }
+
+/* ─── CALLOUTS ─── */
+.callout {
+  display: flex;
+  gap: 11px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  margin: 12px 0;
+  border-left: 2px solid;
+  backdrop-filter: blur(8px);
+}
+
+.callout-ico { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+.callout-body { font-size: 13px; color: var(--text2); line-height: 1.6; }
+.callout-body strong { color: var(--text); }
+
+.callout.warn  { background: var(--amber-dim); border-color: var(--amber); }
+.callout.crit  { background: var(--red-dim);   border-color: var(--red); }
+.callout.info  { background: var(--blue-dim);  border-color: var(--blue); }
+.callout.ok    { background: var(--green-dim); border-color: var(--green); }
+.callout.acc   { background: var(--accent-dim);border-color: var(--accent); }
+
+/* ─── FILE TREE ─── */
+.file-tree {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.95;
+  color: var(--text2);
+  margin: 12px 0;
+  overflow-x: auto;
+}
+
+.ft-ok  { color: var(--green); }
+.ft-dir { color: var(--blue); font-weight: 500; }
+.ft-file{ color: var(--text); }
+.ft-dim { color: var(--text3); }
+
+/* ─── CREDENTIAL BOX ─── */
+.cred-box {
+  background: var(--amber-dim);
+  border: 1px solid rgba(251,191,36,0.25);
+  border-radius: 10px;
+  padding: 18px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 2;
+  margin: 12px 0;
+  position: relative;
+}
+
+.cred-box::before {
+  content: 'CONFIDENTIAL';
+  position: absolute;
+  top: -1px;
+  right: 14px;
+  font-size: 9px;
+  letter-spacing: 2px;
+  font-weight: 700;
+  color: var(--amber);
+  background: var(--bg-base);
+  border: 1px solid rgba(251,191,36,0.3);
+  border-top: none;
+  padding: 2px 8px;
+  border-radius: 0 0 4px 4px;
+}
+
+.ck { color: var(--text3); }
+.cv { color: var(--text); font-weight: 500; }
+.cw { color: var(--amber); }
+
+/* ─── TABLE ─── */
+.data-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.data-tbl thead tr { background: var(--bg-glass); }
+
+.data-tbl th {
+  text-align: left;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-tbl td {
+  padding: 9px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  color: var(--text2);
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+[data-theme="light"] .data-tbl td {
+  border-bottom: 1px solid rgba(79,70,229,0.05);
+}
+
+.data-tbl tr:last-child td { border-bottom: none; }
+.data-tbl tr:hover td { background: var(--bg-glass); }
+
+/* ─── CHECKLIST BOX ─── */
+.chk-box {
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  margin: 12px 0;
+  backdrop-filter: blur(8px);
+}
+
+.chk-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+  border-radius: 4px;
+}
+
+.chk-row:last-child { border-bottom: none; }
+.chk-row:hover { padding-left: 3px; }
+
+.cb2 {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s;
+}
+
+.chk-row.done .cb2 {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.chk-row.done .cb2::after {
+  content: '✓';
+  font-size: 9px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.chk-row.done .cl2 {
+  text-decoration: line-through;
+  color: var(--text3);
+}
+
+.cl2 {
+  font-size: 12.5px;
+  color: var(--text2);
+  flex: 1;
+  line-height: 1.5;
+}
+
+/* ─── TRAINING GRID ─── */
+.train-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.train-card {
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s;
+}
+
+.train-card:hover {
+  background: var(--bg-glass-hover);
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+}
+
+.train-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.train-role {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.train-dur {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--amber);
+  background: var(--amber-dim);
+  padding: 3px 7px;
+  border-radius: 20px;
+}
+
+.train-list { list-style: none; }
+
+.train-list li {
+  font-size: 12px;
+  color: var(--text2);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  line-height: 1.5;
+}
+
+.train-list li:last-child { border-bottom: none; }
+
+.train-list li::before {
+  content: '›';
+  color: var(--accent);
+  font-size: 13px;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+/* ─── WA MSG ─── */
+.wa-box {
+  background: var(--green-dim);
+  border: 1px solid rgba(74,222,128,0.2);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 12px 0;
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.85;
+  position: relative;
+}
+
+[data-theme="light"] .wa-box {
+  background: rgba(5,150,105,0.05);
+  border-color: rgba(5,150,105,0.2);
+}
+
+.wa-box::before {
+  content: 'WhatsApp Template';
+  position: absolute;
+  top: -1px;
+  left: 14px;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--green);
+  background: var(--bg-base);
+  padding: 0 6px;
+}
+
+/* ─── DIVIDER ─── */
+.div-sep {
+  text-align: center;
+  padding: 28px 0;
+  color: var(--text3);
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  font-family: 'Cinzel', serif;
+  position: relative;
+}
+
+.div-sep::before, .div-sep::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: calc(50% - 80px);
+  height: 1px;
+  background: var(--border);
+}
+
+.div-sep::before { left: 0; }
+.div-sep::after  { right: 0; }
+
+/* ─── INLINE CODE ─── */
+code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--accent);
+}
+
+/* ─── CHIP ─── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+  border: 1px solid;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
+
+.chip-g { color: var(--green); background: var(--green-dim); border-color: rgba(74,222,128,0.25); }
+.chip-a { color: var(--amber); background: var(--amber-dim); border-color: rgba(251,191,36,0.25); }
+.chip-r { color: var(--red);   background: var(--red-dim);   border-color: rgba(248,113,113,0.25); }
+.chip-b { color: var(--blue);  background: var(--blue-dim);  border-color: rgba(96,165,250,0.25); }
+
+p { color: var(--text2); font-size: 13px; margin-bottom: 9px; line-height: 1.7; transition: color var(--transition); }
+p strong { color: var(--text); }
+ul, ol { padding-left: 18px; margin: 8px 0 12px; }
+ul li, ol li { color: var(--text2); font-size: 13px; margin-bottom: 4px; line-height: 1.6; }
+ul li strong, ol li strong { color: var(--text); }
+
+/* ─── PRINT ─── */
+@media print {
+  .sidebar, .topbar, #scroll-prog, .theme-row { display: none; }
+  .content { padding: 0; }
+  .step, .callout { page-break-inside: avoid; }
+}
+
+/* ─── MOBILE ─── */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  #scroll-prog { left: 0; }
+  .content { padding: 20px 18px 60px; }
+  .topbar { padding: 10px 18px; }
+  .hero h1 { font-size: 26px; }
+}
+
+/* ─── HIGHLIGHT BOX ─── */
+.highlight-new {
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-glow);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 12px 0;
+  position: relative;
+}
+
+.highlight-new::before {
+  content: 'NEW STEP';
+  position: absolute;
+  top: -1px;
+  right: 12px;
+  font-size: 8px;
+  letter-spacing: 2px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--bg-base);
+  border: 1px solid var(--accent-glow);
+  border-top: none;
+  padding: 2px 7px;
+  border-radius: 0 0 4px 4px;
+}
+
+.highlight-new p { color: var(--text); }
+</style>
+</head>
+<body data-theme="dark">
+
+<div id="scroll-prog"></div>
+
+<div class="layout">
+
+<!-- ══════════ SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-head">
+    <div class="brand">
+      <div class="brand-mark">SH</div>
+      <div class="brand-name">SHULE</div>
+    </div>
+    <div class="brand-sub">Installation Playbook</div>
+    <div class="theme-row">
+      <span class="theme-label" id="theme-name">Toji · Dark</span>
+      <div class="theme-toggle">
+        <button class="theme-btn active" id="btn-dark" onclick="setTheme('dark')">Toji</button>
+        <button class="theme-btn" id="btn-light" onclick="setTheme('light')">Gojo</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-nav">
+    <div class="nav-group">
+      <div class="nav-group-label">Before You Leave</div>
+      <a class="nav-item" onclick="goto('part0')"><span class="nav-icon">⚙️</span> Part 0 — Pre-Requisites</a>
+      <a class="nav-sub" onclick="goto('s0-1')">0.1 Install Docker</a>
+      <a class="nav-sub" onclick="goto('s0-2')">0.2 Clone Supabase</a>
+      <a class="nav-sub" onclick="goto('s0-3')">0.3 Configure .env</a>
+      <a class="nav-sub" onclick="goto('s0-4')">0.4 Get Anon Key</a>
+      <a class="nav-sub" onclick="goto('s0-5')">0.5 Test Local Stack</a>
+      <a class="nav-item" onclick="goto('part1')"><span class="nav-icon">🏠</span> Part 1 — Prepare USB</a>
+      <a class="nav-sub" onclick="goto('s1-1')">1.1 Format USB</a>
+      <a class="nav-sub" onclick="goto('s1-2')">1.2 Build Docker Image</a>
+      <a class="nav-sub" onclick="goto('s1-3')">1.3 Save Docker Images</a>
+      <a class="nav-sub" onclick="goto('s1-4')">1.4 Verify Folder</a>
+      <a class="nav-sub" onclick="goto('s1-5')">1.5 Copy to USB</a>
+      <a class="nav-sub" onclick="goto('s1-6')">1.6 Print Items</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">At the School</div>
+      <a class="nav-item" onclick="goto('part2')"><span class="nav-icon">🏫</span> Part 2 — Server Setup</a>
+      <a class="nav-sub" onclick="goto('s2-1')">2.1 Install Ubuntu</a>
+      <a class="nav-sub" onclick="goto('s2-2')">2.2 Mount USB</a>
+      <a class="nav-sub" onclick="goto('s2-3')">2.3 Copy Files</a>
+      <a class="nav-sub" onclick="goto('s2-4')">2.4 Run Installer</a>
+      <a class="nav-sub" onclick="goto('s2-5')">2.5 Verify System</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Database & Auth</div>
+      <a class="nav-item" onclick="goto('part3')"><span class="nav-icon">🗄️</span> Part 3 — Supabase Studio</a>
+      <a class="nav-sub" onclick="goto('s3-1')">3.1 JWT Hook</a>
+      <a class="nav-sub" onclick="goto('s3-2')">3.2 IT Admin User</a>
+      <a class="nav-sub" onclick="goto('s3-3')">3.3 Staff Row SQL</a>
+      <a class="nav-sub" onclick="goto('s3-4')">3.4 Login Test</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Go Live</div>
+      <a class="nav-item" onclick="goto('part4')"><span class="nav-icon">🎨</span> Part 4 — School Setup</a>
+      <a class="nav-item" onclick="goto('part5')"><span class="nav-icon">👥</span> Part 5 — Staff Reg</a>
+      <a class="nav-item" onclick="goto('part6')"><span class="nav-icon">📱</span> Part 6 — Devices</a>
+      <a class="nav-item" onclick="goto('part7')"><span class="nav-icon">🎓</span> Part 7 — Training</a>
+      <a class="nav-item" onclick="goto('part8')"><span class="nav-icon">🤝</span> Part 8 — Handover</a>
+    </div>
+  </div>
+
+  <div class="sidebar-foot">
+    Built by <a href="https://sinqura.netlify.app" target="_blank">Sinqura</a> · Uganda
+  </div>
+</nav>
+
+<!-- ══════════ MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="progress-info">
+      <span id="prog-label">0 of 0 done</span>
+      <div class="prog-bar-wrap">
+        <div class="prog-bar-fill" id="main-prog"></div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn-print" onclick="window.print()">🖨 Print</button>
+      <div class="pct-badge" id="pct-badge">0%</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="hero-badge">Complete Installation Playbook v2</div>
+      <h1>Shule — From Zero<br>to <em>School Live</em></h1>
+      <p class="hero-desc">
+        Every single step in exact order — from installing Docker on your own machine at home to sending the handover WhatsApp at the school gate. Nothing assumed, nothing skipped.
+      </p>
+      <div class="hero-pills">
+        <span class="hero-pill">9 Parts</span>
+        <span class="hero-pill">~1 Full Day On-Site</span>
+        <span class="hero-pill">45 min Technical Setup</span>
+        <span class="hero-pill">2 hrs Training</span>
+        <span class="hero-pill">Offline-First</span>
+      </div>
+    </div>
+
+    <!-- ═══ PART 0 — PRE-REQUISITES (NEW) -->
+    <div id="part0" class="part-hdr">
+      <div class="part-hdr-inner">
+        <div class="part-big-num">00</div>
+        <div class="part-body">
+          <div class="part-eyebrow">Part 0 · New — Do This First</div>
+          <div class="part-title">Pre-Requisites — Getting the Local Anon Key</div>
+          <div class="part-desc">Before you can build the school's Docker image you need the Supabase local anon key. You get it by running Supabase self-hosted on your own machine first, reading the key from the .env file, then using it in the build command.</div>
+        </div>
+        <div class="part-tag tag-acc">Do At Home First</div>
+      </div>
+    </div>
+
+    <div class="callout acc">
+      <div class="callout-ico">💡</div>
+      <div class="callout-body"><strong>Why does this step exist?</strong> The local anon key is generated when you set up Supabase self-hosted Docker. The school machine does not have it yet — it is in the <code>.env</code> file inside the Supabase Docker folder that you run at home or configure before the visit. You copy this key and bake it into the school's Docker image before you go on site.</div>
+    </div>
+
+    <div class="section" id="s0-1">
+      <div class="section-title"><span class="sec-num">0.1</span> Install Docker on Your Machine (Home / Office)</div>
+      <p>This runs on <strong>your laptop</strong>, not the school's server. Docker is what runs Supabase locally.</p>
+
+      <div class="chip chip-g">Windows</div>
+      <div class="steps" style="margin-top:8px">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Download Docker Desktop from <strong>docker.com/products/docker-desktop</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Run the installer → follow prompts → restart your machine when asked</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open a terminal (Command Prompt or PowerShell) and verify: <code>docker --version</code> → should print a version number</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Also verify: <code>docker compose version</code> → should print a version</div></div>
+      </div>
+
+      <div class="chip chip-b" style="margin-top:14px">Ubuntu / Linux</div>
+      <div class="code-wrap" style="margin-top:8px">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body"><span class="cm"># Install Docker</span>
+sudo apt update && sudo apt install -y docker.io docker-compose
+sudo systemctl enable docker && sudo systemctl start docker
+sudo usermod -aG docker $USER
+
+<span class="cm"># Log out and back in, then verify</span>
+docker --version
+docker compose version</pre>
+      </div>
+    </div>
+
+    <div class="section" id="s0-2">
+      <div class="section-title"><span class="sec-num">0.2</span> Clone the Supabase Self-Hosted Repository</div>
+      <p>This gives you the Docker compose setup for running Supabase locally.</p>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body"><span class="cm"># Clone the Supabase self-hosted repo</span>
+git clone https://github.com/supabase/supabase
+cd supabase/docker
+
+<span class="cm"># Copy the example env file</span>
+cp .env.example .env</pre>
+      </div>
+    </div>
+
+    <div class="section" id="s0-3">
+      <div class="section-title"><span class="sec-num">0.3</span> Configure the .env File</div>
+      <p>Open the <code>.env</code> file in a text editor. You need to change a few key values before starting:</p>
+
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body"><span class="cm"># Open .env in your editor</span>
+<span class="cm"># On Windows: use Notepad or VS Code</span>
+<span class="cm"># On Linux/Mac:</span>
+nano .env</pre>
+      </div>
+
+      <p>Inside the <code>.env</code> file, find and update these values:</p>
+      <div class="data-tbl" style="overflow:hidden;border-radius:10px;margin:12px 0">
+        <table class="data-tbl" style="margin:0;border:none">
+          <thead><tr><th>Key in .env</th><th>What to set it to</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td><code>POSTGRES_PASSWORD</code></td><td>A strong password you choose (e.g. <code>ShuleSchool2025!</code>)</td><td>Secures the database</td></tr>
+            <tr><td><code>JWT_SECRET</code></td><td>A long random string (32+ chars). Generate one at <strong>supabase.com/docs/guides/self-hosting/docker#generate-api-keys</strong></td><td>Signs all JWT tokens</td></tr>
+            <tr><td><code>ANON_KEY</code></td><td>Generated from your JWT_SECRET (see step 0.4)</td><td>Public key for the frontend</td></tr>
+            <tr><td><code>SERVICE_ROLE_KEY</code></td><td>Generated from your JWT_SECRET (see step 0.4)</td><td>Admin key — server only</td></tr>
+            <tr><td><code>SITE_URL</code></td><td><code>http://192.168.1.100</code></td><td>The school's local server URL</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section" id="s0-4">
+      <div class="section-title"><span class="sec-num">0.4</span> Generate and Get the Anon Key</div>
+      <div class="highlight-new">
+        <p><strong>This is the step that was missing.</strong> The anon key does not exist until you generate it from your JWT_SECRET. Here is exactly how to get it.</p>
+      </div>
+
+      <p><strong>Method 1 — Use the Supabase key generator (recommended):</strong></p>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Go to: <strong>supabase.com/docs/guides/self-hosting/docker#generate-api-keys</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Paste your <code>JWT_SECRET</code> from the <code>.env</code> file into the form on that page</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Click <strong>Generate JWT</strong> — it produces two keys: <code>anon</code> key and <code>service_role</code> key</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Copy the <strong>anon key</strong> — paste it into the <code>ANON_KEY=</code> line in your <code>.env</code> file</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Copy the <strong>service_role key</strong> — paste it into the <code>SERVICE_ROLE_KEY=</code> line. Keep this secret — never put it in the frontend.</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Save the <code>.env</code> file. Also save both keys somewhere safe (e.g. a password manager) — you will need the anon key in Part 1.</div></div>
+      </div>
+
+      <p style="margin-top:14px"><strong>Method 2 — Read the default key (quick but less secure):</strong></p>
+      <div class="callout warn">
+        <div class="callout-ico">⚠️</div>
+        <div class="callout-body">The default anon key in <code>.env.example</code> works but uses a shared public <code>JWT_SECRET</code>. Anyone who knows the default can craft tokens. <strong>For any real school installation, always generate your own key using Method 1 above.</strong></div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body"><span class="cm"># Read the anon key from your .env file</span>
+grep ANON_KEY .env
+
+<span class="cm"># Output will look like:</span>
+<span class="cm"># ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3...</span>
+
+<span class="cm"># Copy everything AFTER the = sign — that is your local anon key</span></pre>
+      </div>
+
+      <div class="callout ok">
+        <div class="callout-ico">✓</div>
+        <div class="callout-body"><strong>Save this anon key now.</strong> You will paste it into the <code>npm run build:school</code> command in Part 1 Step 1.2. Without it you cannot build the school's Docker image.</div>
+      </div>
+    </div>
+
+    <div class="section" id="s0-5">
+      <div class="section-title"><span class="sec-num">0.5</span> Start Supabase Locally and Verify It Works</div>
+      <p>Start the local Supabase stack on your machine to confirm everything is configured correctly before you go to the school.</p>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body"><span class="cm"># Make sure you are in the supabase/docker folder</span>
+cd supabase/docker
+
+<span class="cm"># Start the full stack</span>
+docker compose up -d
+
+<span class="cm"># Wait about 30 seconds then check all containers are running</span>
+docker compose ps
+
+<span class="cm"># You should see services like: db, auth, rest, realtime, storage, kong</span>
+<span class="cm"># all showing status: running</span>
+
+<span class="cm"># Open Supabase Studio in your browser</span>
+<span class="cm"># http://localhost:3000</span>
+
+<span class="cm"># You should see the Supabase Studio dashboard</span>
+<span class="cm"># This confirms the stack works</span></pre>
+      </div>
+
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">All containers show <strong>running</strong> in <code>docker compose ps</code></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Supabase Studio opens at <strong>http://localhost:3000</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Anon key is saved (from step 0.4) — ready to use in build command</div></div>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-ico">ℹ️</div>
+        <div class="callout-body">You can now stop the local stack on your machine with <code>docker compose down</code>. The school's server will run its own instance from the USB. The anon key you extracted is what matters.</div>
+      </div>
+    </div>
+
+    <div class="div-sep">Part 1</div>
+
+    <!-- ═══ PART 1 -->
+    <div id="part1" class="part-hdr">
+      <div class="part-hdr-inner">
+        <div class="part-big-num">01</div>
+        <div class="part-body">
+          <div class="part-eyebrow">Part 1 · Before You Leave Home</div>
+          <div class="part-title">Prepare the USB Installation Package</div>
+          <div class="part-desc">Build the school's Docker image using the anon key from Part 0, save all Docker images offline, and copy everything to the USB drive.</div>
+        </div>
+        <div class="part-tag tag-amber">⏱ Do at Home</div>
+      </div>
+    </div>
+
+    <div class="section" id="s1-1">
+      <div class="section-title"><span class="sec-num">1.1</span> Format and Prepare the USB Drive</div>
+      <p>Use a USB drive of <strong>minimum 32GB</strong>. The Docker images are large.</p>
+
+      <div class="chip chip-g">Windows</div>
+      <div class="steps" style="margin-top:8px">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Insert USB drive → Open File Explorer → right-click the USB drive → click <strong>Format</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">File system: <strong>exFAT</strong> · Volume label: <strong>SHULE-INSTALL</strong> · Quick Format: checked → Start → OK</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Wait for format to complete → USB is ready</div></div>
+      </div>
+
+      <div class="chip chip-b" style="margin-top:14px">Linux</div>
+      <div class="code-wrap" style="margin-top:8px">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body">lsblk
+<span class="cm"># Find your USB device (e.g. sdb)</span>
+sudo mkfs.exfat -n SHULE-INSTALL /dev/sdX1</pre>
+      </div>
+    </div>
+
+    <div class="section" id="s1-2">
+      <div class="section-title"><span class="sec-num">1.2</span> Build the School's Docker Image</div>
+      <p>Open terminal in your Shule project folder. Replace <code>YOUR_ANON_KEY</code> with the key you saved in step 0.4:</p>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body"><span class="cm"># Navigate to your Shule project folder first</span>
+cd path/to/shule
+
+<span class="cm"># Build the school image</span>
+<span class="cm"># Replace YOUR_ANON_KEY with the key from step 0.4</span>
+npm run build:school "New Youth Comprehensive School" \
+  http://192.168.1.100:8000 YOUR_ANON_KEY local</pre>
+      </div>
+      <div class="callout ok">
+        <div class="callout-ico">✓</div>
+        <div class="callout-body">When complete you will see: <code>✓ Build complete — Saved to: shule-install/shule-new-youth-comprehensive-school.tar</code></div>
+      </div>
+    </div>
+
+    <div class="section" id="s1-3">
+      <div class="section-title"><span class="sec-num">1.3</span> Pull and Save Supabase Docker Images</div>
+      <p>This downloads all required images and saves them offline so no internet is needed at the school.</p>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body">npm run usb:prepare "New Youth Comprehensive School" \
+  http://192.168.1.100:8000 YOUR_ANON_KEY local</pre>
+      </div>
+      <div class="callout warn">
+        <div class="callout-ico">⚠️</div>
+        <div class="callout-body"><strong>Watch for errors.</strong> If any image fails to download, re-run before going to the school. Also copy the <code>supabase/docker/.env</code> file to your USB — you will need it at the school to start Supabase with the correct keys.</div>
+      </div>
+    </div>
+
+    <div class="section" id="s1-4">
+      <div class="section-title"><span class="sec-num">1.4</span> Verify the shule-install/ Folder</div>
+      <p>Confirm every file is present. If anything is missing, stop and fix it before going.</p>
+      <div class="file-tree">
+<span class="ft-dir">shule-install/</span>
+├── <span class="ft-file">README.txt</span>                                    <span class="ft-ok">✓</span>
+├── <span class="ft-file">install.sh</span>                                    <span class="ft-ok">✓</span>
+├── <span class="ft-file">docker-compose.school.yml</span>                     <span class="ft-ok">✓</span>
+├── <span class="ft-file">nginx.conf</span>                                    <span class="ft-ok">✓</span>
+├── <span class="ft-file">shule-new-youth-comprehensive-school.tar</span>      <span class="ft-ok">✓</span>
+├── <span class="ft-file">shule-new-youth-comprehensive-school.env</span>      <span class="ft-ok">✓</span>
+├── <span class="ft-dir">supabase-images/</span>
+│   ├── <span class="ft-file">postgres--15-alpine.tar</span>                   <span class="ft-ok">✓</span>
+│   ├── <span class="ft-file">nginx--alpine.tar</span>                         <span class="ft-ok">✓</span>
+│   └── <span class="ft-file">kong--2.8.1.tar</span>                           <span class="ft-ok">✓</span>
+└── <span class="ft-dir">migrations/</span>
+    ├── <span class="ft-file">00001_initial_schema.sql</span>                  <span class="ft-ok">✓</span>
+    ├── <span class="ft-file">00002_rls_policies.sql</span>                    <span class="ft-ok">✓</span>
+    ├── <span class="ft-file">00003_functions_triggers.sql</span>              <span class="ft-ok">✓</span>
+    ├── <span class="ft-file">00004_jwt_hook.sql</span>                        <span class="ft-ok">✓</span>
+    └── <span class="ft-file">base.sql</span>                                  <span class="ft-ok">✓</span>
+
+<span class="ft-dim">Also copy from supabase/docker/:</span>
+└── <span class="ft-file">.env</span>  <span class="ft-dim">← copy this file to USB too — needed to start Supabase at school</span>  <span class="ft-ok">✓</span>
+      </div>
+    </div>
+
+    <div class="section" id="s1-5">
+      <div class="section-title"><span class="sec-num">1.5</span> Copy shule-install/ to the USB Drive</div>
+
+      <div class="chip chip-g">Windows</div>
+      <div class="steps" style="margin-top:8px">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open File Explorer → navigate to your Shule project folder → right-click <code>shule-install</code> → <strong>Copy</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open the USB (SHULE-INSTALL) → right-click → <strong>Paste</strong>. Also copy the <code>supabase/docker/.env</code> file to the USB root.</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Wait for copy to complete (10–20 minutes — Docker images are large)</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Right-click USB → <strong>Eject</strong> → wait for "Safe to remove" → pull USB</div></div>
+      </div>
+
+      <div class="chip chip-b" style="margin-top:14px">Linux / Mac</div>
+      <div class="code-wrap" style="margin-top:8px">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body">cp -r shule-install/ /media/yourname/SHULE-INSTALL/
+cp supabase/docker/.env /media/yourname/SHULE-INSTALL/
+ls -lh /media/yourname/SHULE-INSTALL/
+sudo umount /media/yourname/SHULE-INSTALL</pre>
+      </div>
+    </div>
+
+    <div class="section" id="s1-6">
+      <div class="section-title"><span class="sec-num">1.6</span> Print These Before You Leave</div>
+
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Item 1 — QR Codes (3 copies)</strong> · Go to qr-code-generator.com · Enter: <code>http://192.168.1.100</code> · Label: "Scan to open Shule"</div></div>
+      </div>
+
+      <div class="cred-box" style="margin-top:12px">
+        <div style="margin-bottom:8px;font-weight:600;color:var(--text)">Item 2 — Credentials Sheet <span class="cw">(sealed envelope → Principal only)</span></div>
+        <div><span class="ck">School         : </span><span class="cv">[School Name]</span></div>
+        <div><span class="ck">System URL     : </span><span class="cv">http://192.168.1.100</span></div>
+        <div><span class="ck">IT Admin Email : </span><span class="cv">itadmin@schoolname.ac.ug</span></div>
+        <div><span class="ck">Temp Password  : </span><span class="cv">Shule@2025</span></div>
+        <div><span class="ck">DB Password    : </span><span class="cv">[POSTGRES_PASSWORD from .env]</span></div>
+        <div style="margin-top:8px"><span class="cw">Hand to Principal only. Keep sealed until handover.</span></div>
+      </div>
+
+      <p style="margin-top:14px"><strong>Item 3 — Staff Login Sheet</strong></p>
+      <table class="data-tbl">
+        <thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Temp Password</th></tr></thead>
+        <tbody>
+          <tr><td style="color:var(--text3)">—</td><td style="color:var(--text3)">—</td><td style="color:var(--text3)">—</td><td><code>Shule@2025</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="div-sep">Part 2</div>
+
+    <!-- ═══ PART 2 -->
+    <div id="part2" class="part-hdr">
+      <div class="part-hdr-inner">
+        <div class="part-big-num">02</div>
+        <div class="part-body">
+          <div class="part-eyebrow">Part 2 · At the School</div>
+          <div class="part-title">Server Machine Setup and Installation</div>
+          <div class="part-desc">Set up the server PC, install Ubuntu, mount the USB, and run the one-command installer.</div>
+        </div>
+        <div class="part-tag tag-blue">⏱ ~45 min</div>
+      </div>
+    </div>
+
+    <div class="section" id="s2-1">
+      <div class="section-title"><span class="sec-num">2.1</span> Set Up the Server Machine</div>
+      <div class="callout info">
+        <div class="callout-ico">ℹ️</div>
+        <div class="callout-body"><strong>Minimum specs:</strong> 8GB RAM · 256GB SSD · Intel i5 or better · Ethernet port or strong WiFi. This PC stays at the school permanently as the server.</div>
+      </div>
+      <p><strong>Install Ubuntu Server 22.04 LTS</strong> if not already installed:</p>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Download Ubuntu Server 22.04 ISO at home (ubuntu.com) → flash to a second USB using Rufus (Windows) or Balena Etcher</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Boot the school PC from that USB → press <strong>F2, F8, F12, or Delete</strong> during startup to enter BIOS → set USB as first boot device</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Ubuntu installer → Language: <strong>English</strong> · Keyboard: <strong>English (US)</strong> · Type: <strong>Ubuntu Server (not minimized)</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Network → connect to school WiFi or ethernet · Storage → <strong>Use entire disk → Done → Continue</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Profile: Name <code>shule</code> · Server name <code>shule-server</code> · Username <code>shule</code> · Set strong password and write it down</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Install <strong>OpenSSH: Yes</strong> · Featured snaps: skip → Done · Wait ~15 min → reboot → log in</div></div>
+      </div>
+    </div>
+
+    <div class="section" id="s2-2">
+      <div class="section-title"><span class="sec-num">2.2</span> Connect and Mount the SHULE-INSTALL USB</div>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body"><span class="cm"># Plug in the SHULE-INSTALL USB drive</span>
+lsblk
+<span class="cm"># Find USB device (e.g. sdb → sdb1)</span>
+
+sudo mkdir -p /mnt/shule-usb
+sudo mount /dev/sdb1 /mnt/shule-usb
+
+<span class="cm"># Verify the files are there</span>
+ls /mnt/shule-usb/shule-install/</pre>
+      </div>
+    </div>
+
+    <div class="section" id="s2-3">
+      <div class="section-title"><span class="sec-num">2.3</span> Copy Install Files to the Server</div>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body">sudo cp -r /mnt/shule-usb/shule-install/ /opt/shule-install/
+
+<span class="cm"># Also copy the Supabase .env file</span>
+sudo cp /mnt/shule-usb/.env /opt/shule-install/supabase.env
+
+cd /opt/shule-install
+sudo chmod +x install.sh
+ls -la</pre>
+      </div>
+    </div>
+
+    <div class="section" id="s2-4">
+      <div class="section-title"><span class="sec-num">2.4</span> Run the Install Script</div>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body">sudo bash install.sh</pre>
+      </div>
+      <p>Runs for approximately <strong>15–20 minutes</strong>. Watch each step tick off:</p>
+      <div class="file-tree">
+→ [1/8] Installing system dependencies... <span class="ft-ok">✓</span>
+→ [2/8] Loading Docker images...          <span class="ft-ok">✓</span>
+→ [3/8] Configuring network...            <span class="ft-ok">✓</span>
+→ [4/8] Starting Shule services...        <span class="ft-ok">✓</span>
+→ [5/8] Setting up database schema...     <span class="ft-ok">✓</span>
+→ [6/8] Loading base data...              <span class="ft-ok">✓</span>
+→ [7/8] Configuring web server...         <span class="ft-ok">✓</span>
+→ [8/8] Configuring backups...            <span class="ft-ok">✓</span>
+      </div>
+      <table class="data-tbl">
+        <thead><tr><th>Error</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr><td>Docker image not found</td><td>Re-check USB copy was complete — files may have been missed</td></tr>
+          <tr><td>Port 80 already in use</td><td>Run <code>sudo systemctl stop apache2</code></td></tr>
+          <tr><td>Database connection refused</td><td>Wait 30 more seconds and retry the database steps manually</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section" id="s2-5">
+      <div class="section-title"><span class="sec-num">2.5</span> Verify the System Is Running</div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open any device on the school WiFi → browser → <strong>http://192.168.1.100</strong> → Shule login page appears</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open <strong>http://192.168.1.100:3000</strong> → Supabase Studio dashboard appears</div></div>
+      </div>
+      <p style="margin-top:12px">If either does not load:</p>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body">sudo docker ps
+sudo systemctl status nginx
+sudo docker compose -f /opt/shule/docker-compose.school.yml logs</pre>
+      </div>
+    </div>
+
+    <div class="div-sep">Part 3</div>
+
+    <!-- ═══ PART 3 -->
+    <div id="part3" class="part-hdr">
+      <div class="part-hdr-inner">
+        <div class="part-big-num">03</div>
+        <div class="part-body">
+          <div class="part-eyebrow">Part 3 · Supabase Studio — Manual Steps</div>
+          <div class="part-title">Database Auth Configuration</div>
+          <div class="part-desc">Open Supabase Studio at http://192.168.1.100:3000 and complete these in order. These cannot be automated.</div>
+        </div>
+        <div class="part-tag tag-red">⚠️ Critical</div>
+      </div>
+    </div>
+
+    <div class="section" id="s3-1">
+      <div class="section-title"><span class="sec-num">3.1</span> Register the JWT Hook</div>
+      <div class="callout crit">
+        <div class="callout-ico">🚨</div>
+        <div class="callout-body"><strong>Most critical step.</strong> Without this, nobody can log in to Shule. Do not skip.</div>
+      </div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">In Supabase Studio sidebar → <strong>Authentication → Hooks</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Find <strong>Custom Access Token Hook</strong> → click the toggle to Enable</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">In the dropdown select: <code>public.custom_access_token_hook</code></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Click <strong>Save</strong> → green confirmation appears</div></div>
+      </div>
+      <p style="margin-top:12px">Verify in SQL Editor:</p>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">sql</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body">SELECT routine_name, routine_schema
+FROM information_schema.routines
+WHERE routine_name = 'custom_access_token_hook';
+<span class="cm">-- Should return 1 row with routine_schema = public</span></pre>
+      </div>
+    </div>
+
+    <div class="section" id="s3-2">
+      <div class="section-title"><span class="sec-num">3.2</span> Create the IT Admin Auth User</div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Authentication → Users → click <strong>Add User</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Email: <code>itadmin@nycs.ac.ug</code> (replace nycs with school short name) · Password: <code>Shule@2025</code> · Auto Confirm: <strong>checked</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Click <strong>Create User</strong> → <strong>copy the User ID</strong> (the UUID in the ID column) — paste it somewhere safe</div></div>
+      </div>
+    </div>
+
+    <div class="section" id="s3-3">
+      <div class="section-title"><span class="sec-num">3.3</span> Create the IT Admin Staff Row</div>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">sql</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body"><span class="cm">-- First get the school_id</span>
+SELECT id, school_name FROM school_profile;</pre>
+      </div>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">sql</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body"><span class="cm">-- Insert IT Admin staff row</span>
+INSERT INTO staff (
+  school_id, first_name, last_name,
+  role, auth_user_id, is_active
+) VALUES (
+  'PASTE_SCHOOL_ID_HERE',
+  'Admin', 'IT',
+  'it_admin',
+  'PASTE_AUTH_USER_ID_HERE',
+  true
+);</pre>
+      </div>
+      <div class="callout ok">
+        <div class="callout-ico">✓</div>
+        <div class="callout-body">Should say <strong>Success. 1 row affected.</strong> Verify the link: <code>SELECT s.first_name, s.role, u.email FROM staff s JOIN auth.users u ON u.id = s.auth_user_id WHERE s.role = 'it_admin';</code></div>
+      </div>
+    </div>
+
+    <div class="section" id="s3-4">
+      <div class="section-title"><span class="sec-num">3.4</span> Verify the Full Login Flow</div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">New tab → <strong>http://192.168.1.100</strong> → login with <code>itadmin@nycs.ac.ug</code> / <code>Shule@2025</code></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">You land on the <strong>IT Admin dashboard</strong> with correct sidebar — login confirmed working</div></div>
+      </div>
+      <table class="data-tbl" style="margin-top:12px">
+        <thead><tr><th>Error</th><th>Cause</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr><td>"Account not linked to school role"</td><td>JWT hook not registered or staff row missing</td><td>Re-check 3.1 and 3.3</td></tr>
+          <tr><td>"Invalid login credentials"</td><td>Auth user not created correctly</td><td>Redo 3.2</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="div-sep">Part 4</div>
+
+    <!-- ═══ PART 4 -->
+    <div id="part4" class="part-hdr">
+      <div class="part-hdr-inner">
+        <div class="part-big-num">04</div>
+        <div class="part-body">
+          <div class="part-eyebrow">Part 4 · In the App</div>
+          <div class="part-title">School Profile Setup</div>
+          <div class="part-desc">IT Admin configures the school identity, academic year, departments, and creates all senior staff accounts.</div>
+        </div>
+        <div class="part-tag tag-amber">⏱ ~30 min</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="sec-num">4.1</span> IT Admin Configures the School</div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Log in as IT Admin → go to <strong>School Settings</strong> → upload logo, set full name, short name, motto, brand color, address, phone → Save</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Settings → <strong>Academic Year</strong> → create current year (e.g. 2025–2026) → set Term 1, 2, 3 dates → mark Active → Save</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Settings → <strong>Departments</strong> → add Sciences, Humanities, Languages, Technical → Save each</div></div>
+      </div>
+
+      <div class="section-title" style="margin-top:20px"><span class="sec-num">4.2</span> Create Senior Staff Accounts</div>
+      <p>Go to Staff Management → Register Staff. Create accounts in this order:</p>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Secretary</strong> — <code>secretary@nycs.ac.ug</code> · Role: Secretary</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Principal</strong> — <code>principal@nycs.ac.ug</code> · Role: Principal</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Deputy Principal</strong> — <code>deputy@nycs.ac.ug</code> · Role: Deputy</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Director of Studies</strong> — <code>dos@nycs.ac.ug</code> · Role: DoS</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Bursar</strong> — <code>bursar@nycs.ac.ug</code> · Role: Bursar</div></div>
+      </div>
+      <div class="callout ok">
+        <div class="callout-ico">✓</div>
+        <div class="callout-body">Each account is created with password <code>Shule@2025</code> via the <code>create-staff-auth-user</code> Edge Function automatically.</div>
+      </div>
+    </div>
+
+    <div class="div-sep">Part 5</div>
+
+    <!-- ═══ PART 5 -->
+    <div id="part5" class="part-hdr">
+      <div class="part-hdr-inner">
+        <div class="part-big-num">05</div>
+        <div class="part-body">
+          <div class="part-eyebrow">Part 5 · Secretary</div>
+          <div class="part-title">Staff Registration</div>
+          <div class="part-desc">Secretary logs in and registers all teaching staff using the 4-step wizard.</div>
+        </div>
+        <div class="part-tag tag-amber">⏱ ~45 min</div>
+      </div>
+    </div>
+
+    <div class="section" id="s5-1">
+      <div class="section-title"><span class="sec-num">5.1</span> Secretary Logs In</div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open <strong>http://192.168.1.100</strong> on Secretary's device → login: <code>secretary@nycs.ac.ug</code> / <code>Shule@2025</code></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Secretary is prompted to change password on first login</div></div>
+      </div>
+
+      <div class="section-title" style="margin-top:20px"><span class="sec-num">5.2</span> Register All Teaching Staff</div>
+      <p>Go to <strong>Staff → Register Staff</strong>. For each teacher, complete all 4 steps:</p>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Step 1 — Personal info:</strong> Full name, date of birth, gender, National ID, phone, email. Photo is optional at this stage.</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Step 2 — Professional info:</strong> Staff number (auto-generated), Role (Teacher or Class Teacher), Department, Subjects, Classes assigned</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Step 3 — Qualification level:</strong> Select from Uganda MoES dropdown. System warns if below minimum for their class level.</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Step 4 — Documents:</strong> Upload NIN (required for new staff). Mark as "existing staff" to skip mandatory uploads for staff already in the system.</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Submit — auth account auto-created, credentials auto-generated</div></div>
+      </div>
+    </div>
+
+    <div class="div-sep">Part 6</div>
+
+    <!-- ═══ PART 6 -->
+    <div id="part6" class="part-hdr">
+      <div class="part-hdr-inner">
+        <div class="part-big-num">06</div>
+        <div class="part-body">
+          <div class="part-eyebrow">Part 6 · Devices</div>
+          <div class="part-title">Connect All Staff Devices</div>
+          <div class="part-desc">Get every device on school WiFi, install Shule as a PWA, and post QR codes.</div>
+        </div>
+        <div class="part-tag tag-green">⏱ ~30 min</div>
+      </div>
+    </div>
+
+    <div class="section" id="s6-1">
+      <div class="section-title"><span class="sec-num">6.1</span> Connect to School WiFi and Open Shule</div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Connect every device (laptop, tablet, phone) to the school's WiFi network</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open <strong>Chrome</strong> (recommended) or Firefox → type <code>http://192.168.1.100</code> → login page loads</div></div>
+      </div>
+
+      <div class="section-title" style="margin-top:20px"><span class="sec-num">6.2</span> Install as PWA on Each Device</div>
+      <div class="train-grid">
+        <div class="train-card">
+          <div class="train-head"><div class="train-role">Android · Chrome</div></div>
+          <ul class="train-list">
+            <li>Open http://192.168.1.100 in Chrome</li>
+            <li>Tap three-dot menu → <strong>Add to Home Screen</strong></li>
+            <li>Name it Shule → Tap Add</li>
+            <li>Icon on home screen — opens like native app</li>
+          </ul>
+        </div>
+        <div class="train-card">
+          <div class="train-head"><div class="train-role">iPhone / iPad · Safari</div></div>
+          <ul class="train-list">
+            <li>Open in <strong>Safari only</strong> (not Chrome)</li>
+            <li>Share button → <strong>Add to Home Screen</strong></li>
+            <li>Name it Shule → Add</li>
+          </ul>
+        </div>
+        <div class="train-card">
+          <div class="train-head"><div class="train-role">Windows · Chrome</div></div>
+          <ul class="train-list">
+            <li>Open http://192.168.1.100 in Chrome</li>
+            <li>Click install icon in address bar</li>
+            <li>Click Install → opens as standalone window</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:20px"><span class="sec-num">6.3</span> Post the QR Codes</div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Post one in the <strong>staffroom</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Post one in the <strong>staff common room</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Post one near the <strong>school notice board</strong> · Label each: <em>"Scan to open Shule School System"</em></div></div>
+      </div>
+    </div>
+
+    <div class="div-sep">Part 7</div>
+
+    <!-- ═══ PART 7 -->
+    <div id="part7" class="part-hdr">
+      <div class="part-hdr-inner">
+        <div class="part-big-num">07</div>
+        <div class="part-body">
+          <div class="part-eyebrow">Part 7 · Training</div>
+          <div class="part-title">Training Sessions</div>
+          <div class="part-desc">Run in this exact order. Each person's device must be logged in and ready before their session starts.</div>
+        </div>
+        <div class="part-tag tag-blue">⏱ 2 hours total</div>
+      </div>
+    </div>
+
+    <div class="section" id="s7-1">
+      <div class="train-grid">
+        <div class="train-card">
+          <div class="train-head"><div class="train-role">IT Admin</div><div class="train-dur">30 min</div></div>
+          <ul class="train-list">
+            <li>School Settings — profile, logo, colors</li>
+            <li>User Management — all staff accounts</li>
+            <li>Password Reset — how to reset any staff</li>
+            <li>System KPIs — IT dashboard</li>
+            <li>Adding a new staff member later</li>
+            <li>Power cut — auto-restarts in 2 min</li>
+            <li>Backup location: /opt/shule/backups/</li>
+          </ul>
+        </div>
+        <div class="train-card">
+          <div class="train-head"><div class="train-role">Secretary</div><div class="train-dur">45 min</div></div>
+          <ul class="train-list">
+            <li>Register a new student (3-step wizard)</li>
+            <li>Register a new teacher</li>
+            <li>Import students from Excel</li>
+            <li>Manage class lists</li>
+            <li>Generate parent portal access links</li>
+            <li>Fee status view (paid/unpaid — no amounts)</li>
+            <li>Download registers as PDF or Excel</li>
+            <li>Batch generate report card PDFs</li>
+          </ul>
+        </div>
+        <div class="train-card">
+          <div class="train-head"><div class="train-role">Bursar</div><div class="train-dur">45 min</div></div>
+          <ul class="train-list">
+            <li>Import fee statements from Excel</li>
+            <li>Column mapping wizard</li>
+            <li>Edit fee ledger inline</li>
+            <li>Add new payment record</li>
+            <li>Balance auto-calculation</li>
+            <li>Send SMS fee reminders</li>
+            <li>Filter by class, stream, balance</li>
+            <li>Export fee reports PDF / Excel</li>
+            <li>SMS delivery log</li>
+          </ul>
+        </div>
+        <div class="train-card">
+          <div class="train-head"><div class="train-role">Teachers</div><div class="train-dur">30 min</div></div>
+          <ul class="train-list">
+            <li>Create exam journal entry</li>
+            <li>Enter marks manually</li>
+            <li>Import marks from Excel</li>
+            <li>View score distribution chart</li>
+            <li>Record daily attendance</li>
+            <li>Enter term remarks per student</li>
+            <li>Mark class as Ready for report cards</li>
+            <li>Preview report cards (read-only)</li>
+          </ul>
+        </div>
+        <div class="train-card">
+          <div class="train-head"><div class="train-role">Principal</div><div class="train-dur">30 min</div></div>
+          <ul class="train-list">
+            <li>Read KPI dashboard</li>
+            <li>View academic overview</li>
+            <li>Approve report cards (READY → APPROVED)</li>
+            <li>Release to parents (APPROVED → RELEASED)</li>
+            <li>Unlock report cards for correction</li>
+            <li>View audit log</li>
+            <li>Read all staff messages</li>
+            <li>Suspend or expel a student</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="div-sep">Part 8</div>
+
+    <!-- ═══ PART 8 -->
+    <div id="part8" class="part-hdr">
+      <div class="part-hdr-inner">
+        <div class="part-big-num">08</div>
+        <div class="part-body">
+          <div class="part-eyebrow">Part 8 · Final</div>
+          <div class="part-title">Handover</div>
+          <div class="part-desc">Final system check, credentials handover, update Shule Admin Dashboard, and send the follow-up WhatsApp.</div>
+        </div>
+        <div class="part-tag tag-green">🎉 Final Step</div>
+      </div>
+    </div>
+
+    <div class="section" id="s8-1">
+      <div class="section-title"><span class="sec-num">8.1</span> Final System Check</div>
+      <div class="chk-box">
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Login page loads at http://192.168.1.100</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">IT Admin logs in successfully</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Principal logs in — sees Principal dashboard</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Secretary logs in — sees Secretary dashboard</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Bursar logs in — sees Bursar dashboard</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">One Teacher logs in — sees Teacher dashboard</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Teacher cannot access /fees — hard blocked</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">School logo appears in sidebar</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">School name appears correctly everywhere</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Academic year is set and active</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">At least one class and stream exist</div></div>
+      </div>
+
+      <div class="section-title" style="margin-top:20px"><span class="sec-num">8.2</span> Hand Over Credentials</div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Confirm credentials sheet is printed and sealed in envelope</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Write on the outside: <strong>"SHULE SYSTEM CREDENTIALS — OPEN WITH IT ADMIN ONLY"</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Hand the envelope to the <strong>Principal personally</strong> — not the IT Admin, not the Secretary</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Tell the Principal: <em>"Keep this in the school safe. Share IT Admin credentials only with the IT Admin. Any staff password can be reset by the IT Admin at any time."</em></div></div>
+      </div>
+
+      <div class="section-title" style="margin-top:20px"><span class="sec-num">8.3</span> Add School to Shule Admin Dashboard</div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open Shule Admin Dashboard → <strong>School Registry</strong> → find the school in pending list</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Update status to <span class="chip chip-g">Active Local</span> → add installation notes → assign yourself → Save</div></div>
+      </div>
+
+      <div class="section-title" style="margin-top:20px"><span class="sec-num">8.4</span> Send Follow-Up WhatsApp</div>
+      <div class="wa-box">
+        Hi [Name],<br><br>
+        Shule is now live at your school 🎉<br><br>
+        Quick reference:<br>
+        • System URL: http://192.168.1.100<br>
+        • Open on any device connected to school WiFi<br>
+        • Install it on your phone using the QR code in the staffroom<br><br>
+        If you need any help:<br>
+        • WhatsApp us: +256XXXXXXXXX<br>
+        • Email: support@sinqura.com<br><br>
+        Welcome to Shule 🏫<br>
+        — Sinqura Team
+      </div>
+
+      <div class="callout ok" style="margin-top:20px">
+        <div class="callout-ico">🎉</div>
+        <div class="callout-body"><strong>Installation complete.</strong> The full process takes approximately one working day on site — 45 minutes technical setup, 2 hours training, plus device setup and staff registration. Shule is live.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script>
+function setTheme(t) {
+  document.body.setAttribute('data-theme', t);
+  document.getElementById('btn-dark').classList.toggle('active', t==='dark');
+  document.getElementById('btn-light').classList.toggle('active', t==='light');
+  document.getElementById('theme-name').textContent = t==='dark' ? 'Toji · Dark' : 'Gojo · Light';
+}
+
+function toggle(el) {
+  el.classList.toggle('done');
+  updateProgress();
+}
+
+function toggleCk(el) {
+  el.classList.toggle('done');
+  updateProgress();
+}
+
+function updateProgress() {
+  const all = document.querySelectorAll('.step, .chk-row');
+  const done = document.querySelectorAll('.step.done, .chk-row.done');
+  const total = all.length, count = done.length;
+  const pct = total ? Math.round((count/total)*100) : 0;
+  document.getElementById('main-prog').style.width = pct + '%';
+  document.getElementById('prog-label').textContent = count + ' of ' + total + ' done';
+  document.getElementById('pct-badge').textContent = pct + '%';
+}
+
+updateProgress();
+
+window.addEventListener('scroll', () => {
+  const el = document.getElementById('scroll-prog');
+  const doc = document.documentElement;
+  el.style.transform = 'scaleX(' + (doc.scrollTop / (doc.scrollHeight - doc.clientHeight)) + ')';
+}, { passive: true });
+
+function goto(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cpCode(btn) {
+  const pre = btn.closest('.code-wrap').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText || pre.textContent).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    btn.style.color = 'var(--green)';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
+  });
+}
+
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) e.target.style.animationPlayState = 'running';
+  });
+}, { threshold: 0.05 });
+
+document.querySelectorAll('.section').forEach(s => {
+  s.style.animationPlayState = 'paused';
+  obs.observe(s);
+});
+
+const navItems = document.querySelectorAll('.nav-item, .nav-sub');
+const secIds = Array.from(document.querySelectorAll('[id]')).map(e => e.id);
+
+const navObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const id = e.target.id;
+      navItems.forEach(n => {
+        const fn = n.getAttribute('onclick') || '';
+        n.classList.toggle('active', fn.includes("'"+id+"'"));
+      });
+    }
+  });
+}, { rootMargin: '-20% 0% -70% 0%' });
+
+secIds.forEach(id => {
+  const el = document.getElementById(id);
+  if (el) navObs.observe(el);
+});
+</script>
+</body>
+</html>

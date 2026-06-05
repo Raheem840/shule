@@ -1,6 +1,6 @@
+import { useMyAssignedClasses, useStreams } from '../../hooks/useClasses'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useClasses, useStreams, useMyAssignedClasses } from '../../hooks/useClasses'
 import { useStudents } from '../../hooks/useStudents'
 import { useAttendance, useClassTermAttendance, useSaveAttendance } from '../../hooks/useAttendance'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
@@ -185,7 +185,7 @@ export function AttendancePage() {
         {hasClass && studentCount > 0 && (
           <button
             onClick={() => {
-              const className = classes.data?.find((c: any) => c.id === classId)?.name ?? ''
+              const className = classes?.find((c: any) => c.id === classId)?.name ?? ''
               const header = 'Name,Admission No,Status,Date\n'
               const rows = students.map(s => {
                 const status = marks.get(s.id) ?? 'present'
@@ -236,7 +236,7 @@ export function AttendancePage() {
             <select value={classId} onChange={e => handleClassChange(e.target.value)}
               style={{ padding: '8px 32px 8px 12px', fontSize: 12.5, background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10, color: 'var(--txt)', fontFamily: 'var(--font2)', appearance: 'none', width: 140 }}>
               <option value="">All classes</option>
-              {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {classes.map((c: {id:string;name:string}) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
           </div>
@@ -248,7 +248,7 @@ export function AttendancePage() {
               disabled={!classId}
               style={{ padding: '8px 32px 8px 12px', fontSize: 12.5, background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10, color: classId ? 'var(--txt)' : 'var(--txt3)', fontFamily: 'var(--font2)', appearance: 'none', width: 140, opacity: classId ? 1 : 0.5, cursor: classId ? 'default' : 'not-allowed' }}>
               <option value="">All streams</option>
-              {streams.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {streams.map((s: {id:string;name:string}) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
           </div>

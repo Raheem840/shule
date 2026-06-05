@@ -69,7 +69,7 @@ describe('useActivateStaffLogin', () => {
     const { result } = renderHook(() => useActivateStaffLogin(), { wrapper: createWrapper() })
     let outcome: any
     await act(async () => {
-      outcome = await result.current.mutateAsync('staff-1')
+      outcome = await result.current.mutateAsync({ staffId: 'staff-1' })
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(outcome.manual).toBe(false)
@@ -83,7 +83,7 @@ describe('useActivateStaffLogin', () => {
     const { result } = renderHook(() => useActivateStaffLogin(), { wrapper: createWrapper() })
     let outcome: any
     await act(async () => {
-      outcome = await result.current.mutateAsync('staff-1')
+      outcome = await result.current.mutateAsync({ staffId: 'staff-1' })
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(outcome.manual).toBe(true)
@@ -94,7 +94,7 @@ describe('useActivateStaffLogin', () => {
     setResponse('staff', { data: null, error: null })
     const { result } = renderHook(() => useActivateStaffLogin(), { wrapper: createWrapper() })
     await act(async () => {
-      await expect(result.current.mutateAsync('staff-99')).rejects.toThrow('Staff member not found')
+      await expect(result.current.mutateAsync({ staffId: 'staff-99' })).rejects.toThrow('Staff member not found')
     })
   })
 
@@ -102,7 +102,7 @@ describe('useActivateStaffLogin', () => {
     setResponse('staff', { data: { ...dbStaff, auth_user_id: 'existing-uid' }, error: null })
     const { result } = renderHook(() => useActivateStaffLogin(), { wrapper: createWrapper() })
     await act(async () => {
-      await expect(result.current.mutateAsync('staff-1')).rejects.toThrow('already activated')
+      await expect(result.current.mutateAsync({ staffId: 'staff-1' })).rejects.toThrow('already activated')
     })
   })
 })

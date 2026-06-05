@@ -58,7 +58,7 @@ function PushToast({
   const navigate   = useNavigate()
   const [exiting, setExiting] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const timerRef  = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef  = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const DURATION  = 7000
 
   const cfg = TYPE_CONFIG[notif.type] ?? TYPE_CONFIG.general

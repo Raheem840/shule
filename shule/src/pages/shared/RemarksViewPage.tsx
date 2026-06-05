@@ -199,7 +199,7 @@ export function RemarksViewPage() {
                   {/* Remarks */}
                   {hasRemark && (
                     <div style={{ padding: '12px 18px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {remarks.map((r, i) => {
+                      {remarks.map((r: { teacherId: string; remarks: string; id?: string }, i: number) => {
                         const teacherName = staffMap.get(r.teacherId) ?? 'Unknown Teacher'
                         return (
                           <div key={r.id ?? i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>

@@ -123,7 +123,7 @@ export function DosCurriculumPage() {
               {heatmapData.map(({ term: t, count, covCount, pct: p }) => {
                 const { bg, txt } = pctColor(p)
                 return (
-                  <div key={t} style={{ padding: '16px', borderRadius: 14, background: bg, border: `.5px solid ${txt}25`, textAlign: 'center', cursor: 'pointer', transition: 'all .14s' }}
+                  <div key={t}
                     onClick={() => setTerm(term === t ? '' : t)}
                     style={{ padding: '16px', borderRadius: 14, background: term === t ? bg : p >= 0 ? bg : 'var(--surface2)', border: `.5px solid ${term === t ? txt : 'var(--border)'}30`, textAlign: 'center', cursor: 'pointer', transition: 'all .14s', boxShadow: term === t ? `0 4px 16px ${txt}20` : 'none' } as React.CSSProperties}
                   >

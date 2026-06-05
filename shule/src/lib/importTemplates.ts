@@ -5,77 +5,7 @@
 
 import ExcelJS from 'exceljs'
 
-// ── CSV helpers ───────────────────────────────────────────────
-
 type TemplateType = 'students' | 'staff'
-
-const STUDENT_TEMPLATE = {
-  headers: [
-    'first_name',
-    'last_name',
-    'dob',
-    'gender',
-    'class_name',
-    'stream_name',
-    'student_type',
-    'nationality',
-    'religion',
-    'previous_school',
-  ],
-  rows: [
-    ['Amara',     'Nakato',    '2010-03-15', 'Female', 'S.1', 'East', 'day',     'Ugandan', 'Christian', 'Kiyinda Primary School'],
-    ['Brian',     'Ssemwanga', '2009-07-22', 'Male',   'S.2', 'West', 'boarder', 'Ugandan', 'Muslim',    'Kibuli SS'],
-    ['Christine', 'Aber',      '2011-01-10', 'Female', 'S.1', 'East', 'day',     'Ugandan', 'Catholic',  "St. Mary's PS"],
-    ['David',     'Okello',    '2010-11-05', 'Male',   'S.3', '',     'day',     'Ugandan', 'Christian', 'Mbale PS'],
-    ['Esther',    'Namukasa',  '2009-05-20', 'Female', 'S.4', 'West', 'boarder', 'Ugandan', 'Christian', 'Gayaza High School'],
-    ['Frank',     'Ochieng',   '2011-08-14', 'Male',   'S.1', '',     'day',     'Ugandan', 'Muslim',    'Green Hill Academy'],
-  ],
-}
-
-const STAFF_TEMPLATE = {
-  headers: [
-    'first_name',
-    'last_name',
-    'role',
-    'email',
-    'phone',
-    'national_id',
-    'employment_type',
-    'department_name',
-  ],
-  rows: [
-    ['Sarah',  'Namutebi', 'teacher',       'snamutebi@school.ac.ug', '0772123456', 'CM80012345678P', 'full_time', 'Mathematics'],
-    ['Peter',  'Ochieng',  'class_teacher', 'pochieng@school.ac.ug',  '0701987654', 'CF79099876543Q', 'full_time', 'Sciences'],
-    ['Grace',  'Akello',   'dos',           'gakello@school.ac.ug',   '0782345678', 'CF82056712345R', 'full_time', 'Administration'],
-    ['Moses',  'Waiswa',   'teacher',       'mwaiswa@school.ac.ug',   '0756789012', 'CM75034567890S', 'full_time', 'English'],
-    ['Juliet', 'Kansiime', 'bursar',        'jkansiime@school.ac.ug', '0714567890', 'CF88067890123T', 'full_time', 'Finance'],
-  ],
-}
-
-function buildCsv(headers: string[], rows: string[][]): string {
-  const escape = (v: string) =>
-    v.includes(',') || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v
-  const lines = [
-    headers.map(escape).join(','),
-    ...rows.map(r => r.map(escape).join(',')),
-  ]
-  return lines.join('\r\n')
-}
-
-function triggerCsvDownload(filename: string, content: string): void {
-  // UTF-8 BOM — Excel on Windows needs this to open CSV correctly
-  const bom  = '﻿'
-  const blob = new Blob([bom + content], { type: 'text/csv;charset=utf-8;' })
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href     = url
-  a.download = filename
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
 
 export function generateImportTemplate(type: TemplateType): void {
   // Use pre-built static templates with 15-25 realistic Ugandan records

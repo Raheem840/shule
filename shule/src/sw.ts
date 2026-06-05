@@ -67,7 +67,7 @@ self.addEventListener('push', (event) => {
     data:    { url: data.url ?? '/' },
   }
 
-  event.waitUntil(self.registration.showNotification(title, options))
+  event.waitUntil(self.registration.showNotification(title, options as NotificationOptions & { vibrate?: number[] }))
 })
 
 // When user clicks the notification, open/focus the app

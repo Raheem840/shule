@@ -113,7 +113,7 @@ const ROLE_CFG: Record<string, { label: string; color: string; bg: string }> = {
   it_admin:      { label: 'IT Admin',     color: '#94a3b8', bg: 'rgba(148,163,184,.1)' },
 }
 
-function StaffBreakdown({ byRole, total }: { byRole: { role: string; count: number }[]; total: number }) {
+function StaffBreakdown({ byRole, total: _total }: { byRole: { role: string; count: number }[]; total: number }) {
   if (byRole.length === 0) return (
     <div style={{ fontSize: 12, color: '#94a3b8', padding: '12px 0' }}>No staff data for this period.</div>
   )
@@ -263,7 +263,7 @@ export function SchoolAtAGlancePage() {
   const [selectedTerm, setSelectedTerm] = useState(1)
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [downloading, setDownloading]   = useState(false)
-  const [animated,    setAnimated]      = useState(false)
+  const [, setAnimated]                  = useState(false)
 
   const { data: ayRows = [] }  = useAcademicYears()
   const { data: school }       = useSchoolProfile()

@@ -711,7 +711,7 @@ export function AcademicYearPage() {
             onClick={() => setShowPromote(true)}
             title={term3Done ? 'Promote students to next class' : 'Available after Term 3 ends'}
             style={{
-              padding: '8px 16px', borderRadius: 10, border: 'none', fontWeight: 700,
+              padding: '8px 16px', borderRadius: 10, fontWeight: 700,
               fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font2)',
               background: term3Done
                 ? 'linear-gradient(135deg, #7c3aed, #6d28d9)'

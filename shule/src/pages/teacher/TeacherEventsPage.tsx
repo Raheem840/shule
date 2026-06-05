@@ -9,7 +9,6 @@ import {
   useUpdateEvent,
   useDeleteEvent,
 } from '../../hooks/useTeacherEvents'
-import { useClasses, useStreams, useSubjects, useMyAssignedClasses } from '../../hooks/useClasses'
 import type { SchoolEvent } from '../../types/week9'
 
 const EVENT_TYPES = [

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTeacherRemarks, useSaveRemarks } from '../../hooks/useTeacherRemarks'
 import { useStudents } from '../../hooks/useStudents'
-import { useClasses, useStreams, useMyAssignedClasses } from '../../hooks/useClasses'
 import type { Student } from '../../types/app'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -165,7 +164,7 @@ export function TeacherRemarksPage() {
       {/* Progress */}
       {ready && !isLoading && (
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 140px', padding: '14px 18px', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, boxShadow: '0 1px 6px rgba(0,0,0,.04)' }}>
+          <div style={{ flex: '1 1 140px', padding: '14px 18px', border: '.5px solid var(--border)', borderRadius: 14, boxShadow: '0 1px 6px rgba(0,0,0,.04)' }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>With Remarks</div>
             <div style={{ fontSize: 26, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--success)', letterSpacing: -1 }}>{withRemarks}</div>
           </div>

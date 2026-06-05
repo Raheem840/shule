@@ -29,12 +29,6 @@ export function getPendingActivations(): Record<string, PendingActivation> {
   }
 }
 
-function setPendingActivation(activation: PendingActivation): void {
-  const existing = getPendingActivations()
-  existing[activation.staffId] = activation
-  localStorage.setItem(ACTIVATION_KEY, JSON.stringify(existing))
-}
-
 export function clearPendingActivation(staffId: string): void {
   const existing = getPendingActivations()
   delete existing[staffId]
@@ -81,8 +75,6 @@ export function useActivateStaffLogin() {
         const staffNum  = ((staff as any).staff_number as string ?? '').toLowerCase().replace(/[^a-z0-9]/g, '-')
         email = `staff.${staffNum}@${shortName}.ug`
       }
-
-      const name  = `${(staff as any).first_name} ${(staff as any).last_name}`
 
       const tempPassword = generateTempPassword()
 
@@ -142,8 +134,8 @@ export function useResetStaffPassword() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ authUserId, staffId, email, name }: {
-      authUserId: string; staffId: string; email: string; name: string
+    mutationFn: async ({ authUserId, staffId, name }: {
+      authUserId: string; staffId: string; email?: string; name: string
     }): Promise<{ tempPassword: string; manual: boolean }> => {
       if (!user) throw new Error('Not authenticated')
 

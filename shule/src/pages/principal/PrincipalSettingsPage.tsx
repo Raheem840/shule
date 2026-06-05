@@ -26,7 +26,7 @@ function useSave() {
         .eq('id', user.schoolId)
       if (error) throw new Error(error.message)
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['school-settings'] })
       // DB trigger re-prefixes all staff numbers when short_name changes
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
