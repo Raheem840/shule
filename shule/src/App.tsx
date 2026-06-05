@@ -67,6 +67,7 @@ const AddPaymentPage           = lazy(() => import('./pages/bursar/AddPaymentPag
 const DeliveryLogPage          = lazy(() => import('./pages/bursar/DeliveryLogPage').then(m => ({ default: m.DeliveryLogPage })))
 const FeeReportsPage           = lazy(() => import('./pages/bursar/FeeReportsPage').then(m => ({ default: m.FeeReportsPage })))
 const BursarStudentsPage       = lazy(() => import('./pages/bursar/BursarStudentsPage').then(m => ({ default: m.BursarStudentsPage })))
+const BursarMessagesPage       = lazy(() => import('./pages/bursar/BursarMessagesPage').then(m => ({ default: m.BursarMessagesPage })))
 
 // Teacher
 const TeacherDashboard         = lazy(() => import('./pages/teacher/TeacherDashboard').then(m => ({ default: m.TeacherDashboard })))
@@ -80,6 +81,7 @@ const TeacherCurriculumPage         = lazy(() => import('./pages/teacher/Teacher
 const ReportPreviewPage             = lazy(() => import('./pages/teacher/ReportPreviewPage').then(m => ({ default: m.ReportPreviewPage })))
 const ClassTeacherStudentsPage      = lazy(() => import('./pages/teacher/ClassTeacherStudentsPage').then(m => ({ default: m.ClassTeacherStudentsPage })))
 const TeacherMyClassesPage          = lazy(() => import('./pages/teacher/TeacherMyClassesPage').then(m => ({ default: m.TeacherMyClassesPage })))
+const TeacherParentMessagesPage     = lazy(() => import('./pages/teacher/TeacherParentMessagesPage').then(m => ({ default: m.TeacherParentMessagesPage })))
 
 // Student / Parent
 const StudentPortalPage        = lazy(() => import('./pages/student/StudentPortalPage').then(m => ({ default: m.StudentPortalPage })))
@@ -232,8 +234,9 @@ export default function App() {
             <Route path="/bursar/add-payment"   element={<AddPaymentPage />} />
             <Route path="/bursar/delivery-log"  element={<DeliveryLogPage />} />
             <Route path="/bursar/reports"       element={<FeeReportsPage />} />
-            <Route path="/bursar/students"      element={<BursarStudentsPage />} />
-            <Route path="/bursar/messages"      element={<MessagingPage />} />
+            <Route path="/bursar/students"        element={<BursarStudentsPage />} />
+            <Route path="/bursar/messages"        element={<MessagingPage />} />
+            <Route path="/bursar/parent-messages" element={<BursarMessagesPage />} />
           </Route>
 
           {/* ── Teacher / Class Teacher ─────────────────────────────── */}
@@ -252,8 +255,9 @@ export default function App() {
             <Route path="/teacher/attendance"             element={<AttendancePage />} />
             <Route path="/teacher/timetable"              element={<TeacherTimetablePage />} />
             <Route path="/teacher/curriculum"             element={<TeacherCurriculumPage />} />
-            <Route path="/teacher/report-preview"         element={<ReportPreviewPage />} />
+            <Route path="/teacher/report-preview"          element={<ReportPreviewPage />} />
             <Route path="/teacher/messages"               element={<MessagingPage />} />
+            <Route path="/teacher/parent-messages"        element={<TeacherParentMessagesPage />} />
           </Route>
 
           {/* ── Student ────────────────────────────────────────────── */}

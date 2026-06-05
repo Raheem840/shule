@@ -71,6 +71,7 @@ const SVG = {
   feeStatus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
   portalLinks: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>`,
   credentials: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>`,
+  parentInbox: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 13V6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2h9"/><polyline points="22 13 16 13 14 15 10 15 8 13 2 13"/></svg>`,
 }
 
 // ─── Role navigation configs ───────────────────────────────────────────────────
@@ -169,8 +170,9 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
     {
       label: 'Reports',
       items: [
-        { label: 'Fee Reports',  path: '/bursar/reports',        svg: SVG.feeReports   },
-        { label: 'Messages',     path: '/bursar/messages',       svg: SVG.messages,    badge: 'alert' },
+        { label: 'Fee Reports',      path: '/bursar/reports',          svg: SVG.feeReports             },
+        { label: 'Messages',         path: '/bursar/messages',         svg: SVG.messages,    badge: 'alert' },
+        { label: 'Parent Messages',  path: '/bursar/parent-messages',  svg: SVG.parentInbox, badge: 'alert' },
       ],
     },
   ],
@@ -180,20 +182,21 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
     {
       label: 'My Teaching',
       items: [
-        { label: 'Dashboard',    path: '/teacher/dashboard',     svg: SVG.dashboard    },
-        { label: 'My Classes',   path: '/teacher/my-classes',    svg: SVG.classes      },
-        { label: 'Events',       path: '/teacher/events',        svg: SVG.attendance   },
-        { label: 'Exam Journal', path: '/teacher/exams',         svg: SVG.examJournal  },
-        { label: 'Attendance',   path: '/teacher/attendance',    svg: SVG.attendance   },
-        { label: 'My Timetable', path: '/teacher/timetable',     svg: SVG.timetable    },
-        { label: 'Curriculum',   path: '/teacher/curriculum',    svg: SVG.curriculum   },
+        { label: 'Dashboard',       path: '/teacher/dashboard',         svg: SVG.dashboard    },
+        { label: 'My Classes',      path: '/teacher/my-classes',        svg: SVG.classes      },
+        { label: 'Events',          path: '/teacher/events',            svg: SVG.attendance   },
+        { label: 'Exam Journal',    path: '/teacher/exams',             svg: SVG.examJournal  },
+        { label: 'Attendance',      path: '/teacher/attendance',        svg: SVG.attendance   },
+        { label: 'My Timetable',    path: '/teacher/timetable',         svg: SVG.timetable    },
+        { label: 'Curriculum',      path: '/teacher/curriculum',        svg: SVG.curriculum   },
       ],
     },
     {
-      label: 'Reports',
+      label: 'Communication',
       items: [
-        { label: 'Remarks',      path: '/teacher/exams/remarks', svg: SVG.reportPreview},
-        { label: 'Messages',     path: '/teacher/messages',      svg: SVG.messages,    badge: 'alert' },
+        { label: 'Remarks',         path: '/teacher/exams/remarks',     svg: SVG.reportPreview},
+        { label: 'Messages',        path: '/teacher/messages',          svg: SVG.messages,    badge: 'alert' },
+        { label: 'Parent Messages', path: '/teacher/parent-messages',   svg: SVG.parentInbox, badge: 'alert' },
       ],
     },
   ],
@@ -203,21 +206,22 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
     {
       label: 'My Teaching',
       items: [
-        { label: 'Dashboard',    path: '/teacher/dashboard',     svg: SVG.dashboard    },
-        { label: 'My Classes',   path: '/teacher/my-classes',    svg: SVG.classes      },
-        { label: 'My Class',     path: '/teacher/my-class',      svg: SVG.students     },
-        { label: 'Events',       path: '/teacher/events',        svg: SVG.attendance   },
-        { label: 'Exam Journal', path: '/teacher/exams',         svg: SVG.examJournal  },
-        { label: 'Attendance',   path: '/teacher/attendance',    svg: SVG.attendance   },
-        { label: 'My Timetable', path: '/teacher/timetable',     svg: SVG.timetable    },
-        { label: 'Curriculum',   path: '/teacher/curriculum',    svg: SVG.curriculum   },
+        { label: 'Dashboard',       path: '/teacher/dashboard',         svg: SVG.dashboard    },
+        { label: 'My Classes',      path: '/teacher/my-classes',        svg: SVG.classes      },
+        { label: 'My Class',        path: '/teacher/my-class',          svg: SVG.students     },
+        { label: 'Events',          path: '/teacher/events',            svg: SVG.attendance   },
+        { label: 'Exam Journal',    path: '/teacher/exams',             svg: SVG.examJournal  },
+        { label: 'Attendance',      path: '/teacher/attendance',        svg: SVG.attendance   },
+        { label: 'My Timetable',    path: '/teacher/timetable',         svg: SVG.timetable    },
+        { label: 'Curriculum',      path: '/teacher/curriculum',        svg: SVG.curriculum   },
       ],
     },
     {
-      label: 'Reports',
+      label: 'Communication',
       items: [
-        { label: 'Remarks',      path: '/teacher/exams/remarks', svg: SVG.reportPreview},
-        { label: 'Messages',     path: '/teacher/messages',      svg: SVG.messages,    badge: 'alert' },
+        { label: 'Remarks',         path: '/teacher/exams/remarks',     svg: SVG.reportPreview},
+        { label: 'Messages',        path: '/teacher/messages',          svg: SVG.messages,    badge: 'alert' },
+        { label: 'Parent Messages', path: '/teacher/parent-messages',   svg: SVG.parentInbox, badge: 'alert' },
       ],
     },
   ],

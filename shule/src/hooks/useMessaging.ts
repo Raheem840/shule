@@ -390,6 +390,268 @@ export function useUnreadCount() {
   })
 }
 
+// ── useParentConversations ─────────────────────────────────────────────────
+// For bursar / teacher: returns all unique parents who have sent at least one
+// message to this staff member, with latest message preview + unread count.
+export type ParentConversation = {
+  parentAuthUserId: string
+  parentName:       string
+  studentNames:     string[]
+  latestBody:       string
+  latestSentAt:     string
+  unreadCount:      number
+}
+
+export function useParentConversations() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['parent-conversations', user?.schoolId, user?.id],
+    enabled: !!user,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    queryFn: async (): Promise<ParentConversation[]> => {
+      if (!user) return []
+
+      // 1. All messages where this staff member is the recipient
+      const { data: msgs, error: msgErr } = await supabase
+        .from('messages')
+        .select('id, from_user_id, body, sent_at, read_at')
+        .eq('school_id', user.schoolId)
+        .eq('to_user_id', user.id)
+        .eq('is_announcement', false)
+        .order('sent_at', { ascending: false })
+        .limit(500)
+
+      if (msgErr) throw new Error(msgErr.message)
+
+      const allMsgs = (msgs ?? []) as Array<{
+        id: string; from_user_id: string; body: string; sent_at: string; read_at: string | null
+      }>
+
+      // Group by from_user_id — collect unique senders with their latest message
+      const senderMap = new Map<string, { latestBody: string; latestSentAt: string; unreadCount: number }>()
+      for (const m of allMsgs) {
+        const k = m.from_user_id
+        if (!senderMap.has(k)) {
+          // first entry is the latest (desc order)
+          senderMap.set(k, { latestBody: m.body, latestSentAt: m.sent_at, unreadCount: 0 })
+        }
+        if (!m.read_at) {
+          senderMap.get(k)!.unreadCount++
+        }
+      }
+
+      if (senderMap.size === 0) return []
+
+      const senderIds = Array.from(senderMap.keys())
+
+      // 2. Get parent_accounts for those sender IDs
+      const { data: parents, error: parentErr } = await supabase
+        .from('parent_accounts')
+        .select('auth_user_id, full_name, student_ids')
+        .eq('school_id', user.schoolId)
+        .in('auth_user_id', senderIds)
+
+      if (parentErr) throw new Error(parentErr.message)
+
+      const parentList = (parents ?? []) as Array<{
+        auth_user_id: string; full_name: string; student_ids: string[] | null
+      }>
+
+      if (parentList.length === 0) return []
+
+      // 3. Resolve student names
+      const allStudentIds = Array.from(
+        new Set(parentList.flatMap(p => p.student_ids ?? []))
+      )
+
+      const studentNameMap = new Map<string, string>()
+      if (allStudentIds.length > 0) {
+        const { data: students } = await supabase
+          .from('students')
+          .select('id, first_name, last_name')
+          .in('id', allStudentIds)
+        for (const s of (students ?? []) as Array<{ id: string; first_name: string; last_name: string }>) {
+          studentNameMap.set(s.id, `${s.first_name} ${s.last_name}`)
+        }
+      }
+
+      return parentList
+        .filter(p => senderMap.has(p.auth_user_id))
+        .map(p => ({
+          parentAuthUserId: p.auth_user_id,
+          parentName:       p.full_name ?? 'Parent',
+          studentNames:     (p.student_ids ?? []).map(sid => studentNameMap.get(sid) ?? 'Student'),
+          ...senderMap.get(p.auth_user_id)!,
+        }))
+        .sort((a, b) => new Date(b.latestSentAt).getTime() - new Date(a.latestSentAt).getTime())
+    },
+  })
+}
+
+// ── useConversationWithParent ──────────────────────────────────────────────
+// Fetches full thread between this staff and a specific parent.
+export function useConversationWithParent(parentAuthUserId: string | null) {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  const query = useQuery({
+    queryKey: ['parent-thread', user?.id, parentAuthUserId],
+    enabled: !!user && !!parentAuthUserId,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+    queryFn: async (): Promise<Message[]> => {
+      const me = user!.id
+      const them = parentAuthUserId!
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id, school_id, from_user_id, to_user_id, body, attachment_url, attachment_name, sent_at, read_at')
+        .eq('school_id', user!.schoolId)
+        .eq('is_announcement', false)
+        .or(
+          `and(from_user_id.eq.${me},to_user_id.eq.${them}),` +
+          `and(from_user_id.eq.${them},to_user_id.eq.${me})`
+        )
+        .order('sent_at', { ascending: true })
+        .limit(200)
+
+      if (error) throw new Error(error.message)
+
+      return (data ?? []).map((r: any) => ({
+        id:             r.id,
+        schoolId:       r.school_id,
+        fromUserId:     r.from_user_id ?? null,
+        toUserId:       r.to_user_id ?? null,
+        isAnnouncement: false,
+        body:           r.body ?? null,
+        attachmentUrl:  r.attachment_url ?? null,
+        attachmentName: r.attachment_name ?? null,
+        attachmentType: null,
+        sentAt:         r.sent_at,
+        readAt:         r.read_at ?? null,
+      } satisfies Message))
+    },
+  })
+
+  // Realtime: new messages in this thread
+  useEffect(() => {
+    if (!user || !parentAuthUserId) return
+
+    const channel = supabase
+      .channel(`parent-thread:${user.id}:${parentAuthUserId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `school_id=eq.${user.schoolId}` },
+        (payload) => {
+          const msg = payload.new as Record<string, unknown>
+          const isForThisThread =
+            (msg['to_user_id'] === user.id && msg['from_user_id'] === parentAuthUserId) ||
+            (msg['from_user_id'] === user.id && msg['to_user_id'] === parentAuthUserId)
+          if (!isForThisThread) return
+
+          const newMsg: Message = {
+            id:             msg['id'] as string,
+            schoolId:       msg['school_id'] as string,
+            fromUserId:     (msg['from_user_id'] as string) ?? null,
+            toUserId:       (msg['to_user_id'] as string) ?? null,
+            isAnnouncement: false,
+            body:           (msg['body'] as string) ?? null,
+            attachmentUrl:  (msg['attachment_url'] as string) ?? null,
+            attachmentName: (msg['attachment_name'] as string) ?? null,
+            attachmentType: null,
+            sentAt:         msg['sent_at'] as string,
+            readAt:         null,
+          }
+
+          qc.setQueryData(
+            ['parent-thread', user.id, parentAuthUserId],
+            (old: Message[] = []) => {
+              if (old.some(m => m.id === newMsg.id)) return old
+              return [...old, newMsg]
+            }
+          )
+          void qc.invalidateQueries({ queryKey: ['parent-conversations', user.schoolId, user.id] })
+        }
+      )
+      .subscribe()
+
+    return () => { void supabase.removeChannel(channel) }
+  }, [user?.schoolId, user?.id, parentAuthUserId, qc])
+
+  return query
+}
+
+// ── useSendMessageToParent ─────────────────────────────────────────────────
+export function useSendMessageToParent() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: { toUserId: string; body: string; attachmentUrl?: string | null }) => {
+      if (!user) throw new Error('Not authenticated')
+
+      const row = {
+        school_id:       user.schoolId,
+        from_user_id:    user.id,
+        to_user_id:      input.toUserId,
+        body:            input.body,
+        attachment_url:  input.attachmentUrl ?? null,
+        is_announcement: false,
+        sent_at:         new Date().toISOString(),
+      }
+
+      if (!navigator.onLine) {
+        await queueSync('messages', 'insert', row)
+        return
+      }
+
+      const { error } = await supabase.from('messages').insert(row)
+      if (error) throw new Error(error.message)
+
+      // In-app notification to parent
+      const preview = input.body.length > 80 ? input.body.slice(0, 80) + '…' : input.body
+      void supabase.from('notifications').insert({
+        school_id: user.schoolId,
+        user_id:   input.toUserId,
+        type:      'message',
+        title:     user.name,
+        body:      preview,
+        from_user: user.id,
+      })
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['parent-thread', user?.id, vars.toUserId] })
+      void qc.invalidateQueries({ queryKey: ['parent-conversations', user?.schoolId, user?.id] })
+    },
+  })
+}
+
+// ── useMarkParentThreadRead ────────────────────────────────────────────────
+export function useMarkParentThreadRead() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (fromUserId: string) => {
+      if (!user) throw new Error('Not authenticated')
+      const { error } = await supabase
+        .from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('school_id', user.schoolId)
+        .eq('to_user_id', user.id)
+        .eq('from_user_id', fromUserId)
+        .is('read_at', null)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: (_data, fromUserId) => {
+      void qc.invalidateQueries({ queryKey: ['parent-thread', user?.id, fromUserId] })
+      void qc.invalidateQueries({ queryKey: ['parent-conversations', user?.schoolId, user?.id] })
+    },
+  })
+}
+
 // ── useUploadAttachment ────────────────────────────────────────────────────
 // Uploads a file to Supabase Storage (staff-attachments bucket).
 // Max 5MB enforced client-side before upload.
