@@ -304,7 +304,7 @@ export function BursarImportPage() {
           amount_paid:      amountPaid,
           amount_due:       amountDue,
           balance,
-          payment_date:     r.payment_date ? String(r.payment_date) : new Date().toISOString().slice(0, 10),
+          payment_date:     r.payment_date ? String(r.payment_date) : (amountPaid > 0 ? new Date().toISOString().slice(0, 10) : null),
           receipt_number:   r.receipt_number ? String(r.receipt_number) : null,
           notes:            r.notes ? String(r.notes) : null,
           term:             termNum,

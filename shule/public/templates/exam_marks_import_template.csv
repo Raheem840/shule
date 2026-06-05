@@ -1,21 +1,21 @@
-student_name,class_name,stream_name,score,is_absent
-Amara Nakato,S.3,East,68,FALSE
-Brian Ssemwanga,S.3,East,55,FALSE
-Christine Aber,S.3,East,,TRUE
-David Okello,S.3,East,72,FALSE
-Esther Namukasa,S.3,East,81,FALSE
-Frank Ochieng,S.3,East,49,FALSE
-Grace Atim,S.3,East,77,FALSE
-Henry Mubiru,S.3,East,63,FALSE
-Irene Nalwoga,S.3,East,58,FALSE
-James Byarugaba,S.3,East,90,FALSE
-Josephine Auma,S.3,West,74,FALSE
-Kenneth Turyahabwe,S.3,West,66,FALSE
-Lydia Nassazi,S.3,West,83,FALSE
-Michael Ocen,S.3,West,,TRUE
-Naomi Kisakye,S.3,West,71,FALSE
-Patrick Ssali,S.3,West,45,FALSE
-Rachel Achola,S.3,West,88,FALSE
-Samuel Waweru,S.3,West,52,FALSE
-Tabitha Nekesa,S.3,West,79,FALSE
-Umar Ddumba,S.3,West,61,FALSE
+admission_number,score,is_absent
+NYCS/2025/001,68,FALSE
+NYCS/2025/002,55,FALSE
+NYCS/2025/003,,TRUE
+NYCS/2025/004,72,FALSE
+NYCS/2025/005,81,FALSE
+NYCS/2025/006,49,FALSE
+NYCS/2025/007,77,FALSE
+NYCS/2025/008,63,FALSE
+NYCS/2025/009,58,FALSE
+NYCS/2025/010,90,FALSE
+NYCS/2025/011,74,FALSE
+NYCS/2025/012,66,FALSE
+NYCS/2025/013,83,FALSE
+NYCS/2025/014,,TRUE
+NYCS/2025/015,71,FALSE
+NYCS/2025/016,45,FALSE
+NYCS/2025/017,88,FALSE
+NYCS/2025/018,52,FALSE
+NYCS/2025/019,79,FALSE
+NYCS/2025/020,61,FALSE

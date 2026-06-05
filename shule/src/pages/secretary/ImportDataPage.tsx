@@ -14,7 +14,6 @@ const STUDENT_REQUIRED: ColumnSpec[] = [
   { key: 'last_name',  label: 'Last Name',  required: true },
 ]
 const STUDENT_OPTIONAL: ColumnSpec[] = [
-  { key: 'admission_number', label: 'Admission Number' },  // optional: leave blank for auto-generation
   { key: 'dob',              label: 'Date of Birth'    },
   { key: 'gender',           label: 'Gender'           },
   { key: 'class_name',       label: 'Class Name'       },
@@ -40,17 +39,6 @@ const STAFF_OPTIONAL: ColumnSpec[] = [
   { key: 'qualification_level', label: 'Qualification Level' },
   { key: 'qualification_title', label: 'Qualification Title' },
 ]
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-interface Collision {
-  rowIndex:     number   // 0-based index into the rows being imported
-  firstName:    string
-  lastName:     string
-  existingId:   string
-  existingAdm:  string
-  existingClass?: string
-  resolution:   'update' | 'create'
-}
 
 interface ImportedStudent {
   name:             string
@@ -100,84 +88,6 @@ function TemplateDownloadBar({ mode }: { mode: 'students' | 'staff' }) {
   )
 }
 
-// ── Collision Review UI ───────────────────────────────────────────────────────
-function CollisionReview({
-  collisions,
-  onChange,
-}: {
-  collisions: Collision[]
-  onChange: (id: string, resolution: 'update' | 'create') => void
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{
-        padding: '10px 14px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
-        borderRadius: 10, fontSize: 12.5, color: 'var(--warning)', fontWeight: 700,
-      }}>
-        {collisions.length} name collision{collisions.length > 1 ? 's' : ''} detected — review each one before importing
-      </div>
-      {collisions.map(c => (
-        <div key={c.existingId} style={{
-          padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10, background: 'rgba(245,158,11,0.12)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2">
-                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-            </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--txt)' }}>
-                Row {c.rowIndex + 2}: {c.firstName} {c.lastName}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>
-                Already exists — Adm: <strong style={{ color: 'var(--txt2)' }}>{c.existingAdm}</strong>
-                {c.existingClass && <> · Class: <strong style={{ color: 'var(--txt2)' }}>{c.existingClass}</strong></>}
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {(['update', 'create'] as const).map(opt => {
-              const selected = c.resolution === opt
-              return (
-                <label key={opt} style={{
-                  flex: 1, display: 'flex', gap: 8, alignItems: 'flex-start',
-                  padding: '10px 12px', borderRadius: 9, cursor: 'pointer',
-                  border: `1.5px solid ${selected ? 'var(--brand)' : 'var(--border)'}`,
-                  background: selected ? 'var(--brand-light)' : 'var(--surface2)',
-                  transition: 'all 0.15s',
-                }}>
-                  <input
-                    type="radio"
-                    name={`collision-${c.existingId}`}
-                    checked={selected}
-                    onChange={() => onChange(c.existingId, opt)}
-                    style={{ accentColor: 'var(--brand)', marginTop: 2, flexShrink: 0 }}
-                  />
-                  <div>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: selected ? 'var(--brand)' : 'var(--txt)' }}>
-                      {opt === 'update' ? 'Same person — update existing record' : 'Different person — create new record'}
-                    </div>
-                    <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2 }}>
-                      {opt === 'update'
-                        ? 'Overwrites the existing student\'s data with values from this row'
-                        : 'Creates a new student entry with a new admission number'}
-                    </div>
-                  </div>
-                </label>
-              )
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
 
 // ── Imported Students Summary ─────────────────────────────────────────────────
 function ImportedStudentsSummary({ students }: { students: ImportedStudent[] }) {
@@ -218,105 +128,149 @@ export function ImportDataPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
   const [mode, setMode]               = useState<'students' | 'staff'>('students')
-  const [collisions, setCollisions]   = useState<Collision[]>([])
-  const [pendingRows, setPendingRows] = useState<ParsedRow[] | null>(null)
-  const [showCollisionStep, setShowCollisionStep] = useState(false)
+  const [importYear, setImportYear]   = useState(new Date().getFullYear())
   const [importedStudents, setImportedStudents]   = useState<ImportedStudent[]>([])
   const [importSuccess, setImportSuccess]         = useState<{ count: number; type: 'students' | 'staff' } | null>(null)
 
-  // ── Detect collisions for students ─────────────────────────────────────────
-  async function detectStudentCollisions(rows: ParsedRow[]): Promise<Collision[]> {
-    const firstNames = rows.map(r => String(r.first_name ?? '').trim()).filter(Boolean)
-    if (firstNames.length === 0) return []
+  // Year-mismatch warning dialog — uses a Promise callback so handleStudentImport
+  // can await the secretary's decision before proceeding.
+  type YearWarning = {
+    issues: Array<{ className: string; level: number; selectedYear: number; expectedYear: number }>
+    onConfirm: () => void
+    onCancel:  () => void
+  }
+  const [yearWarning, setYearWarning] = useState<YearWarning | null>(null)
 
-    const { data: existing } = await supabase
-      .from('students')
-      .select('id, first_name, last_name, admission_number, class_id')
-      .eq('school_id', user!.schoolId)
-      .in('first_name', firstNames)
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  const normCls = (s: string) => s.toLowerCase().replace(/\s+/g,'').replace(/\./g,'').replace(/-/g,'').replace(/^senior/,'s').replace(/^form/,'s')
 
-    if (!existing || existing.length === 0) return []
-
-    const result: Collision[] = []
-    rows.forEach((row, i) => {
-      const first = String(row.first_name ?? '').trim().toLowerCase()
-      const last  = String(row.last_name ?? '').trim().toLowerCase()
-      const match = existing.find(e =>
-        e.first_name.toLowerCase().trim() === first &&
-        e.last_name.toLowerCase().trim()  === last
-      )
-      if (match) {
-        result.push({
-          rowIndex:     i,
-          firstName:    String(row.first_name),
-          lastName:     String(row.last_name),
-          existingId:   match.id as string,
-          existingAdm:  match.admission_number as string,
-          existingClass: match.class_id ? `class_id:${match.class_id}` : undefined,
-          resolution:   'update',
-        })
-      }
-    })
-    return result
+  function extractLevel(name: string): number | null {
+    const n = normCls(name)
+    const m = n.match(/^[spf](\d)/)
+    return m ? parseInt(m[1]) : null
   }
 
   // ── Student import handler ──────────────────────────────────────────────────
+  // Rule: same first_name + last_name + same class → UPDATE existing student
+  //       anything else (different class, or new name) → INSERT
+  //       admission number year = importYear state (default = current year)
   async function handleStudentImport(rows: ParsedRow[]): Promise<ImportResult> {
-    // Detect collisions first
-    const detected = await detectStudentCollisions(rows)
-
-    if (detected.length > 0 && !showCollisionStep) {
-      // Stash rows and show collision review
-      setPendingRows(rows)
-      setCollisions(detected)
-      setShowCollisionStep(true)
-      // Return a "pending" result so the wizard waits — we'll actually return
-      // a real result once collisions are resolved by the outer UI below
-      return { imported: 0, updated: 0, skipped: 0, failed: [] }
-    }
-
-    // Resolve rows based on collision decisions
-    const resolvedCollisions = collisions.length > 0 ? collisions : detected
     const failedItems: Array<{ row: number; reason: string }> = []
     let imported = 0
     let updated  = 0
     const newStudentResults: ImportedStudent[] = []
 
-    for (let i = 0; i < rows.length; i++) {
-      const r          = rows[i]
-      const collision  = resolvedCollisions.find(c => c.rowIndex === i)
-      const firstName  = String(r.first_name ?? '').trim()
-      const lastName   = String(r.last_name ?? '').trim()
-      const admNum     = r.admission_number ? String(r.admission_number).trim() : undefined
+    // ── Year mismatch check ─────────────────────────────────────────────────
+    // For each unique class in the CSV, check whether importYear aligns with
+    // the expected enrollment year (when they would have been in S.1).
+    const currentCalYear = new Date().getFullYear()
+    const uniqueClasses  = [...new Set(rows.map(r => String(r.class_name ?? '').trim()).filter(Boolean))]
+    const mismatchIssues: Array<{ className: string; level: number; selectedYear: number; expectedYear: number }> = []
 
-      // Normalise gender — DB check constraint is lowercase
+    for (const className of uniqueClasses) {
+      const level = extractLevel(className)
+      if (level === null) continue
+      const expectedYear = currentCalYear - (level - 1)  // year they would have enrolled in S.1
+      if (importYear !== expectedYear) {
+        mismatchIssues.push({ className, level, selectedYear: importYear, expectedYear })
+      }
+    }
+
+    if (mismatchIssues.length > 0) {
+      const confirmed = await new Promise<boolean>(resolve => {
+        setYearWarning({ issues: mismatchIssues, onConfirm: () => resolve(true), onCancel: () => resolve(false) })
+      })
+      setYearWarning(null)
+      if (!confirmed) return { imported: 0, updated: 0, skipped: 0, failed: [] }
+    }
+
+    // ── Pre-fetch everything needed in parallel ─────────────────────────────
+    const firstNames = [...new Set(rows.map(r => String(r.first_name ?? '').trim()).filter(Boolean))]
+    const [classesRes, streamsRes, yearRes, existingRes, schoolRes] = await Promise.all([
+      supabase.from('classes').select('id, name').eq('school_id', user!.schoolId),
+      supabase.from('streams').select('id, name, class_id').eq('school_id', user!.schoolId),
+      supabase.from('academic_years').select('id').eq('school_id', user!.schoolId).eq('is_active', true).maybeSingle(),
+      firstNames.length > 0
+        ? supabase.from('students').select('id, first_name, last_name, admission_number, class_id').eq('school_id', user!.schoolId).in('first_name', firstNames)
+        : Promise.resolve({ data: [] }),
+      supabase.from('school_profile').select('short_name').eq('id', user!.schoolId).single(),
+    ])
+
+    const activeYearId = (yearRes.data as any)?.id as string | null
+    const shortName    = ((schoolRes as any).data?.short_name as string | null) ?? 'SCHOOL'
+    const classMap     = new Map<string, string>((classesRes.data ?? []).map((c: any) => [normCls(c.name as string), c.id as string]))
+    const streamMap    = new Map<string, string>()
+    ;(streamsRes.data ?? []).forEach((s: any) => streamMap.set(`${s.class_id}::${(s.name as string).toLowerCase().trim()}`, s.id as string))
+
+    // For historical import years, pre-compute admission number sequence
+    // (the DB trigger uses NOW() year — for other years we supply the number ourselves)
+    let admSeqOffset = 0
+    const useHistoricalYear = importYear !== currentCalYear
+    if (useHistoricalYear) {
+      const { count } = await supabase
+        .from('students')
+        .select('id', { count: 'exact', head: true })
+        .eq('school_id', user!.schoolId)
+        .like('admission_number', `${shortName}/${importYear}/%`)
+      admSeqOffset = count ?? 0
+    }
+    let newStudentSeq = admSeqOffset
+
+    // Build lookup: "firstName|lastName|classId" → existing student
+    const existingMap = new Map<string, { id: string; admissionNumber: string }>()
+    ;((existingRes as any).data ?? []).forEach((e: any) => {
+      const key = `${(e.first_name as string).toLowerCase().trim()}|${(e.last_name as string).toLowerCase().trim()}|${e.class_id ?? ''}`
+      existingMap.set(key, { id: e.id as string, admissionNumber: e.admission_number as string })
+    })
+
+    for (let i = 0; i < rows.length; i++) {
+      const r         = rows[i]
+      const firstName = String(r.first_name ?? '').trim()
+      const lastName  = String(r.last_name  ?? '').trim()
+      if (!firstName || !lastName) {
+        failedItems.push({ row: i + 2, reason: 'First name and last name are required' })
+        continue
+      }
+
+      // Normalise gender
       const rawGender = r.gender ? String(r.gender).trim().toLowerCase() : null
       const gender    = rawGender === 'male' || rawGender === 'female' ? rawGender : null
 
-      if (collision?.resolution === 'update') {
-        // Update existing record
-        const { error } = await supabase
-          .from('students')
-          .update({
-            first_name:    firstName,
-            last_name:     lastName,
-            dob:           r.dob ? String(r.dob) : undefined,
-            gender,
-            student_type:  r.student_type ? String(r.student_type).toLowerCase() : undefined,
-            nationality:   r.nationality ? String(r.nationality) : undefined,
-            religion:      r.religion ? String(r.religion) : undefined,
-            previous_school: r.previous_school ? String(r.previous_school) : undefined,
-          })
-          .eq('id', collision.existingId)
+      // Resolve class + stream IDs
+      const rawClassName  = r.class_name  ? String(r.class_name).trim()  : ''
+      const rawStreamName = r.stream_name ? String(r.stream_name).trim() : ''
+      const classId  = rawClassName  ? (classMap.get(normCls(rawClassName))  ?? null) : null
+      const streamId = (classId && rawStreamName) ? (streamMap.get(`${classId}::${rawStreamName.toLowerCase()}`) ?? null) : null
 
+      // Match rule: same name + same class → update existing
+      const matchKey  = `${firstName.toLowerCase()}|${lastName.toLowerCase()}|${classId ?? ''}`
+      const existing  = existingMap.get(matchKey)
+
+      if (existing) {
+        // UPDATE — student with same name already in the same class
+        const patch: Record<string, unknown> = {
+          first_name:   firstName,
+          last_name:    lastName,
+          dob:          r.dob ? String(r.dob) : undefined,
+          gender,
+          student_type: r.student_type ? String(r.student_type).toLowerCase() : undefined,
+          nationality:  r.nationality  ? String(r.nationality)  : undefined,
+          religion:     r.religion     ? String(r.religion)     : undefined,
+          previous_school: r.previous_school ? String(r.previous_school) : undefined,
+        }
+        if (streamId)              patch.stream_id        = streamId
+        if (activeYearId && classId) patch.academic_year_id = activeYearId
+        const { error } = await supabase.from('students').update(patch).eq('id', existing.id)
         if (error) {
           failedItems.push({ row: i + 2, reason: error.message })
         } else {
           updated++
-          newStudentResults.push({ name: `${firstName} ${lastName}`, admission_number: collision.existingAdm })
+          newStudentResults.push({ name: `${firstName} ${lastName}`, admission_number: existing.admissionNumber })
         }
       } else {
-        // Insert new record — omit admission_number when blank to let DB trigger generate it
+        // INSERT — new student
+        // For current year: leave admission_number null → DB trigger auto-generates SCHOOL/YEAR/NNNN
+        // For historical years: pre-compute the number with the correct year
         const insertData: Record<string, unknown> = {
           school_id:    user!.schoolId,
           first_name:   firstName,
@@ -325,19 +279,22 @@ export function ImportDataPage() {
           gender,
           student_type: r.student_type ? String(r.student_type).toLowerCase() : 'day',
           status:       'active',
-          enrolled_at:  new Date().toISOString(),
-          nationality:  r.nationality ? String(r.nationality) : 'Ugandan',
-          religion:     r.religion ? String(r.religion) : null,
+          enrolled_at:  new Date(importYear, 0, 1).toISOString(),
+          nationality:  r.nationality  ? String(r.nationality)  : 'Ugandan',
+          religion:     r.religion     ? String(r.religion)     : null,
           previous_school: r.previous_school ? String(r.previous_school) : null,
         }
-        // Only include admission_number if the user explicitly provided one
-        if (admNum) insertData.admission_number = admNum
+        if (classId)               insertData.class_id         = classId
+        if (streamId)              insertData.stream_id        = streamId
+        if (activeYearId && classId) insertData.academic_year_id = activeYearId
+        if (useHistoricalYear) {
+          const seq = String(++newStudentSeq).padStart(4, '0')
+          insertData.admission_number = `${shortName}/${importYear}/${seq}`
+        }
 
         const { data: inserted, error } = await supabase
-          .from('students')
-          .insert(insertData)
-          .select('first_name, last_name, admission_number')
-          .single()
+          .from('students').insert(insertData)
+          .select('first_name, last_name, admission_number').single()
 
         if (error) {
           failedItems.push({ row: i + 2, reason: error.message })
@@ -367,15 +324,6 @@ export function ImportDataPage() {
     setImportSuccess({ count: imported + updated, type: 'students' })
 
     return { imported, updated, skipped: 0, failed: failedItems }
-  }
-
-  // ── Collision-resolved re-import ────────────────────────────────────────────
-  async function runWithResolvedCollisions(): Promise<ImportResult> {
-    if (!pendingRows) return { imported: 0, updated: 0, skipped: 0, failed: [] }
-    setShowCollisionStep(false)
-    const result = await handleStudentImport(pendingRows)
-    setPendingRows(null)
-    return result
   }
 
   // ── Staff import handler ────────────────────────────────────────────────────
@@ -448,51 +396,67 @@ export function ImportDataPage() {
     return { imported, updated: 0, skipped: 0, failed: failedItems }
   }
 
-  // ── Collision step overlay — shown between the wizard steps ────────────────
-  if (showCollisionStep && pendingRows) {
-    const allResolved = collisions.every(c => c.resolution !== undefined)
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <PageHeader />
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.5rem' }}>
-          <div style={{ fontFamily: 'var(--font2)', fontSize: 16, fontWeight: 800, color: 'var(--txt)', marginBottom: 4 }}>
-            Collision Review
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--txt3)', marginBottom: 16 }}>
-            Resolve each name match before completing the import.
-          </div>
-          <CollisionReview
-            collisions={collisions}
-            onChange={(existingId, resolution) => {
-              setCollisions(prev => prev.map(c => c.existingId === existingId ? { ...c, resolution } : c))
-            }}
-          />
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 20 }}>
-            <button
-              onClick={() => { setShowCollisionStep(false); setPendingRows(null); setCollisions([]) }}
-              style={secondaryBtnStyle}
-            >
-              ← Cancel Import
-            </button>
-            <button
-              onClick={runWithResolvedCollisions}
-              disabled={!allResolved}
-              style={{
-                ...primaryBtnStyle,
-                opacity: allResolved ? 1 : 0.45,
-                cursor: allResolved ? 'pointer' : 'not-allowed',
-              }}
-            >
-              Import {pendingRows.length} Records →
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // ── Year-mismatch warning dialog ───────────────────────────────────────────
+  const currentCalYear = new Date().getFullYear()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* Year-mismatch warning modal */}
+      {yearWarning && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ width: '100%', maxWidth: 520, background: 'var(--surface)', borderRadius: 22, overflow: 'hidden', boxShadow: '0 24px 80px rgba(0,0,0,.3)' }}>
+            {/* Header */}
+            <div style={{ padding: '22px 24px 16px', background: 'linear-gradient(135deg,rgba(245,158,11,.1),transparent)', borderBottom: '.5px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(245,158,11,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 17, color: 'var(--txt)', letterSpacing: -.3 }}>Year Mismatch Detected</div>
+                  <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>Import year {importYear} doesn't match what's expected for some classes</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Issues list */}
+            <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {yearWarning.issues.map(iss => (
+                <div key={iss.className} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(245,158,11,.06)', border: '.5px solid rgba(245,158,11,.25)' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--txt)' }}>
+                      {iss.className} (S.{iss.level})
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--txt2)', marginTop: 3, lineHeight: 1.5 }}>
+                      {iss.selectedYear < iss.expectedYear
+                        ? <>Selected year <strong>{iss.selectedYear}</strong> is <strong>{iss.expectedYear - iss.selectedYear} year{iss.expectedYear - iss.selectedYear > 1 ? 's' : ''} earlier</strong> than expected. S.{iss.level} students in {currentCalYear} would normally have enrolled in <strong>{iss.expectedYear}</strong>. This may mean they repeated years or transferred late.</>
+                        : <>Selected year <strong>{iss.selectedYear}</strong> is <strong>{iss.selectedYear - iss.expectedYear} year{iss.selectedYear - iss.expectedYear > 1 ? 's' : ''} later</strong> than expected. S.{iss.level} students in {currentCalYear} would normally have enrolled in <strong>{iss.expectedYear}</strong>.</>
+                      }
+                    </div>
+                  </div>
+                  <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: .5 }}>Expected</span>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--warning)', fontFamily: 'var(--font2)', lineHeight: 1 }}>{iss.expectedYear}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '12px 24px 22px', borderTop: '.5px solid var(--border)', display: 'flex', gap: 10 }}>
+              <button onClick={() => yearWarning.onCancel()}
+                style={{ flex: 1, height: 44, borderRadius: 12, background: 'var(--surface2)', border: '.5px solid var(--border)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer', color: 'var(--txt2)' }}>
+                Cancel — Change Year
+              </button>
+              <button onClick={() => yearWarning.onConfirm()}
+                style={{ flex: 2, height: 44, borderRadius: 12, border: 'none', background: 'linear-gradient(145deg,var(--warning),#d97706)', color: '#fff', fontWeight: 800, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(245,158,11,.4)' }}>
+                Yes, Import with {importYear}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <PageHeader />
 
       {/* Mode toggle */}
@@ -505,12 +469,42 @@ export function ImportDataPage() {
         ))}
       </div>
 
+      {/* Year picker — students only */}
+      {mode === 'students' && (
+        <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', boxShadow: '0 2px 10px rgba(0,0,0,.04)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(13,148,136,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            </div>
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>Enrollment Year</div>
+              <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>Year stamped on auto-generated admission numbers</div>
+            </div>
+          </div>
+          <select
+            value={importYear}
+            onChange={e => setImportYear(Number(e.target.value))}
+            className="sui-input"
+            style={{ minWidth: 120 }}
+          >
+            {Array.from({ length: 12 }, (_, i) => currentCalYear - i).map(y => (
+              <option key={y} value={y}>{y}{y === currentCalYear ? ' (Current)' : ''}</option>
+            ))}
+          </select>
+          <div style={{ fontSize: 11.5, color: 'var(--txt3)', flex: 1 }}>
+            Admission numbers will be generated as{' '}
+            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>NYCS/{importYear}/0001</span>,{' '}
+            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>NYCS/{importYear}/0002</span>, …
+          </div>
+        </div>
+      )}
+
       {/* Download template bar */}
       <TemplateDownloadBar mode={mode} />
 
       {/* Wizard */}
       <ImportWizard
-        key={mode}
+        key={`${mode}-${importYear}`}
         context={mode}
         requiredFields={mode === 'students' ? STUDENT_REQUIRED : STAFF_REQUIRED}
         optionalFields={mode === 'students' ? STUDENT_OPTIONAL : STAFF_OPTIONAL}
@@ -583,14 +577,4 @@ const thStyle: React.CSSProperties = {
 const tdStyle: React.CSSProperties = {
   padding: '0.5rem 0.75rem', borderBottom: '1px solid var(--border)',
   color: 'var(--txt2)', fontSize: 12, verticalAlign: 'middle',
-}
-const primaryBtnStyle: React.CSSProperties = {
-  padding: '10px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13, border: 'none',
-  background: 'linear-gradient(135deg, var(--brand), var(--brand-dark))',
-  color: '#fff', fontFamily: 'var(--font1)',
-}
-const secondaryBtnStyle: React.CSSProperties = {
-  padding: '10px 20px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer',
-  border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)',
-  fontFamily: 'var(--font1)',
 }
