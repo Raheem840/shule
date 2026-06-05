@@ -88,7 +88,19 @@ const OPTIONAL: ColumnSpec[] = [
 // ─── Matching helpers ───────────────────────────────────────────────────────────
 
 function normalizeClassName(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, '').replace(/\./g, '').replace(/-/g, '')
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/\./g, '')
+    .replace(/-/g, '')
+    // Collapse verbose prefixes → single-letter equivalents so "Senior3" = "s3",
+    // "Form4" = "s4", "Primary6" = "p6", "Grade8" = "g8"
+    .replace(/^senior/, 's')
+    .replace(/^form/, 's')
+    .replace(/^primary/, 'p')
+    .replace(/^grade/, 'g')
+    .replace(/^year/, 'y')
+    .replace(/^class/, 'c')
 }
 
 function normalizeName(name: string): string {
