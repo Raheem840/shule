@@ -30,6 +30,8 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 import type { UserRole } from '../../store/AuthContext'
 import type { NotificationType } from '../../types/week9'
 import { NotificationToastProvider } from '../shared/NotificationToast'
+import { ConnectionBanner } from '../ui/ConnectionBanner'
+import { SyncManager } from './SyncManager'
 
 // Roles that have a /profile page
 const PROFILE_ROLES = new Set<UserRole>([
@@ -193,6 +195,8 @@ export function AppShell() {
 
   return (
     <div className="ar" data-theme={theme}>
+      <ConnectionBanner />
+      <SyncManager />
 
       {/* ── Drawer overlay (mobile only) ─────────────────────────── */}
       <div
@@ -216,7 +220,7 @@ export function AppShell() {
       />
 
       {/* ── RIGHT PANEL ──────────────────────────────────────────── */}
-      <div className="shell-r">
+      <div className="shell-r" style={{ paddingTop: 'var(--banner-height, 0)' }}>
         <OfflineBanner />
 
         {/* First-login password change prompt — dismissable, not mandatory */}
