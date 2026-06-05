@@ -169,15 +169,17 @@ export default function App() {
               <AppShell />
             </ProtectedRoute>
           }>
-            <Route path="/deputy/dashboard"  element={<DeputyDashboard />} />
-            <Route path="/deputy/discipline" element={<DisciplinePage />} />
-            <Route path="/deputy/timetable"  element={<DeputyTimetablePage />} />
-            <Route path="/deputy/students"   element={<DeputyStudentsPage />} />
-            <Route path="/deputy/staff"      element={<DeputyStaffPage />} />
-            <Route path="/deputy/events"     element={<SharedEventsPage />} />
-            <Route path="/deputy/messages"   element={<MessagingPage />} />
-            <Route path="/deputy/surveys"    element={<DosSurveysPage />} />
-            <Route path="/deputy/remarks"    element={<RemarksViewPage />} />
+            <Route path="/deputy/dashboard"             element={<DeputyDashboard />} />
+            <Route path="/deputy/discipline"            element={<DisciplinePage />} />
+            <Route path="/deputy/timetable"             element={<DeputyTimetablePage />} />
+            <Route path="/deputy/students"              element={<DeputyStudentsPage />} />
+            <Route path="/deputy/students/:studentId"   element={<StudentFullProfilePage />} />
+            <Route path="/deputy/staff"                 element={<DeputyStaffPage />} />
+            <Route path="/deputy/staff/:staffId"        element={<PrincipalStaffProfilePage />} />
+            <Route path="/deputy/events"                element={<SharedEventsPage />} />
+            <Route path="/deputy/messages"              element={<MessagingPage />} />
+            <Route path="/deputy/surveys"               element={<DosSurveysPage />} />
+            <Route path="/deputy/remarks"               element={<RemarksViewPage />} />
           </Route>
 
           {/* ── DoS ────────────────────────────────────────────────── */}

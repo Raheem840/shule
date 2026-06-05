@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
@@ -113,6 +114,7 @@ function ColorChip({ label, index }: { label: string; index: number }) {
 
 // ─── Staff detail modal (centered) ─────────────────────────────────────────────
 function StaffDetailModal({ staff, onClose }: { staff: DeputyStaffRow; onClose: () => void }) {
+  const navigate = useNavigate()
   const { data: allSubjects = [] } = useSubjects()
   const { data: allClasses  = [] } = useClasses()
 
@@ -195,9 +197,16 @@ function StaffDetailModal({ staff, onClose }: { staff: DeputyStaffRow; onClose: 
         </div>
 
         {/* Footer */}
-        <div style={{ flexShrink: 0, padding: '12px 24px 20px', borderTop: '.5px solid var(--border)' }}>
-          <button onClick={onClose} style={{ width: '100%', padding: '11px 0', background: 'var(--surface2)', color: 'var(--txt2)', border: '.5px solid var(--border)', borderRadius: 12, fontWeight: 600, fontSize: 13.5, cursor: 'pointer' }}>
+        <div style={{ flexShrink: 0, padding: '12px 24px 20px', borderTop: '.5px solid var(--border)', display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '11px 0', background: 'var(--surface2)', color: 'var(--txt2)', border: '.5px solid var(--border)', borderRadius: 12, fontWeight: 600, fontSize: 13.5, cursor: 'pointer' }}>
             Close
+          </button>
+          <button
+            onClick={() => { onClose(); navigate(`/deputy/staff/${staff.id}`) }}
+            style={{ flex: 2, padding: '11px 0', background: 'linear-gradient(145deg,var(--brand),var(--brand-dark))', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: '0 4px 14px rgba(13,148,136,.35)' }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            View Full Profile
           </button>
         </div>
       </div>
@@ -243,6 +252,13 @@ const ROLE_FILTERS = [
   { value: 'class_teacher', label: 'Class Teacher' },
 ]
 
+// "Teacher" filter should match both teacher and class_teacher roles
+function matchesRoleFilter(role: string, filter: string): boolean {
+  if (!filter) return true
+  if (filter === 'teacher') return role === 'teacher' || role === 'class_teacher'
+  return role === filter
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // DEPUTY STAFF PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -256,7 +272,7 @@ export function DeputyStaffPage() {
 
   const rows = useMemo(() => {
     let r = staffList
-    if (roleFilter) r = r.filter(s => s.role === roleFilter)
+    if (roleFilter) r = r.filter(s => matchesRoleFilter(s.role, roleFilter))
     if (search.trim()) {
       const q = search.toLowerCase()
       r = r.filter(s => s.name.toLowerCase().includes(q) || s.staffNumber.toLowerCase().includes(q))

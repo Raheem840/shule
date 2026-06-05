@@ -1,8 +1,10 @@
 import { useState, useMemo, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useStudents } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { Avatar } from '../../components/shared/Avatar'
 
 // ─── Status badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: 'active' | 'suspended' | 'expelled' }) {
@@ -19,32 +21,18 @@ function StatusBadge({ status }: { status: 'active' | 'suspended' | 'expelled' }
   )
 }
 
-// ─── Initials avatar ───────────────────────────────────────────────────────────
-function InitialsAvatar({ firstName, lastName, size = 40 }: { firstName: string; lastName: string; size?: number }) {
-  const initials = `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
-  const hue = ((firstName.charCodeAt(0) ?? 0) * 37 + (lastName.charCodeAt(0) ?? 0) * 17) % 360
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: `linear-gradient(145deg,hsl(${hue},65%,52%),hsl(${(hue + 40) % 360},70%,40%))`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: size * 0.35, fontWeight: 900, color: '#fff', letterSpacing: -.5,
-      boxShadow: `0 2px 10px hsla(${hue},60%,50%,0.35)`,
-    }}>
-      {initials}
-    </div>
-  )
-}
 
 // ─── Mobile student card ───────────────────────────────────────────────────────
 function StudentCard({ s, className, streamName }: {
-  s: { id: string; firstName: string; lastName: string; admissionNumber: string; classId: string | null; streamId: string | null; status: 'active' | 'suspended' | 'expelled' }
+  s: { id: string; firstName: string; lastName: string; admissionNumber: string; classId: string | null; streamId: string | null; status: 'active' | 'suspended' | 'expelled'; photoUrl?: string | null }
   className: string
   streamName: string
 }) {
   return (
     <div style={{ background: 'var(--surface)', borderRadius: 16, border: '.5px solid var(--border)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 1px 8px rgba(0,0,0,.05)' }}>
-      <InitialsAvatar firstName={s.firstName} lastName={s.lastName} size={44} />
+      <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+        <Avatar photoPath={s.photoUrl ?? null} bucket="student-photos" name={`${s.firstName} ${s.lastName}`} size="md" />
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 800, fontSize: 14.5, color: 'var(--txt)', marginBottom: 2, letterSpacing: -.2 }}>{s.firstName} {s.lastName}</div>
         <div style={{ fontSize: 11.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginBottom: 6 }}>{s.admissionNumber}</div>
@@ -71,6 +59,7 @@ function StudentCard({ s, className, streamName }: {
 // ═══════════════════════════════════════════════════════════════════════════════
 export function DeputyStudentsPage() {
   const isMobile = useIsMobile()
+  const navigate = useNavigate()
   const [classId,  setClassId]  = useState('')
   const [streamId, setStreamId] = useState('')
   const [search,   setSearch]   = useState('')
@@ -188,16 +177,17 @@ export function DeputyStudentsPage() {
         </div>
       )}
 
-      {/* ── Mobile: card list (virtualized) ── */}
+      {/* ── Mobile: card list ── */}
       {!isLoading && rows.length > 0 && isMobile && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {rows.map(s => (
-            <StudentCard
-              key={s.id}
-              s={s}
-              className={s.classId ? (classMap.get(s.classId) ?? '') : ''}
-              streamName={s.streamId ? (streamMap.get(s.streamId) ?? '') : ''}
-            />
+            <div key={s.id} onClick={() => navigate(`/deputy/students/${s.id}`)} style={{ cursor: 'pointer' }}>
+              <StudentCard
+                s={s}
+                className={s.classId ? (classMap.get(s.classId) ?? '') : ''}
+                streamName={s.streamId ? (streamMap.get(s.streamId) ?? '') : ''}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -208,7 +198,7 @@ export function DeputyStudentsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                {['Adm No', 'Student', 'Class', 'Stream', 'Status'].map(h => (
+                {['Adm No', 'Student', 'Class', 'Stream', 'Status', ''].map(h => (
                   <th key={h} style={{ padding: '11px 16px', background: 'var(--surface2)', fontWeight: 800, fontSize: 10, color: 'var(--txt3)', textAlign: 'left', textTransform: 'uppercase', letterSpacing: .8, borderBottom: '.5px solid var(--border)' }}>{h}</th>
                 ))}
               </tr>
@@ -221,14 +211,20 @@ export function DeputyStudentsPage() {
                 const className  = s.classId  ? (classMap.get(s.classId)   ?? '—') : '—'
                 const streamName = s.streamId ? (streamMap.get(s.streamId) ?? '—') : '—'
                 return (
-                  <div key={s.id} style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${vRow.start}px)`, height: 56, display: 'flex', alignItems: 'center', borderBottom: '.5px solid var(--border)' }} className="sui-tr">
+                  <div key={s.id}
+                    onClick={() => navigate(`/deputy/students/${s.id}`)}
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${vRow.start}px)`, height: 56, display: 'flex', alignItems: 'center', borderBottom: '.5px solid var(--border)', cursor: 'pointer' }}
+                    className="sui-tr"
+                  >
                     {/* Adm No */}
                     <div style={{ flex: '0 0 130px', padding: '0 16px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt3)' }}>
                       {s.admissionNumber}
                     </div>
                     {/* Name with avatar */}
                     <div style={{ flex: 2, padding: '0 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <InitialsAvatar firstName={s.firstName} lastName={s.lastName} size={32} />
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                        <Avatar photoPath={s.photoUrl ?? null} bucket="student-photos" name={`${s.firstName} ${s.lastName}`} size="sm" />
+                      </div>
                       <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--txt)' }}>{s.firstName} {s.lastName}</span>
                     </div>
                     {/* Class */}
@@ -240,8 +236,15 @@ export function DeputyStudentsPage() {
                       {streamName}
                     </div>
                     {/* Status */}
-                    <div style={{ flex: '0 0 120px', padding: '0 16px' }}>
+                    <div style={{ flex: '0 0 110px', padding: '0 16px' }}>
                       <StatusBadge status={s.status} />
+                    </div>
+                    {/* View action */}
+                    <div style={{ flex: '0 0 90px', padding: '0 16px' }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--brand)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        View
+                      </span>
                     </div>
                   </div>
                 )
