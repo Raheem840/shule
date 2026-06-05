@@ -60,7 +60,6 @@ function daysUntil(d: string): number {
 
 // ─── Create event modal ────────────────────────────────────────────────────────
 function CreateEventModal({ onClose, isDos }: { onClose: () => void; isDos: boolean }) {
-  const eventTypes = isDos ? [...DOS_EXTRA_TYPES, ...TEACHER_EVENT_TYPES] : TEACHER_EVENT_TYPES
   const { data: classes  = [] } = useClasses()
   const { data: subjects = [] } = useSubjects()
   const [selectedClass, setSelectedClass] = useState('')
@@ -72,10 +71,11 @@ function CreateEventModal({ onClose, isDos }: { onClose: () => void; isDos: bool
     eventDate: new Date().toISOString().slice(0, 10),
     totalMarks: '', passMark: '', description: '',
     term: 'Term 1', year: new Date().getFullYear().toString(),
+    visibleToParents: false,
   })
   const [err, setErr] = useState('')
 
-  const f = (k: keyof typeof form) => ({
+  const f = (k: keyof Omit<typeof form, 'visibleToParents'>) => ({
     value: form[k] as string,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setForm(p => ({ ...p, [k]: e.target.value })),
@@ -94,6 +94,7 @@ function CreateEventModal({ onClose, isDos }: { onClose: () => void; isDos: bool
         passMark: form.passMark ? parseFloat(form.passMark) : null,
         description: form.description || null,
         term: form.term, year: parseInt(form.year),
+        visibleToParents: form.visibleToParents,
       })
       onClose()
     } catch (e: any) { setErr(e.message ?? 'Failed to create event') }
@@ -222,6 +223,20 @@ function CreateEventModal({ onClose, isDos }: { onClose: () => void; isDos: bool
               <label style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 5 }}>Notes</label>
               <textarea {...f('description')} className="sui-input" rows={2} style={{ width: '100%', resize: 'vertical' }} placeholder="Any additional details…" />
             </div>
+
+            {/* Parents visibility toggle — principal/deputy/dos only */}
+            {isDos && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 12, background: form.visibleToParents ? 'rgba(13,148,136,.06)' : 'var(--surface2)', border: `.5px solid ${form.visibleToParents ? 'rgba(13,148,136,.25)' : 'var(--border)'}`, cursor: 'pointer', transition: 'all .18s' }}
+                onClick={() => setForm(p => ({ ...p, visibleToParents: !p.visibleToParents }))}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>Parents can view this event</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2 }}>Shows in the parent portal Notices tab</div>
+                </div>
+                <div style={{ position: 'relative', width: 44, height: 24, borderRadius: 99, background: form.visibleToParents ? 'var(--brand)' : 'var(--border)', flexShrink: 0, transition: 'background .2s', boxShadow: form.visibleToParents ? '0 2px 8px rgba(13,148,136,.35)' : 'none' }}>
+                  <div style={{ position: 'absolute', top: 3, left: form.visibleToParents ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,.2)', transition: 'left .2s' }} />
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
               <button type="button" onClick={onClose} style={{ flex: 1, height: 46, background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 13, fontWeight: 600, fontSize: 13.5, cursor: 'pointer', color: 'var(--txt2)' }}>Cancel</button>

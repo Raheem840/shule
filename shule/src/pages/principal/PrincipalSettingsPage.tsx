@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSchoolSettings } from '../../hooks/useAdmin'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -31,6 +31,41 @@ function useSave() {
       // DB trigger re-prefixes all staff numbers when short_name changes
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['next-staff-num', user?.schoolId] })
+    },
+  })
+}
+
+// ─── Portal access hooks ─────────────────────────────────────────────────────
+function usePortalOpen(schoolId: string | undefined) {
+  return useQuery({
+    queryKey: ['portal-open', schoolId],
+    enabled: !!schoolId,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('school_profile')
+        .select('parent_portal_open')
+        .eq('id', schoolId!)
+        .maybeSingle()
+      if (error) throw new Error(error.message)
+      return (data?.parent_portal_open ?? true) as boolean
+    },
+  })
+}
+
+function useTogglePortal(schoolId: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (open: boolean) => {
+      const { error } = await supabase
+        .from('school_profile')
+        .update({ parent_portal_open: open })
+        .eq('id', schoolId!)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: (_data, open) => {
+      qc.setQueryData(['portal-open', schoolId], open)
+      void qc.invalidateQueries({ queryKey: ['portal-open', schoolId] })
     },
   })
 }
@@ -77,6 +112,17 @@ export function PrincipalSettingsPage() {
   const save = useSave()
   const logoRef = useRef<HTMLInputElement>(null)
 
+  const { user } = useAuth()
+  const { data: portalOpen, isLoading: portalLoading } = usePortalOpen(user?.schoolId)
+  const togglePortal = useTogglePortal(user?.schoolId)
+
+  async function handlePortalToggle(open: boolean) {
+    try {
+      await togglePortal.mutateAsync(open)
+      ok(open ? 'Parent portal is now open.' : 'Parent portal has been closed.')
+    } catch (e: any) { err(e.message) }
+  }
+
   const [editMode,     setEditMode]     = useState(false)
   const [schoolName,   setSchoolName]   = useState('')
   const [shortName,    setShortName]    = useState('')
@@ -85,8 +131,6 @@ export function PrincipalSettingsPage() {
   const [logoUrl,      setLogoUrl]      = useState<string | null>(null)
   const [uploading,    setUploading]    = useState(false)
   const [logoPreview,  setLogoPreview]  = useState<string | null>(null)
-
-  const { user } = useAuth()
 
   useEffect(() => {
     if (settings) {
@@ -487,6 +531,81 @@ export function PrincipalSettingsPage() {
             To update SMS/WhatsApp API keys, currency, or deploy settings — contact your IT Administrator.
           </span>
         </div>
+
+        {/* ── Portal Access ── */}
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 14, padding: '18px 20px',
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 14 }}>Portal Access</div>
+
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+            padding: '14px 16px', borderRadius: 12,
+            background: portalOpen ? 'rgba(13,148,136,.04)' : 'rgba(244,63,94,.04)',
+            border: `1px solid ${portalOpen ? 'rgba(13,148,136,.18)' : 'rgba(244,63,94,.18)'}`,
+            transition: 'all .22s',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 11, flexShrink: 0,
+                background: portalOpen ? 'rgba(13,148,136,.12)' : 'rgba(244,63,94,.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={portalOpen ? 'var(--brand)' : 'var(--danger)'} strokeWidth="2" strokeLinecap="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                  <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: 'var(--txt)' }}>Parent Portal</div>
+                <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>
+                  {portalOpen
+                    ? 'Parents can log in and view their children\'s records'
+                    : 'Portal is closed — parents cannot access the system'}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              <span style={{
+                fontSize: 11, fontWeight: 800, fontFamily: 'var(--font2)',
+                padding: '3px 10px', borderRadius: 99,
+                color: portalOpen ? 'var(--brand)' : 'var(--danger)',
+                background: portalOpen ? 'rgba(13,148,136,.12)' : 'rgba(244,63,94,.1)',
+                border: `1px solid ${portalOpen ? 'rgba(13,148,136,.25)' : 'rgba(244,63,94,.2)'}`,
+              }}>
+                {portalOpen ? 'Open' : 'Closed'}
+              </span>
+              {portalLoading ? (
+                <div style={{ width: 48, height: 26, borderRadius: 99, background: 'var(--border)' }} />
+              ) : (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={portalOpen ?? true}
+                  disabled={togglePortal.isPending}
+                  onClick={() => void handlePortalToggle(!(portalOpen ?? true))}
+                  style={{
+                    position: 'relative', width: 48, height: 26, borderRadius: 99,
+                    background: portalOpen ? 'var(--brand)' : 'var(--border)',
+                    border: 'none', cursor: togglePortal.isPending ? 'not-allowed' : 'pointer',
+                    flexShrink: 0, transition: 'background .22s',
+                    boxShadow: portalOpen ? '0 2px 8px rgba(13,148,136,.4)' : 'none',
+                    opacity: togglePortal.isPending ? 0.5 : 1,
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute', top: 3, left: portalOpen ? 25 : 3,
+                    width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                    boxShadow: '0 1px 4px rgba(0,0,0,.22)',
+                    transition: 'left .22s cubic-bezier(.4,0,.2,1)',
+                  }} />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
       </div>
     </>
   )

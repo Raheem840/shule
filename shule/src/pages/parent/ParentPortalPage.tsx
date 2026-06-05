@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   useParentStudents,
   useStudentReleasedReportCards,
@@ -15,6 +16,7 @@ import type { StaffContact } from '../../hooks/useParentPortal'
 import { useAttendanceSummary, useStudentAttendanceHistory } from '../../hooks/useAttendance'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useAuth } from '../../store/AuthContext'
+import { supabase } from '../../lib/supabase'
 import { Avatar } from '../../components/shared/Avatar'
 import type { Student } from '../../types/app'
 import type { AttendanceDay } from '../../hooks/useAttendance'
@@ -1415,9 +1417,115 @@ function HeroHeader({ parentName, childCount, noticeCount }: {
   )
 }
 
+// ── Portal Closed gate ────────────────────────────────────────────
+function PortalClosedGate({ schoolName }: { schoolName: string }) {
+  const [contacted, setContacted] = useState(false)
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      minHeight: '100vh', background: 'var(--bg)', padding: '2rem 1.5rem', textAlign: 'center',
+    }}>
+      {/* Decorative background orbs */}
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle,rgba(13,148,136,.12),transparent 68%)', filter: 'blur(60px)' }} />
+        <div style={{ position: 'absolute', bottom: -60, left: -60, width: 260, height: 260, borderRadius: '50%', background: 'radial-gradient(circle,rgba(14,165,233,.09),transparent 70%)', filter: 'blur(50px)' }} />
+      </div>
+
+      <div style={{ position: 'relative', maxWidth: 420, width: '100%' }}>
+        {/* Big icon */}
+        <div style={{
+          width: 96, height: 96, borderRadius: 28, margin: '0 auto 24px',
+          background: 'linear-gradient(145deg, var(--surface2), var(--surface))',
+          border: '1.5px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 8px 32px rgba(0,0,0,.08)',
+        }}>
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+        </div>
+
+        {/* Title */}
+        <div style={{
+          fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22,
+          color: 'var(--txt)', lineHeight: 1.25, marginBottom: 14,
+        }}>
+          Parent Portal is Currently Closed
+        </div>
+
+        {/* Body text */}
+        <div style={{
+          fontSize: 14.5, color: 'var(--txt2)', lineHeight: 1.7,
+          marginBottom: 28, maxWidth: 360, margin: '0 auto 28px',
+        }}>
+          The school administration has temporarily closed the parent portal.
+          Please check back later or contact the school office for information
+          about your child.
+        </div>
+
+        {/* Contact button */}
+        <button
+          onClick={() => setContacted(true)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '13px 28px', borderRadius: 14,
+            background: contacted ? 'var(--surface2)' : 'linear-gradient(135deg, var(--brand), var(--brand-dark))',
+            color: contacted ? 'var(--txt3)' : '#fff',
+            border: contacted ? '1px solid var(--border)' : 'none',
+            fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 14,
+            cursor: 'pointer',
+            boxShadow: contacted ? 'none' : '0 4px 18px rgba(13,148,136,.38)',
+            transition: 'all .2s',
+          }}
+        >
+          {contacted ? (
+            <>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Message noted
+            </>
+          ) : (
+            <>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.12 1.18 2 2 0 012.1 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>
+              Contact School
+            </>
+          )}
+        </button>
+
+        {/* School name footer */}
+        {schoolName && (
+          <div style={{ marginTop: 32, fontSize: 12.5, color: 'var(--txt3)', fontFamily: 'var(--font2)', fontWeight: 600 }}>
+            {schoolName}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────
 export function ParentPortalPage() {
   const { user } = useAuth()
+
+  // ── Portal-open gate ──
+  const { data: portalData, isLoading: portalCheckLoading } = useQuery({
+    queryKey: ['portal-open', user?.schoolId],
+    enabled: !!user?.schoolId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('school_profile')
+        .select('parent_portal_open, school_name')
+        .eq('id', user!.schoolId)
+        .maybeSingle()
+      if (error) throw new Error(error.message)
+      return {
+        open: (data?.parent_portal_open ?? true) as boolean,
+        schoolName: (data?.school_name ?? '') as string,
+      }
+    },
+  })
+
   const { data: children = [], isLoading } = useParentStudents()
   const { data: classes  = [] } = useClasses()
   const { data: notices  = [] } = useSchoolNotices()
@@ -1436,6 +1544,11 @@ export function ParentPortalPage() {
   useEffect(() => {
     setActiveTab('Results')
   }, [activeChildId])
+
+  // ── Portal closed gate — show before any other content ──
+  if (!portalCheckLoading && portalData && !portalData.open) {
+    return <PortalClosedGate schoolName={portalData.schoolName} />
+  }
 
   // ── Loading ──
   if (isLoading) {

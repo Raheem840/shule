@@ -276,6 +276,7 @@ export type SchoolEvent = {
   term: string | null
   year: number | null
   createdAt: string
+  visibleToParents: boolean
 }
 
 // ── TIMETABLE SLOT ────────────────────────────────────────────────────────

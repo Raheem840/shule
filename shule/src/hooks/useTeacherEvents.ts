@@ -8,6 +8,7 @@ const EVENT_SELECT =
   'id, school_id, title, event_date, event_type, description,' +
   ' subject_id, class_id, stream_id, total_marks, pass_mark,' +
   ' journaled, journal_id, created_by, term, year, created_at,' +
+  ' visible_to_parents,' +
   ' subjects(name), classes(name), streams(name)'
 
 // ── Mapper ─────────────────────────────────────────────────────────────────
@@ -27,12 +28,13 @@ function mapRow(r: any): SchoolEvent {
     streamName:  r.streams?.name ?? null,
     totalMarks:  r.total_marks,
     passMark:    r.pass_mark,
-    journaled:   r.journaled ?? false,
-    journalId:   r.journal_id,
-    createdBy:   r.created_by,
-    term:        r.term,
-    year:        r.year,
-    createdAt:   r.created_at,
+    journaled:        r.journaled ?? false,
+    journalId:        r.journal_id,
+    createdBy:        r.created_by,
+    term:             r.term,
+    year:             r.year,
+    createdAt:        r.created_at,
+    visibleToParents: r.visible_to_parents ?? false,
   }
 }
 
@@ -113,6 +115,7 @@ export function useCreateEvent() {
       description: string | null
       term: string | null
       year: number | null
+      visibleToParents?: boolean
     }) => {
       if (!user) throw new Error('Not authenticated')
 
@@ -129,20 +132,21 @@ export function useCreateEvent() {
       const { error } = await supabase
         .from('school_events')
         .insert({
-          school_id:   user.schoolId,
-          title:       input.title,
-          event_type:  input.eventType,
-          subject_id:  input.subjectId,
-          class_id:    input.classId,
-          stream_id:   input.streamId,
-          event_date:  input.eventDate,
-          total_marks: input.totalMarks,
-          pass_mark:   input.passMark,
-          description: input.description,
-          term:        input.term,
-          year:        input.year,
-          created_by:  staffRow.id,
-          journaled:   false,
+          school_id:          user.schoolId,
+          title:              input.title,
+          event_type:         input.eventType,
+          subject_id:         input.subjectId,
+          class_id:           input.classId,
+          stream_id:          input.streamId,
+          event_date:         input.eventDate,
+          total_marks:        input.totalMarks,
+          pass_mark:          input.passMark,
+          description:        input.description,
+          term:               input.term,
+          year:               input.year,
+          created_by:         staffRow.id,
+          journaled:          false,
+          visible_to_parents: input.visibleToParents ?? false,
         })
 
       if (error?.code === '42P01') throw new Error('Events table not yet created on this server')
@@ -218,22 +222,24 @@ export function useUpdateEvent() {
       description: string | null
       term: string | null
       year: number | null
+      visibleToParents?: boolean
     }) => {
       if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('school_events')
         .update({
-          title:       input.title,
-          event_type:  input.eventType,
-          subject_id:  input.subjectId,
-          class_id:    input.classId,
-          stream_id:   input.streamId,
-          event_date:  input.eventDate,
-          total_marks: input.totalMarks,
-          pass_mark:   input.passMark,
-          description: input.description,
-          term:        input.term,
-          year:        input.year,
+          title:              input.title,
+          event_type:         input.eventType,
+          subject_id:         input.subjectId,
+          class_id:           input.classId,
+          stream_id:          input.streamId,
+          event_date:         input.eventDate,
+          total_marks:        input.totalMarks,
+          pass_mark:          input.passMark,
+          description:        input.description,
+          term:               input.term,
+          year:               input.year,
+          visible_to_parents: input.visibleToParents ?? false,
         })
         .eq('id', input.id)
         .eq('school_id', user.schoolId)

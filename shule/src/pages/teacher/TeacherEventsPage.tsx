@@ -67,36 +67,38 @@ function ConfirmModal({ message, onConfirm, onCancel, danger = true }: {
 type EventFormState = {
   title: string; eventType: string; subjectId: string; classId: string
   streamId: string; eventDate: string; totalMarks: string; passMark: string
-  description: string; term: string; year: string
+  description: string; term: string; year: string; visibleToParents: boolean
 }
 
-function EventFormModal({ initial, onSave, onClose, saving }: {
+function EventFormModal({ initial, onSave, onClose, saving, showParentsToggle }: {
   initial?: Partial<EventFormState>
   onSave: (f: EventFormState) => Promise<void>
   onClose: () => void
   saving: boolean
+  showParentsToggle?: boolean
 }) {
   const classes                 = useMyAssignedClasses()
   const { data: subjects = [] } = useSubjects()
   const [form, setForm] = useState<EventFormState>({
-    title:       initial?.title       ?? '',
-    eventType:   initial?.eventType   ?? 'exam',
-    subjectId:   initial?.subjectId   ?? '',
-    classId:     initial?.classId     ?? '',
-    streamId:    initial?.streamId    ?? '',
-    eventDate:   initial?.eventDate   ?? new Date().toISOString().slice(0, 10),
-    totalMarks:  initial?.totalMarks  ?? '',
-    passMark:    initial?.passMark    ?? '',
-    description: initial?.description ?? '',
-    term:        initial?.term        ?? 'Term 1',
-    year:        initial?.year        ?? String(new Date().getFullYear()),
+    title:            initial?.title            ?? '',
+    eventType:        initial?.eventType        ?? 'exam',
+    subjectId:        initial?.subjectId        ?? '',
+    classId:          initial?.classId          ?? '',
+    streamId:         initial?.streamId         ?? '',
+    eventDate:        initial?.eventDate        ?? new Date().toISOString().slice(0, 10),
+    totalMarks:       initial?.totalMarks       ?? '',
+    passMark:         initial?.passMark         ?? '',
+    description:      initial?.description      ?? '',
+    term:             initial?.term             ?? 'Term 1',
+    year:             initial?.year             ?? String(new Date().getFullYear()),
+    visibleToParents: initial?.visibleToParents ?? false,
   })
   const { data: streams = [] } = useStreams(form.classId || null)
   const [error, setError] = useState('')
   const color = typeColor(form.eventType)
 
-  const f = (k: keyof EventFormState) => ({
-    value: form[k],
+  const f = (k: keyof Omit<EventFormState, 'visibleToParents'>) => ({
+    value: form[k] as string,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setForm(p => ({ ...p, [k]: e.target.value })),
   })
@@ -181,6 +183,19 @@ function EventFormModal({ initial, onSave, onClose, saving }: {
             </div>
 
             <div><Lbl>Notes</Lbl><textarea {...f('description')} className="sui-input" rows={2} style={{ width: '100%', resize: 'vertical' }} placeholder="Any additional context…" /></div>
+
+            {showParentsToggle && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 12, background: form.visibleToParents ? 'rgba(13,148,136,.06)' : 'var(--surface2)', border: `.5px solid ${form.visibleToParents ? 'rgba(13,148,136,.25)' : 'var(--border)'}`, cursor: 'pointer', transition: 'all .18s' }}
+                onClick={() => setForm(p => ({ ...p, visibleToParents: !p.visibleToParents }))}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>Parents can view this event</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2 }}>Shows in the parent portal Notices tab</div>
+                </div>
+                <div style={{ position: 'relative', width: 44, height: 24, borderRadius: 99, background: form.visibleToParents ? 'var(--brand)' : 'var(--border)', flexShrink: 0, transition: 'background .2s', boxShadow: form.visibleToParents ? '0 2px 8px rgba(13,148,136,.35)' : 'none' }}>
+                  <div style={{ position: 'absolute', top: 3, left: form.visibleToParents ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,.2)', transition: 'left .2s' }} />
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
               <button type="button" onClick={onClose} style={{ flex: 1, padding: '11px 0', background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 12, fontWeight: 600, fontSize: 13.5, cursor: 'pointer', color: 'var(--txt2)' }}>Cancel</button>
@@ -293,6 +308,7 @@ function EventCard({ event, canEdit, onEdit, onDelete }: {
 export function TeacherEventsPage() {
   const { user } = useAuth()
   const isDos = user?.role === 'dos' || user?.role === 'principal'
+  const canToggleParents = isDos || user?.role === 'deputy'
 
   // Dos/principal see all school events; teacher sees only their own
   const teacherQ = useTeacherEvents()
@@ -320,38 +336,40 @@ export function TeacherEventsPage() {
     return event.createdBy === user?.staffId
   }
 
-  async function handleCreate(f: ReturnType<typeof Object.create>) {
+  async function handleCreate(f: EventFormState) {
     await createMut.mutateAsync({
-      title:       f.title,
-      eventType:   f.eventType,
-      subjectId:   f.subjectId || null,
-      classId:     f.classId || null,
-      streamId:    f.streamId || null,
-      eventDate:   f.eventDate,
-      totalMarks:  f.totalMarks ? parseFloat(f.totalMarks) : null,
-      passMark:    f.passMark ? parseFloat(f.passMark) : null,
-      description: f.description || null,
-      term:        f.term || null,
-      year:        f.year ? parseInt(f.year) : null,
+      title:            f.title,
+      eventType:        f.eventType,
+      subjectId:        f.subjectId || null,
+      classId:          f.classId || null,
+      streamId:         f.streamId || null,
+      eventDate:        f.eventDate,
+      totalMarks:       f.totalMarks ? parseFloat(f.totalMarks) : null,
+      passMark:         f.passMark ? parseFloat(f.passMark) : null,
+      description:      f.description || null,
+      term:             f.term || null,
+      year:             f.year ? parseInt(f.year) : null,
+      visibleToParents: f.visibleToParents,
     })
     setShowCreate(false)
   }
 
-  async function handleUpdate(f: ReturnType<typeof Object.create>) {
+  async function handleUpdate(f: EventFormState) {
     if (!editEvent) return
     await updateMut.mutateAsync({
-      id:          editEvent.id,
-      title:       f.title,
-      eventType:   f.eventType,
-      subjectId:   f.subjectId || null,
-      classId:     f.classId || null,
-      streamId:    f.streamId || null,
-      eventDate:   f.eventDate,
-      totalMarks:  f.totalMarks ? parseFloat(f.totalMarks) : null,
-      passMark:    f.passMark ? parseFloat(f.passMark) : null,
-      description: f.description || null,
-      term:        f.term || null,
-      year:        f.year ? parseInt(f.year) : null,
+      id:               editEvent.id,
+      title:            f.title,
+      eventType:        f.eventType,
+      subjectId:        f.subjectId || null,
+      classId:          f.classId || null,
+      streamId:         f.streamId || null,
+      eventDate:        f.eventDate,
+      totalMarks:       f.totalMarks ? parseFloat(f.totalMarks) : null,
+      passMark:         f.passMark ? parseFloat(f.passMark) : null,
+      description:      f.description || null,
+      term:             f.term || null,
+      year:             f.year ? parseInt(f.year) : null,
+      visibleToParents: f.visibleToParents,
     })
     setEditEvent(null)
   }
@@ -439,14 +457,15 @@ export function TeacherEventsPage() {
 
       {/* Modals */}
       {showCreate && (
-        <EventFormModal onSave={handleCreate} onClose={() => setShowCreate(false)} saving={createMut.isPending} />
+        <EventFormModal onSave={handleCreate} onClose={() => setShowCreate(false)} saving={createMut.isPending} showParentsToggle={canToggleParents} />
       )}
       {editEvent && (
         <EventFormModal
-          initial={{ title: editEvent.title, eventType: editEvent.eventType, subjectId: editEvent.subjectId ?? '', classId: editEvent.classId ?? '', streamId: editEvent.streamId ?? '', eventDate: editEvent.eventDate, totalMarks: editEvent.totalMarks?.toString() ?? '', passMark: editEvent.passMark?.toString() ?? '', description: editEvent.description ?? '', term: editEvent.term ?? 'Term 1', year: editEvent.year?.toString() ?? String(new Date().getFullYear()) }}
+          initial={{ title: editEvent.title, eventType: editEvent.eventType, subjectId: editEvent.subjectId ?? '', classId: editEvent.classId ?? '', streamId: editEvent.streamId ?? '', eventDate: editEvent.eventDate, totalMarks: editEvent.totalMarks?.toString() ?? '', passMark: editEvent.passMark?.toString() ?? '', description: editEvent.description ?? '', term: editEvent.term ?? 'Term 1', year: editEvent.year?.toString() ?? String(new Date().getFullYear()), visibleToParents: editEvent.visibleToParents }}
           onSave={handleUpdate}
           onClose={() => setEditEvent(null)}
           saving={updateMut.isPending}
+          showParentsToggle={canToggleParents}
         />
       )}
       {deleteEvent && (
