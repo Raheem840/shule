@@ -10,14 +10,19 @@
 //   )
 
 import { useEffect, useRef, useState } from 'react'
-import { useQuery, type UseQueryOptions, type UseQueryResult } from '@tanstack/react-query'
+import {
+  useQuery,
+  type UseQueryOptions,
+  type UseQueryResult,
+  type QueryFunctionContext,
+} from '@tanstack/react-query'
 import { cachePageData, getCachedData } from '../lib/offlineCache'
 import { isNetworkError } from './useOfflineMode'
 
 // Maximum age of cached data we will serve (24 hours)
 const MAX_CACHE_AGE_MS = 24 * 60 * 60 * 1000
 
-export type UseOfflineQueryResult<T> = UseQueryResult<T> & {
+export type UseOfflineQueryResult<T> = UseQueryResult<T, Error> & {
   /** True when the returned data came from IndexedDB (offline fallback) */
   servedFromCache: boolean
   /** When the cached data was written; null when data is fresh */
@@ -41,9 +46,10 @@ export function useOfflineQuery<T>(
     ...queryOptions,
     // When we have offline data available, never show an error to React Query —
     // return the cached data as a successful result instead.
-    queryFn: async (ctx) => {
+    queryFn: async (ctx: QueryFunctionContext) => {
       try {
-        const data = await (queryOptions.queryFn as (ctx: typeof ctx) => Promise<T>)(ctx)
+        const origFn = queryOptions.queryFn as (ctx: QueryFunctionContext) => Promise<T>
+        const data = await origFn(ctx)
         return data
       } catch (err) {
         if (isNetworkError(err) || !navigator.onLine) {
@@ -83,10 +89,11 @@ export function useOfflineQuery<T>(
   }, [result.isSuccess, result.data, cacheKey, cacheOnSuccess, servedFromCache])
 
   // Merge: when offline data is present, override the result data
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return {
     ...result,
-    data:            offlineData !== undefined ? offlineData : result.data,
+    data: (offlineData !== undefined ? offlineData : result.data) as any,
     servedFromCache,
     cachedAt,
-  }
+  } as UseOfflineQueryResult<T>
 }

@@ -138,7 +138,7 @@ class ShuleDatabase extends Dexie {
       auth_session:    '&id',
       timetable_slots: '&id, schoolId, classId',
       cached_pages:    '++id, key, cachedAt',
-      query_cache:     'cacheKey, cachedAt, schoolId',
+      query_cache:     '&cacheKey, cachedAt, schoolId',
     })
   }
 }

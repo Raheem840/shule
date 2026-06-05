@@ -9,6 +9,7 @@ import {
   useRef,
   createElement,
   type ReactNode,
+  type ReactElement,
 } from 'react'
 
 /** How responsive the connection is based on ping latency. */
@@ -56,7 +57,7 @@ async function doPing(): Promise<{ ok: boolean; quality: ConnectionQuality }> {
 }
 
 /** Provides real network connectivity state to all children. */
-export function ConnectionProvider({ children }: { children: ReactNode }): JSX.Element {
+export function ConnectionProvider({ children }: { children: ReactNode }): ReactElement {
   const [state, setState] = useState<ConnectionState>({
     isOnline: navigator.onLine,
     isVerified: false,
