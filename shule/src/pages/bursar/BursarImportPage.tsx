@@ -71,16 +71,12 @@ const REQUIRED: ColumnSpec[] = [
     hint: 'Which school term this record applies to.',
     validate: v => !['1', '2', '3'].includes(String(v).trim()) ? 'Must be 1, 2, or 3' : null,
   },
-  {
-    key: 'year', label: 'Year', example: '2026',
-    hint: 'Calendar year (e.g. 2026).',
-    validate: v => isNaN(Number(v)) || Number(v) < 2020 ? 'Enter a valid year' : null,
-  },
 ]
 
 const OPTIONAL: ColumnSpec[] = [
   { key: 'admission_number', label: 'Admission Number', example: 'KJA/2026/001', hint: 'If provided, used directly — skips name matching.' },
   { key: 'stream_name',      label: 'Stream Name',      example: 'East',          hint: 'Further narrows to the correct stream.' },
+  { key: 'year',             label: 'Year',             example: '2026',          hint: 'Calendar year — leave blank to use the active academic year.' },
   { key: 'payment_date',     label: 'Payment Date',     example: '2026-02-01',    hint: 'Date of payment in YYYY-MM-DD format.' },
   { key: 'receipt_number',   label: 'Receipt Number',   example: 'REC-001',       hint: 'Reference number from payment receipt.' },
   { key: 'notes',            label: 'Notes',            example: 'Term 1 fees',   hint: 'Any additional notes about this payment.' },
