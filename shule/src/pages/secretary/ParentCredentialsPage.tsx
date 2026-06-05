@@ -729,7 +729,7 @@ function StudentLoginSection({ student }: { student: Student }) {
 
   async function handleReset() {
     if (!student.authUserId) return
-    const email = computeEmail()
+    const email = student.authEmail ?? computeEmail()
     try {
       const r = await resetPassword.mutateAsync({
         studentId:       student.id,
@@ -748,7 +748,7 @@ function StudentLoginSection({ student }: { student: Student }) {
 
   // Active account view
   if (student.authUserId && !newCreds) {
-    const email = computeEmail()
+    const email = student.authEmail ?? computeEmail()
     return (
       <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.6, fontFamily: 'var(--font2)' }}>

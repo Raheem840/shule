@@ -91,6 +91,7 @@ export type Student = {
   studentType: 'day' | 'boarder' | null
   previousSchool: string | null
   authUserId: string | null
+  authEmail?: string | null   // stored by create-student-auth-user edge fn
 }
 
 // ── STUDENT GUARDIAN ───────────────────────────────────────────────────────

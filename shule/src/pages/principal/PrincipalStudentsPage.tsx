@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStudents, useSetStudentStatus } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useToast } from '../../components/ui/Toast'
+import { Avatar } from '../../components/shared/Avatar'
 import type { Student } from '../../types/app'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -42,8 +43,6 @@ function pal(name: string) {
   const i = ((name.charCodeAt(0) || 65) + (name.charCodeAt(1) || 65)) % PALETTE.length
   return PALETTE[i]
 }
-function ini(f: string, l: string) { return `${f[0] ?? ''}${l[0] ?? ''}`.toUpperCase() }
-
 // ── Action menu ───────────────────────────────────────────────────────────────
 const STATUS_ACTIONS: Record<StudentStatus, { action: StudentStatus; label: string; icon: string; color: string; hoverBg: string }[]> = {
   active: [
@@ -129,7 +128,6 @@ function StudentCard({ student, className, classLevel, streamName, onView }: {
   const status = (student.status ?? 'active') as StudentStatus
   const [col, colBg]  = pal(`${student.firstName}${student.lastName}`)
   const accent = levelColor(classLevel)
-  const inits  = ini(student.firstName, student.lastName)
   const gender = student.gender === 'male' ? 'Male' : student.gender === 'female' ? 'Female' : null
   const boarderLabel = student.studentType === 'boarder' ? 'Boarder' : student.studentType === 'day' ? 'Day Scholar' : null
 
@@ -162,23 +160,21 @@ function StudentCard({ student, className, classLevel, streamName, onView }: {
         display: 'flex', alignItems: 'flex-start', gap: 13,
       }}>
         {/* Avatar — rounded square */}
-        <div style={{ flexShrink: 0 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 15,
-            background: colBg,
-            border: `2px solid ${col}28`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 17, fontWeight: 900, color: col, fontFamily: 'var(--font2)', userSelect: 'none',
-            position: 'relative',
-          }}>
-            {inits}
-            <div style={{
-              position: 'absolute', bottom: -3, right: -3,
-              width: 14, height: 14, borderRadius: '50%',
-              background: STATUS_META[status]?.color ?? '#94a3b8',
-              border: '2.5px solid var(--surface)',
-            }} />
+        <div style={{ flexShrink: 0, position: 'relative' }}>
+          <div style={{ width: 56, height: 56, borderRadius: 15, overflow: 'hidden', background: colBg, border: `2px solid ${col}28` }}>
+            <Avatar
+              photoPath={student.photoUrl}
+              bucket="student-photos"
+              name={`${student.firstName} ${student.lastName}`}
+              size="md"
+            />
           </div>
+          <div style={{
+            position: 'absolute', bottom: -3, right: -3,
+            width: 14, height: 14, borderRadius: '50%',
+            background: STATUS_META[status]?.color ?? '#94a3b8',
+            border: '2.5px solid var(--surface)',
+          }} />
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
