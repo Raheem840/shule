@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useStudentById } from '../../hooks/useStudents'
-import { useUpdateStudent } from '../../hooks/useStudents'
+import { useStudentById, useUpdateStudent, useCreateStudentLogin } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import type { Student } from '../../types/app'
@@ -40,6 +39,7 @@ export function SecretaryStudentEditPage() {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
   const { data: streams = [] } = useStreams(selectedClassId)
   const updateStudent = useUpdateStudent()
+  const createLogin   = useCreateStudentLogin()
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', dob: '', gender: '' as Student['gender'] | '',
@@ -49,6 +49,14 @@ export function SecretaryStudentEditPage() {
   const [dirty, setDirty] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Activation state
+  const [activationState, setActivationState] = useState<
+    | { phase: 'idle' }
+    | { phase: 'running' }
+    | { phase: 'done'; email: string; password: string }
+    | { phase: 'error'; message: string }
+  >({ phase: 'idle' })
 
   useEffect(() => {
     if (!student) return
@@ -87,6 +95,17 @@ export function SecretaryStudentEditPage() {
     } catch (err: unknown) { setSaveError(err instanceof Error ? err.message : 'Save failed') }
   }
 
+  async function handleActivate() {
+    if (!studentId) return
+    setActivationState({ phase: 'running' })
+    try {
+      const r = await createLogin.mutateAsync(studentId)
+      setActivationState({ phase: 'done', email: r.email, password: r.tempPassword })
+    } catch (e: unknown) {
+      setActivationState({ phase: 'error', message: e instanceof Error ? e.message : 'Activation failed' })
+    }
+  }
+
   if (isLoading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '6rem' }}><LoadingSpinner /></div>
   if (!student) return <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--txt3)' }}>Student not found.</div>
 
@@ -108,7 +127,7 @@ export function SecretaryStudentEditPage() {
             <p style={{ fontSize: 12, color: 'var(--txt3)', margin: '2px 0 0', fontFamily: 'var(--font3)' }}>{student.admissionNumber}</p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => navigate('/secretary/students')} style={{ padding: '9px 16px', borderRadius: 10, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
           <button onClick={() => void handleSave()} disabled={!dirty || updateStudent.isPending}
             style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 11, border: 'none', background: 'linear-gradient(145deg,#0ea5e9,#0284c7)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 14px rgba(14,165,233,.35)', opacity: !dirty || updateStudent.isPending ? .6 : 1 }}>
@@ -119,6 +138,78 @@ export function SecretaryStudentEditPage() {
 
       {saved && <div style={{ padding: '10px 16px', borderRadius: 10, background: 'rgba(16,185,129,.08)', color: '#065f46', fontSize: 13, fontWeight: 700, border: '.5px solid rgba(16,185,129,.3)' }}>Changes saved successfully.</div>}
       {saveError && <div style={{ padding: '10px 16px', borderRadius: 10, background: 'rgba(244,63,94,.08)', color: 'var(--danger)', fontSize: 13, fontWeight: 700, border: '.5px solid rgba(244,63,94,.3)' }}>{saveError}</div>}
+
+      {/* ── Portal Account Section ──────────────────────────────── */}
+      {!student.authUserId && (
+        <div style={{ background: 'var(--surface)', border: '.5px solid rgba(13,148,136,.3)', borderRadius: 14, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warning)' }} />
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13, color: 'var(--txt)' }}>No Portal Account</div>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--txt3)', lineHeight: 1.5 }}>
+              This student cannot log in yet. Activate to create a Supabase auth account and generate login credentials.
+            </div>
+          </div>
+          <button
+            onClick={() => void handleActivate()}
+            disabled={activationState.phase === 'running' || activationState.phase === 'done'}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 11, border: 'none', background: activationState.phase === 'done' ? 'rgba(16,185,129,.12)' : 'linear-gradient(135deg,#0d9488,#0ea5e9)', color: activationState.phase === 'done' ? 'var(--success)' : '#fff', fontWeight: 800, fontSize: 13, cursor: activationState.phase === 'running' || activationState.phase === 'done' ? 'default' : 'pointer', boxShadow: activationState.phase === 'done' ? 'none' : '0 4px 16px rgba(13,148,136,.35)', transition: 'all 0.2s', flexShrink: 0 }}
+          >
+            {activationState.phase === 'running' ? (
+              <>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+                Activating…
+              </>
+            ) : activationState.phase === 'done' ? (
+              <>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Activated
+              </>
+            ) : (
+              <>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Activate Account
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Activation result */}
+      {activationState.phase === 'done' && (
+        <div style={{ background: 'rgba(16,185,129,.06)', border: '.5px solid rgba(16,185,129,.3)', borderRadius: 12, padding: '14px 18px' }}>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13, color: 'var(--success)', marginBottom: 10 }}>
+            Account activated successfully!
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[
+              { label: 'Email', value: activationState.email },
+              { label: 'Temporary Password', value: activationState.password },
+            ].map(f => (
+              <div key={f.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,.04)', border: '1px solid rgba(16,185,129,.15)', borderRadius: 9, padding: '9px 14px' }}>
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>{f.label}</div>
+                  <div style={{ fontSize: 13, fontFamily: 'var(--font3)', color: 'var(--txt)', fontWeight: 600 }}>{f.value}</div>
+                </div>
+                <CopyBtn value={f.value} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {activationState.phase === 'error' && (
+        <div style={{ padding: '10px 16px', borderRadius: 10, background: 'rgba(244,63,94,.08)', color: 'var(--danger)', fontSize: 13, fontWeight: 700, border: '.5px solid rgba(244,63,94,.3)' }}>
+          Activation failed: {activationState.message}
+        </div>
+      )}
+
+      {student.authUserId && (
+        <div style={{ background: 'rgba(16,185,129,.06)', border: '.5px solid rgba(16,185,129,.2)', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', flexShrink: 0 }} />
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#065f46' }}>Portal account active — student can log in.</div>
+        </div>
+      )}
 
       <Section title="Personal Information">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 20px' }}>
@@ -176,5 +267,18 @@ export function SecretaryStudentEditPage() {
           style={{ ...inputStyle, resize: 'vertical', fontFamily: 'var(--font1)' }} />
       </Section>
     </div>
+  )
+}
+
+// ── Small copy button used in activation result ──────────────────────────────
+function CopyBtn({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      onClick={() => { void navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+      style={{ background: copied ? 'rgba(16,185,129,.12)' : 'var(--surface)', border: `1px solid ${copied ? 'rgba(16,185,129,.3)' : 'var(--border)'}`, borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontSize: 11, fontWeight: 800, fontFamily: 'var(--font2)', color: copied ? 'var(--success)' : 'var(--txt2)', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+    >
+      {copied ? '✓ Copied' : 'Copy'}
+    </button>
   )
 }

@@ -1,10 +1,12 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useStudents, useStudentById, useCreateStudentLogin, type StudentFilters, type StudentLoginResult } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useGenerateParentAccess, type GeneratedAccess } from '../../hooks/useParentPortal'
 import { useSendCredentialsSms } from '../../hooks/useStaffAuth'
 import { Avatar } from '../../components/shared/Avatar'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../store/AuthContext'
 import type { Student, StudentGuardian } from '../../types/app'
 
 // ── Print credential slip ─────────────────────────────────────────────────────
@@ -445,6 +447,160 @@ function CredentialModal({
   return createPortal(modal, document.querySelector('.ar') ?? document.body)
 }
 
+// ── Batch Activation Bar ──────────────────────────────────────────────────────
+type BatchActivationState =
+  | { phase: 'idle' }
+  | { phase: 'running'; current: number; total: number }
+  | { phase: 'done'; activated: number; skipped: number; failed: string[] }
+
+function BatchActivationBar({
+  selected,
+  students,
+  onClear,
+  onDone,
+}: {
+  selected: Set<string>
+  students: Student[]
+  onClear: () => void
+  onDone: () => void
+}) {
+  const { user } = useAuth()
+  const [state, setState] = useState<BatchActivationState>({ phase: 'idle' })
+  const abortRef = useRef(false)
+
+  const selectedStudents = useMemo(
+    () => students.filter(s => selected.has(s.id)),
+    [students, selected],
+  )
+  const toActivate = selectedStudents.filter(s => s.authUserId === null)
+  const alreadyActive = selectedStudents.length - toActivate.length
+
+  async function handleActivate() {
+    if (!user || toActivate.length === 0) return
+    abortRef.current = false
+    setState({ phase: 'running', current: 0, total: toActivate.length })
+
+    const failed: string[] = []
+    let activated = 0
+
+    for (let i = 0; i < toActivate.length; i++) {
+      if (abortRef.current) break
+      const s = toActivate[i]
+      setState({ phase: 'running', current: i + 1, total: toActivate.length })
+      try {
+        const { error } = await supabase.functions.invoke('create-student-auth-user', {
+          body: { studentId: s.id, schoolId: user.schoolId },
+        })
+        if (error) throw new Error(error.message)
+        activated++
+      } catch (e: unknown) {
+        failed.push(`${s.firstName} ${s.lastName}: ${e instanceof Error ? e.message : 'failed'}`)
+      }
+    }
+
+    setState({ phase: 'done', activated, skipped: alreadyActive, failed })
+    onDone()
+  }
+
+  const bar = (
+    <div style={{
+      position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+      zIndex: 500, width: 'calc(100% - 48px)', maxWidth: 680,
+    }}>
+      <div style={{
+        background: 'rgba(15,23,42,.88)', backdropFilter: 'blur(16px) saturate(180%)',
+        border: '1px solid rgba(255,255,255,.12)', borderRadius: 18,
+        boxShadow: '0 20px 60px rgba(0,0,0,.45), 0 0 0 1px rgba(13,148,136,.2)',
+        padding: '14px 18px',
+        display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+      }}>
+        {state.phase === 'idle' && (
+          <>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: '#fff' }}>
+                {selected.size} student{selected.size !== 1 ? 's' : ''} selected
+              </div>
+              {toActivate.length < selectedStudents.length && (
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginTop: 2 }}>
+                  {alreadyActive} already active · {toActivate.length} will be activated
+                </div>
+              )}
+            </div>
+            <button
+              onClick={onClear}
+              style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,.18)', background: 'transparent', color: 'rgba(255,255,255,.7)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.08)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => void handleActivate()}
+              disabled={toActivate.length === 0}
+              style={{ padding: '10px 22px', borderRadius: 12, border: 'none', background: toActivate.length === 0 ? 'rgba(13,148,136,.3)' : 'linear-gradient(135deg,#0d9488,#0ea5e9)', color: '#fff', fontWeight: 800, fontSize: 13, cursor: toActivate.length === 0 ? 'not-allowed' : 'pointer', boxShadow: toActivate.length > 0 ? '0 4px 18px rgba(13,148,136,.5)' : 'none', transition: 'all 0.2s', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 7 }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Activate {toActivate.length > 0 ? `${toActivate.length} Account${toActivate.length !== 1 ? 's' : ''}` : '(none to activate)'}
+            </button>
+          </>
+        )}
+
+        {state.phase === 'running' && (
+          <>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: '#fff' }}>
+                Activating {state.current}/{state.total}…
+              </div>
+              <div style={{ marginTop: 8, height: 5, background: 'rgba(255,255,255,.12)', borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${(state.current / state.total) * 100}%`, background: 'linear-gradient(90deg,#0d9488,#0ea5e9)', borderRadius: 99, transition: 'width 0.3s ease' }} />
+              </div>
+            </div>
+            <button
+              onClick={() => { abortRef.current = true }}
+              style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(244,63,94,.4)', background: 'rgba(244,63,94,.12)', color: '#f87171', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Cancel
+            </button>
+          </>
+        )}
+
+        {state.phase === 'done' && (
+          <>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: '#34d399' }}>
+                {state.activated} account{state.activated !== 1 ? 's' : ''} activated.
+                {state.skipped > 0 && ` ${state.skipped} skipped (already active).`}
+                {state.failed.length > 0 && ` ${state.failed.length} failed.`}
+              </div>
+              {state.activated > 0 && (
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,.55)', marginTop: 3 }}>
+                  Credentials saved. &nbsp;
+                  <a href="/admin/credentials" style={{ color: '#67e8f9', textDecoration: 'underline', cursor: 'pointer' }}>
+                    View Credentials
+                  </a>
+                </div>
+              )}
+              {state.failed.length > 0 && (
+                <div style={{ fontSize: 11, color: '#fca5a5', marginTop: 4, maxWidth: 420 }}>
+                  Failed: {state.failed.slice(0, 3).join('; ')}{state.failed.length > 3 ? ` (+${state.failed.length - 3} more)` : ''}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => { setState({ phase: 'idle' }); onClear() }}
+              style={{ padding: '8px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,.18)', background: 'transparent', color: 'rgba(255,255,255,.7)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+            >
+              Dismiss
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+
+  return createPortal(bar, document.querySelector('.ar') ?? document.body)
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const statusConfig: Record<Student['status'], { bg: string; color: string; dot: string }> = {
   active:    { bg: 'rgba(16,185,129,.12)',  color: '#065f46', dot: '#10b981' },
@@ -462,12 +618,14 @@ const LEVEL_COLORS: Record<number, { bg: string; border: string; text: string; a
 }
 
 // ── Student Card ─────────────────────────────────────────────────────────────
-function StudentCard({ student, classes, streams, onView, onCredentials }: {
+function StudentCard({ student, classes, streams, onView, onCredentials, selected, onToggleSelect }: {
   student: Student
   classes: { id: string; name: string; level: string | null }[]
   streams: { id: string; name: string }[]
   onView: (s: Student) => void
   onCredentials: (s: Student) => void
+  selected?: boolean
+  onToggleSelect?: (id: string) => void
 }) {
   const [hovered, setHovered] = useState(false)
   const cls          = classes.find(c => c.id === student.classId)
@@ -483,15 +641,35 @@ function StudentCard({ student, classes, streams, onView, onCredentials }: {
   return (
     <div
       style={{
-        borderRadius: 16, border: '1px solid var(--border)', background: 'var(--surface)',
-        overflow: 'hidden',
-        transition: 'transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s',
+        borderRadius: 16, border: `1px solid ${selected ? 'var(--brand)' : 'var(--border)'}`, background: selected ? 'rgba(13,148,136,.04)' : 'var(--surface)',
+        overflow: 'hidden', position: 'relative',
+        transition: 'transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s, border-color 0.15s',
         transform: hovered ? 'translateY(-3px)' : 'none',
-        boxShadow: hovered ? '0 12px 40px rgba(0,0,0,.10)' : '0 1px 6px rgba(0,0,0,.06)',
+        boxShadow: hovered ? '0 12px 40px rgba(0,0,0,.10)' : selected ? '0 0 0 2px rgba(13,148,136,.18)' : '0 1px 6px rgba(0,0,0,.06)',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {/* Selection checkbox */}
+      {onToggleSelect && (
+        <div
+          style={{ position: 'absolute', top: 10, right: 10, zIndex: 10 }}
+          onClick={e => { e.stopPropagation(); onToggleSelect(student.id) }}
+        >
+          <div style={{
+            width: 20, height: 20, borderRadius: 6,
+            border: `2px solid ${selected ? 'var(--brand)' : 'rgba(148,163,184,.5)'}`,
+            background: selected ? 'var(--brand)' : 'rgba(255,255,255,.9)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', transition: 'all 0.15s',
+            boxShadow: selected ? '0 2px 8px rgba(13,148,136,.4)' : 'none',
+          }}>
+            {selected && (
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+            )}
+          </div>
+        </div>
+      )}
       {/* Class-level accent strip */}
       <div style={{ height: 4, background: `linear-gradient(90deg, ${accentColor}, ${accentText})` }} />
 
@@ -663,6 +841,15 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
   const [streamId,    setStreamId]    = useState('')
   const [status,      setStatus]      = useState('')
   const [credStudent, setCredStudent] = useState<Student | null>(null)
+  const [selected,    setSelected]    = useState<Set<string>>(new Set())
+
+  function toggleSelect(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
   const filters: StudentFilters = useMemo(() => ({
     ...(classId  ? { classId }  : {}),
@@ -877,7 +1064,7 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
       ) : students.length === 0 ? (
         <EmptyState isFiltered={isFiltered} onRegister={onRegister} />
       ) : (
-        <div className="stagger-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+        <div className="stagger-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, paddingBottom: selected.size > 0 ? 90 : 0 }}>
           {students.map(s => (
             <StudentCard
               key={s.id}
@@ -886,6 +1073,8 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
               streams={streams}
               onView={onView}
               onCredentials={setCredStudent}
+              selected={selected.has(s.id)}
+              onToggleSelect={toggleSelect}
             />
           ))}
         </div>
@@ -910,6 +1099,17 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
           classes={classes}
           streams={streams}
           onClose={() => setCredStudent(null)}
+        />
+      )}
+
+      {selected.size > 0 && (
+        <BatchActivationBar
+          selected={selected}
+          students={students}
+          onClear={() => setSelected(new Set())}
+          onDone={() => {
+            setSelected(new Set())
+          }}
         />
       )}
     </div>

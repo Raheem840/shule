@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useStaff } from '../../hooks/useStaff'
 import { useClasses } from '../../hooks/useClasses'
 import { useDepartments } from '../../hooks/useClasses'
@@ -363,6 +363,251 @@ function SkeletonCard() {
   )
 }
 
+// ── Pending Activations Banner ────────────────────────────────────────────────
+type BulkActivationProgress =
+  | { phase: 'idle' }
+  | { phase: 'running'; current: number; total: number }
+  | { phase: 'done'; activated: number; failed: number }
+
+function PendingActivationsBanner({
+  schoolId,
+  pendingStudentCount,
+  pendingStaffCount,
+  onScrollToPending,
+}: {
+  schoolId: string
+  pendingStudentCount: number
+  pendingStaffCount: number
+  onScrollToPending: () => void
+}) {
+  const [dismissed,  setDismissed]  = useState(false)
+  const [progress,   setProgress]   = useState<BulkActivationProgress>({ phase: 'idle' })
+  const abortRef = useRef(false)
+  const { success: ok, error: err } = useToast()
+  const qc = useQueryClient()
+
+  const total = pendingStudentCount + pendingStaffCount
+  if (dismissed || total === 0) return null
+
+  async function bulkActivateStudents() {
+    const { data, error } = await supabase
+      .from('students')
+      .select('id, first_name, last_name')
+      .eq('school_id', schoolId)
+      .is('auth_user_id', null)
+      .eq('status', 'active')
+    if (error) { err(error.message); return }
+    const students = data ?? []
+
+    setProgress({ phase: 'running', current: 0, total: students.length })
+    abortRef.current = false
+    let activated = 0; let failed = 0
+
+    // Process in batches of 10
+    for (let i = 0; i < students.length; i += 10) {
+      if (abortRef.current) break
+      const batch = students.slice(i, i + 10)
+      await Promise.all(batch.map(async s => {
+        try {
+          const { error: fnError } = await supabase.functions.invoke('create-student-auth-user', {
+            body: { studentId: s.id, schoolId },
+          })
+          if (fnError) throw fnError
+          activated++
+        } catch { failed++ }
+        setProgress(p => p.phase === 'running' ? { ...p, current: p.current + 1 } : p)
+      }))
+    }
+    setProgress({ phase: 'done', activated, failed })
+    void qc.invalidateQueries({ queryKey: ['students-pending-login', schoolId] })
+    void qc.invalidateQueries({ queryKey: ['students-active-login', schoolId] })
+    ok(`${activated} student accounts activated`)
+  }
+
+  async function bulkActivateStaff() {
+    const { data, error } = await supabase
+      .from('staff')
+      .select('id, first_name, last_name, email')
+      .eq('school_id', schoolId)
+      .is('auth_user_id', null)
+      .eq('is_active', true)
+    if (error) { err(error.message); return }
+    const staff = (data ?? []).filter((s: { email: string | null }) => !!s.email)
+
+    setProgress({ phase: 'running', current: 0, total: staff.length })
+    abortRef.current = false
+    let activated = 0; let failed = 0
+
+    for (let i = 0; i < staff.length; i += 10) {
+      if (abortRef.current) break
+      const batch = staff.slice(i, i + 10)
+      await Promise.all(batch.map(async (s: { id: string }) => {
+        try {
+          const { error: fnError } = await supabase.functions.invoke('create-staff-auth-user', {
+            body: { staffId: s.id, schoolId },
+          })
+          if (fnError) throw fnError
+          activated++
+        } catch { failed++ }
+        setProgress(p => p.phase === 'running' ? { ...p, current: p.current + 1 } : p)
+      }))
+    }
+    setProgress({ phase: 'done', activated, failed })
+    void qc.invalidateQueries({ queryKey: ['staff', schoolId] })
+    ok(`${activated} staff accounts activated`)
+  }
+
+  return (
+    <div style={{ borderRadius: 14, border: '1px solid rgba(245,158,11,.35)', background: 'rgba(245,158,11,.06)', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(245,158,11,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--warning)' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div>
+            <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: '#92400e' }}>
+              Pending Activations
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--txt2)', marginTop: 1 }}>
+              {pendingStudentCount > 0 && `${pendingStudentCount} student${pendingStudentCount !== 1 ? 's' : ''}`}
+              {pendingStudentCount > 0 && pendingStaffCount > 0 && ' and '}
+              {pendingStaffCount > 0 && `${pendingStaffCount} staff member${pendingStaffCount !== 1 ? 's' : ''}`}
+              {' '}have no login accounts yet.
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => setDismissed(true)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', padding: 4, display: 'flex', flexShrink: 0, marginTop: 2 }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      {/* Progress bar */}
+      {progress.phase === 'running' && (
+        <div style={{ marginTop: 2 }}>
+          <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 6, fontWeight: 600 }}>
+            Activating {progress.current}/{progress.total}…
+          </div>
+          <div style={{ height: 5, background: 'rgba(245,158,11,.2)', borderRadius: 99, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${(progress.current / progress.total) * 100}%`, background: 'linear-gradient(90deg,#f59e0b,#0d9488)', borderRadius: 99, transition: 'width 0.3s ease' }} />
+          </div>
+        </div>
+      )}
+
+      {progress.phase === 'done' && (
+        <div style={{ fontSize: 12, color: '#065f46', fontWeight: 700, background: 'rgba(16,185,129,.08)', border: '.5px solid rgba(16,185,129,.25)', borderRadius: 8, padding: '7px 12px' }}>
+          {progress.activated} accounts activated{progress.failed > 0 ? ` · ${progress.failed} failed` : ''}.
+        </div>
+      )}
+
+      {/* Action buttons */}
+      {progress.phase === 'idle' && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {pendingStudentCount > 0 && (
+            <button
+              onClick={() => void bulkActivateStudents()}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', boxShadow: '0 3px 12px rgba(245,158,11,.4)', transition: 'opacity 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.88' }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Activate All {pendingStudentCount} Students
+            </button>
+          )}
+          {pendingStaffCount > 0 && (
+            <button
+              onClick={() => void bulkActivateStaff()}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', boxShadow: '0 3px 12px rgba(139,92,246,.4)', transition: 'opacity 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.88' }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Activate All {pendingStaffCount} Staff
+            </button>
+          )}
+          <button
+            onClick={onScrollToPending}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(245,158,11,.35)', background: 'transparent', color: '#92400e', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', transition: 'background 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,.1)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            View Pending
+          </button>
+        </div>
+      )}
+
+      {progress.phase === 'running' && (
+        <button
+          onClick={() => { abortRef.current = true }}
+          style={{ padding: '6px 14px', borderRadius: 9, border: '1px solid rgba(244,63,94,.35)', background: 'rgba(244,63,94,.08)', color: 'var(--danger)', fontWeight: 700, fontSize: 12, cursor: 'pointer', alignSelf: 'flex-start' }}
+        >
+          Cancel
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Post-import Redirect Banner ────────────────────────────────────────────────
+const IMPORT_KEY = 'shule_pending_activations'
+
+function PostImportBanner({ onScrollToPending }: { onScrollToPending: () => void }) {
+  const [data, setData] = useState<{ count: number; at: string } | null>(null)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(IMPORT_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as { count?: number; at?: string }
+      if (!parsed.count || !parsed.at) return
+      const age = Date.now() - new Date(parsed.at).getTime()
+      if (age > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem(IMPORT_KEY)
+        return
+      }
+      setData({ count: parsed.count, at: parsed.at })
+    } catch { /* ignore */ }
+  }, [])
+
+  if (!data) return null
+
+  function dismiss() {
+    localStorage.removeItem(IMPORT_KEY)
+    setData(null)
+  }
+
+  return (
+    <div style={{ borderRadius: 14, border: '1px solid rgba(14,165,233,.35)', background: 'linear-gradient(135deg,rgba(14,165,233,.07),rgba(13,148,136,.04))', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+      <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(14,165,233,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--info)' }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: '#0369a1' }}>
+          Recent Import
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--txt2)', marginTop: 1 }}>
+          {data.count} student{data.count !== 1 ? 's' : ''} were just imported and need login accounts.
+        </div>
+      </div>
+      <button
+        onClick={() => { dismiss(); onScrollToPending() }}
+        style={{ padding: '8px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#0ea5e9,#0284c7)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
+      >
+        View Pending
+      </button>
+      <button
+        onClick={dismiss}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', padding: 4, display: 'flex', flexShrink: 0 }}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  )
+}
+
 // ── Student row type (from DB query) ──────────────────────────────────────────
 type StudentLoginRow = {
   id:               string
@@ -631,6 +876,16 @@ export function AdminUsersPage() {
   const [newCred,        setNewCred]        = useState<CredInfo | null>(null)
   const [newStudentCred, setNewStudentCred] = useState<StudentCredInfo | null>(null)
 
+  const pendingSectionRef = useRef<HTMLDivElement>(null)
+
+  const scrollToPending = useCallback(() => {
+    setSection('students')
+    setTab('pending')
+    setTimeout(() => {
+      pendingSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+  }, [])
+
   const { user }                                           = useAuth()
   const { data: allStaff = [], isLoading: staffLoading, error: staffError } = useStaff(useMemo(() => ({}), []))
   const { data: depts    = [] }                           = useDepartments()
@@ -755,6 +1010,19 @@ export function AdminUsersPage() {
           </div>
         </div>
 
+        {/* Post-import redirect banner */}
+        <PostImportBanner onScrollToPending={scrollToPending} />
+
+        {/* Pending activations amber banner */}
+        {(studentsPending.length > 0 || staffPending.length > 0) && (
+          <PendingActivationsBanner
+            schoolId={schoolId}
+            pendingStudentCount={studentsPending.length}
+            pendingStaffCount={staffPending.length}
+            onScrollToPending={scrollToPending}
+          />
+        )}
+
         {/* Credential panels */}
         {newCred        && <CredentialDeliveryPanel cred={newCred} schoolName={schoolName} onDismiss={() => setNewCred(null)} />}
         {newStudentCred && <StudentCredentialDeliveryPanel cred={newStudentCred} schoolName={schoolName} onDismiss={() => setNewStudentCred(null)} />}
@@ -787,7 +1055,7 @@ export function AdminUsersPage() {
         )}
 
         {/* Section switcher: Staff | Students */}
-        <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--surface2)', borderRadius: 12, border: '1px solid var(--border)', alignSelf: 'flex-start' }}>
+        <div ref={pendingSectionRef} style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--surface2)', borderRadius: 12, border: '1px solid var(--border)', alignSelf: 'flex-start' }}>
           {([
             { id: 'staff'    as const, label: 'Staff',    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> },
             { id: 'students' as const, label: 'Students', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> },
