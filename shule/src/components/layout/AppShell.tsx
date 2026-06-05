@@ -29,6 +29,7 @@ import { applyBrandColor } from '../../lib/brandColor'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import type { UserRole } from '../../store/AuthContext'
 import type { NotificationType } from '../../types/week9'
+import { NotificationToastProvider } from '../shared/NotificationToast'
 
 // Roles that have a /profile page
 const PROFILE_ROLES = new Set<UserRole>([
@@ -348,6 +349,7 @@ export function AppShell() {
         </main>
 
         <NotificationPushListener />
+        <NotificationToastProvider />
 
         {/* ── Bottom navigation (mobile only) ─────────────────────── */}
         {bottomItems.length > 0 && (

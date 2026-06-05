@@ -134,13 +134,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           setAuthError('Account not linked to a school role. Contact your IT Admin.')
         }
-      } else if (!navigator.onLine) {
-        // Offline — attempt to restore cached session
+      } else {
+        // No active Supabase session — try IndexedDB cache (both offline AND as bridge
+        // when access token has just expired and Supabase is about to refresh it).
+        // This prevents mobile users from being kicked out between visits.
         try {
           const cached = await db.auth_session.get('current')
           if (cached?.user) {
-            setUser(cached.user as AuthUser)
-            setIsOfflineMode(true)
+            const ageHours = (Date.now() - new Date(cached.savedAt).getTime()) / 3600000
+            if (ageHours < 720) { // cache valid up to 30 days
+              setUser(cached.user as AuthUser)
+              setIsOfflineMode(!navigator.onLine)
+              // If online, try a background token refresh — if it succeeds, upgrade to real session
+              if (navigator.onLine) {
+                supabase.auth.refreshSession().then(async ({ data }) => {
+                  if (data.session) {
+                    const u = sessionToUser(data.session)
+                    if (u) {
+                      setUser(u)
+                      setIsOfflineMode(false)
+                      setAuthError(null)
+                      await cacheSessionToDb(data.session, u)
+                    }
+                    // If refresh returned session but no claims, keep cached user — don't sign out
+                  }
+                  // If refresh returned null session, keep cached user until they explicitly sign out
+                })
+              }
+            }
           }
         } catch { /* ignore */ }
       }
@@ -153,8 +174,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           let u = sessionToUser(session)
           setIsOfflineMode(false)
 
-          if (!u && event === 'SIGNED_IN') {
-            // Fresh sign-in — hook claims may not be in this first token
+          if (!u && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED')) {
+            // Hook claims may not be embedded yet — refresh once to get them
             const { data } = await supabase.auth.refreshSession()
             if (data.session) u = sessionToUser(data.session)
           }
@@ -177,7 +198,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null)
           setAuthError(null)
           setIsOfflineMode(false)
-          try { await db.auth_session.delete('current') } catch { /* ignore */ }
+          // Do NOT delete IndexedDB cache here — the getSession() path above uses it
+          // as a bridge when Supabase fires SIGNED_OUT due to token expiry.
+          // The explicit signOut() function handles cache deletion for deliberate logouts.
         }
         setLoading(false)
       }
