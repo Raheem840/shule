@@ -70,9 +70,9 @@ function AmountCell({ fee }: { fee: FeeStructure }) {
 }
 
 // ─── Fee row card ─────────────────────────────────────────────────────────────
-function FeeCard({ fee, className, onDelete, onAutoCharge }: {
+function FeeCard({ fee, className, onDelete, onAutoCharge, onEnable }: {
   fee: FeeStructure; className: string | null
-  onDelete: () => void; onAutoCharge: () => void
+  onDelete: () => void; onAutoCharge: () => void; onEnable: () => void
 }) {
   const toggle = useToggleFeeActive()
   const [hovered, setHovered] = useState(false)
@@ -135,7 +135,12 @@ function FeeCard({ fee, className, onDelete, onAutoCharge }: {
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><line x1="19" y1="6" x2="19" y2="12"/><line x1="22" y1="9" x2="16" y2="9"/></svg>
               Charge
             </button>
-            <button onClick={() => toggle.mutate({ id: fee.id, isActive: !fee.isActive })}
+            <button
+              onClick={async () => {
+                const enabling = !fee.isActive
+                await toggle.mutateAsync({ id: fee.id, isActive: enabling })
+                if (enabling) onEnable()
+              }}
               style={{ padding: '4px 10px', borderRadius: 8, border: `.5px solid var(--border)`, background: 'var(--surface2)', color: 'var(--txt3)', fontWeight: 700, fontSize: 10.5, cursor: 'pointer' }}>
               {fee.isActive ? 'Disable' : 'Enable'}
             </button>
@@ -483,6 +488,7 @@ export function FeeStructurePage() {
                       className={fee.classId ? (classMap.get(fee.classId) ?? null) : null}
                       onDelete={() => handleDelete(fee)}
                       onAutoCharge={() => handleAutoCharge(fee)}
+                      onEnable={() => handleAutoCharge(fee)}
                     />
                   ))}
                 </div>

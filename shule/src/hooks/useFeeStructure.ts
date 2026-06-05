@@ -182,9 +182,9 @@ export function useAutoChargeFees() {
   const { user } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ feeStructureId, classId, appliesTo, term, year, amount, academicYearId }: {
+    mutationFn: async ({ feeStructureId, classId, appliesTo, term, amount, academicYearId }: {
       feeStructureId: string; classId: string | null; appliesTo: FeeStructure['appliesTo']
-      term: number; year: number; amount: number; academicYearId: string
+      term: number; year?: number; amount: number; academicYearId: string
     }) => {
       if (!user) throw new Error('Not authenticated')
       let q = supabase.from('students').select('id, student_type').eq('school_id', user.schoolId).eq('status', 'active')
@@ -203,7 +203,7 @@ export function useAutoChargeFees() {
       if (!toCharge.length) return { charged: 0 }
       const inserts = toCharge.map(sid => ({
         school_id: user.schoolId, student_id: sid, fee_structure_id: feeStructureId,
-        academic_year_id: academicYearId, term, year, amount_due: amount,
+        academic_year_id: academicYearId, term, amount_due: amount,
         amount_paid: 0, balance: amount, imported: false, created_by: user.id,
       }))
       for (let i = 0; i < inserts.length; i += 100) {
