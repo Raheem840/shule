@@ -1,7 +1,11 @@
 /**
- * Import template generator — produces a downloadable CSV with correct
+ * Import template generator — produces downloadable CSV/XLSX with correct
  * column headers and realistic example rows for each import type.
  */
+
+import ExcelJS from 'exceljs'
+
+// ── CSV helpers ───────────────────────────────────────────────
 
 type TemplateType = 'students' | 'staff'
 
@@ -19,9 +23,12 @@ const STUDENT_TEMPLATE = {
     'previous_school',
   ],
   rows: [
-    ['Aisha', 'Nakamya', '2010-03-14', 'Female', 'S1', 'East', 'day', 'Ugandan', 'Islam', 'Kampala Preparatory School'],
-    ['Brian', 'Ssemakula', '2009-07-22', 'Male', 'S2', 'West', 'boarder', 'Ugandan', 'Catholic', "St. Mary's Primary School"],
-    ['Grace', 'Apolot', '2011-01-08', 'Female', 'S1', 'North', 'day', 'Ugandan', 'Protestant', 'Soroti Primary School'],
+    ['Amara',     'Nakato',    '2010-03-15', 'Female', 'S.1', 'East', 'day',     'Ugandan', 'Christian', 'Kiyinda Primary School'],
+    ['Brian',     'Ssemwanga', '2009-07-22', 'Male',   'S.2', 'West', 'boarder', 'Ugandan', 'Muslim',    'Kibuli SS'],
+    ['Christine', 'Aber',      '2011-01-10', 'Female', 'S.1', 'East', 'day',     'Ugandan', 'Catholic',  "St. Mary's PS"],
+    ['David',     'Okello',    '2010-11-05', 'Male',   'S.3', '',     'day',     'Ugandan', 'Christian', 'Mbale PS'],
+    ['Esther',    'Namukasa',  '2009-05-20', 'Female', 'S.4', 'West', 'boarder', 'Ugandan', 'Christian', 'Gayaza High School'],
+    ['Frank',     'Ochieng',   '2011-08-14', 'Male',   'S.1', '',     'day',     'Ugandan', 'Muslim',    'Green Hill Academy'],
   ],
 }
 
@@ -35,18 +42,19 @@ const STAFF_TEMPLATE = {
     'national_id',
     'employment_type',
     'department_name',
-    'qualification_level',
-    'qualification_title',
   ],
   rows: [
-    ['Prossy', 'Nantume', 'teacher', 'p.nantume@school.ug', '0772123456', 'CM90123456QWBA', 'full_time', 'Sciences', 'Bachelor', 'Bachelor of Science Education'],
-    ['Ronald', 'Okello', 'class_teacher', 'r.okello@school.ug', '0753987654', 'CF88234567RWCA', 'full_time', 'Languages', 'Bachelor', 'Bachelor of Arts Education'],
-    ['Fatuma', 'Nabwire', 'dos', 'f.nabwire@school.ug', '0701456789', 'CM92345678STDA', 'full_time', '', 'Masters', 'Master of Education'],
+    ['Sarah',  'Namutebi', 'teacher',       'snamutebi@school.ac.ug', '0772123456', 'CM80012345678P', 'full_time', 'Mathematics'],
+    ['Peter',  'Ochieng',  'class_teacher', 'pochieng@school.ac.ug',  '0701987654', 'CF79099876543Q', 'full_time', 'Sciences'],
+    ['Grace',  'Akello',   'dos',           'gakello@school.ac.ug',   '0782345678', 'CF82056712345R', 'full_time', 'Administration'],
+    ['Moses',  'Waiswa',   'teacher',       'mwaiswa@school.ac.ug',   '0756789012', 'CM75034567890S', 'full_time', 'English'],
+    ['Juliet', 'Kansiime', 'bursar',        'jkansiime@school.ac.ug', '0714567890', 'CF88067890123T', 'full_time', 'Finance'],
   ],
 }
 
 function buildCsv(headers: string[], rows: string[][]): string {
-  const escape = (v: string) => (v.includes(',') || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v)
+  const escape = (v: string) =>
+    v.includes(',') || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v
   const lines = [
     headers.map(escape).join(','),
     ...rows.map(r => r.map(escape).join(',')),
@@ -54,13 +62,13 @@ function buildCsv(headers: string[], rows: string[][]): string {
   return lines.join('\r\n')
 }
 
-function triggerDownload(filename: string, content: string, mimeType = 'text/csv;charset=utf-8;') {
+function triggerCsvDownload(filename: string, content: string): void {
   // UTF-8 BOM — Excel on Windows needs this to open CSV correctly
-  const bom = '﻿'
-  const blob = new Blob([bom + content], { type: mimeType })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
+  const bom  = '﻿'
+  const blob = new Blob([bom + content], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
   a.download = filename
   a.style.display = 'none'
   document.body.appendChild(a)
@@ -72,9 +80,159 @@ function triggerDownload(filename: string, content: string, mimeType = 'text/csv
 export function generateImportTemplate(type: TemplateType): void {
   if (type === 'students') {
     const csv = buildCsv(STUDENT_TEMPLATE.headers, STUDENT_TEMPLATE.rows)
-    triggerDownload('shule_student_import_template.csv', csv)
+    triggerCsvDownload('shule_student_import_template.csv', csv)
   } else {
     const csv = buildCsv(STAFF_TEMPLATE.headers, STAFF_TEMPLATE.rows)
-    triggerDownload('shule_staff_import_template.csv', csv)
+    triggerCsvDownload('shule_staff_import_template.csv', csv)
   }
+}
+
+// ── Shared xlsx helpers ───────────────────────────────────────
+
+function applyHeaderStyle(row: ExcelJS.Row): void {
+  row.eachCell(cell => {
+    cell.font      = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 }
+    cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    cell.border    = { bottom: { style: 'thin', color: { argb: 'FF0F766E' } } }
+  })
+  row.height = 26
+}
+
+async function downloadXlsx(wb: ExcelJS.Workbook, filename: string): Promise<void> {
+  const buf  = await wb.xlsx.writeBuffer()
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const a    = document.createElement('a')
+  a.href     = URL.createObjectURL(blob)
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
+// ── Fee payments template (ExcelJS) ──────────────────────────
+
+export async function generateFeeTemplate(): Promise<void> {
+  const wb = new ExcelJS.Workbook()
+  wb.creator = 'Shule Management System'
+
+  // Sheet 1: Data
+  const ws = wb.addWorksheet('Fee Payments Import')
+  ws.columns = [
+    { header: 'student_name',   key: 'student_name',   width: 24 },
+    { header: 'class_name',     key: 'class_name',     width: 14 },
+    { header: 'stream_name',    key: 'stream_name',    width: 14 },
+    { header: 'term',           key: 'term',           width: 10 },
+    { header: 'year',           key: 'year',           width: 10 },
+    { header: 'amount_paid',    key: 'amount_paid',    width: 18 },
+    { header: 'amount_due',     key: 'amount_due',     width: 18 },
+    { header: 'payment_date',   key: 'payment_date',   width: 16 },
+    { header: 'receipt_number', key: 'receipt_number', width: 16 },
+    { header: 'notes',          key: 'notes',          width: 28 },
+  ]
+  applyHeaderStyle(ws.getRow(1))
+
+  const examples: (string | number)[][] = [
+    ['Amara Nakato',    'S.3', 'East', 1, 2026, 250000, 400000, '2026-02-01', 'REC-001', 'Term 1 partial'],
+    ['Brian Ssemwanga', 'S.4', '',     1, 2026, 400000, 400000, '2026-02-03', 'REC-002', ''],
+    ['Christine Aber',  'S.2', 'West', 1, 2026, 0,      300000, '',           '',         'Bursary case - pending'],
+  ]
+  examples.forEach((row, i) => {
+    ws.addRow(row)
+    const argb = i % 2 === 0 ? 'FFF0FDFA' : 'FFECFDF5'
+    ws.getRow(i + 2).eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } }
+    })
+  })
+
+  // Sheet 2: Class Name Guide
+  const guideWs = wb.addWorksheet('Class Name Guide')
+  guideWs.columns = [
+    { header: 'Short Form',    key: 'short', width: 16 },
+    { header: 'Long Form',     key: 'long',  width: 20 },
+    { header: 'Also Accepted', key: 'alt',   width: 22 },
+  ]
+  applyHeaderStyle(guideWs.getRow(1))
+  ;[
+    ['S.1', 'Senior 1', 'S1, Form 1'],
+    ['S.2', 'Senior 2', 'S2, Form 2'],
+    ['S.3', 'Senior 3', 'S3, Form 3'],
+    ['S.4', 'Senior 4', 'S4, Form 4'],
+    ['S.5', 'Senior 5', 'S5, Form 5'],
+    ['S.6', 'Senior 6', 'S6, Form 6'],
+  ].forEach(row => guideWs.addRow(row))
+
+  // Sheet 3: Notes
+  const notesWs = wb.addWorksheet('Notes & Instructions')
+  notesWs.columns = [
+    { header: 'Column',      key: 'col',  width: 20 },
+    { header: 'Required?',   key: 'req',  width: 12 },
+    { header: 'Description', key: 'desc', width: 52 },
+    { header: 'Example',     key: 'ex',   width: 24 },
+  ]
+  applyHeaderStyle(notesWs.getRow(1))
+  const noteRows: string[][] = [
+    ['student_name',   'YES', 'Full name — must match the school register (case-insensitive)', 'Amara Nakato'],
+    ['class_name',     'YES', 'Class — see "Class Name Guide" sheet for accepted formats',     'S.3'],
+    ['stream_name',    'No',  'Stream/section name if your school uses streams',               'East'],
+    ['term',           'YES', '1, 2, or 3 only',                                               '1'],
+    ['year',           'YES', 'Calendar year (used to match the correct academic year)',        '2026'],
+    ['amount_paid',    'YES', 'How much the student has paid this term (UGX, no commas)',       '250000'],
+    ['amount_due',     'YES', 'Total fees owed for this term (UGX)',                            '400000'],
+    ['payment_date',   'No',  'Date of payment in YYYY-MM-DD format',                          '2026-02-01'],
+    ['receipt_number', 'No',  'Receipt reference number from payment records',                 'REC-001'],
+    ['notes',          'No',  'Any additional notes about this payment',                       'Bursary case'],
+    ['', '', '', ''],
+    ['MATCHING LOGIC', '', 'If your file has an admission_number column, it is used directly.', ''],
+    ['', '', 'Otherwise class_name narrows the search, then student_name is matched.', ''],
+    ['', '', 'Close name matches (1-2 char typos) are flagged for manual confirmation.', ''],
+  ]
+  noteRows.forEach((row, i) => {
+    notesWs.addRow(row)
+    if (i === 11) {
+      notesWs.getRow(i + 2).getCell(1).font = { bold: true }
+    }
+  })
+
+  await downloadXlsx(wb, 'fee-payments-import-template.xlsx')
+}
+
+// ── Exam marks reference template (ExcelJS) ──────────────────
+
+export async function generateExamMarksTemplate(): Promise<void> {
+  const wb = new ExcelJS.Workbook()
+  wb.creator = 'Shule Management System'
+
+  const ws = wb.addWorksheet('Exam Marks')
+  ws.columns = [
+    { header: 'student_name', key: 'student_name', width: 24 },
+    { header: 'class_name',   key: 'class_name',   width: 14 },
+    { header: 'stream_name',  key: 'stream_name',  width: 14 },
+    { header: 'score',        key: 'score',        width: 12 },
+    { header: 'is_absent',    key: 'is_absent',    width: 12 },
+  ]
+  applyHeaderStyle(ws.getRow(1))
+  ;[
+    ['Amara Nakato',    'S.3', 'East', 72, 'FALSE'],
+    ['Brian Ssemwanga', 'S.3', 'East', 58, 'FALSE'],
+    ['Christine Aber',  'S.3', 'East', '',  'TRUE'],
+  ].forEach((row, i) => {
+    ws.addRow(row)
+    const argb = i % 2 === 0 ? 'FFF0FDFA' : 'FFECFDF5'
+    ws.getRow(i + 2).eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } }
+    })
+  })
+
+  const notesWs = wb.addWorksheet('Notes')
+  notesWs.getColumn(1).width = 60
+  ;[
+    ['NOTE: This template is for reference only.'],
+    ['Marks are entered directly on the Mark Entry page in Shule.'],
+    ['is_absent: TRUE or FALSE — if TRUE, leave score blank.'],
+  ].forEach((row, i) => {
+    notesWs.addRow(row)
+    if (i === 0) notesWs.getRow(1).getCell(1).font = { bold: true }
+  })
+
+  await downloadXlsx(wb, 'exam-marks-reference-template.xlsx')
 }
