@@ -130,6 +130,7 @@ export function BursarImportPage() {
   const [matchError,   setMatchError]   = useState<string | null>(null)
   const [importing,    setImporting]    = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [activeYearId, setActiveYearId] = useState<string | null>(null)
 
   // ── After wizard parses rows → run matching ─────────────────────────────────
   const handleWizardComplete = useCallback(async (rows: ParsedRow[]): Promise<ImportResult> => {
@@ -138,6 +139,18 @@ export function BursarImportPage() {
     setMatchError(null)
 
     try {
+      // 0. Fetch active academic year (required: fee_payments.academic_year_id NOT NULL)
+      const { data: yearData, error: yearErr } = await supabase
+        .from('academic_years')
+        .select('id')
+        .eq('school_id', user!.schoolId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (yearErr) throw new Error(yearErr.message)
+      if (!yearData) throw new Error('No active academic year found. Please configure one before importing.')
+      setActiveYearId((yearData as { id: string }).id)
+
       // 1. Fetch active students
       const { data: stuData, error: stuErr } = await supabase
         .from('students')
@@ -272,17 +285,18 @@ export function BursarImportPage() {
         const balance    = Math.max(0, amountDue - amountPaid)
         const termNum    = Number(r.term ?? 1)
         return {
-          school_id:      user!.schoolId,
-          student_id:     m.chosenId!,
-          amount_paid:    amountPaid,
-          amount_due:     amountDue,
+          school_id:        user!.schoolId,
+          student_id:       m.chosenId!,
+          academic_year_id: activeYearId!,
+          amount_paid:      amountPaid,
+          amount_due:       amountDue,
           balance,
-          payment_date:   r.payment_date ? String(r.payment_date) : new Date().toISOString().slice(0, 10),
-          receipt_number: r.receipt_number ? String(r.receipt_number) : null,
-          notes:          r.notes ? String(r.notes) : null,
-          term:           termNum,
-          imported:       true,
-          created_by:     user!.id,
+          payment_date:     r.payment_date ? String(r.payment_date) : new Date().toISOString().slice(0, 10),
+          receipt_number:   r.receipt_number ? String(r.receipt_number) : null,
+          notes:            r.notes ? String(r.notes) : null,
+          term:             termNum,
+          imported:         true,
+          created_by:       user!.id,
         }
       })
 

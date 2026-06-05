@@ -471,6 +471,7 @@ export function useParentConversations() {
         const { data: students } = await supabase
           .from('students')
           .select('id, first_name, last_name')
+          .eq('school_id', user!.schoolId)
           .in('id', allStudentIds)
         for (const s of (students ?? []) as Array<{ id: string; first_name: string; last_name: string }>) {
           studentNameMap.set(s.id, `${s.first_name} ${s.last_name}`)
