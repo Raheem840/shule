@@ -383,8 +383,36 @@ export function ImportDataPage() {
     const failedItems: Array<{ row: number; reason: string }> = []
     let imported = 0
 
-    for (let i = 0; i < rows.length; i += 50) {
-      const batch = rows.slice(i, i + 50)
+    // ── Singleton role enforcement (principal + deputy: max 1 per school) ──
+    const SINGLETON_ROLES = ['principal', 'deputy'] as const
+    for (const role of SINGLETON_ROLES) {
+      const inFile = rows.filter(r => String(r.role ?? '').trim().toLowerCase() === role)
+      if (inFile.length > 1) {
+        inFile.slice(1).forEach((_, idx) => {
+          failedItems.push({ row: rows.indexOf(inFile[idx + 1]) + 2, reason: `Only one ${role} allowed per school — duplicate skipped` })
+        })
+      }
+      if (inFile.length >= 1) {
+        const { count } = await supabase
+          .from('staff')
+          .select('id', { count: 'exact', head: true })
+          .eq('school_id', user!.schoolId)
+          .eq('role', role)
+          .eq('is_active', true)
+        if ((count ?? 0) > 0) {
+          inFile.forEach(r => {
+            failedItems.push({ row: rows.indexOf(r) + 2, reason: `A ${role} already exists in this school — cannot import a second one` })
+          })
+        }
+      }
+    }
+
+    // Filter out rows already flagged as failed before batch insert
+    const singletonFailedIdxs = new Set(failedItems.map(f => f.row - 2))
+    const validRows = rows.filter((_, i) => !singletonFailedIdxs.has(i))
+
+    for (let i = 0; i < validRows.length; i += 50) {
+      const batch = validRows.slice(i, i + 50)
       const inserts = batch.map(r => {
         const data: Record<string, unknown> = {
           school_id:       user!.schoolId,
