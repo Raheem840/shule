@@ -65,3 +65,5 @@ dev-dist/
 .env.*.local
 .supabase-demo-ref
 Thumbs.db
+../.claude/worktrees/
+../shule-install-guide.html
