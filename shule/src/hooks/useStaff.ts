@@ -25,12 +25,12 @@ const LIST_COLS = [
   'employment_type', 'photo_url', 'is_active', 'temp_password',
 ].join(', ')
 
-// qualification_title, institution, graduation_year, date_of_birth, gender
-// are NOT in the staff schema yet — DB NEEDS: ADD COLUMN for each
 const DETAIL_COLS = [
   'id', 'school_id', 'auth_user_id', 'staff_number', 'first_name', 'last_name',
   'role', 'department_id', 'subjects', 'classes', 'phone', 'email',
-  'national_id', 'join_date', 'qualification_level',
+  'national_id', 'address', 'join_date', 'employment_date', 'qualification_level',
+  'qualification_title', 'institution', 'graduation_year',
+  'date_of_birth', 'gender',
   'employment_type', 'photo_url', 'is_active',
 ].join(', ')
 
@@ -55,12 +55,12 @@ function toStaff(r: AnyRow): Staff {
     photoUrl:           (r.photo_url as string) ?? null,
     isActive:           (r.is_active as boolean) ?? true,
     tempPassword:       (r.temp_password as string) ?? null,
-    address:            null,
-    qualificationTitle: null,
-    institution:        null,
-    graduationYear:     null,
-    dateOfBirth:        null,
-    gender:             null,
+    address:            (r.address as string) ?? null,
+    qualificationTitle: (r.qualification_title as string) ?? null,
+    institution:        (r.institution as string) ?? null,
+    graduationYear:     (r.graduation_year as number) ?? null,
+    dateOfBirth:        (r.date_of_birth as string) ?? null,
+    gender:             (r.gender as 'male' | 'female' | null) ?? null,
   }
 }
 
