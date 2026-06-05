@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTeacherRemarks, useSaveRemarks } from '../../hooks/useTeacherRemarks'
 import { useStudents } from '../../hooks/useStudents'
+import { useMyAssignedClasses, useStreams } from '../../hooks/useClasses'
 import type { Student } from '../../types/app'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -168,7 +169,7 @@ export function TeacherRemarksPage() {
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>With Remarks</div>
             <div style={{ fontSize: 26, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--success)', letterSpacing: -1 }}>{withRemarks}</div>
           </div>
-          <div style={{ flex: '1 1 140px', padding: '14px 18px', background: 'var(--surface)', border: `.5px solid ${withoutRemarks > 0 ? 'rgba(245,158,11,.3)' : 'var(--border)'}`, borderRadius: 14, background: withoutRemarks > 0 ? 'rgba(245,158,11,.04)' : 'var(--surface)' } as React.CSSProperties}>
+          <div style={{ flex: '1 1 140px', padding: '14px 18px', border: `.5px solid ${withoutRemarks > 0 ? 'rgba(245,158,11,.3)' : 'var(--border)'}`, borderRadius: 14, background: withoutRemarks > 0 ? 'rgba(245,158,11,.04)' : 'var(--surface)' } as React.CSSProperties}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Missing</div>
             <div style={{ fontSize: 26, fontWeight: 900, fontFamily: 'var(--font2)', color: withoutRemarks > 0 ? 'var(--warning)' : 'var(--success)', letterSpacing: -1 }}>{withoutRemarks}</div>
           </div>

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTeacherTimetable } from '../../hooks/useTimetableSlots'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { useMyAssignedClasses } from '../../hooks/useClasses'
 
 const DAYS: [number, string, string][] = [
   [1,'Mon','Monday'], [2,'Tue','Tuesday'], [3,'Wed','Wednesday'],
@@ -27,12 +28,20 @@ function subjColor(id: string): [string, string] {
 }
 
 export function TeacherTimetablePage() {
-  const isMobile = useIsMobile()
+  const isMobile    = useIsMobile()
   const [term,      setTerm]      = useState('Term 1')
   const [year,      setYear]      = useState(new Date().getFullYear())
   const [mobileDay, setMobileDay] = useState<number>(() => jsToSchoolDay(new Date().getDay()) ?? 1)
+  const [classFilter, setClassFilter] = useState<string>('')
 
-  const { data: slots = [], isLoading } = useTeacherTimetable({ term, year })
+  const myClasses = useMyAssignedClasses()
+  const { data: allSlots = [], isLoading } = useTeacherTimetable({ term, year })
+
+  // Filter by selected class (client-side since we already have all teacher's slots)
+  const slots = useMemo(() => {
+    if (!classFilter) return allSlots
+    return allSlots.filter(s => s.classId === classFilter)
+  }, [allSlots, classFilter])
 
   const todayCol = jsToSchoolDay(new Date().getDay())
 
@@ -83,7 +92,7 @@ export function TeacherTimetablePage() {
         </div>
       </div>
 
-      {/* ── Term / Year selectors ── */}
+      {/* ── Term / Year / Class selectors ── */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', alignItems: 'flex-end' }}>
         <div style={{ flex: '0 0 110px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Term</div>
@@ -95,6 +104,15 @@ export function TeacherTimetablePage() {
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Year</div>
           <input type="number" value={year} onChange={e => setYear(parseInt(e.target.value))} className="sui-input" style={{ width: '100%' }} />
         </div>
+        {myClasses.length > 1 && (
+          <div style={{ flex: '0 0 160px' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Class</div>
+            <select value={classFilter} onChange={e => setClassFilter(e.target.value)} className="sui-input" style={{ width: '100%' }}>
+              <option value="">All my classes</option>
+              {myClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Loading skeleton */}

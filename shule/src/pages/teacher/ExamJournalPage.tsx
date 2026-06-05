@@ -1,4 +1,4 @@
-import { useSubjects, useStreams, useMyAssignedClasses } from '../../hooks/useClasses'
+import { useSubjects, useStreams, useMyAssignedClasses, useMyAssignedSubjects } from '../../hooks/useClasses'
 import { useState, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -181,7 +181,7 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
   const navigate         = useNavigate()
   const create           = useCreateJournal()
   const classes          = useMyAssignedClasses()
-  const { data: subjects = [] } = useSubjects()
+  const subjects         = useMyAssignedSubjects()
 
   const { control, register, watch, handleSubmit, formState: { errors } } =
     useForm<JournalFormValues>({

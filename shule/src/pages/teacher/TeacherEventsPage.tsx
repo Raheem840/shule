@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../store/AuthContext'
+import { useMyAssignedClasses, useMyAssignedSubjects, useStreams } from '../../hooks/useClasses'
 import {
   useTeacherEvents,
   useAllSchoolEvents,
@@ -76,8 +77,8 @@ function EventFormModal({ initial, onSave, onClose, saving, showParentsToggle }:
   saving: boolean
   showParentsToggle?: boolean
 }) {
-  const classes                 = useMyAssignedClasses()
-  const { data: subjects = [] } = useSubjects()
+  const classes  = useMyAssignedClasses()
+  const subjects = useMyAssignedSubjects()
   const [form, setForm] = useState<EventFormState>({
     title:            initial?.title            ?? '',
     eventType:        initial?.eventType        ?? 'exam',
