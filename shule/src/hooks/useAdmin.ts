@@ -138,7 +138,7 @@ export function useSchoolSettings() {
       // maybeSingle() returns null (not error) when the row doesn't exist
       const { data, error } = await supabase
         .from('school_profile')
-        .select('id, school_name, short_name, motto, logo_url, primary_color, curriculum')
+        .select('id, school_name, short_name, motto, logo_url, primary_color')
         .eq('id', user!.schoolId)
         .maybeSingle()
 
@@ -153,7 +153,6 @@ export function useSchoolSettings() {
         logoUrl:      data.logo_url,
         primaryColor: data.primary_color ?? '#0d9488',
         currency:     'UGX',
-        curriculum:   (data as any).curriculum ?? null,
       }
     },
     staleTime: 10 * 60_000,
@@ -440,6 +439,179 @@ export function usePromoteStudents() {
       }
 
       return { promoted, completed, total }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
+    },
+  })
+}
+
+// ── useLoadPromotionCandidates ─────────────────────────────────────────────
+// Loads students with their avg exam score for the given term/year.
+// Returns one entry per student with their performance grade.
+
+export type PerformanceGrade = 'Exceptional' | 'Proficient' | 'Needs Improvement' | 'Advised to Stay Back' | 'No Data'
+
+export type PromotionCandidate = {
+  id: string
+  firstName: string
+  lastName: string
+  admissionNumber: string
+  classId: string | null
+  className: string
+  avgScore: number | null
+  grade: PerformanceGrade
+  isTerminal: boolean   // true for S.4 (O'Level terminal)
+}
+
+function scoreToGrade(avg: number | null): PerformanceGrade {
+  if (avg === null) return 'No Data'
+  if (avg >= 80)   return 'Exceptional'
+  if (avg >= 60)   return 'Proficient'
+  if (avg >= 50)   return 'Needs Improvement'
+  return 'Advised to Stay Back'
+}
+
+const NEXT_CLASS_MAP: Record<string, string | null> = {
+  'S.1': 'S.2', 'S.2': 'S.3', 'S.3': 'S.4', 'S.4': null,
+  'S.5': 'S.6', 'S.6': null,
+  'S1':  'S2',  'S2':  'S3',  'S3':  'S4',  'S4':  null,
+  'S5':  'S6',  'S6':  null,
+}
+
+const TERMINAL_CLASSES = new Set(['S.4', 'S4', 'S.6', 'S6'])
+
+export function useLoadPromotionCandidates() {
+  const { user } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({ term, year }: { term: string; year: number }): Promise<PromotionCandidate[]> => {
+      if (!user) throw new Error('Not authenticated')
+      const sid = user.schoolId
+
+      // Load students + classes in parallel with exam results aggregated in JS
+      const [studentsRes, classesRes, resultsRes] = await Promise.all([
+        supabase
+          .from('students')
+          .select('id, first_name, last_name, admission_number, class_id')
+          .eq('school_id', sid)
+          .eq('status', 'active'),
+        supabase
+          .from('classes')
+          .select('id, name')
+          .eq('school_id', sid),
+        supabase
+          .from('exam_results')
+          .select('student_id, score')
+          .eq('school_id', sid)
+          .eq('term', term)
+          .eq('year', year),
+      ])
+
+      if (studentsRes.error) throw new Error(studentsRes.error.message)
+      if (classesRes.error)  throw new Error(classesRes.error.message)
+
+      const classById = new Map((classesRes.data ?? []).map((c: any) => [c.id as string, c.name as string]))
+
+      // Aggregate scores per student
+      const scoreMap = new Map<string, { sum: number; count: number }>()
+      for (const r of (resultsRes.data ?? []) as Array<{ student_id: string; score: number | null }>) {
+        if (r.score == null) continue
+        const entry = scoreMap.get(r.student_id) ?? { sum: 0, count: 0 }
+        entry.sum += r.score
+        entry.count++
+        scoreMap.set(r.student_id, entry)
+      }
+
+      return (studentsRes.data ?? []).map((s: any) => {
+        const entry   = scoreMap.get(s.id as string)
+        const avg     = entry && entry.count > 0 ? entry.sum / entry.count : null
+        const cName   = classById.get(s.class_id as string) ?? '—'
+        return {
+          id:              s.id as string,
+          firstName:       s.first_name as string,
+          lastName:        s.last_name as string,
+          admissionNumber: s.admission_number as string,
+          classId:         s.class_id as string | null,
+          className:       cName,
+          avgScore:        avg !== null ? Math.round(avg * 10) / 10 : null,
+          grade:           scoreToGrade(avg),
+          isTerminal:      TERMINAL_CLASSES.has(cName),
+        } satisfies PromotionCandidate
+      })
+    },
+  })
+}
+
+// ── useSelectivePromote ────────────────────────────────────────────────────
+// Promotes only the explicitly selected students.
+// S.4/S.6 terminal students are set to status='completed', class_id=null.
+export function useSelectivePromote() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (
+      selectedIds: string[],
+    ): Promise<{ promoted: number; completed: number }> => {
+      if (!user) throw new Error('Not authenticated')
+      if (selectedIds.length === 0) return { promoted: 0, completed: 0 }
+
+      const sid = user.schoolId
+
+      // Fetch class info for selected students
+      const { data: students, error } = await supabase
+        .from('students')
+        .select('id, class_id')
+        .eq('school_id', sid)
+        .in('id', selectedIds)
+
+      if (error) throw new Error(error.message)
+
+      const { data: classes, error: classErr } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('school_id', sid)
+
+      if (classErr) throw new Error(classErr.message)
+
+      const classById   = new Map((classes ?? []).map((c: any) => [c.id as string, c.name as string]))
+      const classByName = new Map((classes ?? []).map((c: any) => [c.name as string, c.id as string]))
+
+      let promoted = 0
+      let completed = 0
+
+      // Process in batches of 50
+      const rows = students ?? []
+      for (let i = 0; i < rows.length; i += 50) {
+        const batch = rows.slice(i, i + 50)
+        for (const s of batch) {
+          const cName  = classById.get(s.class_id ?? '') ?? ''
+          const next   = NEXT_CLASS_MAP[cName]
+
+          if (next === undefined) {
+            // Unrecognised class — skip
+          } else if (next === null) {
+            // Terminal: mark completed + clear class
+            await supabase
+              .from('students')
+              .update({ status: 'completed', class_id: null, stream_id: null })
+              .eq('id', s.id)
+            completed++
+          } else {
+            const nextId = classByName.get(next)
+            if (nextId) {
+              await supabase
+                .from('students')
+                .update({ class_id: nextId, stream_id: null })
+                .eq('id', s.id)
+              promoted++
+            }
+          }
+        }
+      }
+
+      return { promoted, completed }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })

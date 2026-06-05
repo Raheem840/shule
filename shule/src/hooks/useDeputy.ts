@@ -257,6 +257,48 @@ export function useAddDisciplineRecord() {
         })
 
       if (error) throw new Error(error.message)
+
+      // ── Notify parents ────────────────────────────────────────────────────
+      // Find all parent accounts linked to this student
+      const { data: parents } = await supabase
+        .from('parent_accounts')
+        .select('auth_user_id')
+        .eq('school_id', user.schoolId)
+        .contains('student_ids', [input.studentId])
+
+      const parentIds = ((parents ?? []) as Array<{ auth_user_id: string | null }>)
+        .map(p => p.auth_user_id)
+        .filter((id): id is string => id != null)
+
+      if (parentIds.length > 0) {
+        const notifBody = `A disciplinary record has been filed for your child regarding: ${input.nature}. Please contact the school for details.`
+        const msgBody   = `Dear Parent/Guardian, a disciplinary record has been filed for your child on ${input.incidentDate}. Nature: ${input.nature}. Resolution: ${input.resolution || 'Pending'}. Please visit the school or reply to this message for clarification.`
+        const now = new Date().toISOString()
+
+        // Insert notifications (fire-and-forget — does not block the mutation)
+        void supabase.from('notifications').insert(
+          parentIds.map(uid => ({
+            school_id: user.schoolId,
+            user_id:   uid,
+            type:      'general',
+            title:     'Disciplinary Notice',
+            body:      notifBody,
+            link:      '/parent',
+            from_user: user.id,
+          }))
+        )
+
+        // Insert messages (one per parent)
+        void supabase.from('messages').insert(
+          parentIds.map(uid => ({
+            school_id:    user.schoolId,
+            from_user_id: user.id,
+            to_user_id:   uid,
+            body:         msgBody,
+            sent_at:      now,
+          }))
+        )
+      }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['discipline-records', user?.schoolId] })
