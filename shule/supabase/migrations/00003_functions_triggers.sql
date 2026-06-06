@@ -7,7 +7,11 @@
 CREATE OR REPLACE FUNCTION "public"."auth_role"() RETURNS "text"
     LANGUAGE "sql" STABLE
     AS $$
-  SELECT auth.jwt() -> 'app_metadata' ->> 'user_role';
+  SELECT COALESCE(
+    auth.jwt() ->> 'user_role',
+    auth.jwt() -> 'claims' ->> 'user_role',
+    auth.jwt() -> 'app_metadata' ->> 'user_role'
+  );
 $$;
 ALTER FUNCTION "public"."auth_role"() OWNER TO "postgres";
 GRANT ALL ON FUNCTION "public"."auth_role"() TO "anon";
@@ -18,7 +22,11 @@ GRANT ALL ON FUNCTION "public"."auth_role"() TO "service_role";
 CREATE OR REPLACE FUNCTION "public"."auth_school_id"() RETURNS "uuid"
     LANGUAGE "sql" STABLE
     AS $$
-  SELECT (auth.jwt() -> 'app_metadata' ->> 'school_id')::uuid;
+  SELECT COALESCE(
+    (auth.jwt() ->> 'school_id')::uuid,
+    (auth.jwt() -> 'claims' ->> 'school_id')::uuid,
+    (auth.jwt() -> 'app_metadata' ->> 'school_id')::uuid
+  );
 $$;
 ALTER FUNCTION "public"."auth_school_id"() OWNER TO "postgres";
 GRANT ALL ON FUNCTION "public"."auth_school_id"() TO "anon";
