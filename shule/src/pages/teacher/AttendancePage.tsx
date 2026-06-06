@@ -2,7 +2,7 @@ import { useMyAssignedClasses, useStreams } from '../../hooks/useClasses'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useStudents } from '../../hooks/useStudents'
-import { useAttendance, useClassTermAttendance, useSaveAttendance, daysPerWeekForClass } from '../../hooks/useAttendance'
+import { useAttendance, useClassTermAttendance, useSaveAttendance } from '../../hooks/useAttendance'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
 import { Avatar } from '../../components/shared/Avatar'
@@ -101,8 +101,6 @@ export function AttendancePage() {
   const { data: termRates = [] }               = useClassTermAttendance(classId || null, selectedClassName)
   const saveMutation                           = useSaveAttendance()
 
-  // S.4 has Saturday (6 study days), all others Mon-Fri (5 days)
-  const studyDaysPerWeek                       = selectedClassName ? daysPerWeekForClass(selectedClassName) : 5
 
   const attendanceKey = useMemo(() => {
     if (!attendanceMap) return ''
@@ -257,12 +255,6 @@ export function AttendancePage() {
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
           </div>
         </div>
-        {selectedClassName && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 99, background: studyDaysPerWeek === 6 ? 'rgba(139,92,246,.1)' : 'rgba(13,148,136,.08)', border: `.5px solid ${studyDaysPerWeek === 6 ? 'rgba(139,92,246,.3)' : 'rgba(13,148,136,.25)'}`, fontSize: 11.5, fontWeight: 700, color: studyDaysPerWeek === 6 ? 'var(--violet)' : 'var(--brand)' }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            {studyDaysPerWeek} study days/week{studyDaysPerWeek === 6 ? ' (Mon–Sat)' : ' (Mon–Fri)'}
-          </div>
-        )}
         <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font2)', alignSelf: 'center', fontStyle: 'italic' }}>
           {dateLabel}
         </div>
@@ -369,8 +361,7 @@ export function AttendancePage() {
               <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
             <span style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 12.5, color: '#92400e' }}>
-              {belowThreshold.length} student{belowThreshold.length !== 1 ? 's' : ''} below 80% attendance
-              {studyDaysPerWeek === 6 ? ' (based on 6 days/week)' : ' (based on 5 days/week)'}
+              {belowThreshold.length} student{belowThreshold.length !== 1 ? 's' : ''} below 80% attendance this year
             </span>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>

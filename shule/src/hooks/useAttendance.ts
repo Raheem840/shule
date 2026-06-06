@@ -34,11 +34,10 @@ export function useAttendance(classId: string | null, date: string) {
 }
 
 // ── daysPerWeekForClass ────────────────────────────────────────
-// S.4 (final O-level year) has 6 study days Mon-Sat.
-// S.1, S.2, S.3 have 5 study days Mon-Fri.
-export function daysPerWeekForClass(className: string): 5 | 6 {
-  const n = className.toLowerCase().replace(/\s+/g, '').replace(/\./g, '').replace(/^senior/, 's').replace(/^form/, 's')
-  return n.endsWith('4') ? 6 : 5
+// All classes use 5 official study days (Mon-Fri). S.4 Saturday is
+// off-books — teachers can still record it, but the standard week is 5.
+export function daysPerWeekForClass(_className: string): 5 {
+  return 5
 }
 
 // ── useClassTermAttendance ─────────────────────────────────────
@@ -52,12 +51,10 @@ export type StudentAttendanceRate = {
   isBelowThreshold: boolean
   totalDays:        number     // unique school days the teacher recorded roll
   presentDays:      number
-  daysPerWeek:      5 | 6     // expected study days/week for this class level
 }
 
-export function useClassTermAttendance(classId: string | null, className?: string) {
+export function useClassTermAttendance(classId: string | null, _className?: string) {
   const { user } = useAuth()
-  const dpw: 5 | 6 = className ? daysPerWeekForClass(className) : 5
 
   return useQuery({
     queryKey: ['attendance-class-term', user?.schoolId, classId],
@@ -100,7 +97,6 @@ export function useClassTermAttendance(classId: string | null, className?: strin
           isBelowThreshold: rate < 80,
           totalDays:        expectedDays,
           presentDays,
-          daysPerWeek:      dpw,
         })
       }
       return result
