@@ -10,6 +10,8 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { useToast } from '../../components/ui/Toast'
+import { Modal, ModalCancelButton } from '../../components/ui/Modal'
+import { Button } from '../../components/ui/Button'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
 import { ugx } from '../../hooks/useFeePayments'
@@ -46,6 +48,7 @@ interface PaymentDetailRow {
   amountDue:       number
   amountPaid:      number
   balance:         number
+  term:            number | null
   paymentDate:     string | null
   receiptNumber:   string | null
   notes:           string | null
@@ -99,12 +102,12 @@ function useBursarStudentFees(
       // 2. Fetch fee_payments for this term / academic year
       type RawPayment = {
         id: string; student_id: string; fee_structure_id: string | null
-        amount_due: number; amount_paid: number; balance: number
+        amount_due: number; amount_paid: number; balance: number; term: number | null
         payment_date: string | null; receipt_number: string | null; notes: string | null
       }
       let payQ = supabase
         .from('fee_payments')
-        .select('id, student_id, fee_structure_id, amount_due, amount_paid, balance, payment_date, receipt_number, notes')
+        .select('id, student_id, fee_structure_id, amount_due, amount_paid, balance, term, payment_date, receipt_number, notes')
         .eq('school_id', user!.schoolId)
         .eq('term', term)
         .in('student_id', studentIds)
@@ -138,6 +141,7 @@ function useBursarStudentFees(
           amountDue:      Number(p.amount_due)  || 0,
           amountPaid:     Number(p.amount_paid) || 0,
           balance:        Number(p.balance)     || 0,
+          term:           p.term ?? null,
           paymentDate:    p.payment_date,
           receiptNumber:  p.receipt_number,
           notes:          p.notes,
@@ -282,11 +286,9 @@ function useRecordPayment() {
         type Ex = { id: string; amount_paid: number; amount_due: number }
         const ex      = existing as unknown as Ex
         const newPaid = Number(ex.amount_paid) + input.amountPaid
-        const newBal  = Math.max(0, Number(ex.amount_due) - newPaid)
         const { error } = await supabase.from('fee_payments')
           .update({
             amount_paid:    newPaid,
-            balance:        newBal,
             payment_date:   input.paymentDate,
             receipt_number: input.receiptNumber,
             notes:          input.notes,
@@ -294,7 +296,6 @@ function useRecordPayment() {
           .eq('id', ex.id)
         if (error) throw error
       } else {
-        const bal = Math.max(0, input.amountDue - input.amountPaid)
         const { error } = await supabase.from('fee_payments').insert({
           school_id:        user!.schoolId,
           student_id:       input.studentId,
@@ -303,12 +304,11 @@ function useRecordPayment() {
           term:             input.term,
           amount_due:       input.amountDue,
           amount_paid:      input.amountPaid,
-          balance:          bal,
           payment_date:     input.paymentDate,
           receipt_number:   input.receiptNumber,
           notes:            input.notes,
           imported:         false,
-          created_by:       user!.id,
+          created_by:       user!.staffId ?? null,
         })
         if (error) throw error
       }
@@ -330,9 +330,8 @@ function useUpdatePaymentAmount() {
       amountDue: number
       newPaid:   number
     }) => {
-      const newBal = Math.max(0, input.amountDue - input.newPaid)
       const { error } = await supabase.from('fee_payments')
-        .update({ amount_paid: input.newPaid, balance: newBal })
+        .update({ amount_paid: input.newPaid })
         .eq('id', input.id)
         .eq('school_id', user!.schoolId)
       if (error) throw error
@@ -410,9 +409,9 @@ function QuickPaymentModal({
   feeStructures:  FeeStructureItem[]
   onClose:        () => void
 }) {
-  const toast      = useToast()
-  const record     = useRecordPayment()
-  const today      = new Date().toISOString().split('T')[0]
+  const toast  = useToast()
+  const record = useRecordPayment()
+  const today  = new Date().toISOString().split('T')[0]
 
   const [amountPaid,     setAmountPaid]     = useState('')
   const [paymentDate,    setPaymentDate]    = useState(today)
@@ -423,10 +422,10 @@ function QuickPaymentModal({
     feeStructures[0] ? String(feeStructures[0].amount) : String(student.amountDue || 0)
   )
 
-  const paid    = parseFloat(amountPaid)  || 0
-  const due     = parseFloat(amountDue)   || 0
+  const paid    = parseFloat(amountPaid) || 0
+  const due     = parseFloat(amountDue)  || 0
   const balance = Math.max(0, due - paid)
-  const isValid = paid > 0 && paymentDate
+  const isValid = paid > 0 && !!paymentDate
 
   function onFeeStructureChange(id: string) {
     setFeeStructureId(id)
@@ -456,185 +455,113 @@ function QuickPaymentModal({
     }
   }
 
-  const modal = (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Record Payment"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9000,
-        background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(6px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '1rem',
-      }}
-    >
-      <div style={{
-        background: 'var(--surface)', borderRadius: 20,
-        width: '100%', maxWidth: 520, boxShadow: '0 32px 64px rgba(0,0,0,.22)',
-        overflow: 'hidden',
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '20px 24px 16px',
-          background: 'linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div>
-            <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 17, color: '#fff', letterSpacing: -.3 }}>
-              Record Payment
-            </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.72)', marginTop: 2 }}>
-              {student.firstName} {student.lastName} &middot; {student.admissionNumber}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{ background: 'rgba(255,255,255,.2)', border: 'none', borderRadius: 10, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={`Record Payment — ${student.firstName} ${student.lastName}`}
+      size="sm"
+      footer={
+        <>
+          <ModalCancelButton onClose={onClose} />
+          <Button
+            variant="primary"
+            type="submit"
+            form="quick-payment-form"
+            disabled={record.isPending || !isValid}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+            {record.isPending ? 'Saving…' : 'Record Payment'}
+          </Button>
+        </>
+      }
+    >
+      {/* Student chip */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '0.6rem 0.85rem', borderRadius: 10,
+        background: 'var(--surface2)', marginBottom: '1rem',
+      }}>
+        <div style={{ fontSize: 12, color: 'var(--txt2)' }}>
+          <span style={{ fontWeight: 700, color: 'var(--txt)' }}>{student.admissionNumber}</span>
+          &ensp;·&ensp;{student.className}{student.streamName ? ` · ${student.streamName}` : ''}
+          &ensp;·&ensp;Term {term}
         </div>
+      </div>
 
-        <form onSubmit={handleSubmit} style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* Fee structure */}
-          {feeStructures.length > 0 && (
-            <div>
-              <label style={LABEL_STYLE}>Fee Structure</label>
-              <select
-                value={feeStructureId}
-                onChange={e => onFeeStructureChange(e.target.value)}
-                style={INPUT_STYLE}
-              >
-                <option value="">— Select fee type —</option>
-                {feeStructures.map(fs => (
-                  <option key={fs.id} value={fs.id}>
-                    {fs.name} ({ugx(fs.amount)})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            <div>
-              <label style={LABEL_STYLE}>Amount Due (UGX)</label>
-              <input
-                type="number"
-                value={amountDue}
-                onChange={e => setAmountDue(e.target.value)}
-                placeholder="800000"
-                style={INPUT_STYLE}
-                min={0}
-              />
-            </div>
-            <div>
-              <label style={LABEL_STYLE}>Amount Paid (UGX) *</label>
-              <input
-                type="number"
-                value={amountPaid}
-                onChange={e => setAmountPaid(e.target.value)}
-                placeholder="0"
-                style={{ ...INPUT_STYLE, borderColor: paid <= 0 ? 'var(--danger)' : 'var(--border)' }}
-                min={0}
-                required
-                autoFocus
-              />
-            </div>
-          </div>
-
-          {/* Live balance banner */}
-          <div style={{
-            padding: '10px 14px', borderRadius: 10,
-            background: balance <= 0 ? 'rgba(16,185,129,.08)' : 'rgba(245,158,11,.08)',
-            border: `1px solid ${balance <= 0 ? 'rgba(16,185,129,.25)' : 'rgba(245,158,11,.25)'}`,
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt2)', fontFamily: 'var(--font2)' }}>
-              BALANCE AFTER PAYMENT
-            </span>
-            <span style={{
-              fontFamily: 'var(--font3)', fontWeight: 800, fontSize: 15,
-              color: balance <= 0 ? 'var(--success)' : 'var(--warning)',
-            }}>
-              {ugx(balance)} {balance <= 0 ? '✓' : ''}
-            </span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            <div>
-              <label style={LABEL_STYLE}>Payment Date *</label>
-              <input
-                type="date"
-                value={paymentDate}
-                onChange={e => setPaymentDate(e.target.value)}
-                style={INPUT_STYLE}
-                required
-              />
-            </div>
-            <div>
-              <label style={LABEL_STYLE}>Receipt Number</label>
-              <input
-                type="text"
-                value={receiptNumber}
-                onChange={e => setReceiptNumber(e.target.value)}
-                placeholder="RCT-001"
-                style={INPUT_STYLE}
-              />
-            </div>
-          </div>
-
+      <form
+        id="quick-payment-form"
+        onSubmit={handleSubmit}
+        style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+      >
+        {feeStructures.length > 0 && (
           <div>
-            <label style={LABEL_STYLE}>Notes (optional)</label>
-            <input
-              type="text"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="e.g. cash payment, bank transfer"
+            <label style={LABEL_STYLE}>Fee Structure</label>
+            <select
+              value={feeStructureId}
+              onChange={e => onFeeStructureChange(e.target.value)}
               style={INPUT_STYLE}
+            >
+              <option value="">— Select fee type —</option>
+              {feeStructures.map(fs => (
+                <option key={fs.id} value={fs.id}>{fs.name} ({ugx(fs.amount)})</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div>
+            <label style={LABEL_STYLE}>Amount Due (UGX)</label>
+            <input
+              type="number" value={amountDue} min={0}
+              onChange={e => setAmountDue(e.target.value)}
+              placeholder="800000" style={INPUT_STYLE}
             />
           </div>
-
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4 }}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: '9px 18px', border: '1.5px solid var(--border)',
-                borderRadius: 10, background: 'var(--surface2)',
-                color: 'var(--txt2)', fontFamily: 'var(--font2)',
-                fontWeight: 700, fontSize: 13, cursor: 'pointer',
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={record.isPending || !isValid}
-              style={{
-                padding: '9px 22px', border: 'none', borderRadius: 10,
-                background: record.isPending || !isValid
-                  ? 'var(--border)'
-                  : 'linear-gradient(135deg, var(--brand), var(--brand-dark))',
-                color: record.isPending || !isValid ? 'var(--txt3)' : '#fff',
-                fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13,
-                cursor: record.isPending || !isValid ? 'not-allowed' : 'pointer',
-                boxShadow: record.isPending || !isValid ? 'none' : '0 4px 14px rgba(13,148,136,.35)',
-                transition: 'all .15s',
-              }}
-            >
-              {record.isPending ? 'Saving…' : 'Record Payment'}
-            </button>
+          <div>
+            <label style={LABEL_STYLE}>Amount Paid (UGX) *</label>
+            <input
+              type="number" value={amountPaid} min={0}
+              onChange={e => setAmountPaid(e.target.value)}
+              placeholder="0" required autoFocus
+              style={{ ...INPUT_STYLE, borderColor: paid <= 0 ? 'var(--danger)' : 'var(--border)' }}
+            />
           </div>
-        </form>
-      </div>
-    </div>
-  )
+        </div>
 
-  return createPortal(modal, document.body)
+        {/* Live balance */}
+        <div style={{
+          padding: '10px 14px', borderRadius: 10,
+          background: balance <= 0 ? 'rgba(16,185,129,.08)' : 'rgba(245,158,11,.08)',
+          border: `1px solid ${balance <= 0 ? 'rgba(16,185,129,.25)' : 'rgba(245,158,11,.25)'}`,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt2)', fontFamily: 'var(--font2)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Balance after payment
+          </span>
+          <span style={{ fontFamily: 'var(--font3)', fontWeight: 800, fontSize: 15, color: balance <= 0 ? 'var(--success)' : 'var(--warning)' }}>
+            {ugx(balance)}{balance <= 0 ? ' ✓' : ''}
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div>
+            <label style={LABEL_STYLE}>Payment Date *</label>
+            <input type="date" value={paymentDate} required style={INPUT_STYLE} onChange={e => setPaymentDate(e.target.value)} />
+          </div>
+          <div>
+            <label style={LABEL_STYLE}>Receipt Number</label>
+            <input type="text" value={receiptNumber} placeholder="RCT-001" style={INPUT_STYLE} onChange={e => setReceiptNumber(e.target.value)} />
+          </div>
+        </div>
+
+        <div>
+          <label style={LABEL_STYLE}>Notes (optional)</label>
+          <input type="text" value={notes} placeholder="e.g. cash payment, bank transfer" style={INPUT_STYLE} onChange={e => setNotes(e.target.value)} />
+        </div>
+      </form>
+    </Modal>
+  )
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -732,163 +659,111 @@ function PaymentHistoryModal({
     )
   }
 
-  const modal = (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Payment History"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9000,
-        background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(6px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '1rem',
-      }}
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={`Payment History — ${student.firstName} ${student.lastName}`}
+      size="lg"
+      footer={<ModalCancelButton onClose={onClose} />}
     >
+      {/* Student meta chip */}
       <div style={{
-        background: 'var(--surface)', borderRadius: 20,
-        width: '100%', maxWidth: 700, maxHeight: '80vh',
-        display: 'flex', flexDirection: 'column',
-        boxShadow: '0 32px 64px rgba(0,0,0,.22)',
-        overflow: 'hidden',
+        fontSize: 12, color: 'var(--txt2)',
+        padding: '0.5rem 0.75rem', background: 'var(--surface2)',
+        borderRadius: 8, marginBottom: '1rem',
       }}>
-        {/* Header */}
-        <div style={{
-          padding: '20px 24px 16px',
-          background: 'linear-gradient(135deg,#0f172a,#1e293b)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          flexShrink: 0,
-        }}>
-          <div>
-            <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 17, color: '#fff', letterSpacing: -.3 }}>
-              Payment History
-            </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.65)', marginTop: 2 }}>
-              {student.firstName} {student.lastName} &middot; {student.className}{student.streamName ? ` ${student.streamName}` : ''}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{ background: 'rgba(255,255,255,.12)', border: 'none', borderRadius: 10, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-
-        {/* Table */}
-        <div style={{ overflowY: 'auto', flex: 1 }}>
-          {rows.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem 2rem', color: 'var(--txt3)', fontSize: 13 }}>
-              No payment records found for this student.
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: 'var(--surface2)' }}>
-                  {['Fee / Ref', 'Term', 'Due', 'Paid', 'Balance', 'Status', 'Date'].map(h => (
-                    <th key={h} style={{
-                      textAlign: 'left', fontSize: 10, fontWeight: 700,
-                      color: 'var(--txt3)', padding: '0.6rem 1rem',
-                      textTransform: 'uppercase', letterSpacing: 0.7,
-                      fontFamily: 'var(--font2)', whiteSpace: 'nowrap',
-                      borderBottom: '1px solid var(--border)',
-                    }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  const rowBal    = Math.max(0, r.balance)
-                  const rowPct    = r.amountDue > 0 ? Math.round((r.amountPaid / r.amountDue) * 100) : 0
-                  const rowStatus: FeeStatusEx =
-                    r.amountDue === 0   ? 'no_fees'
-                    : rowBal <= 0       ? 'paid'
-                    : r.amountPaid > 0 && rowPct >= 60 ? 'above60'
-                    : r.amountPaid > 0  ? 'partial'
-                    :                     'unpaid'
-                  const cfg = STATUS_CONFIG[rowStatus]
-                  return (
-                    <tr key={r.id} style={{ background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)' }}>
-                      <td style={{ padding: '0.65rem 1rem', fontSize: 12, color: 'var(--txt2)', fontFamily: 'var(--font3)' }}>
-                        {r.feeName ?? (r.feeStructureId ? r.feeStructureId.slice(0, 8) + '…' : '—')}
-                      </td>
-                      <td style={{ padding: '0.65rem 1rem', fontSize: 12, color: 'var(--txt2)' }}>—</td>
-                      <td style={{ padding: '0.65rem 1rem', fontFamily: 'var(--font3)', fontSize: 13, color: 'var(--txt)' }}>
-                        {ugx(r.amountDue)}
-                      </td>
-                      <td style={{ padding: '0.65rem 1rem' }}>
-                        <EditablePaidCell row={r} onSave={handleSave} />
-                      </td>
-                      <td style={{
-                        padding: '0.65rem 1rem', fontFamily: 'var(--font3)', fontSize: 13, fontWeight: 600,
-                        color: rowBal <= 0 ? 'var(--success)' : 'var(--danger)',
-                      }}>
-                        {ugx(rowBal)}
-                      </td>
-                      <td style={{ padding: '0.65rem 1rem' }}>
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          padding: '3px 10px', borderRadius: 20,
-                          background: `${cfg.glow.replace('rgba', 'rgba').replace(',', ',').replace(')', ',')}`,
-                          fontSize: 11, fontWeight: 700, fontFamily: 'var(--font2)',
-                          color: cfg.color,
-                          border: `1px solid ${cfg.stripe}33`,
-                        }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.stripe, display: 'inline-block', flexShrink: 0 }} />
-                          {cfg.label}
-                        </span>
-                      </td>
-                      <td style={{ padding: '0.65rem 1rem', fontSize: 12, color: 'var(--txt2)' }}>
-                        {r.paymentDate ?? '—'}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-              {/* Totals */}
-              <tfoot>
-                <tr style={{ background: 'var(--surface2)', borderTop: '2px solid var(--border)' }}>
-                  <td colSpan={2} style={{ padding: '0.7rem 1rem', fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 12, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Totals
-                  </td>
-                  <td style={{ padding: '0.7rem 1rem', fontFamily: 'var(--font3)', fontWeight: 800, fontSize: 13, color: 'var(--txt)' }}>
-                    {ugx(totalDue)}
-                  </td>
-                  <td style={{ padding: '0.7rem 1rem', fontFamily: 'var(--font3)', fontWeight: 800, fontSize: 13, color: 'var(--brand)' }}>
-                    {ugx(totalPaid)}
-                  </td>
-                  <td style={{ padding: '0.7rem 1rem', fontFamily: 'var(--font3)', fontWeight: 800, fontSize: 13, color: totalBal <= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                    {ugx(Math.max(0, totalBal))}
-                  </td>
-                  <td colSpan={2} />
-                </tr>
-              </tfoot>
-            </table>
-          )}
-        </div>
-
-        <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '9px 22px', border: 'none', borderRadius: 10,
-              background: 'var(--surface2)', color: 'var(--txt2)',
-              fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-            }}
-          >
-            Close
-          </button>
-        </div>
+        {student.admissionNumber} &middot; {student.className}{student.streamName ? ` · ${student.streamName}` : ''}
       </div>
-    </div>
-  )
 
-  return createPortal(modal, document.body)
+      {rows.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--txt3)', fontSize: 13 }}>
+          No payment records found for this student.
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+            <thead>
+              <tr style={{ background: 'var(--surface2)' }}>
+                {['Fee Type', 'Term', 'Due', 'Paid', 'Balance', 'Status', 'Date'].map(h => (
+                  <th key={h} style={{
+                    textAlign: 'left', fontSize: 10, fontWeight: 700,
+                    color: 'var(--txt3)', padding: '0.6rem 0.85rem',
+                    textTransform: 'uppercase', letterSpacing: 0.7,
+                    fontFamily: 'var(--font2)', whiteSpace: 'nowrap',
+                    borderBottom: '1px solid var(--border)',
+                  }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => {
+                const rowBal    = Math.max(0, r.balance)
+                const rowPct    = r.amountDue > 0 ? Math.round((r.amountPaid / r.amountDue) * 100) : 0
+                const rowStatus: FeeStatusEx =
+                  r.amountDue === 0   ? 'no_fees'
+                  : rowBal <= 0       ? 'paid'
+                  : r.amountPaid > 0 && rowPct >= 60 ? 'above60'
+                  : r.amountPaid > 0  ? 'partial'
+                  :                     'unpaid'
+                const cfg = STATUS_CONFIG[rowStatus]
+                return (
+                  <tr key={r.id} style={{ background: i % 2 === 0 ? 'var(--surface)' : 'var(--surface2)' }}>
+                    <td style={{ padding: '0.65rem 0.85rem', fontSize: 12, color: 'var(--txt)', fontWeight: 600 }}>
+                      {r.feeName ?? (r.feeStructureId ? 'Fee Item' : 'Manual Entry')}
+                    </td>
+                    <td style={{ padding: '0.65rem 0.85rem', fontSize: 12, color: 'var(--txt2)', fontFamily: 'var(--font2)', fontWeight: 700 }}>
+                      {r.term != null ? `T${r.term}` : '—'}
+                    </td>
+                    <td style={{ padding: '0.65rem 0.85rem', fontFamily: 'var(--font3)', fontSize: 12.5, color: 'var(--txt)' }}>
+                      {ugx(r.amountDue)}
+                    </td>
+                    <td style={{ padding: '0.65rem 0.85rem' }}>
+                      <EditablePaidCell row={r} onSave={handleSave} />
+                    </td>
+                    <td style={{
+                      padding: '0.65rem 0.85rem', fontFamily: 'var(--font3)', fontSize: 12.5, fontWeight: 600,
+                      color: rowBal <= 0 ? 'var(--success)' : 'var(--danger)',
+                    }}>
+                      {ugx(rowBal)}
+                    </td>
+                    <td style={{ padding: '0.65rem 0.85rem' }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        padding: '2px 9px', borderRadius: 20,
+                        fontSize: 10.5, fontWeight: 700, fontFamily: 'var(--font2)',
+                        color: cfg.color, background: cfg.glow,
+                        border: `1px solid ${cfg.stripe}33`,
+                      }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: cfg.stripe, display: 'inline-block', flexShrink: 0 }} />
+                        {cfg.label}
+                      </span>
+                    </td>
+                    <td style={{ padding: '0.65rem 0.85rem', fontSize: 11.5, color: 'var(--txt2)', fontFamily: 'var(--font3)' }}>
+                      {r.paymentDate ?? '—'}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr style={{ background: 'var(--surface2)', borderTop: '2px solid var(--border)' }}>
+                <td colSpan={2} style={{ padding: '0.7rem 0.85rem', fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 11, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Totals
+                </td>
+                <td style={{ padding: '0.7rem 0.85rem', fontFamily: 'var(--font3)', fontWeight: 800, fontSize: 13, color: 'var(--txt)' }}>{ugx(totalDue)}</td>
+                <td style={{ padding: '0.7rem 0.85rem', fontFamily: 'var(--font3)', fontWeight: 800, fontSize: 13, color: 'var(--brand)' }}>{ugx(totalPaid)}</td>
+                <td style={{ padding: '0.7rem 0.85rem', fontFamily: 'var(--font3)', fontWeight: 800, fontSize: 13, color: totalBal <= 0 ? 'var(--success)' : 'var(--danger)' }}>{ugx(Math.max(0, totalBal))}</td>
+                <td colSpan={2} />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </Modal>
+  )
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -518,7 +518,7 @@ export function BursarImportPage() {
             <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 4 }}>Fee payment import finished</div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, width: '100%', maxWidth: 420 }}>
+          <div className="mob-grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, width: '100%', maxWidth: 420 }}>
             {[
               { label: 'Imported', value: importResult.imported,       variant: 'green' as const },
               { label: 'Skipped',  value: importResult.skipped,        variant: 'amber' as const },

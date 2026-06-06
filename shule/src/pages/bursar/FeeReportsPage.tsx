@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from 'recharts'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useFeeCollectionByClass, useBursarKpis, ugx } from '../../hooks/useFeePayments'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
 
 const TERM_OPTIONS = [
   { value: 1, label: 'Term 1' },
@@ -19,12 +20,19 @@ function ugxCompact(v: number) {
 }
 
 export function FeeReportsPage() {
-  const currentYear = new Date().getFullYear()
   const [term, setTerm] = useState(1)
-  const [year, setYear] = useState(currentYear)
+  const [academicYearId, setAcademicYearId] = useState<string | null>(null)
 
-  const { data: classes = [], isLoading: classLoading } = useFeeCollectionByClass(term, year)
-  const { data: kpis, isLoading: kpisLoading } = useBursarKpis(term, year)
+  const { data: academicYears = [] } = useAcademicYears()
+
+  // Default to the active year once years are loaded
+  const resolvedYearId = useMemo(() => {
+    if (academicYearId) return academicYearId
+    return academicYears.find(y => y.isActive)?.id ?? academicYears[0]?.id ?? null
+  }, [academicYearId, academicYears])
+
+  const { data: classes = [], isLoading: classLoading } = useFeeCollectionByClass(term, resolvedYearId)
+  const { data: kpis, isLoading: kpisLoading } = useBursarKpis(term, resolvedYearId)
 
   const isLoading = classLoading || kpisLoading
 
@@ -39,8 +47,6 @@ export function FeeReportsPage() {
     { name: 'Outstanding', value: kpis?.outstanding ?? 0 },
   ]
 
-  const years = [currentYear - 1, currentYear, currentYear + 1]
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div style={{ display:'flex', alignItems:'flex-start', gap:14, position:'relative', overflow:'hidden' }}>
@@ -54,13 +60,48 @@ export function FeeReportsPage() {
         </div>
       </div>
 
-      {/* Term / Year selectors */}
-      <div style={{ display: 'flex', gap: 10 }}>
-        <select className="sui-input" value={term} onChange={e => setTerm(Number(e.target.value))}>
-          {TERM_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
-        <select className="sui-input" value={year} onChange={e => setYear(Number(e.target.value))}>
-          {years.map(y => <option key={y} value={y}>{y}</option>)}
+      {/* Term / Academic Year selectors */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* Term pills */}
+        <div style={{ display: 'flex', gap: 6, background: 'var(--surface2)', borderRadius: 99, padding: 4, border: '1px solid var(--border)' }}>
+          {TERM_OPTIONS.map(t => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => setTerm(t.value)}
+              style={{
+                padding: '6px 18px',
+                borderRadius: 99,
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font2)',
+                fontWeight: 700,
+                fontSize: 13,
+                transition: 'all .15s',
+                background: term === t.value
+                  ? 'linear-gradient(135deg, var(--brand), var(--brand-dark))'
+                  : 'transparent',
+                color: term === t.value ? '#fff' : 'var(--txt3)',
+                boxShadow: term === t.value ? '0 2px 8px rgba(13,148,136,.35)' : 'none',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Academic year dropdown (kept as select — year labels are long) */}
+        <select
+          className="sui-input"
+          value={resolvedYearId ?? ''}
+          onChange={e => setAcademicYearId(e.target.value || null)}
+          style={{ minWidth: 160 }}
+        >
+          {academicYears.map(y => (
+            <option key={y.id} value={y.id}>
+              {y.name}{y.isActive ? ' (Current)' : ''}
+            </option>
+          ))}
         </select>
       </div>
 

@@ -10,10 +10,19 @@ import {
 } from '../../hooks/useFeePayments'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
 
-// ── Axis formatter ────────────────────────────────────────────
+// ── Formatters ────────────────────────────────────────────────
 function ugxCompact(v: number) {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
-  if (v >= 1_000)     return `${(v / 1_000).toFixed(0)}K`
+  if (v >= 1_000_000_000) return `UGX ${(v / 1_000_000_000).toFixed(2)}B`
+  if (v >= 1_000_000)     return `UGX ${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000)         return `UGX ${(v / 1_000).toFixed(0)}K`
+  return `UGX ${v}`
+}
+
+// For chart axis — no UGX prefix, abbreviated
+function axisCompact(v: number) {
+  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`
+  if (v >= 1_000_000)     return `${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000)         return `${(v / 1_000).toFixed(0)}K`
   return String(v)
 }
 
@@ -43,13 +52,13 @@ function ChartTooltip({ active, payload, label }: any) {
             <span style={{ fontSize: 11.5, color: 'var(--txt2)', fontFamily: 'var(--font2)' }}>{e.dataKey}</span>
           </div>
           <span style={{ fontSize: 11.5, color: 'var(--txt)', fontFamily: 'var(--font3)', fontWeight: 700 }}>
-            {ugxCompact(Number(e.value) || 0)}
+            {axisCompact(Number(e.value) || 0)}
           </span>
         </div>
       ))}
       <div style={{ borderTop: '1px solid var(--border)', marginTop: 6, paddingTop: 6, display: 'flex', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--txt2)', fontFamily: 'var(--font2)', textTransform: 'uppercase', letterSpacing: .4 }}>Total</span>
-        <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--brand)', fontFamily: 'var(--font3)' }}>{ugxCompact(total)}</span>
+        <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--brand)', fontFamily: 'var(--font3)' }}>{axisCompact(total)}</span>
       </div>
     </div>
   )
@@ -108,8 +117,8 @@ export function BursarDashboard() {
   const activeYear = academicYears.find(y => y.isActive) ?? academicYears[0]
   const effectiveYearId = academicYearId ?? activeYear?.id ?? null
 
-  const kpis      = useBursarKpis(term, CURRENT_YEAR)
-  const byClass   = useFeeCollectionByClass(term, CURRENT_YEAR)
+  const kpis      = useBursarKpis(term, effectiveYearId)
+  const byClass   = useFeeCollectionByClass(term, effectiveYearId)
   const overTime  = useFeeCollectionOverTime()
   const recent    = useRecentPayments(10)
   const smsCount  = useSmsCount()
@@ -174,11 +183,11 @@ export function BursarDashboard() {
 
       {/* ── KPI grid ──────────────────────────────────────────── */}
       <div className="stagger-cards" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <KpiCard label="Total Expected"   value={K ? ugx(K.expected)    : '—'} sub={`Term ${term}`} accent="brand" />
-        <KpiCard label="Total Collected"  value={K ? ugx(K.collected)   : '—'} accent="success" />
-        <KpiCard label="Outstanding"      value={K ? ugx(K.outstanding) : '—'} accent="danger" />
-        <KpiCard label="Fully Unpaid"     value={K ? String(K.unpaidCount) : '—'} sub="students" accent="warning" />
-        <KpiCard label="SMS Reminders"    value={smsCount.data != null ? String(smsCount.data) : '—'} sub="queued" accent="violet" />
+        <KpiCard label="Total Expected"  value={K ? ugxCompact(K.expected)    : '—'} sub={K && K.expected >= 1000 ? ugx(K.expected) : `Term ${term}`} accent="brand" />
+        <KpiCard label="Total Collected" value={K ? ugxCompact(K.collected)   : '—'} sub={K && K.collected >= 1000 ? ugx(K.collected) : undefined} accent="success" />
+        <KpiCard label="Outstanding"     value={K ? ugxCompact(K.outstanding) : '—'} sub={K && K.outstanding >= 1000 ? ugx(K.outstanding) : undefined} accent="danger" />
+        <KpiCard label="Fully Unpaid"    value={K ? String(K.unpaidCount) : '—'} sub="students" accent="warning" />
+        <KpiCard label="SMS Reminders"   value={smsCount.data != null ? String(smsCount.data) : '—'} sub="queued" accent="violet" />
       </div>
 
       {/* ── PREMIUM FEE COLLECTION CHART ──────────────────────── */}
@@ -252,7 +261,7 @@ export function BursarDashboard() {
                   axisLine={false} tickLine={false}
                 />
                 <YAxis
-                  tickFormatter={ugxCompact}
+                  tickFormatter={axisCompact}
                   tick={{ fontSize: 11, fill: 'var(--txt3)' }}
                   axisLine={false} tickLine={false} width={52}
                 />

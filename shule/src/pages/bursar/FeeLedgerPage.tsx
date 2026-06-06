@@ -417,6 +417,15 @@ export function FeeLedgerPage() {
       const studentMap = new Map<string, string>()
       for (const s of students ?? []) studentMap.set(s.admission_number as string, s.id as string)
 
+      // Resolve academic_year_id from the active year (fee_payments uses academic_year_id not year int)
+      const { data: activeYear } = await supabase
+        .from('academic_years')
+        .select('id')
+        .eq('school_id', user!.schoolId)
+        .eq('is_active', true)
+        .maybeSingle()
+      const academicYearId = activeYear?.id ?? null
+
       const BATCH = 50
       for (let i = 0; i < parsedRows.length; i += BATCH) {
         const batch = parsedRows.slice(i, i + BATCH)
@@ -434,25 +443,23 @@ export function FeeLedgerPage() {
           }
 
           const rowTerm = parseInt(row.term || String(term), 10)
-          const balance = amountDue - amountPaid
 
-          // Check for existing record
-          const { data: existing } = await supabase
+          // Check for existing record using academic_year_id (no 'year' column on fee_payments)
+          let existQ = supabase
             .from('fee_payments')
             .select('id')
             .eq('school_id', user!.schoolId)
             .eq('student_id', sid)
             .eq('term', rowTerm)
-            .eq('year', year)
-            .limit(1)
-            .maybeSingle()
+          if (academicYearId) existQ = existQ.eq('academic_year_id', academicYearId)
+          const { data: existing } = await existQ.limit(1).maybeSingle()
 
           if (existing) {
             if (strategy === 'skip') { result.skipped++; continue }
-            // strategy === 'upsert'
+            // strategy === 'upsert' — never set balance (generated column)
             const { error } = await supabase
               .from('fee_payments')
-              .update({ amount_due: amountDue, amount_paid: amountPaid, balance, imported: true })
+              .update({ amount_due: amountDue, amount_paid: amountPaid, imported: true })
               .eq('id', existing.id)
             if (error) { result.failed.push({ row: rowNum, reason: error.message }); continue }
             result.updated++
@@ -460,18 +467,17 @@ export function FeeLedgerPage() {
             const { error } = await supabase
               .from('fee_payments')
               .insert({
-                school_id:      user!.schoolId,
-                student_id:     sid,
+                school_id:        user!.schoolId,
+                student_id:       sid,
                 fee_structure_id: null,
-                amount_due:     amountDue,
-                amount_paid:    amountPaid,
-                balance,
-                payment_date:   row.payment_date   || null,
-                receipt_number: row.receipt_number || null,
-                notes:          row.notes          || null,
-                term:           rowTerm,
-                year,
-                imported:       true,
+                academic_year_id: academicYearId,
+                amount_due:       amountDue,
+                amount_paid:      amountPaid,
+                payment_date:     row.payment_date   || null,
+                receipt_number:   row.receipt_number || null,
+                notes:            row.notes          || null,
+                term:             rowTerm,
+                imported:         true,
               })
             if (error) { result.failed.push({ row: rowNum, reason: error.message }); continue }
             result.imported++
