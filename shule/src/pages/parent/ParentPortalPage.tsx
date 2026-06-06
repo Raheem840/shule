@@ -305,6 +305,17 @@ function FeeBalanceTab({ studentId }: { studentId: string }) {
     )
   }
 
+  // Group rows by term label
+  const byTerm = useMemo(() => {
+    const map = new Map<string, typeof data>()
+    for (const r of data) {
+      const list = map.get(r.termLabel) ?? []
+      list.push(r)
+      map.set(r.termLabel, list)
+    }
+    return map
+  }, [data])
+
   // Circular ring progress
   const ringR = 46
   const ringCirc = 2 * Math.PI * ringR
@@ -314,7 +325,7 @@ function FeeBalanceTab({ studentId }: { studentId: string }) {
     <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
       {/* Overview hero card */}
-      <div style={{
+      <div className="portal-hero-card" style={{
         background: 'var(--surface)', borderRadius: 20,
         border: '1px solid var(--border)',
         boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
@@ -364,66 +375,118 @@ function FeeBalanceTab({ studentId }: { studentId: string }) {
         </div>
       </div>
 
-      {/* Per-term breakdown */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-        {data.map(r => {
-          const scfg = statusConfig[r.status]
-          const termPct = r.amountDue > 0 ? Math.round((r.amountPaid / r.amountDue) * 100) : 0
+      {/* Per-term breakdown — grouped */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {Array.from(byTerm.entries()).map(([termLabel, rows]) => {
+          const termDue  = rows.reduce((s, r) => s + r.amountDue,  0)
+          const termPaid = rows.reduce((s, r) => s + r.amountPaid, 0)
+          const termBal  = rows.reduce((s, r) => s + r.balance,    0)
+          const termPct  = termDue > 0 ? Math.round((termPaid / termDue) * 100) : 0
+          const termColor = termBal <= 0 ? 'var(--success)' : termPaid > 0 ? 'var(--warning)' : 'var(--danger)'
+
           return (
-            <div key={r.id} style={{
-              background: 'var(--surface)', borderRadius: 14,
+            <div key={termLabel} style={{
+              background: 'var(--surface)', borderRadius: 16,
               border: '1px solid var(--border)',
               overflow: 'hidden',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              boxShadow: '0 1px 6px rgba(0,0,0,0.05)',
             }}>
-              {/* Status strip */}
-              <div style={{ height: 3, background: scfg.color }} />
-              <div style={{ padding: '0.9rem 1.1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
-                  <div>
-                    <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: 'var(--txt)' }}>
-                      {r.termLabel}
-                    </div>
-                    {r.receiptNumber && (
-                      <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginTop: 2 }}>
-                        Receipt: {r.receiptNumber}
-                      </div>
-                    )}
+              {/* Term header */}
+              <div style={{
+                padding: '0.75rem 1.1rem',
+                background: 'var(--surface2)',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <span style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13, color: 'var(--txt)' }}>
+                  {termLabel}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {/* Term progress bar */}
+                  <div style={{ width: 80, height: 6, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${termPct}%`, background: termColor, borderRadius: 99, transition: 'width 0.5s' }} />
                   </div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700, fontFamily: 'var(--font2)',
-                    color: scfg.color, background: scfg.bg,
-                    padding: '3px 10px', borderRadius: 99,
-                  }}>
-                    {scfg.label}
+                  <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, fontSize: 12, color: termColor }}>
+                    {termPct}%
                   </span>
                 </div>
+              </div>
 
-                {/* Mini progress bar */}
-                <div style={{ background: 'var(--surface2)', borderRadius: 99, height: 6, marginBottom: '0.6rem' }}>
-                  <div style={{
-                    height: '100%', borderRadius: 99,
-                    width: `${termPct}%`, background: scfg.color,
-                    transition: 'width 0.5s',
-                  }} />
-                </div>
+              {/* Fee item rows */}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {rows.map((r, idx) => {
+                  const scfg = statusConfig[r.status]
+                  return (
+                    <div key={r.id} className="portal-fee-row" style={{
+                      padding: '0.75rem 1.1rem',
+                      borderBottom: idx < rows.length - 1 ? '1px solid var(--border)' : 'none',
+                      display: 'flex', alignItems: 'center', gap: '0.75rem',
+                    }}>
+                      {/* Status dot */}
+                      <div style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        background: scfg.color, flexShrink: 0,
+                        boxShadow: `0 0 0 3px ${scfg.bg}`,
+                      }} />
 
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                  {[
-                    { l: 'Charged', v: fmtUGX(r.amountDue), c: 'var(--txt2)' },
-                    { l: 'Paid',    v: fmtUGX(r.amountPaid), c: 'var(--success)' },
-                    { l: 'Balance', v: fmtUGX(r.balance), c: r.balance > 0 ? 'var(--danger)' : 'var(--txt3)' },
-                  ].map(s => (
-                    <div key={s.l}>
-                      <div style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'var(--font2)', fontWeight: 600, marginBottom: 2 }}>
-                        {s.l}
+                      {/* Fee name */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>
+                          {r.feeName}
+                        </div>
+                        {r.receiptNumber && (
+                          <div style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginTop: 1 }}>
+                            Receipt: {r.receiptNumber}
+                          </div>
+                        )}
                       </div>
-                      <div style={{ fontFamily: 'var(--font3)', fontWeight: 700, fontSize: 12.5, color: s.c }}>
-                        {s.v}
+
+                      {/* Amounts */}
+                      <div className="portal-fee-amounts" style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexShrink: 0 }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'var(--font2)', fontWeight: 600, marginBottom: 1 }}>Charged</div>
+                          <div style={{ fontFamily: 'var(--font3)', fontWeight: 700, fontSize: 12, color: 'var(--txt2)' }}>{fmtUGX(r.amountDue)}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'var(--font2)', fontWeight: 600, marginBottom: 1 }}>Paid</div>
+                          <div style={{ fontFamily: 'var(--font3)', fontWeight: 700, fontSize: 12, color: 'var(--success)' }}>{fmtUGX(r.amountPaid)}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'var(--font2)', fontWeight: 600, marginBottom: 1 }}>Balance</div>
+                          <div style={{ fontFamily: 'var(--font3)', fontWeight: 700, fontSize: 12, color: scfg.color }}>{fmtUGX(r.balance)}</div>
+                        </div>
                       </div>
+
+                      {/* Badge */}
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, fontFamily: 'var(--font2)',
+                        color: scfg.color, background: scfg.bg,
+                        padding: '2px 8px', borderRadius: 99, flexShrink: 0,
+                      }}>
+                        {scfg.label}
+                      </span>
                     </div>
-                  ))}
-                </div>
+                  )
+                })}
+              </div>
+
+              {/* Term totals footer */}
+              <div className="portal-term-footer" style={{
+                padding: '0.6rem 1.1rem',
+                background: 'var(--surface2)',
+                borderTop: '1px solid var(--border)',
+                display: 'flex', justifyContent: 'flex-end', gap: '1.25rem',
+              }}>
+                {[
+                  { l: 'Total Charged', v: fmtUGX(termDue),  c: 'var(--txt2)' },
+                  { l: 'Total Paid',    v: fmtUGX(termPaid), c: 'var(--success)' },
+                  { l: 'Outstanding',   v: fmtUGX(termBal),  c: termBal > 0 ? 'var(--danger)' : 'var(--txt3)' },
+                ].map(s => (
+                  <div key={s.l} style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'var(--font2)', fontWeight: 600, marginBottom: 1 }}>{s.l}</div>
+                    <div style={{ fontFamily: 'var(--font3)', fontWeight: 800, fontSize: 12.5, color: s.c }}>{s.v}</div>
+                  </div>
+                ))}
               </div>
             </div>
           )
@@ -480,7 +543,7 @@ function AttendanceTab({ studentId }: { studentId: string }) {
     <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
       {/* Hero card */}
-      <div style={{
+      <div className="portal-hero-card" style={{
         background: 'var(--surface)', borderRadius: 20,
         border: '1px solid var(--border)',
         boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
@@ -985,9 +1048,9 @@ function MessagesTab({ classId }: { classId: string | null }) {
   }
 
   return (
-    <div style={{ display: 'flex', height: '65vh', minHeight: 480, overflow: 'hidden' }}>
+    <div className="portal-msg-shell" style={{ display: 'flex', height: '65vh', minHeight: 480, overflow: 'hidden' }}>
       {/* Contact sidebar */}
-      <div style={{ width: 180, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--surface2)' }}>
+      <div className="portal-msg-rail" style={{ width: 180, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--surface2)' }}>
         <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5 }}>Contacts</div>
         {contacts.map(c => {
           const isSel = selectedContact?.authUserId === c.authUserId
@@ -1008,7 +1071,7 @@ function MessagesTab({ classId }: { classId: string | null }) {
       </div>
 
       {/* Thread */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="portal-msg-thread" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {selectedContact
           ? <ChatThread contact={selectedContact} parentId={user!.id} />
           : <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)', fontSize: 13 }}>Select a contact</div>
@@ -1126,6 +1189,7 @@ function TabBar({ active, onChange }: { active: TabName; onChange: (t: TabName) 
     }}>
       <div
         ref={scrollRef}
+        className="portal-tab-scroll"
         style={{
           display: 'flex', gap: 0, overflowX: 'auto',
           scrollbarWidth: 'none',
@@ -1253,8 +1317,8 @@ function ChildHeroCard({
     },
     {
       label: 'Balance',
-      value: totalBalance > 0 ? fmtUGX(totalBalance) : 'Cleared',
-      color: totalBalance > 0 ? 'var(--danger)' : 'var(--success)',
+      value: fees.length === 0 ? 'Not billed' : totalBalance > 0 ? fmtUGX(totalBalance) : 'Cleared',
+      color: fees.length === 0 ? 'var(--txt3)' : totalBalance > 0 ? 'var(--danger)' : 'var(--success)',
     },
     {
       label: 'Reports',
@@ -1322,7 +1386,7 @@ function ChildHeroCard({
       </div>
 
       {/* KPI row */}
-      <div style={{
+      <div className="portal-kpi-grid" style={{
         display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
         borderTop: '1px solid var(--border)',
       }}>
@@ -1654,7 +1718,7 @@ export function ParentPortalPage() {
 
         {/* Tab content area */}
         {selectedChild && (
-          <div style={{
+          <div className="portal-content-shell" style={{
             background: 'var(--surface)', borderRadius: '16px 16px 0 0',
             border: '1px solid var(--border)', borderBottom: 'none',
             minHeight: '60vh', overflow: 'hidden',

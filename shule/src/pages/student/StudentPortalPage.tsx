@@ -350,7 +350,7 @@ function MyFeesTab({ studentId }: { studentId: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {/* Summary + gauge */}
-      <div style={{
+      <div className="portal-hero-card" style={{
         ...card,
         background: 'linear-gradient(145deg, #0f172a 0%, #1a2744 100%)',
         border: 'none', padding: '1.25rem',
@@ -492,7 +492,7 @@ function MyAttendanceTab({ studentId }: { studentId: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {/* Hero attendance card */}
-      <div style={{
+      <div className="portal-hero-card" style={{
         ...card,
         background: 'linear-gradient(145deg, #0f172a 0%, #1a2744 100%)',
         border: 'none', padding: '1.25rem',
@@ -1381,6 +1381,54 @@ export function StudentPortalPage() {
     )
   }
 
+  if (student.status === 'suspended') {
+    return (
+      <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+        <div style={{
+          maxWidth: 420, width: '100%',
+          background: 'var(--surface)', border: '1px solid var(--warning)',
+          borderRadius: 20, padding: '2rem', textAlign: 'center',
+        }}>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(245,158,11,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 20, color: 'var(--warning)', marginBottom: 8 }}>
+            Account Suspended
+          </div>
+          <div style={{ fontSize: 14, color: 'var(--txt2)', lineHeight: 1.6 }}>
+            Your account has been suspended. Please contact the school administration for more information.
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (student.status === 'expelled') {
+    return (
+      <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+        <div style={{
+          maxWidth: 420, width: '100%',
+          background: 'var(--surface)', border: '1px solid var(--danger)',
+          borderRadius: 20, padding: '2rem', textAlign: 'center',
+        }}>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(244,63,94,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+          </div>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 20, color: 'var(--danger)', marginBottom: 8 }}>
+            Access Revoked
+          </div>
+          <div style={{ fontSize: 14, color: 'var(--txt2)', lineHeight: 1.6 }}>
+            Your portal access has been revoked. Please contact the school administration.
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const fullName = `${student.firstName} ${student.lastName}`
 
   return (
@@ -1511,7 +1559,7 @@ export function StudentPortalPage() {
           </div>
 
           {/* Tab bar */}
-          <div style={{
+          <div className="portal-tab-scroll" style={{
             display: 'flex', gap: 2, overflowX: 'auto',
             scrollbarWidth: 'none',
             borderBottom: '1px solid rgba(255,255,255,.08)',
@@ -1555,7 +1603,7 @@ export function StudentPortalPage() {
       </div>
 
       {/* ── Tab content ── */}
-      <div style={{ padding: '1.25rem', background: 'var(--bg)', minHeight: '60vh' }}>
+      <div className="portal-tab-body" style={{ padding: '1.25rem', background: 'var(--bg)', minHeight: '60vh' }}>
         {activeTab === 'Timetable'      && <MyTimetableTab   classId={student.classId} streamId={student.streamId ?? null} />}
         {activeTab === 'My Results'     && <MyResultsTab     studentId={student.id} />}
         {activeTab === 'My Fees'        && <MyFeesTab        studentId={student.id} />}
