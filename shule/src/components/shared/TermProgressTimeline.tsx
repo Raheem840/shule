@@ -211,6 +211,7 @@ function EventDot({ event, pct }: { event: TermEvent; pct: number }) {
 // TERM PROGRESS TIMELINE
 // ═══════════════════════════════════════════════════════════════════════════════
 export function TermProgressTimeline() {
+  const { loading: authLoading } = useAuth()
   const { data: tp, isLoading } = useTermProgress()
   const [animated, setAnimated] = useState(false)
 
@@ -219,8 +220,8 @@ export function TermProgressTimeline() {
     return () => clearTimeout(t)
   }, [tp])
 
-  // ── Loading ──
-  if (isLoading) {
+  // ── Loading — also covers the brief window before auth state is established ──
+  if (isLoading || authLoading) {
     return (
       <div style={{ height: 164, borderRadius: 24, marginBottom: 24, background: 'var(--surface)', border: '.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--txt3)', fontSize: 13 }}>
         <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(13,148,136,.3)', borderTopColor: 'var(--brand)', animation: 'spin .7s linear infinite' }} />
