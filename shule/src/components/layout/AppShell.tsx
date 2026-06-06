@@ -13,7 +13,7 @@
  * Sidebar tokens (--sb-bg etc.) shift slightly in dark mode per design spec.
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../store/AuthContext'
@@ -32,6 +32,7 @@ import type { NotificationType } from '../../types/week9'
 import { NotificationToastProvider } from '../shared/NotificationToast'
 import { ConnectionBanner } from '../ui/ConnectionBanner'
 import { SyncManager } from './SyncManager'
+import { GlobalSearch } from './GlobalSearch'
 
 // Roles that have a /profile page
 const PROFILE_ROLES = new Set<UserRole>([
@@ -110,6 +111,10 @@ export function AppShell() {
   const [theme, setTheme]               = useState<'light' | 'dark'>(getStoredTheme)
   const [drawerOpen, setDrawer]         = useState(false)
   const [showPwBanner, setShowPwBanner] = useState(false)
+  const [searchOpen, setSearchOpen]     = useState(false)
+
+  const openSearch  = useCallback(() => setSearchOpen(true),  [])
+  const closeSearch = useCallback(() => setSearchOpen(false), [])
   const location  = useLocation()
   const navigate  = useNavigate()
   const isMobile  = useIsMobile()
@@ -147,6 +152,18 @@ export function AppShell() {
   })
 
   useEffect(() => { localStorage.setItem('shule-theme', theme) }, [theme])
+
+  // Global Ctrl+K / Cmd+K shortcut
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        setSearchOpen(o => !o)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   useEffect(() => {
     if (schoolSettings?.primaryColor) applyBrandColor(schoolSettings.primaryColor)
   }, [schoolSettings?.primaryColor])
@@ -342,6 +359,7 @@ export function AppShell() {
           today={todayLine()}
           user={user}
           avatar={avatar}
+          onSearchOpen={openSearch}
         />
 
         <main className="shell-main">
@@ -354,6 +372,7 @@ export function AppShell() {
 
         <NotificationPushListener />
         <NotificationToastProvider />
+        <GlobalSearch open={searchOpen} onClose={closeSearch} />
 
         {/* ── Bottom navigation (mobile only) ─────────────────────── */}
         {bottomItems.length > 0 && (
@@ -687,12 +706,13 @@ function MobileNotifBell({ role: _role }: { role: UserRole }) {
 // TOPBAR
 // ═══════════════════════════════════════════════════════════════════════════════
 type TopBarProps = {
-  theme:    'light' | 'dark'
-  onToggle: () => void
-  greeting: string
-  today:    string
-  user:     NonNullable<ReturnType<typeof useAuth>['user']>
-  avatar:   { bg: string; color: string }
+  theme:         'light' | 'dark'
+  onToggle:      () => void
+  greeting:      string
+  today:         string
+  user:          NonNullable<ReturnType<typeof useAuth>['user']>
+  avatar:        { bg: string; color: string }
+  onSearchOpen:  () => void
 }
 
 function MessagingIcon({ role }: { role: UserRole }) {
@@ -845,7 +865,7 @@ function NotificationBell({ role }: { role: UserRole }) {
   )
 }
 
-function TopBar({ theme, onToggle, greeting, today, user, avatar }: TopBarProps) {
+function TopBar({ theme, onToggle, greeting, today, user, avatar, onSearchOpen }: TopBarProps) {
   const navigate = useNavigate()
   return (
     <div className="topbar">
@@ -868,13 +888,33 @@ function TopBar({ theme, onToggle, greeting, today, user, avatar }: TopBarProps)
         </div>
       </div>
 
-      {/* Search icon */}
-      <div className="tb-icon" title="Search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      {/* Search button */}
+      <button
+        onClick={onSearchOpen}
+        title="Search (Ctrl+K)"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '6px 12px', borderRadius: 10,
+          border: '1px solid var(--border)',
+          background: 'var(--surface2)',
+          color: 'var(--txt3)', cursor: 'pointer',
+          fontSize: 12, fontFamily: 'var(--font2)', fontWeight: 600,
+          transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)' }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--txt3)' }}
+      >
+        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="8"/>
           <line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-      </div>
+        <span>Search</span>
+        <kbd style={{
+          padding: '1px 5px', borderRadius: 5, fontSize: 10,
+          background: 'var(--border)', color: 'var(--txt3)',
+          fontFamily: 'var(--font3)', fontWeight: 700,
+        }}>⌘K</kbd>
+      </button>
 
       {/* Messaging icon — staff roles only */}
       <MessagingIcon role={user.role} />
