@@ -221,6 +221,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try { await db.auth_session.delete('current') } catch { /* ignore */ }
+    // Clear persisted query cache so the next user's login starts fresh
+    const { clearQueryCache } = await import('../lib/queryPersistence')
+    await clearQueryCache()
     await supabase.auth.signOut()
   }
 
