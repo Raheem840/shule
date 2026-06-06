@@ -1,7 +1,7 @@
 // ConnectionBanner.tsx — Fixed top banner showing offline / syncing / just-synced states.
 // Sets --banner-height CSS variable so the layout can shift without prop drilling.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useConnection } from '../../hooks/useConnectionStatus'
 import { useSyncQueue } from '../../hooks/useSyncQueue'
 
@@ -16,32 +16,36 @@ export function ConnectionBanner() {
   const { isSyncing, lastSyncAt, pendingCount } = useSyncQueue()
   const [banner, setBanner] = useState<BannerState>('hidden')
 
+  // Track isSyncing transitions with a ref to avoid stale-closure bugs
+  // (banner is NOT in the dep array so closures would capture stale values)
+  const wasSyncingRef = useRef(false)
+
   useEffect(() => {
-    // Not yet verified — don't flash anything on initial load
     if (!isVerified) return
 
     if (!isOnline) {
       setBanner('offline')
+      wasSyncingRef.current = false
       return
     }
 
     if (isSyncing) {
       setBanner('syncing')
+      wasSyncingRef.current = true
       return
     }
 
-    // Just finished syncing — show confirmation briefly then hide
-    if (lastSyncAt && banner === 'syncing') {
+    // Transition: was syncing → just finished
+    if (wasSyncingRef.current) {
+      wasSyncingRef.current = false
       setBanner('synced')
       const t = setTimeout(() => setBanner('hidden'), SYNCED_DISMISS_MS)
       return () => clearTimeout(t)
     }
 
-    // Back online with nothing to sync
-    if (banner === 'offline') {
-      setBanner('hidden')
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Back online with no pending sync
+    wasSyncingRef.current = false
+    setBanner('hidden')
   }, [isOnline, isVerified, isSyncing, lastSyncAt])
 
   const visible = banner !== 'hidden'
