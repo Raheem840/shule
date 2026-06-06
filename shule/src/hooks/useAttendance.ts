@@ -33,19 +33,31 @@ export function useAttendance(classId: string | null, date: string) {
   })
 }
 
+// ── daysPerWeekForClass ────────────────────────────────────────
+// S.4 (final O-level year) has 6 study days Mon-Sat.
+// S.1, S.2, S.3 have 5 study days Mon-Fri.
+export function daysPerWeekForClass(className: string): 5 | 6 {
+  const n = className.toLowerCase().replace(/\s+/g, '').replace(/\./g, '').replace(/^senior/, 's').replace(/^form/, 's')
+  return n.endsWith('4') ? 6 : 5
+}
+
 // ── useClassTermAttendance ─────────────────────────────────────
 // Per-student attendance rates for a class for the current calendar year.
-// Powers the "below 80% this term" warning panel on the attendance page.
+// Uses the set of unique dates the teacher took the roll as the expected-days
+// denominator — more accurate than counting per-student records because it
+// handles absences correctly (student not there = still a school day).
 export type StudentAttendanceRate = {
   studentId:        string
   rate:             number
   isBelowThreshold: boolean
-  totalDays:        number
+  totalDays:        number     // unique school days the teacher recorded roll
   presentDays:      number
+  daysPerWeek:      5 | 6     // expected study days/week for this class level
 }
 
-export function useClassTermAttendance(classId: string | null) {
+export function useClassTermAttendance(classId: string | null, className?: string) {
   const { user } = useAuth()
+  const dpw: 5 | 6 = className ? daysPerWeekForClass(className) : 5
 
   return useQuery({
     queryKey: ['attendance-class-term', user?.schoolId, classId],
@@ -56,31 +68,39 @@ export function useClassTermAttendance(classId: string | null) {
 
       const { data, error } = await supabase
         .from('attendance')
-        .select('student_id, status')
+        .select('student_id, status, date')
         .eq('school_id', user!.schoolId)
         .eq('class_id',  classId!)
         .gte('date',     yearStart)
 
       if (error) throw error
 
-      const counts = new Map<string, { total: number; present: number }>()
-      for (const r of (data ?? []) as AnyRow[]) {
-        const sid  = r.student_id as string
-        const curr = counts.get(sid) ?? { total: 0, present: 0 }
-        curr.total++
-        if (r.status === 'present') curr.present++
-        counts.set(sid, curr)
+      const rows = (data ?? []) as AnyRow[]
+
+      // Count unique dates the teacher took the roll for this class
+      const uniqueDates = new Set(rows.map(r => r.date as string))
+      const expectedDays = Math.max(uniqueDates.size, 1)
+
+      // Per-student present count
+      const present = new Map<string, number>()
+      for (const r of rows) {
+        const sid = r.student_id as string
+        if (r.status === 'present') present.set(sid, (present.get(sid) ?? 0) + 1)
       }
+      // All students who appear in any record
+      const allStudents = new Set(rows.map(r => r.student_id as string))
 
       const result: StudentAttendanceRate[] = []
-      for (const [sid, { total, present }] of counts) {
-        const rate = total > 0 ? Math.round((present / total) * 100) : 0
+      for (const sid of allStudents) {
+        const presentDays = present.get(sid) ?? 0
+        const rate = Math.round((presentDays / expectedDays) * 100)
         result.push({
           studentId:        sid,
           rate,
-          isBelowThreshold: rate < 80 && total > 0,
-          totalDays:        total,
-          presentDays:      present,
+          isBelowThreshold: rate < 80,
+          totalDays:        expectedDays,
+          presentDays,
+          daysPerWeek:      dpw,
         })
       }
       return result
