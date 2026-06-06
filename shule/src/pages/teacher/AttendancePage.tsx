@@ -273,7 +273,7 @@ export function AttendancePage() {
 
       {/* ── Summary KPI cards ─────────────────────────── */}
       {hasClass && studentCount > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+        <div className="mob-grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
           {STATUSES.map(s => {
             const cfg   = STATUS_CFG[s]
             const count = summary[s]

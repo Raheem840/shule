@@ -74,10 +74,18 @@ export function StudentFullProfilePage() {
       {/* Personal Info */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>Personal Information</div>
-        <InfoRow label="Class"            value={profile.className} />
+        <InfoRow label="Admission No."    value={profile.admissionNumber} />
+        <InfoRow label="Class"            value={profile.streamName ? `${profile.className} · ${profile.streamName}` : profile.className} />
+        <InfoRow label="Student Type"     value={profile.studentType ? profile.studentType.charAt(0).toUpperCase() + profile.studentType.slice(1) : null} />
         <InfoRow label="Date of Birth"    value={profile.dob} />
         <InfoRow label="Gender"           value={profile.gender} />
-        <InfoRow label="Admission No."    value={profile.admissionNumber} />
+        <InfoRow label="Nationality"      value={profile.nationality} />
+        <InfoRow label="Religion"         value={profile.religion} />
+        <InfoRow label="Previous School"  value={profile.previousSchool} />
+        <InfoRow label="Enrolled"         value={profile.enrolledAt ? new Date(profile.enrolledAt).toLocaleDateString() : null} />
+        {profile.medicalNotes && (
+          <InfoRow label="Medical Notes"  value={profile.medicalNotes} />
+        )}
       </div>
 
       {/* Academic Performance */}
@@ -90,22 +98,22 @@ export function StudentFullProfilePage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                {['Term', 'Year', 'Score', 'Grade', ''].map(h => (
+                {['Subject', 'Term', 'Year', 'Score', 'Grade'].map(h => (
                   <th key={h} style={{ padding: '6px 10px', background: 'var(--surface2)',
                     fontWeight: 700, fontSize: 11, color: 'var(--txt2)', textAlign: 'left' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {profile.examResults.slice(0, 20).map((r: any, i: number) => (
+              {profile.examResults.slice(0, 30).map((r: any, i: number) => (
                 <tr key={i} className="sui-tr">
+                  <td style={{ padding: '6px 10px', fontSize: 12, color: 'var(--txt)' }}>{r.subjectName}</td>
                   <td style={{ padding: '6px 10px', fontSize: 12, color: 'var(--txt2)' }}>{r.term}</td>
                   <td style={{ padding: '6px 10px', fontSize: 12, color: 'var(--txt2)' }}>{r.year}</td>
                   <td style={{ padding: '6px 10px', fontFamily: 'var(--font3)', fontSize: 13 }}>
                     {r.score ?? '—'}
                   </td>
                   <td style={{ padding: '6px 10px', fontFamily: 'var(--font3)', fontSize: 13 }}>{r.grade ?? '—'}</td>
-                  <td style={{ padding: '6px 10px' }} />
                 </tr>
               ))}
             </tbody>
@@ -141,14 +149,31 @@ export function StudentFullProfilePage() {
 
       {/* Fee Summary — totals ONLY, no line items */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 8 }}>Fee Status</div>
-        <div style={{ fontSize: 13, color: 'var(--txt2)' }}>
-          Total Paid: <strong style={{ fontFamily: 'var(--font3)' }}>
-            UGX {profile.feeSummary.totalPaid.toLocaleString()}
-          </strong>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>Fee Status</div>
+        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Total Billed</div>
+            <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--txt)' }}>
+              UGX {(profile.feeSummary.totalDue ?? 0).toLocaleString()}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Total Paid</div>
+            <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--success)' }}>
+              UGX {(profile.feeSummary.totalPaid ?? 0).toLocaleString()}
+            </div>
+          </div>
+          {(profile.feeSummary.totalDue ?? 0) - (profile.feeSummary.totalPaid ?? 0) > 0 && (
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Outstanding</div>
+              <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--danger)' }}>
+                UGX {((profile.feeSummary.totalDue ?? 0) - (profile.feeSummary.totalPaid ?? 0)).toLocaleString()}
+              </div>
+            </div>
+          )}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 4 }}>
-          (Detailed fee ledger is accessible to Bursar only)
+        <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 8 }}>
+          Detailed fee ledger is accessible to Bursar only.
         </div>
       </div>
 

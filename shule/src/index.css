@@ -1352,6 +1352,9 @@ select.sui-select:hover:not(:disabled):not(:focus) {
   color: var(--txt);
   line-height: 1.1;
   animation: numReveal 0.5s cubic-bezier(0.16,1,0.3,1) both;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
 }
 .sui-kpi-label {
   font-size: 11px;
@@ -2681,4 +2684,144 @@ select.sui-select:hover:not(:disabled):not(:focus) {
 }
 @media (max-width: 767px) {
   .mob-fab { display: flex; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PREMIUM MOBILE — Portal pages (parent + student) and shared patterns
+   Inspired by Monzo / Apple Health / Linear card density + thumb-zone layout.
+   All rules scoped to ≤768px so desktop is never affected.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Horizontally-scrollable tab/pill rows (sticky portal tab bars) ──
+   Use .portal-tab-scroll on the flex row of tab buttons. Adds momentum
+   scrolling, hides scrollbar, fades the right edge to hint overflow. */
+.portal-tab-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.portal-tab-scroll::-webkit-scrollbar { display: none; }
+
+@media (max-width: 768px) {
+  /* 44px min touch targets on every tab button inside a scroll row */
+  .portal-tab-scroll > button {
+    min-height: 44px !important;
+    flex-shrink: 0 !important;
+  }
+  .portal-tab-scroll {
+    -webkit-mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+  }
+
+  /* Tab content padding: tighter sides, generous bottom for the bottom nav +
+     home indicator so the last card is never hidden under the nav. */
+  .portal-tab-body {
+    padding: 1rem 0.85rem calc(1.25rem + 72px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Portal content shell reserves room for the fixed bottom nav so the last
+     row of any tab is reachable above the thumb-zone navigation. */
+  .portal-content-shell {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Fee item rows: the desktop Charged/Paid/Balance triple-column block
+     overflows on phones. Reflow the whole row to a stacked card and turn the
+     amounts into a 3-up grid that wraps under the fee name. */
+  .portal-fee-row {
+    flex-wrap: wrap !important;
+    row-gap: 0.6rem !important;
+  }
+  .portal-fee-row .portal-fee-amounts {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 0.5rem !important;
+  }
+  .portal-fee-row .portal-fee-amounts > div {
+    text-align: left !important;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 6px 8px;
+  }
+
+  /* Term totals footer: right-aligned triple becomes an evenly-spread grid */
+  .portal-term-footer {
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Child hero KPI strip: 4 cramped columns → 2×2 grid with breathing room */
+  .portal-kpi-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .portal-kpi-grid > div {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 0.85rem 0.5rem !important;
+  }
+  .portal-kpi-grid > div:nth-child(odd) {
+    border-right: 1px solid var(--border) !important;
+  }
+  .portal-kpi-grid > div:nth-last-child(-n+2) {
+    border-bottom: none !important;
+  }
+
+  /* Hero cards with a donut + stat list: keep side-by-side but allow the
+     stat column to shrink and the whole card to use less padding. */
+  .portal-hero-card {
+    padding: 1.15rem !important;
+    gap: 1rem !important;
+  }
+
+  /* Parent messaging: side-by-side contact list + thread is too cramped.
+     Stack the contact rail on top as a horizontal scroller. */
+  .portal-msg-shell {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  .portal-msg-rail {
+    width: 100% !important;
+    flex-direction: row !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    overflow-x: auto !important;
+    scrollbar-width: none;
+  }
+  .portal-msg-rail::-webkit-scrollbar { display: none; }
+  .portal-msg-rail > div:first-child { display: none !important; } /* hide "Contacts" caption */
+  .portal-msg-rail > button {
+    border-left: none !important;
+    border-bottom: 3px solid transparent !important;
+    min-height: 56px !important;
+    white-space: nowrap;
+  }
+  .portal-msg-thread {
+    height: 70vh !important;
+    min-height: 420px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Very narrow: fee amounts collapse from 3-up to a tidy stacked pair so
+     numbers never clip; balance gets its own full-width row. */
+  .portal-fee-row .portal-fee-amounts {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .portal-fee-row .portal-fee-amounts > div:last-child {
+    grid-column: 1 / -1 !important;
+  }
+  .portal-term-footer > div { flex: 1 1 0 !important; }
+}
+
+/* ── Generic fixed-grid collapse for role pages ──
+   Apply .mob-grid-collapse to any `repeat(3|4, 1fr)` stat/KPI grid so it
+   reflows to 2 columns on phones (the fixed N-col layout cramps numbers and
+   forces horizontal overflow). Desktop layout untouched. */
+@media (max-width: 768px) {
+  .mob-grid-collapse {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
 }

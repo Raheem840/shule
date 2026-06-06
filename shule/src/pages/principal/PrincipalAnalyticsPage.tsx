@@ -168,7 +168,7 @@ export function PrincipalAnalyticsPage() {
   const { data: staffRoles, isLoading: staffRolesLoading  } = useStaffRoleBreakdown()
   const { data: discipline, isLoading: disciplineLoading  } = useMonthlyDiscipline()
   const { data: fees,       isLoading: feesLoading        } = useSchoolFeeSummary()
-  const { data: byClass,    isLoading: byClassLoading     } = useFeeCollectionByClass(1, currentYear)
+  const { data: byClass,    isLoading: byClassLoading     } = useFeeCollectionByClass(1, null)
 
   const TABS = [
     { key: 'academic',   label: 'Academic'   },

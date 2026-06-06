@@ -63,8 +63,7 @@ function useTogglePortal(schoolId: string | undefined) {
         .eq('id', schoolId!)
       if (error) throw new Error(error.message)
     },
-    onSuccess: (_data, open) => {
-      qc.setQueryData(['portal-open', schoolId], open)
+    onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['portal-open', schoolId] })
     },
   })
@@ -267,27 +266,28 @@ export function PrincipalSettingsPage() {
                   <>
                     <div style={{
                       fontSize: 26, fontWeight: 900, fontFamily: 'var(--font2)',
-                      background: `linear-gradient(135deg, var(--txt) 0%, ${primaryColor} 100%)`,
-                      WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
+                      color: 'var(--txt)',
                       lineHeight: 1.2, marginBottom: 4,
                     }}>
-                      {schoolName || 'Your School Name'}
+                      <span style={{ color: primaryColor }}>
+                        {(settings?.schoolName || '').charAt(0)}
+                      </span>
+                      {(settings?.schoolName || 'Your School Name').slice(1)}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      {shortName && (
+                      {settings?.shortName && (
                         <span style={{
                           fontFamily: 'var(--font3)', fontSize: 11, fontWeight: 700,
                           padding: '2px 8px', borderRadius: 6,
                           background: `${primaryColor}15`, color: primaryColor,
                           border: `1px solid ${primaryColor}25`,
                         }}>
-                          {shortName}
+                          {settings.shortName}
                         </span>
                       )}
-                      {motto && (
+                      {settings?.motto && (
                         <span style={{ fontSize: 12, color: 'var(--txt3)', fontStyle: 'italic' }}>
-                          "{motto}"
+                          "{settings.motto}"
                         </span>
                       )}
                     </div>
@@ -457,7 +457,7 @@ export function PrincipalSettingsPage() {
 
         {/* ── Info tiles (view mode only) ── */}
         {!editMode && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, animation: 'stsFadeUp 0.3s ease both' }}>
+          <div className="mob-grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, animation: 'stsFadeUp 0.3s ease both' }}>
             {[
               { label: 'School Name', value: settings?.schoolName, icon: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z' },
               { label: 'Abbreviation', value: settings?.shortName, icon: 'M7 20l4-16m2 16l4-16M6 9h14M4 15h14', mono: true },

@@ -627,7 +627,7 @@ export function SecretaryDashboard() {
       </Panel>
 
       {/* ── [6] Quick actions row ─────────────────────────────────────────── */}
-      <div className="stagger-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+      <div className="stagger-cards mob-grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
         {[
           {
             label: 'Register Student',
