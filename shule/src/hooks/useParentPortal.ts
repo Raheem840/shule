@@ -29,31 +29,55 @@ export type ExamResultRow = {
 }
 
 export type StudentFeeRecord = {
-  id:            string
-  termLabel:     string
-  amountDue:     number
-  amountPaid:    number
-  balance:       number
-  paymentDate:   string | null
-  receiptNumber: string | null
-  status:        'paid' | 'partial' | 'unpaid'
+  id:             string
+  termLabel:      string
+  feeName:        string
+  amountDue:      number
+  amountPaid:     number
+  balance:        number
+  paymentDate:    string | null
+  receiptNumber:  string | null
+  status:         'paid' | 'partial' | 'unpaid'
 }
 
 // ── useParentStudents ─────────────────────────────────────────
-// Fetches all students linked to the parent's account via student_ids JWT claim.
+// Fetches all students linked to the parent's account.
+// Primary source: student_ids JWT claim.
+// Fallback: query parent_accounts directly if JWT claim is empty
+// (happens when the account was linked after the current JWT was issued).
 export function useParentStudents() {
   const { user } = useAuth()
-  const studentIds = user?.studentIds ?? []
+  const jwtStudentIds = user?.studentIds ?? []
 
-  return useQuery({
-    queryKey: ['parent-students', user?.schoolId, studentIds],
-    enabled:  !!user?.schoolId && studentIds.length > 0,
+  // Fallback query — only fires when JWT has no student_ids.
+  // Kept separate so it can't block the main loading indicator forever.
+  const { data: fallbackIds = [], isLoading: idsLoading } = useQuery({
+    queryKey: ['parent-account-ids', user?.id],
+    enabled:  user?.role === 'parent' && !!user?.id && jwtStudentIds.length === 0,
+    staleTime: 60_000,
+    retry: 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('parent_accounts')
+        .select('student_ids')
+        .eq('school_id', user!.schoolId)
+        .eq('auth_user_id', user!.id)
+        .maybeSingle()
+      return (data?.student_ids as string[]) ?? []
+    },
+  })
+
+  const effectiveIds = jwtStudentIds.length > 0 ? jwtStudentIds : fallbackIds
+
+  const studentsQuery = useQuery({
+    queryKey: ['parent-students', user?.schoolId, effectiveIds],
+    enabled:  !!user?.schoolId && effectiveIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
         .select('id, school_id, admission_number, first_name, last_name, dob, gender, class_id, stream_id, photo_url, status, enrolled_at, student_type, nationality, religion, medical_notes, previous_school')
         .eq('school_id', user!.schoolId)
-        .in('id', studentIds)
+        .in('id', effectiveIds)
         .order('first_name')
 
       if (error) throw error
@@ -81,6 +105,12 @@ export function useParentStudents() {
       } satisfies Student))
     },
   })
+
+  // Combine loading: show skeleton while fetching account IDs OR student rows
+  return {
+    ...studentsQuery,
+    isLoading: idsLoading || studentsQuery.isLoading,
+  }
 }
 
 // ── useStudentReleasedReportCards ─────────────────────────────
@@ -179,30 +209,42 @@ export function useStudentFeeBalance(studentId: string | null) {
     queryKey: ['parent-fee-balance', user?.schoolId, studentId],
     enabled:  !!studentId && !!user?.schoolId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('fee_payments')
-        .select('id, amount_due, amount_paid, balance, payment_date, receipt_number, term')
-        .eq('school_id',  user!.schoolId)
-        .eq('student_id', studentId!)
-        .order('payment_date', { ascending: false, nullsFirst: false })
-        .order('term',         { ascending: false })
+      const [paymentsRes, fsRes] = await Promise.all([
+        supabase
+          .from('fee_payments')
+          .select('id, fee_structure_id, amount_due, amount_paid, balance, payment_date, receipt_number, term')
+          .eq('school_id',  user!.schoolId)
+          .eq('student_id', studentId!)
+          .order('term',         { ascending: false })
+          .order('payment_date', { ascending: false, nullsFirst: false }),
+        supabase
+          .from('fee_structure')
+          .select('id, name')
+          .eq('school_id', user!.schoolId),
+      ])
 
-      if (error) throw error
+      if (paymentsRes.error) throw paymentsRes.error
 
-      return ((data ?? []) as AnyRow[]).map(r => {
+      const feeNames = new Map<string, string>()
+      for (const f of (fsRes.data ?? []) as AnyRow[]) {
+        feeNames.set(f.id as string, f.name as string)
+      }
+
+      return ((paymentsRes.data ?? []) as AnyRow[]).map(r => {
         const amtDue  = Number(r.amount_due)  || 0
         const amtPaid = Number(r.amount_paid) || 0
-        // Always recompute balance — never trust the stored column which can be stale
         const balance = Math.max(0, amtDue - amtPaid)
+        const fsId    = r.fee_structure_id as string | null
         return {
           id:            r.id as string,
           termLabel:     `Term ${r.term}`,
+          feeName:       fsId ? (feeNames.get(fsId) ?? 'Fee Payment') : 'Fee Payment',
           amountDue:     amtDue,
           amountPaid:    amtPaid,
           balance,
           paymentDate:   (r.payment_date as string) ?? null,
           receiptNumber: (r.receipt_number as string) ?? null,
-          status:        calcFeeStatus(amtDue, amtPaid),
+          status:        calcFeeStatus(amtPaid, balance),
         } satisfies StudentFeeRecord
       })
     },
@@ -631,30 +673,31 @@ export function useGenerateParentAccess() {
       if (existingByEmail) {
         const existing = existingByEmail as AnyRow
         const currentIds = (existing.student_ids as string[]) ?? []
+        const needsLink  = !currentIds.includes(student.id)
 
         // Add this student to the existing account if not already there
-        if (!currentIds.includes(student.id)) {
+        if (needsLink) {
           await supabase
             .from('parent_accounts')
             .update({ student_ids: [...currentIds, student.id] })
             .eq('id', existing.id as string)
         }
 
-        // Try to create auth user if not already done
-        if (!existing.auth_user_id) {
-          await supabase.functions.invoke('create-parent-auth-user', {
-            body: {
-              parentAccountId: existing.id as string,
-              email:           loginEmail,
-              schoolId:        user!.schoolId,
-              password:        TEMP_PASSWORD,
-            },
-          }).catch(() => { /* Edge Function not deployed yet — auth_user_id stays null */ })
-        }
+        // Always sync auth claims so the JWT has up-to-date student_ids.
+        // Use stored temp_password (no credential change if they already have an account).
+        const password = (existing.temp_password as string) || TEMP_PASSWORD
+        await supabase.functions.invoke('create-parent-auth-user', {
+          body: {
+            parentAccountId: existing.id as string,
+            email:           loginEmail,
+            schoolId:        user!.schoolId,
+            password,
+          },
+        }).catch(() => { /* Edge Function not deployed — auth_user_id stays null */ })
 
         return {
           email:        loginEmail,
-          tempPassword: (existing.temp_password as string) ?? TEMP_PASSWORD,
+          tempPassword: password,
           isNew:        false,
           guardianName: guardianName ?? null,
         }

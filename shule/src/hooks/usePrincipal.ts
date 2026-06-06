@@ -207,15 +207,21 @@ export function useStudentFullProfile(studentId: string | null) {
       const [studentRes, resultsRes, attendanceRes, disciplineRes, feeRes] = await Promise.all([
         supabase
           .from('students')
-          .select('id, first_name, last_name, admission_number, dob, gender, status, class_id, stream_id, photo_url')
+          .select(
+            'id, first_name, last_name, admission_number, dob, gender, status,' +
+            ' class_id, stream_id, photo_url, nationality, religion, medical_notes,' +
+            ' student_type, previous_school, enrolled_at'
+          )
           .eq('school_id', sid)
           .eq('id', studentId!)
           .single(),
         supabase
           .from('exam_results')
-          .select('subject_id, score, grade, term, year, exam_journal_id')
+          .select('subject_id, score, grade, term, year')
           .eq('school_id', sid)
-          .eq('student_id', studentId!),
+          .eq('student_id', studentId!)
+          .order('year', { ascending: false })
+          .order('term', { ascending: false }),
         supabase
           .from('attendance')
           .select('status')
@@ -230,7 +236,7 @@ export function useStudentFullProfile(studentId: string | null) {
           .limit(10),
         supabase
           .from('fee_payments')
-          .select('amount_paid')
+          .select('amount_paid, amount_due')
           .eq('school_id', sid)
           .eq('student_id', studentId!),
       ])
@@ -243,35 +249,61 @@ export function useStudentFullProfile(studentId: string | null) {
       const presentDays  = att.filter((a: any) => a.status === 'present' || a.status === 'late').length
       const attendanceRate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0
 
-      let className = ''
-      if (stu.class_id) {
-        const { data: cls } = await supabase
-          .from('classes').select('name').eq('id', stu.class_id).maybeSingle()
-        className = cls?.name ?? ''
+      // Resolve class + stream names in parallel
+      const [classRes, streamRes] = await Promise.all([
+        stu.class_id
+          ? supabase.from('classes').select('name').eq('id', stu.class_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+        stu.stream_id
+          ? supabase.from('streams').select('name').eq('id', stu.stream_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ])
+      const className  = (classRes as any).data?.name  ?? ''
+      const streamName = (streamRes as any).data?.name ?? ''
+
+      // Resolve subject names for exam results
+      const rawResults = resultsRes.data ?? []
+      const subjectIds = [...new Set(rawResults.map((r: any) => r.subject_id).filter(Boolean))]
+      let subjectMap: Record<string, string> = {}
+      if (subjectIds.length > 0) {
+        const { data: subs } = await supabase
+          .from('subjects')
+          .select('id, name')
+          .in('id', subjectIds as string[])
+        subjectMap = Object.fromEntries((subs ?? []).map((s: any) => [s.id, s.name]))
       }
 
       const payments = (feeRes.data ?? []) as any[]
       const totalPaid = payments.reduce((s: number, p: any) => s + (p.amount_paid ?? 0), 0)
+      const totalDue  = payments.reduce((s: number, p: any) => s + (p.amount_due  ?? 0), 0)
 
       return {
-        id:             stu.id,
-        firstName:      stu.first_name,
-        lastName:       stu.last_name,
+        id:              stu.id,
+        firstName:       stu.first_name,
+        lastName:        stu.last_name,
         admissionNumber: stu.admission_number,
-        dob:            stu.dob,
-        gender:         stu.gender,
-        status:         stu.status,
-        photoUrl:       stu.photo_url,
+        dob:             stu.dob,
+        gender:          stu.gender,
+        status:          stu.status,
+        photoUrl:        stu.photo_url,
+        nationality:     stu.nationality,
+        religion:        stu.religion,
+        medicalNotes:    stu.medical_notes,
+        studentType:     stu.student_type,
+        previousSchool:  stu.previous_school,
+        enrolledAt:      stu.enrolled_at,
         className,
+        streamName,
         attendanceRate,
         totalDays,
         presentDays,
-        disciplineCount: (disciplineRes.data ?? []).length,
+        disciplineCount:  (disciplineRes.data ?? []).length,
         recentDiscipline: disciplineRes.data ?? [],
-        examResults:    resultsRes.data ?? [],
-        feeSummary: {
-          totalPaid,
-        },
+        examResults: rawResults.map((r: any) => ({
+          ...r,
+          subjectName: subjectMap[r.subject_id] ?? '—',
+        })),
+        feeSummary: { totalPaid, totalDue },
       }
     },
     staleTime: 5 * 60_000,
@@ -329,16 +361,34 @@ export function useSuspendStudent() {
   return useMutation({
     mutationFn: async ({ studentId, status }: { studentId: string; status: 'active' | 'suspended' | 'expelled' }) => {
       if (!user) throw new Error('Not authenticated')
+
+      // Fetch auth_user_id before updating status
+      const { data: stu } = await supabase
+        .from('students')
+        .select('auth_user_id')
+        .eq('id', studentId)
+        .eq('school_id', user.schoolId)
+        .single()
+
       const { error } = await supabase
         .from('students')
         .update({ status })
         .eq('id', studentId)
         .eq('school_id', user.schoolId)
       if (error) throw new Error(error.message)
+
+      // Disable/enable the auth account in Supabase
+      if (stu?.auth_user_id) {
+        await supabase.functions.invoke('set-user-disabled', {
+          body: { authUserId: stu.auth_user_id, disabled: status !== 'active' },
+        })
+      }
     },
     onSuccess: (_d, vars) => {
       void qc.invalidateQueries({ queryKey: ['student-full-profile', user?.schoolId, vars.studentId] })
       void qc.invalidateQueries({ queryKey: ['principal-kpis'] })
+      void qc.invalidateQueries({ queryKey: ['my-student-record'] })
+      void qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
     },
   })
 }

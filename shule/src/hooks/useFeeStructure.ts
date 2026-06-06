@@ -164,6 +164,34 @@ export function useToggleFeeActive() {
 }
 
 
+// ── useUpdateFeeItem ──────────────────────────────────────────
+// Full edit: name, amount, applies_to, term, class_id, is_compulsory, academic_year_id
+export function useUpdateFeeItem() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: AddFeeTypeInput & { id: string }) => {
+      const { error } = await supabase
+        .from('fee_structure')
+        .update({
+          name:             input.name.trim(),
+          amount:           input.amount,
+          applies_to:       input.appliesTo,
+          term:             input.term,
+          academic_year_id: input.academicYearId,
+          class_id:         input.classId,
+          is_compulsory:    input.isCompulsory,
+        })
+        .eq('id', input.id)
+        .eq('school_id', user!.schoolId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['fee-structure', user?.schoolId] })
+    },
+  })
+}
+
 // ── useDeleteFeeType ──────────────────────────────────────────
 export function useDeleteFeeType() {
   const { user } = useAuth()
@@ -174,6 +202,46 @@ export function useDeleteFeeType() {
       if (error) throw error
     },
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ['fee-structure', user?.schoolId] }) },
+  })
+}
+
+// ── useUnchargedCounts ────────────────────────────────────────
+// For each active fee structure item, count how many matching active students
+// have NO fee_payments row yet. Returns a map of feeStructureId → count.
+export function useUnchargedCounts(fees: FeeStructure[]) {
+  const { user } = useAuth()
+  const activeFees = fees.filter(f => f.isActive)
+
+  return useQuery({
+    queryKey: ['uncharged-counts-v2', user?.schoolId, activeFees.map(f => f.id).join(',')],
+    enabled:  !!user?.schoolId && activeFees.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const sid = user!.schoolId
+      const counts: Record<string, number> = {}
+
+      await Promise.all(activeFees.map(async fee => {
+        // Count matching active students
+        let sq = supabase.from('students').select('id', { count: 'exact', head: false })
+          .eq('school_id', sid).eq('status', 'active')
+        if (fee.classId)              sq = sq.eq('class_id', fee.classId)
+        if (fee.appliesTo === 'boarders')     sq = sq.eq('student_type', 'boarder')
+        if (fee.appliesTo === 'day_scholars') sq = sq.eq('student_type', 'day')
+        const { data: students } = await sq
+        const allIds = (students ?? []).map(s => s.id as string)
+        if (!allIds.length) { counts[fee.id] = 0; return }
+
+        // Count how many already have a payment record for this fee
+        const { data: billed } = await supabase.from('fee_payments')
+          .select('student_id').eq('school_id', sid)
+          .eq('fee_structure_id', fee.id).eq('term', fee.term)
+          .in('student_id', allIds)
+        const billedIds = new Set((billed ?? []).map(r => r.student_id as string))
+        counts[fee.id] = allIds.filter(id => !billedIds.has(id)).length
+      }))
+
+      return counts
+    },
   })
 }
 
@@ -204,7 +272,7 @@ export function useAutoChargeFees() {
       const inserts = toCharge.map(sid => ({
         school_id: user.schoolId, student_id: sid, fee_structure_id: feeStructureId,
         academic_year_id: academicYearId, term, amount_due: amount,
-        amount_paid: 0, balance: amount, imported: false, created_by: user.id,
+        amount_paid: 0, imported: false, created_by: user.staffId ?? null,
       }))
       for (let i = 0; i < inserts.length; i += 100) {
         const { error } = await supabase.from('fee_payments').insert(inserts.slice(i, i + 100))
@@ -213,6 +281,7 @@ export function useAutoChargeFees() {
       return { charged: toCharge.length }
     },
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['uncharged-counts-v2'] })
       void qc.invalidateQueries({ queryKey: ['fee-payments', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['bursar-student-fees'] })
       void qc.invalidateQueries({ queryKey: ['bursar-kpis'] })

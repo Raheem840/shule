@@ -31,19 +31,24 @@ export type BursarKpis = {
   unpaidCount: number
 }
 
-export function useBursarKpis(term: number, year: number) {
+export function useBursarKpis(term: number, academicYearId: string | null) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['bursar-kpis', user?.schoolId, term, year],
+    queryKey: ['bursar-kpis', user?.schoolId, term, academicYearId],
     enabled:  !!user?.schoolId,
     queryFn: async () => {
-      void year
-      const { data, error } = await supabase
+      let q = supabase
         .from('fee_payments')
-        .select('student_id, amount_due, amount_paid, balance')
+        .select('student_id, amount_due, amount_paid')
         .eq('school_id', user!.schoolId)
         .eq('term', term)
+
+      if (academicYearId) {
+        q = q.eq('academic_year_id', academicYearId)
+      }
+
+      const { data, error } = await q
 
       if (error) return { expected: 0, collected: 0, outstanding: 0, unpaidCount: 0 }
 
@@ -51,12 +56,12 @@ export function useBursarKpis(term: number, year: number) {
       let expected = 0, collected = 0, outstanding = 0
       const unpaidByStudent = new Map<string, boolean>()
       for (const r of rows) {
-        const due = Number(r.amount_due) || 0
+        const due  = Number(r.amount_due)  || 0
         const paid = Number(r.amount_paid) || 0
-        const bal = Number(r.balance) || (due - paid)
-        expected += due
-        collected += paid
-        outstanding += Math.max(0, bal)
+        const bal  = Math.max(0, due - paid)
+        expected    += due
+        collected   += paid
+        outstanding += bal
         const sid = r.student_id as string
         const prev = unpaidByStudent.get(sid)
         const fullyUnpaid = paid <= 0 && due > 0
@@ -96,20 +101,22 @@ export type ClassFeeData = {
   outstanding: number
 }
 
-export function useFeeCollectionByClass(term: number, year: number) {
+export function useFeeCollectionByClass(term: number, academicYearId: string | null) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['fee-by-class', user?.schoolId, term, year],
+    queryKey: ['fee-by-class', user?.schoolId, term, academicYearId],
     enabled:  !!user?.schoolId,
     queryFn: async () => {
-      void year
+      let feeQ = supabase
+        .from('fee_payments')
+        .select('student_id, amount_paid, balance')
+        .eq('school_id', user!.schoolId)
+        .eq('term', term)
+      if (academicYearId) feeQ = feeQ.eq('academic_year_id', academicYearId)
+
       const [paymentsRes, studentsRes, classesRes] = await Promise.all([
-        supabase
-          .from('fee_payments')
-          .select('student_id, amount_paid, balance')
-          .eq('school_id', user!.schoolId)
-          .eq('term', term),
+        feeQ,
         supabase
           .from('students')
           .select('id, class_id')
@@ -327,13 +334,24 @@ export function useFeePayments(filters: FeeFilters = {}) {
     queryKey: ['fee-payments', user?.schoolId, filters],
     enabled:  !!user?.schoolId,
     queryFn: async () => {
+      // Resolve active academic year to scope data (fee_payments has no 'year' int column)
+      const { data: activeYearData } = await supabase
+        .from('academic_years')
+        .select('id')
+        .eq('school_id', user!.schoolId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      let feeQ = supabase
+        .from('fee_payments')
+        .select('id, school_id, student_id, fee_structure_id, academic_year_id, amount_due, amount_paid, balance, payment_date, receipt_number, term, notes, imported, created_by')
+        .eq('school_id', user!.schoolId)
+        .eq('term', term)
+        .order('payment_date', { ascending: false })
+      if (activeYearData?.id) feeQ = feeQ.eq('academic_year_id', activeYearData.id)
+
       const [paymentsRes, studentsRes, classesRes, streamsRes] = await Promise.all([
-        supabase
-          .from('fee_payments')
-          .select('id, school_id, student_id, fee_structure_id, academic_year_id, amount_due, amount_paid, balance, payment_date, receipt_number, term, notes, imported, created_by')
-          .eq('school_id', user!.schoolId)
-          .eq('term', term)
-          .order('payment_date', { ascending: false }),
+        feeQ,
         supabase
           .from('students')
           .select('id, admission_number, first_name, last_name, class_id, stream_id')
@@ -457,7 +475,6 @@ export function useAddPayment() {
 
   return useMutation({
     mutationFn: async (input: AddPaymentInput) => {
-      const balance = input.amountDue - input.amountPaid
       const { data, error } = await supabase
         .from('fee_payments')
         .insert({
@@ -466,13 +483,13 @@ export function useAddPayment() {
           fee_structure_id: input.feeStructureId,
           academic_year_id: input.academicYearId,
           amount_due:       input.amountDue,
-          amount_paid:    input.amountPaid,
-          balance,
-          payment_date:   input.paymentDate || null,
-          receipt_number: input.receiptNumber || null,
-          notes:          input.notes || null,
-          term:           input.term,
-          imported:       false,
+          amount_paid:      input.amountPaid,
+          payment_date:     input.paymentDate || null,
+          receipt_number:   input.receiptNumber || null,
+          notes:            input.notes || null,
+          term:             input.term,
+          imported:         false,
+          created_by:       user!.staffId ?? null,
         })
         .select('id')
         .single()
@@ -509,7 +526,7 @@ export function useUpdatePayment() {
 
       const { error: updErr } = await supabase
         .from('fee_payments')
-        .update({ amount_paid: input.amountPaid, balance: newBalance })
+        .update({ amount_paid: input.amountPaid })
         .eq('id', input.id)
         .eq('school_id', user!.schoolId)
 
@@ -535,6 +552,116 @@ export function useUpdatePayment() {
       qc.invalidateQueries({ queryKey: ['bursar-kpis',     user?.schoolId] })
       qc.invalidateQueries({ queryKey: ['fee-by-class',    user?.schoolId] })
       qc.invalidateQueries({ queryKey: ['recent-payments', user?.schoolId] })
+    },
+  })
+}
+
+// ── useStudentFeeRows ─────────────────────────────────────────
+// Loads ALL fee_payments rows for a specific student + term.
+// Used by AddPaymentPage to show existing charges and allow the
+// bursar to pick which row to apply a payment to.
+export type StudentFeeRow = {
+  id:             string
+  feeStructureId: string | null
+  feeName:        string          // resolved from fee_structure.name or placeholder
+  amountDue:      number
+  amountPaid:     number
+  balance:        number
+  term:           number
+  paymentDate:    string | null
+  receiptNumber:  string | null
+  notes:          string | null
+  academicYearId: string | null
+}
+
+export function useStudentFeeRows(studentId: string | null, term: number) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['student-fee-rows', user?.schoolId, studentId, term],
+    enabled:  !!user?.schoolId && !!studentId,
+    queryFn: async () => {
+      const [paymentsRes, feeStructureRes] = await Promise.all([
+        supabase
+          .from('fee_payments')
+          .select('id, fee_structure_id, amount_due, amount_paid, balance, term, payment_date, receipt_number, notes, academic_year_id')
+          .eq('school_id', user!.schoolId)
+          .eq('student_id', studentId!)
+          .eq('term', term)
+          .order('payment_date', { ascending: false }),
+        supabase
+          .from('fee_structure')
+          .select('id, name')
+          .eq('school_id', user!.schoolId),
+      ])
+
+      if (paymentsRes.error) throw paymentsRes.error
+
+      const feeNames = new Map<string, string>()
+      for (const f of feeStructureRes.data ?? []) {
+        feeNames.set(f.id as string, f.name as string)
+      }
+
+      return (paymentsRes.data ?? []).map(r => {
+        const due  = Number(r.amount_due)  || 0
+        const paid = Number(r.amount_paid) || 0
+        const bal  = Number(r.balance) ?? (due - paid)
+        const fsId = (r.fee_structure_id as string) ?? null
+        return {
+          id:             r.id as string,
+          feeStructureId: fsId,
+          feeName:        fsId ? (feeNames.get(fsId) ?? 'Fee Item') : 'Manual Entry',
+          amountDue:      due,
+          amountPaid:     paid,
+          balance:        Math.max(0, bal),
+          term:           Number(r.term) || term,
+          paymentDate:    (r.payment_date as string)   ?? null,
+          receiptNumber:  (r.receipt_number as string) ?? null,
+          notes:          (r.notes as string)          ?? null,
+          academicYearId: (r.academic_year_id as string) ?? null,
+        } satisfies StudentFeeRow
+      })
+    },
+  })
+}
+
+// ── useApplyPayment ───────────────────────────────────────────
+// Updates amount_paid + receipt_number + payment_date on an
+// existing fee_payments row (does NOT re-insert balance — DB computes it).
+export type ApplyPaymentInput = {
+  id:            string
+  amountPaid:    number
+  paymentDate:   string
+  receiptNumber: string | null
+  notes:         string | null
+}
+
+export function useApplyPayment() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: ApplyPaymentInput) => {
+      const { error } = await supabase
+        .from('fee_payments')
+        .update({
+          amount_paid:    input.amountPaid,
+          payment_date:   input.paymentDate || null,
+          receipt_number: input.receiptNumber || null,
+          notes:          input.notes || null,
+        })
+        .eq('id', input.id)
+        .eq('school_id', user!.schoolId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['student-fee-rows'] })
+      qc.invalidateQueries({ queryKey: ['fee-payments',    user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['bursar-kpis',     user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['fee-by-class',    user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['recent-payments', user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['bursar-student-fees'] })
     },
   })
 }
