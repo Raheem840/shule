@@ -60,10 +60,14 @@ function ToastCard({
   const [visible, setVisible]   = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Slide-in after mount
+  // Slide-in after mount — double rAF ensures first render (offscreen) is
+  // committed before we trigger the transition, preventing React 18 batch collapse
   useEffect(() => {
-    const t = requestAnimationFrame(() => setVisible(true))
-    return () => cancelAnimationFrame(t)
+    let inner: number
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setVisible(true))
+    })
+    return () => { cancelAnimationFrame(outer); cancelAnimationFrame(inner) }
   }, [])
 
   // Progress bar countdown
