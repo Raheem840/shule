@@ -326,7 +326,7 @@ export function SchoolProfilePage() {
 
         {/* Info tiles */}
         {!editMode && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, animation: 'spg-up 0.3s ease both' }}>
+          <div className="mob-grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, animation: 'spg-up 0.3s ease both' }}>
             {[
               { label: 'Short Name', value: data?.shortName, mono: true },
               { label: 'Curriculum', value: data?.curriculum },

@@ -192,6 +192,74 @@ function CredentialDeliveryPanel({ cred, schoolName, onDismiss }: {
   )
 }
 
+// ── setUserDisabled helper ────────────────────────────────────────────────────
+async function callSetUserDisabled(authUserId: string, disabled: boolean): Promise<void> {
+  const { error } = await supabase.functions.invoke('set-user-disabled', {
+    body: { authUserId, disabled },
+  })
+  if (error) throw new Error(error.message)
+}
+
+// ── Deactivate Confirm Modal ──────────────────────────────────────────────────
+function DeactivateConfirmModal({
+  name,
+  role,
+  onConfirm,
+  onCancel,
+  busy,
+}: {
+  name: string
+  role: string
+  onConfirm: () => void
+  onCancel: () => void
+  busy: boolean
+}) {
+  const [typed, setTyped] = useState('')
+  const isPrincipal = role === 'principal'
+  const confirmWord = isPrincipal ? name : 'DEACTIVATE'
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 420, boxShadow: '0 24px 80px rgba(0,0,0,.28)' }}>
+        <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(244,63,94,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 17, color: 'var(--txt)', marginBottom: 8, textAlign: 'center' }}>
+          Revoke System Access
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--txt2)', marginBottom: 6, lineHeight: 1.6, textAlign: 'center' }}>
+          <strong>{name}</strong> will be immediately locked out.
+        </p>
+        <p style={{ fontSize: 13, color: 'var(--txt3)', marginBottom: 16, lineHeight: 1.6, textAlign: 'center' }}>
+          {isPrincipal
+            ? <>Type their full name — <strong style={{ color: 'var(--txt)' }}>{confirmWord}</strong> — to confirm.</>
+            : <>Type <strong style={{ color: 'var(--txt)', fontFamily: 'var(--font3)' }}>{confirmWord}</strong> to confirm.</>
+          }
+        </p>
+        <input
+          value={typed}
+          onChange={e => setTyped(e.target.value)}
+          className="sui-input"
+          style={{ width: '100%', marginBottom: 16 }}
+          placeholder={isPrincipal ? 'Type full name…' : 'Type DEACTIVATE…'}
+          autoFocus
+        />
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onCancel} style={{ padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+            Cancel
+          </button>
+          <button
+            disabled={typed.trim() !== confirmWord || busy}
+            onClick={onConfirm}
+            style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--danger)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: typed.trim() === confirmWord && !busy ? 'pointer' : 'not-allowed', opacity: typed.trim() !== confirmWord || busy ? 0.45 : 1 }}
+          >
+            {busy ? 'Deactivating…' : 'Deactivate'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Link Auth Modal ───────────────────────────────────────────────────────────
 function LinkAuthModal({ staffId, staffName, onClose }: { staffId: string; staffName: string; onClose: () => void }) {
   const [uuid, setUuid] = useState('')
@@ -285,62 +353,132 @@ function PendingCard({ staff, deptName, onActivated }: { staff: Staff; deptName:
 }
 
 // ── Active staff card ─────────────────────────────────────────────────────────
-function ActiveCard({ staff, deptName, onReset, onLink }: { staff: Staff; deptName: string | null; onReset: (c: CredInfo) => void; onLink: (staffId: string, name: string) => void }) {
+function ActiveCard({ staff, deptName, onReset, onLink, onDeactivated }: { staff: Staff; deptName: string | null; onReset: (c: CredInfo) => void; onLink: (staffId: string, name: string) => void; onDeactivated: () => void }) {
   const [c1, c2] = roleGrad(staff.role)
   const reset    = useResetStaffPassword()
-  const { error: err }  = useToast()
+  const qc       = useQueryClient()
+  const { error: err, success: ok } = useToast()
+  const [deactivateBusy,   setDeactivateBusy]   = useState(false)
+  const [showPrincipalConfirm, setShowPrincipalConfirm] = useState(false)
+  const staffName = `${staff.firstName} ${staff.lastName}`
 
   async function handleReset() {
     if (!staff.authUserId || !staff.email) return
     try {
-      const r = await reset.mutateAsync({ authUserId: staff.authUserId, staffId: staff.id, email: staff.email, name: `${staff.firstName} ${staff.lastName}` })
-      onReset({ staffId: staff.id, staffName: `${staff.firstName} ${staff.lastName}`, role: staff.role, deptName, email: staff.email, password: r.tempPassword, phone: staff.phone, manual: r.manual })
+      const r = await reset.mutateAsync({ authUserId: staff.authUserId, staffId: staff.id, email: staff.email, name: staffName })
+      onReset({ staffId: staff.id, staffName, role: staff.role, deptName, email: staff.email, password: r.tempPassword, phone: staff.phone, manual: r.manual })
     } catch (e) { err(e instanceof Error ? e.message : 'Reset failed') }
   }
 
+  async function doDeactivate() {
+    if (!staff.authUserId) return
+    setDeactivateBusy(true)
+    try {
+      await Promise.all([
+        supabase.from('staff').update({ is_active: false }).eq('id', staff.id),
+        callSetUserDisabled(staff.authUserId, true),
+      ])
+      ok(`${staffName}'s access revoked`)
+      void qc.invalidateQueries({ queryKey: ['staff'] })
+      onDeactivated()
+    } catch (e) { err(e instanceof Error ? e.message : 'Deactivation failed') }
+    finally { setDeactivateBusy(false); setShowPrincipalConfirm(false) }
+  }
+
+  async function doReactivate() {
+    if (!staff.authUserId) return
+    setDeactivateBusy(true)
+    try {
+      await Promise.all([
+        supabase.from('staff').update({ is_active: true }).eq('id', staff.id),
+        callSetUserDisabled(staff.authUserId, false),
+      ])
+      ok(`${staffName}'s access restored`)
+      void qc.invalidateQueries({ queryKey: ['staff'] })
+      onDeactivated()
+    } catch (e) { err(e instanceof Error ? e.message : 'Reactivation failed') }
+    finally { setDeactivateBusy(false) }
+  }
+
+  function handleDeactivateClick() {
+    setShowPrincipalConfirm(true)
+  }
+
+  const isActive = staff.isActive !== false
+
   return (
-    <div style={{ borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', overflow: 'hidden' }}>
-      <div style={{ height: 3, background: `linear-gradient(90deg,${c1},${c2})` }} />
-      <div style={{ padding: '16px 16px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <div style={{ position: 'relative', flexShrink: 0 }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', background: `linear-gradient(135deg,${c1},${c2})`, padding: 2 }}>
-              <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: 'var(--surface)' }}>
-                <Avatar photoPath={staff.photoUrl} bucket="staff-photos" name={`${staff.firstName} ${staff.lastName}`} size="md" />
+    <>
+      <div style={{ borderRadius: 14, border: `1px solid ${isActive ? 'var(--border)' : 'rgba(244,63,94,.25)'}`, background: isActive ? 'var(--surface)' : 'rgba(244,63,94,.03)', overflow: 'hidden' }}>
+        <div style={{ height: 3, background: `linear-gradient(90deg,${c1},${c2})` }} />
+        <div style={{ padding: '16px 16px 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: `linear-gradient(135deg,${c1},${c2})`, padding: 2, opacity: isActive ? 1 : 0.5 }}>
+                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: 'var(--surface)' }}>
+                  <Avatar photoPath={staff.photoUrl} bucket="staff-photos" name={staffName} size="md" />
+                </div>
+              </div>
+              <div style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: isActive ? 'var(--success)' : 'var(--danger)', border: '2px solid var(--surface)' }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{staffName}</div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, color: c1, background: `${c1}18`, padding: '2px 8px', borderRadius: 99 }}>{ROLE_LABELS[staff.role] ?? staff.role}</span>
+                {isActive
+                  ? <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--success)', background: 'rgba(16,185,129,.1)', padding: '2px 7px', borderRadius: 99 }}>● Active</span>
+                  : <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)',  background: 'rgba(244,63,94,.1)',  padding: '2px 7px', borderRadius: 99 }}>● Deactivated</span>
+                }
               </div>
             </div>
-            <div style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: 'var(--success)', border: '2px solid var(--surface)' }} />
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{staff.firstName} {staff.lastName}</div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, color: c1, background: `${c1}18`, padding: '2px 8px', borderRadius: 99 }}>{ROLE_LABELS[staff.role] ?? staff.role}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--success)', background: 'rgba(16,185,129,.1)', padding: '2px 7px', borderRadius: 99 }}>● Active</span>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
+            {staff.email && <span style={{ fontSize: 11.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{staff.email}</span>}
+            {deptName && <span style={{ fontSize: 11.5, color: 'var(--txt3)' }}>{deptName}</span>}
+            <span style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>{staff.staffNumber}</span>
           </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
-          {staff.email && <span style={{ fontSize: 11.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{staff.email}</span>}
-          {deptName && <span style={{ fontSize: 11.5, color: 'var(--txt3)' }}>{deptName}</span>}
-          <span style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>{staff.staffNumber}</span>
-        </div>
-        <div style={{ display: 'flex', gap: 7 }}>
-          <button onClick={() => void handleReset()} disabled={!staff.authUserId || !staff.email || reset.isPending}
-            style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: '1px solid rgba(245,158,11,.3)', background: 'rgba(245,158,11,.08)', color: 'var(--warning)', fontWeight: 700, fontSize: 12, cursor: reset.isPending ? 'wait' : 'pointer', opacity: reset.isPending ? 0.7 : 1, transition: 'all 0.15s' }}
-            onMouseEnter={e => { if (!reset.isPending) e.currentTarget.style.background = 'rgba(245,158,11,.15)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,.08)' }}>
-            {reset.isPending ? 'Resetting…' : '↺ Reset Password'}
-          </button>
-          <button onClick={() => onLink(staff.id, `${staff.firstName} ${staff.lastName}`)}
-            style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)', fontWeight: 700, fontSize: 11, cursor: 'pointer', transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.color = 'var(--txt2)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--txt3)' }}
-            title="Manually link a Supabase auth UUID">
-            Link
-          </button>
+          <div style={{ display: 'flex', gap: 7 }}>
+            {isActive ? (
+              <>
+                <button onClick={() => void handleReset()} disabled={!staff.authUserId || !staff.email || reset.isPending}
+                  style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: '1px solid rgba(245,158,11,.3)', background: 'rgba(245,158,11,.08)', color: 'var(--warning)', fontWeight: 700, fontSize: 12, cursor: reset.isPending ? 'wait' : 'pointer', opacity: reset.isPending ? 0.7 : 1, transition: 'all 0.15s' }}
+                  onMouseEnter={e => { if (!reset.isPending) e.currentTarget.style.background = 'rgba(245,158,11,.15)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,.08)' }}>
+                  {reset.isPending ? 'Resetting…' : '↺ Reset Password'}
+                </button>
+                <button onClick={() => onLink(staff.id, staffName)}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)', fontWeight: 700, fontSize: 11, cursor: 'pointer', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.color = 'var(--txt2)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--txt3)' }}
+                  title="Manually link a Supabase auth UUID">
+                  Link
+                </button>
+                <button onClick={() => handleDeactivateClick()} disabled={deactivateBusy || !staff.authUserId}
+                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid rgba(244,63,94,.3)', background: 'rgba(244,63,94,.08)', color: 'var(--danger)', fontWeight: 700, fontSize: 11, cursor: deactivateBusy ? 'wait' : 'pointer', opacity: deactivateBusy ? 0.6 : 1, transition: 'all 0.15s' }}
+                  onMouseEnter={e => { if (!deactivateBusy) e.currentTarget.style.background = 'rgba(244,63,94,.15)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(244,63,94,.08)' }}
+                  title="Revoke system access">
+                  {deactivateBusy ? '…' : 'Deactivate'}
+                </button>
+              </>
+            ) : (
+              <button onClick={() => void doReactivate()} disabled={deactivateBusy || !staff.authUserId}
+                style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: deactivateBusy ? 'wait' : 'pointer', opacity: deactivateBusy ? 0.7 : 1, transition: 'all 0.15s' }}>
+                {deactivateBusy ? 'Reactivating…' : '↑ Restore Access'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+      {showPrincipalConfirm && (
+        <DeactivateConfirmModal
+          name={staffName}
+          role={staff.role}
+          busy={deactivateBusy}
+          onConfirm={() => void doDeactivate()}
+          onCancel={() => setShowPrincipalConfirm(false)}
+        />
+      )}
+    </>
   )
 }
 
@@ -617,6 +755,7 @@ type StudentLoginRow = {
   admission_number: string
   class_id:         string | null
   auth_user_id:     string | null
+  status:           'active' | 'suspended' | 'expelled'
 }
 
 // ── StudentCredInfo ──────────────────────────────────────────────────────────
@@ -808,14 +947,18 @@ function StudentPendingCard({ student, className, pending, schoolId, onActivated
 }
 
 // ── StudentActiveCard ─────────────────────────────────────────────────────────
-function StudentActiveCard({ student, className, onReset }: {
+function StudentActiveCard({ student, className, onReset, onToggled }: {
   student:   StudentLoginRow
   className: string | null
   onReset:   (c: StudentCredInfo) => void
+  onToggled: () => void
 }) {
-  const reset       = useResetStudentPassword()
-  const { error: err }     = useToast()
-  const name        = `${student.first_name} ${student.last_name}`
+  const reset  = useResetStudentPassword()
+  const qc     = useQueryClient()
+  const { error: err, success: ok } = useToast()
+  const name   = `${student.first_name} ${student.last_name}`
+  const [busy,        setBusy]        = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   async function handleReset() {
     if (!student.auth_user_id) return
@@ -831,22 +974,60 @@ function StudentActiveCard({ student, className, onReset }: {
     } catch (e) { err(e instanceof Error ? e.message : 'Reset failed') }
   }
 
+  async function doDeactivate() {
+    if (!student.auth_user_id) return
+    setBusy(true)
+    try {
+      await Promise.all([
+        supabase.from('students').update({ status: 'suspended' }).eq('id', student.id),
+        callSetUserDisabled(student.auth_user_id, true),
+      ])
+      ok(`${name}'s access revoked`)
+      void qc.invalidateQueries({ queryKey: ['students-active-login'] })
+      void qc.invalidateQueries({ queryKey: ['my-student-record'] })
+      onToggled()
+    } catch (e) { err(e instanceof Error ? e.message : 'Deactivation failed') }
+    finally { setBusy(false) }
+  }
+
+  async function doReactivate() {
+    if (!student.auth_user_id) return
+    setBusy(true)
+    try {
+      await Promise.all([
+        supabase.from('students').update({ status: 'active' }).eq('id', student.id),
+        callSetUserDisabled(student.auth_user_id, false),
+      ])
+      ok(`${name}'s access restored`)
+      void qc.invalidateQueries({ queryKey: ['students-active-login'] })
+      void qc.invalidateQueries({ queryKey: ['my-student-record'] })
+      onToggled()
+    } catch (e) { err(e instanceof Error ? e.message : 'Reactivation failed') }
+    finally { setBusy(false) }
+  }
+
+  const isActive = student.status === 'active'
+
   return (
-    <div style={{ borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', overflow: 'hidden' }}>
+    <>
+    <div style={{ borderRadius: 14, border: `1px solid ${isActive ? 'var(--border)' : 'rgba(244,63,94,.25)'}`, background: isActive ? 'var(--surface)' : 'rgba(244,63,94,.03)', overflow: 'hidden' }}>
       <div style={{ height: 3, background: 'linear-gradient(90deg,#0ea5e9,#0d9488)' }} />
       <div style={{ padding: '16px 16px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg,#0ea5e9,#0d9488)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg,#0ea5e9,#0d9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isActive ? 1 : 0.5 }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             </div>
-            <div style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: 'var(--success)', border: '2px solid var(--surface)' }} />
+            <div style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: isActive ? 'var(--success)' : 'var(--danger)', border: '2px solid var(--surface)' }} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, color: '#0ea5e9', background: 'rgba(14,165,233,.12)', padding: '2px 8px', borderRadius: 99 }}>Student</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--success)', background: 'rgba(16,185,129,.1)', padding: '2px 7px', borderRadius: 99 }}>● Active</span>
+              {isActive
+                ? <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--success)', background: 'rgba(16,185,129,.1)', padding: '2px 7px', borderRadius: 99 }}>● Active</span>
+                : <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--danger)',  background: 'rgba(244,63,94,.1)',  padding: '2px 7px', borderRadius: 99 }}>● {student.status}</span>
+              }
             </div>
           </div>
         </div>
@@ -854,21 +1035,144 @@ function StudentActiveCard({ student, className, onReset }: {
           {className && <span style={{ fontSize: 11.5, color: 'var(--txt3)' }}>{className}</span>}
           <span style={{ fontSize: 11.5, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>{student.admission_number}</span>
         </div>
-        <button onClick={() => void handleReset()} disabled={!student.auth_user_id || reset.isPending}
-          style={{ width: '100%', padding: '8px 0', borderRadius: 10, border: '1px solid rgba(245,158,11,.3)', background: 'rgba(245,158,11,.08)', color: 'var(--warning)', fontWeight: 700, fontSize: 12, cursor: reset.isPending ? 'wait' : 'pointer', opacity: reset.isPending ? 0.7 : 1, transition: 'all 0.15s' }}
-          onMouseEnter={e => { if (!reset.isPending) e.currentTarget.style.background = 'rgba(245,158,11,.15)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,.08)' }}>
-          {reset.isPending ? 'Resetting…' : '↺ Reset Password'}
-        </button>
+        {isActive ? (
+          <div style={{ display: 'flex', gap: 7 }}>
+            <button onClick={() => void handleReset()} disabled={!student.auth_user_id || reset.isPending}
+              style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: '1px solid rgba(245,158,11,.3)', background: 'rgba(245,158,11,.08)', color: 'var(--warning)', fontWeight: 700, fontSize: 12, cursor: reset.isPending ? 'wait' : 'pointer', opacity: reset.isPending ? 0.7 : 1, transition: 'all 0.15s' }}
+              onMouseEnter={e => { if (!reset.isPending) e.currentTarget.style.background = 'rgba(245,158,11,.15)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,.08)' }}>
+              {reset.isPending ? 'Resetting…' : '↺ Reset Password'}
+            </button>
+            <button onClick={() => setShowConfirm(true)} disabled={busy || !student.auth_user_id}
+              style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid rgba(244,63,94,.3)', background: 'rgba(244,63,94,.08)', color: 'var(--danger)', fontWeight: 700, fontSize: 11, cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1, transition: 'all 0.15s' }}
+              onMouseEnter={e => { if (!busy) e.currentTarget.style.background = 'rgba(244,63,94,.15)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(244,63,94,.08)' }}>
+              {busy ? '…' : 'Deactivate'}
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => void doReactivate()} disabled={busy || !student.auth_user_id}
+            style={{ width: '100%', padding: '8px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.7 : 1, transition: 'all 0.15s' }}>
+            {busy ? 'Reactivating…' : '↑ Restore Access'}
+          </button>
+        )}
+      </div>
+    </div>
+    {showConfirm && (
+      <DeactivateConfirmModal
+        name={name}
+        role="student"
+        busy={busy}
+        onConfirm={() => void doDeactivate()}
+        onCancel={() => setShowConfirm(false)}
+      />
+    )}
+    </>
+  )
+}
+
+// ── ParentAccountCard ─────────────────────────────────────────────────────────
+function ParentAccountCard({ parent, schoolId, onActivated }: {
+  parent: { id: string; email: string; full_name: string | null; phone: string | null; auth_user_id: string | null; temp_password: string | null; student_ids: string[] }
+  schoolId: string
+  onActivated: () => void
+}) {
+  const { success: ok, error: err } = useToast()
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const isPending = !parent.auth_user_id
+
+  async function handleActivate() {
+    setBusy(true)
+    try {
+      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$'
+      const arr = new Uint8Array(12); crypto.getRandomValues(arr)
+      const password = Array.from(arr, b => chars[b % chars.length]).join('')
+      const { error } = await supabase.functions.invoke('create-parent-auth-user', {
+        body: { parentAccountId: parent.id, email: parent.email, schoolId, password },
+      })
+      if (error) throw new Error(error.message)
+      ok(`Account created for ${parent.full_name ?? parent.email}`)
+      onActivated()
+    } catch (e: any) { err(e.message ?? 'Failed to create account') }
+    finally { setBusy(false) }
+  }
+
+  const name = parent.full_name ?? parent.email
+
+  return (
+    <div style={{ background: 'var(--surface)', borderRadius: 14, border: `1px solid ${isPending ? 'rgba(245,158,11,.3)' : 'var(--border)'}`, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+      <div style={{ height: 3, background: isPending ? 'var(--warning)' : 'var(--success)' }} />
+      <div style={{ padding: '14px 16px' }}>
+        <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: 'var(--txt)', marginBottom: 4 }}>{name}</div>
+        <div style={{ fontSize: 11.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginBottom: 2 }}>{parent.email}</div>
+        {parent.phone && <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginBottom: 6 }}>{parent.phone}</div>}
+        <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 10 }}>
+          {parent.student_ids.length} linked student{parent.student_ids.length !== 1 ? 's' : ''}
+        </div>
+        {!isPending && parent.temp_password && (
+          <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 3 }}>Stored Password</div>
+            <div style={{ fontFamily: 'var(--font3)', fontSize: 12.5, color: 'var(--txt)', fontWeight: 600 }}>{parent.temp_password}</div>
+          </div>
+        )}
+        {isPending ? (
+          <button onClick={() => void handleActivate()} disabled={busy}
+            style={{ width: '100%', padding: '9px 0', borderRadius: 10, border: 'none', background: busy ? 'var(--border)' : 'linear-gradient(135deg,#0d9488,#0ea5e9)', color: busy ? 'var(--txt3)' : '#fff', fontWeight: 700, fontSize: 12.5, cursor: busy ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+            {busy ? 'Creating…' : <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Create Account</>}
+          </button>
+        ) : (
+          <button onClick={() => { void navigator.clipboard.writeText(`Email: ${parent.email}\nPassword: ${parent.temp_password ?? '—'}`); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+            style={{ width: '100%', padding: '8px 0', borderRadius: 10, border: '1px solid var(--border)', background: copied ? 'rgba(16,185,129,.08)' : 'var(--surface2)', color: copied ? 'var(--success)' : 'var(--txt2)', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+            {copied ? '✓ Copied' : 'Copy Credentials'}
+          </button>
+        )}
       </div>
     </div>
   )
 }
 
+// ── CredVaultRow ──────────────────────────────────────────────────────────────
+function CredVaultRow({ entry, schoolName }: { entry: { id: string; name: string; type: string; email: string; password: string }; schoolName: string }) {
+  const [revealed, setRevealed] = useState(false)
+  const [copied,   setCopied]   = useState(false)
+  const typeColor: Record<string, string> = { Staff: '#8b5cf6', Student: '#0ea5e9', Parent: '#f59e0b' }
+  const color = typeColor[entry.type] ?? 'var(--txt3)'
+
+  return (
+    <tr style={{ borderBottom: '1px solid var(--border)' }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = '' }}>
+      <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>{entry.name}</td>
+      <td style={{ padding: '10px 14px' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color, background: `${color}14`, border: `.5px solid ${color}40`, borderRadius: 99, padding: '2px 8px' }}>{entry.type}</span>
+      </td>
+      <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--txt2)', fontFamily: 'var(--font3)' }}>{entry.email}</td>
+      <td style={{ padding: '10px 14px', fontFamily: 'var(--font3)', fontSize: 13, color: revealed ? 'var(--txt)' : 'var(--txt3)', cursor: 'pointer', userSelect: revealed ? 'text' : 'none' }}
+        onMouseEnter={() => setRevealed(true)} onMouseLeave={() => setRevealed(false)}>
+        {revealed ? entry.password : '••••••••'}
+      </td>
+      <td style={{ padding: '10px 14px' }}>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => { void navigator.clipboard.writeText(`${entry.name}\nEmail: ${entry.email}\nPassword: ${entry.password}`); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+            style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: copied ? 'rgba(16,185,129,.08)' : 'var(--surface)', color: copied ? 'var(--success)' : 'var(--txt2)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            {copied ? '✓' : 'Copy'}
+          </button>
+          <button onClick={() => printCredentialSlip({ staffName: entry.name, role: entry.type, deptName: null, email: entry.email, password: entry.password, schoolName })}
+            style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            Print
+          </button>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 export function AdminUsersPage() {
-  // Top-level section switcher: Staff | Students
-  const [section,    setSection]    = useState<'staff' | 'students'>('staff')
+  const qc = useQueryClient()
+  // Top-level section switcher: Staff | Students | Parents | Credentials
+  const [section,    setSection]    = useState<'staff' | 'students' | 'parents' | 'credentials'>('staff')
   const [tab,        setTab]        = useState<'pending' | 'active'>('pending')
   const [search,     setSearch]     = useState('')
   const [roleFilter, setRoleFilter] = useState('')
@@ -924,7 +1228,7 @@ export function AdminUsersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
-        .select('id, school_id, first_name, last_name, admission_number, class_id, auth_user_id')
+        .select('id, school_id, first_name, last_name, admission_number, class_id, auth_user_id, status')
         .eq('school_id', schoolId)
         .is('auth_user_id', null)
         .order('last_name', { ascending: true })
@@ -939,7 +1243,7 @@ export function AdminUsersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
-        .select('id, school_id, first_name, last_name, admission_number, class_id, auth_user_id')
+        .select('id, school_id, first_name, last_name, admission_number, class_id, auth_user_id, status')
         .eq('school_id', schoolId)
         .not('auth_user_id', 'is', null)
         .order('last_name', { ascending: true })
@@ -952,6 +1256,70 @@ export function AdminUsersPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const localPending = useMemo(() => getPendingStudentActivations(), [studentsPending])
   const studentsLoading = studPendingLoading || studActiveLoading
+
+  // ── Parent account queries ───────────────────────────────────
+  type ParentRow = {
+    id: string; email: string; full_name: string | null; phone: string | null
+    auth_user_id: string | null; temp_password: string | null; student_ids: string[]
+  }
+  const { data: parentsPending = [], isLoading: parentsPendingLoading } = useQuery({
+    queryKey: ['parents-pending-login', schoolId],
+    enabled:  !!schoolId && section === 'parents',
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('parent_accounts')
+        .select('id, email, full_name, phone, auth_user_id, temp_password, student_ids')
+        .eq('school_id', schoolId)
+        .is('auth_user_id', null)
+        .order('full_name', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as ParentRow[]
+    },
+  })
+  const { data: parentsActive = [], isLoading: parentsActiveLoading } = useQuery({
+    queryKey: ['parents-active-login', schoolId],
+    enabled:  !!schoolId && section === 'parents',
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('parent_accounts')
+        .select('id, email, full_name, phone, auth_user_id, temp_password, student_ids')
+        .eq('school_id', schoolId)
+        .not('auth_user_id', 'is', null)
+        .order('full_name', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as ParentRow[]
+    },
+  })
+  const parentsLoading = parentsPendingLoading || parentsActiveLoading
+
+  // ── Credentials vault queries ────────────────────────────────
+  type VaultEntry = { id: string; name: string; type: string; email: string; password: string }
+  const { data: vaultEntries = [], isLoading: vaultLoading } = useQuery({
+    queryKey: ['credentials-vault', schoolId],
+    enabled:  !!schoolId && section === 'credentials',
+    staleTime: 30_000,
+    queryFn: async () => {
+      const [staffRes, studRes, parentRes] = await Promise.all([
+        supabase.from('staff').select('id, first_name, last_name, role, email, temp_password')
+          .eq('school_id', schoolId).not('temp_password', 'is', null).not('email', 'is', null),
+        supabase.from('students').select('id, first_name, last_name, auth_email, temp_password')
+          .eq('school_id', schoolId).not('temp_password', 'is', null).not('auth_email', 'is', null),
+        supabase.from('parent_accounts').select('id, full_name, email, temp_password')
+          .eq('school_id', schoolId).not('temp_password', 'is', null).not('email', 'is', null),
+      ])
+      const entries: VaultEntry[] = []
+      for (const r of (staffRes.data ?? []) as any[]) {
+        entries.push({ id: r.id, name: `${r.first_name} ${r.last_name}`, type: r.role ?? 'Staff', email: r.email, password: r.temp_password })
+      }
+      for (const r of (studRes.data ?? []) as any[]) {
+        entries.push({ id: r.id, name: `${r.first_name} ${r.last_name}`, type: 'Student', email: r.auth_email, password: r.temp_password })
+      }
+      for (const r of (parentRes.data ?? []) as any[]) {
+        entries.push({ id: r.id, name: r.full_name ?? r.email, type: 'Parent', email: r.email, password: r.temp_password })
+      }
+      return entries
+    },
+  })
 
   function filterStudents(list: StudentLoginRow[]) {
     if (!search.trim()) return list
@@ -969,17 +1337,22 @@ export function AdminUsersPage() {
   function onStudentActivated(cred: StudentCredInfo) { setNewStudentCred(cred); setTab('active') }
 
   // Hero stat chips — show appropriate counts per section
-  const heroStats = section === 'staff'
-    ? [
-        { label: 'Total Staff',    value: staffLoading ? '—' : String(allStaff.length),    accent: 'rgba(255,255,255,.2)' },
-        { label: 'Pending',        value: staffLoading ? '—' : String(staffPending.length), accent: staffPending.length > 0 ? 'rgba(244,63,94,.45)' : 'rgba(255,255,255,.15)' },
-        { label: 'Active Logins',  value: staffLoading ? '—' : String(staffActive.length),  accent: 'rgba(255,255,255,.15)' },
-      ]
-    : [
-        { label: 'Total Students', value: studentsLoading ? '—' : String(studentsPending.length + studentsActive.length), accent: 'rgba(255,255,255,.2)' },
-        { label: 'Pending',        value: studentsLoading ? '—' : String(studentsPending.length), accent: studentsPending.length > 0 ? 'rgba(244,63,94,.45)' : 'rgba(255,255,255,.15)' },
-        { label: 'Active Logins',  value: studentsLoading ? '—' : String(studentsActive.length),  accent: 'rgba(255,255,255,.15)' },
-      ]
+  const heroStats =
+    section === 'staff' ? [
+      { label: 'Total Staff',    value: staffLoading ? '—' : String(allStaff.length),    accent: 'rgba(255,255,255,.2)' },
+      { label: 'Pending',        value: staffLoading ? '—' : String(staffPending.length), accent: staffPending.length > 0 ? 'rgba(244,63,94,.45)' : 'rgba(255,255,255,.15)' },
+      { label: 'Active Logins',  value: staffLoading ? '—' : String(staffActive.length),  accent: 'rgba(255,255,255,.15)' },
+    ] : section === 'students' ? [
+      { label: 'Total Students', value: studentsLoading ? '—' : String(studentsPending.length + studentsActive.length), accent: 'rgba(255,255,255,.2)' },
+      { label: 'Pending',        value: studentsLoading ? '—' : String(studentsPending.length), accent: studentsPending.length > 0 ? 'rgba(244,63,94,.45)' : 'rgba(255,255,255,.15)' },
+      { label: 'Active Logins',  value: studentsLoading ? '—' : String(studentsActive.length),  accent: 'rgba(255,255,255,.15)' },
+    ] : section === 'parents' ? [
+      { label: 'Total Parents',  value: parentsLoading ? '—' : String(parentsPending.length + parentsActive.length), accent: 'rgba(255,255,255,.2)' },
+      { label: 'Pending',        value: parentsLoading ? '—' : String(parentsPending.length), accent: parentsPending.length > 0 ? 'rgba(244,63,94,.45)' : 'rgba(255,255,255,.15)' },
+      { label: 'Active Logins',  value: parentsLoading ? '—' : String(parentsActive.length), accent: 'rgba(255,255,255,.15)' },
+    ] : [
+      { label: 'Credentials Stored', value: vaultLoading ? '—' : String(vaultEntries.length), accent: 'rgba(255,255,255,.2)' },
+    ]
 
   return (
     <>
@@ -1054,33 +1427,45 @@ export function AdminUsersPage() {
           </div>
         )}
 
-        {/* Section switcher: Staff | Students */}
-        <div ref={pendingSectionRef} style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--surface2)', borderRadius: 12, border: '1px solid var(--border)', alignSelf: 'flex-start' }}>
+        {/* Section switcher: Staff | Students | Parents | Credentials */}
+        <div ref={pendingSectionRef} style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--surface2)', borderRadius: 12, border: '1px solid var(--border)', alignSelf: 'flex-start', flexWrap: 'wrap' }}>
           {([
-            { id: 'staff'    as const, label: 'Staff',    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> },
-            { id: 'students' as const, label: 'Students', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> },
+            { id: 'staff'       as const, label: 'Staff',       badge: staffPending.length,    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> },
+            { id: 'students'    as const, label: 'Students',    badge: studentsPending.length,  icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> },
+            { id: 'parents'     as const, label: 'Parents',     badge: parentsPending.length,   icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg> },
+            { id: 'credentials' as const, label: 'Credentials', badge: 0,                       icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> },
           ]).map(s => (
             <button
               key={s.id}
               onClick={() => { setSection(s.id); setSearch(''); setRoleFilter(''); setTab('pending') }}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13, transition: 'all 0.15s', background: section === s.id ? 'var(--surface)' : 'transparent', color: section === s.id ? 'var(--txt)' : 'var(--txt3)', boxShadow: section === s.id ? '0 1px 4px rgba(0,0,0,.08)' : 'none' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13, transition: 'all 0.15s', background: section === s.id ? 'var(--surface)' : 'transparent', color: section === s.id ? 'var(--txt)' : 'var(--txt3)', boxShadow: section === s.id ? '0 1px 4px rgba(0,0,0,.08)' : 'none' }}
             >
               {s.icon}
               {s.label}
+              {s.badge > 0 && (
+                <span style={{ background: 'rgba(244,63,94,.15)', color: 'var(--danger)', borderRadius: 99, padding: '1px 7px', fontSize: 11, fontWeight: 800 }}>
+                  {s.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
-        {/* Sub-tabs: Pending | Active */}
-        {(() => {
+        {/* Sub-tabs: Pending | Active (not shown for credentials section) */}
+        {section !== 'credentials' && (() => {
           const subTabs = section === 'staff'
             ? [
                 { id: 'pending' as const, label: 'Pending Activation', count: staffPending.length, red: staffPending.length > 0 },
                 { id: 'active'  as const, label: 'Active Logins',      count: staffActive.length,  red: false },
               ]
-            : [
+            : section === 'students'
+            ? [
                 { id: 'pending' as const, label: 'Pending Activation', count: studentsPending.length, red: studentsPending.length > 0 },
                 { id: 'active'  as const, label: 'Active Logins',      count: studentsActive.length,  red: false },
+              ]
+            : [
+                { id: 'pending' as const, label: 'Pending Activation', count: parentsPending.length, red: parentsPending.length > 0 },
+                { id: 'active'  as const, label: 'Active Logins',      count: parentsActive.length,  red: false },
               ]
           return (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1096,8 +1481,8 @@ export function AdminUsersPage() {
           )
         })()}
 
-        {/* Search + role pills (staff only shows role filter) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Search + role pills (not shown for credentials section) */}
+        {section !== 'credentials' && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 12px', height: 38 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input
@@ -1125,9 +1510,9 @@ export function AdminUsersPage() {
               })}
             </div>
           )}
-        </div>
+        </div>}
 
-        {/* Card grid */}
+        {/* Card grid / Credentials vault */}
         {isLoading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14 }}>
             {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
@@ -1151,7 +1536,7 @@ export function AdminUsersPage() {
             <div className="stagger-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14 }}>
               {tab === 'pending'
                 ? staffDisplay.map(s => <PendingCard key={s.id} staff={s} deptName={s.departmentId ? (deptMap.get(s.departmentId) ?? null) : null} onActivated={onStaffActivated} />)
-                : staffDisplay.map(s => <ActiveCard  key={s.id} staff={s} deptName={s.departmentId ? (deptMap.get(s.departmentId) ?? null) : null} onReset={setNewCred} onLink={(id, nm) => setLinkModal({ staffId: id, staffName: nm })} />)
+                : staffDisplay.map(s => <ActiveCard  key={s.id} staff={s} deptName={s.departmentId ? (deptMap.get(s.departmentId) ?? null) : null} onReset={setNewCred} onLink={(id, nm) => setLinkModal({ staffId: id, staffName: nm })} onDeactivated={() => void qc.invalidateQueries({ queryKey: ['staff', schoolId] })} />)
               }
             </div>
           )
@@ -1190,6 +1575,7 @@ export function AdminUsersPage() {
                       student={s}
                       className={s.class_id ? (classMap.get(s.class_id) ?? null) : null}
                       onReset={setNewStudentCred}
+                      onToggled={() => void qc.invalidateQueries({ queryKey: ['students-active-login', schoolId] })}
                     />
                   ))
               }
@@ -1197,7 +1583,83 @@ export function AdminUsersPage() {
           )
         )}
 
-        {!isLoading && (
+        {/* ── Parents section ────────────────────────────── */}
+        {section === 'parents' && (
+          parentsLoading ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14 }}>
+              {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+            </div>
+          ) : (
+            (() => {
+              const list = (tab === 'pending' ? parentsPending : parentsActive).filter(p => {
+                if (!search.trim()) return true
+                const q = search.toLowerCase()
+                return (p.full_name ?? '').toLowerCase().includes(q) || p.email.toLowerCase().includes(q)
+              })
+              return list.length === 0 ? (
+                <div style={{ padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 }}>
+                  <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, color: 'var(--txt)' }}>
+                    {tab === 'pending' ? 'All parents have active accounts' : 'No active parent accounts yet'}
+                  </div>
+                </div>
+              ) : (
+                <div className="stagger-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14 }}>
+                  {list.map(p => (
+                    <ParentAccountCard
+                      key={p.id}
+                      parent={p}
+                      schoolId={schoolId}
+                      onActivated={() => {
+                        void qc.invalidateQueries({ queryKey: ['parents-pending-login', schoolId] })
+                        void qc.invalidateQueries({ queryKey: ['parents-active-login',  schoolId] })
+                        setTab('active')
+                      }}
+                    />
+                  ))}
+                </div>
+              )
+            })()
+          )
+        )}
+
+        {/* ── Credentials vault ──────────────────────────── */}
+        {section === 'credentials' && (
+          vaultLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+              <SkeletonCard />
+            </div>
+          ) : vaultEntries.length === 0 ? (
+            <div style={{ padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 }}>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, color: 'var(--txt)' }}>No stored credentials</div>
+              <div style={{ fontSize: 13, color: 'var(--txt3)' }}>Credentials appear here after staff, students, or parents are activated.</div>
+            </div>
+          ) : (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+              <div style={{ padding: '12px 16px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt2)', fontFamily: 'var(--font2)' }}>
+                  {vaultEntries.length} credential{vaultEntries.length !== 1 ? 's' : ''} stored
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--txt3)' }}>Hover to reveal passwords</span>
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface2)' }}>
+                    {['Name', 'Type', 'Email', 'Password', ''].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.7, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {vaultEntries.map((e, i) => (
+                    <CredVaultRow key={e.id + i} entry={e} schoolName={schoolName} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+
+        {!isLoading && section !== 'credentials' && section !== 'parents' && (
           <div style={{ fontSize: 12, color: 'var(--txt3)', textAlign: 'center', paddingBottom: 8 }}>
             {section === 'staff'
               ? staffDisplay.length > 0 ? `${staffDisplay.length} ${tab === 'pending' ? 'pending' : 'active'} staff${staffDisplay.length !== 1 ? ' members' : ' member'}${(search || roleFilter) ? ' (filtered)' : ''}` : null

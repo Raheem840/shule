@@ -183,7 +183,7 @@ function UserManagementSection() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* KPI strip */}
       {!isLoading && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+        <div className="mob-grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
           {[
             { label: 'Total Staff',  value: users.length,    color: '#0d9488' },
             { label: 'Active',       value: totalActive,     color: '#10b981' },
