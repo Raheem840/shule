@@ -14,6 +14,7 @@ const STUDENT_REQUIRED: ColumnSpec[] = [
   { key: 'last_name',  label: 'Last Name',  required: true },
 ]
 const STUDENT_OPTIONAL: ColumnSpec[] = [
+  { key: 'admission_number', label: 'Admission Number' },
   { key: 'dob',              label: 'Date of Birth'    },
   { key: 'gender',           label: 'Gender'           },
   { key: 'class_name',       label: 'Class Name'       },
@@ -22,22 +23,32 @@ const STUDENT_OPTIONAL: ColumnSpec[] = [
   { key: 'nationality',      label: 'Nationality'      },
   { key: 'religion',         label: 'Religion'         },
   { key: 'previous_school',  label: 'Previous School'  },
+  // Parent / guardian contact
+  { key: 'parent_name',         label: 'Parent Name'         },
+  { key: 'parent_phone',        label: 'Parent Phone'        },
+  { key: 'parent_email',        label: 'Parent Email'        },
+  { key: 'parent_relationship', label: 'Parent Relationship' },
 ]
 
 const STAFF_REQUIRED: ColumnSpec[] = [
   { key: 'first_name', label: 'First Name', required: true },
   { key: 'last_name',  label: 'Last Name',  required: true },
-  { key: 'role',       label: 'Role',       required: true },
 ]
 const STAFF_OPTIONAL: ColumnSpec[] = [
-  { key: 'staff_number',       label: 'Staff Number'      },  // optional: provide existing or leave blank
-  { key: 'email',              label: 'Email'             },
-  { key: 'phone',              label: 'Phone'             },
-  { key: 'national_id',        label: 'National ID'       },
-  { key: 'employment_type',    label: 'Employment Type'   },
-  { key: 'department_name',    label: 'Department'        },
-  { key: 'qualification_level', label: 'Qualification Level' },
-  { key: 'qualification_title', label: 'Qualification Title' },
+  { key: 'role',                 label: 'Role'                },  // defaults to 'teacher' if blank
+  { key: 'staff_number',         label: 'Staff Number'        },
+  { key: 'email',                label: 'Email'               },
+  { key: 'phone',                label: 'Phone'               },
+  { key: 'national_id',          label: 'National ID'         },
+  { key: 'employment_type',      label: 'Employment Type'     },
+  { key: 'department_name',      label: 'Department'          },
+  { key: 'subject1',             label: 'Subject 1'           },
+  { key: 'subject2',             label: 'Subject 2'           },
+  { key: 'gender',               label: 'Gender'              },
+  { key: 'date_of_birth',        label: 'Date of Birth'       },
+  { key: 'address',              label: 'Address'             },
+  { key: 'qualification_level',  label: 'Qualification Level' },
+  { key: 'qualification_title',  label: 'Qualification Title' },
 ]
 
 interface ImportedStudent {
@@ -266,6 +277,8 @@ export function ImportDataPage() {
         } else {
           updated++
           newStudentResults.push({ name: `${firstName} ${lastName}`, admission_number: existing.admissionNumber })
+          // Upsert guardian if parent columns provided
+          await upsertGuardian(existing.id, r)
         }
       } else {
         // INSERT — new student
@@ -291,10 +304,14 @@ export function ImportDataPage() {
           const seq = String(++newStudentSeq).padStart(4, '0')
           insertData.admission_number = `${shortName}/${importYear}/${seq}`
         }
+        // Allow CSV-supplied admission_number to override the auto-generated one
+        if (r.admission_number && String(r.admission_number).trim()) {
+          insertData.admission_number = String(r.admission_number).trim()
+        }
 
         const { data: inserted, error } = await supabase
           .from('students').insert(insertData)
-          .select('first_name, last_name, admission_number').single()
+          .select('id, first_name, last_name, admission_number').single()
 
         if (error) {
           failedItems.push({ row: i + 2, reason: error.message })
@@ -305,9 +322,30 @@ export function ImportDataPage() {
               name:             `${inserted.first_name} ${inserted.last_name}`,
               admission_number: inserted.admission_number as string,
             })
+            // Insert guardian if parent columns provided
+            await upsertGuardian(inserted.id as string, r)
           }
         }
       }
+    }
+
+    // ── Helper: insert a student_guardians row from CSV parent columns ───────
+    async function upsertGuardian(studentId: string, r: ParsedRow): Promise<void> {
+      const parentName = r.parent_name ? String(r.parent_name).trim() : ''
+      if (!parentName) return
+
+      await supabase.from('student_guardians').insert({
+        school_id:       user!.schoolId,
+        student_id:      studentId,
+        full_name:       parentName,
+        relationship:    r.parent_relationship ? String(r.parent_relationship).trim() : 'Parent',
+        phone:           r.parent_phone  ? String(r.parent_phone).trim()  : null,
+        email:           r.parent_email  ? String(r.parent_email).trim()  : null,
+        is_primary:      true,
+        comms_preference:'sms',
+        do_not_contact:  false,
+      })
+      // Silently ignore errors (e.g. duplicate) — guardian is supplemental
     }
 
     void qc.invalidateQueries({ queryKey: ['students'] })
@@ -359,23 +397,49 @@ export function ImportDataPage() {
     const singletonFailedIdxs = new Set(failedItems.map(f => f.row - 2))
     const validRows = rows.filter((_, i) => !singletonFailedIdxs.has(i))
 
+    // Pre-fetch departments to resolve department_name → department_id
+    const { data: deptData } = await supabase
+      .from('departments')
+      .select('id, name')
+      .eq('school_id', user!.schoolId)
+    const deptMap = new Map<string, string>()
+    ;(deptData ?? []).forEach((d: { id: string; name: string }) => {
+      deptMap.set(d.name.toLowerCase().trim(), d.id)
+    })
+
     for (let i = 0; i < validRows.length; i += 50) {
       const batch = validRows.slice(i, i + 50)
       const inserts = batch.map(r => {
+        // Build subjects array from subject1/subject2 columns
+        const subjectsArr: string[] = []
+        const s1 = r.subject1 ? String(r.subject1).trim() : ''
+        const s2 = r.subject2 ? String(r.subject2).trim() : ''
+        if (s1) subjectsArr.push(s1)
+        if (s2) subjectsArr.push(s2)
+
+        // Resolve department
+        const deptName = r.department_name ? String(r.department_name).trim() : ''
+        const departmentId = deptName ? (deptMap.get(deptName.toLowerCase()) ?? null) : null
+
         const data: Record<string, unknown> = {
           school_id:       user!.schoolId,
           first_name:      String(r.first_name ?? '').trim(),
           last_name:       String(r.last_name ?? '').trim(),
-          role:            String(r.role ?? 'teacher').trim(),
+          role:            String(r.role ?? 'teacher').trim() || 'teacher',
           email:           r.email ? String(r.email).trim() : null,
           phone:           r.phone ? String(r.phone).trim() : null,
           national_id:     r.national_id ? String(r.national_id).trim() : null,
           employment_type: r.employment_type ? String(r.employment_type).trim() : 'full_time',
           qualification_level: r.qualification_level ? String(r.qualification_level).trim() : null,
           qualification_title: r.qualification_title ? String(r.qualification_title).trim() : null,
+          gender:          r.gender ? String(r.gender).trim().toLowerCase() : null,
+          date_of_birth:   r.date_of_birth ? String(r.date_of_birth).trim() : null,
+          address:         r.address ? String(r.address).trim() : null,
           is_active:       true,
           join_date:       new Date().toISOString().slice(0, 10),
         }
+        if (subjectsArr.length > 0) data.subjects = subjectsArr
+        if (departmentId)           data.department_id = departmentId
         // Include staff_number only if provided
         if (r.staff_number && String(r.staff_number).trim()) {
           data.staff_number = String(r.staff_number).trim()

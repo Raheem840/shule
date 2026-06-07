@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useStudentById, useUpdateStudent, useCreateStudentLogin } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
+import { useStudentGuardians } from '../../hooks/useParentPortal'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../store/AuthContext'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import type { Student } from '../../types/app'
 
@@ -33,6 +37,8 @@ const STATUS_COLOR: Record<Student['status'], string> = {
 export function SecretaryStudentEditPage() {
   const { studentId } = useParams<{ studentId: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const qc = useQueryClient()
 
   const { data: student, isLoading } = useStudentById(studentId)
   const { data: classes = [] } = useClasses()
@@ -40,6 +46,14 @@ export function SecretaryStudentEditPage() {
   const { data: streams = [] } = useStreams(selectedClassId)
   const updateStudent = useUpdateStudent()
   const createLogin   = useCreateStudentLogin()
+
+  // Guardian state
+  const { data: guardians = [], refetch: refetchGuardians } = useStudentGuardians(studentId ?? null)
+  const [guardianOpen, setGuardianOpen] = useState(false)
+  const [guardianForm, setGuardianForm] = useState({ fullName: '', relationship: '', phone: '', email: '' })
+  const [guardianSaving, setGuardianSaving] = useState(false)
+  const [guardianError, setGuardianError] = useState<string | null>(null)
+  const [guardianSaved, setGuardianSaved] = useState(false)
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', dob: '', gender: '' as Student['gender'] | '',
@@ -93,6 +107,35 @@ export function SecretaryStudentEditPage() {
       })
       setDirty(false); setSaved(true)
     } catch (err: unknown) { setSaveError(err instanceof Error ? err.message : 'Save failed') }
+  }
+
+  async function handleAddGuardian() {
+    if (!studentId || !user?.schoolId) return
+    const name = guardianForm.fullName.trim()
+    if (!name) { setGuardianError('Full name is required'); return }
+    setGuardianSaving(true); setGuardianError(null)
+    try {
+      const { error } = await supabase.from('student_guardians').insert({
+        school_id:        user.schoolId,
+        student_id:       studentId,
+        full_name:        name,
+        relationship:     guardianForm.relationship.trim() || 'Parent',
+        phone:            guardianForm.phone.trim() || null,
+        email:            guardianForm.email.trim() || null,
+        is_primary:       guardians.length === 0,  // first guardian gets is_primary
+        comms_preference: 'sms',
+        do_not_contact:   false,
+      })
+      if (error) throw error
+      setGuardianForm({ fullName: '', relationship: '', phone: '', email: '' })
+      setGuardianSaved(true); setTimeout(() => setGuardianSaved(false), 3000)
+      await refetchGuardians()
+      void qc.invalidateQueries({ queryKey: ['student-guardians', studentId] })
+    } catch (e) {
+      setGuardianError(e instanceof Error ? e.message : 'Failed to save guardian')
+    } finally {
+      setGuardianSaving(false)
+    }
   }
 
   async function handleActivate() {
@@ -266,6 +309,97 @@ export function SecretaryStudentEditPage() {
           placeholder="Any medical conditions, allergies, or special needs…" rows={4}
           style={{ ...inputStyle, resize: 'vertical', fontFamily: 'var(--font1)' }} />
       </Section>
+
+      {/* ── Guardians / Parent Details ──────────────────────────── */}
+      <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+        {/* Collapsible header */}
+        <button
+          onClick={() => setGuardianOpen(o => !o)}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.8px', textTransform: 'uppercase', color: 'var(--txt3)', fontFamily: 'var(--font2)' }}>
+              Guardians / Parent Details
+            </div>
+            {guardians.length > 0 && (
+              <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6, background: 'var(--brand-light)', color: 'var(--brand)', fontFamily: 'var(--font2)' }}>
+                {guardians.length}
+              </span>
+            )}
+          </div>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2"
+            style={{ transform: guardianOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+
+        {guardianOpen && (
+          <div style={{ padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Existing guardians list */}
+            {guardians.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {guardians.map(g => (
+                  <div key={g.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'flex-start', padding: '10px 14px', background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10 }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{g.fullName}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: 'var(--surface)', border: '.5px solid var(--border)', color: 'var(--txt3)' }}>
+                          {g.relationship}
+                        </span>
+                        {g.isPrimary && (
+                          <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 5, background: 'rgba(13,148,136,.12)', color: 'var(--brand)' }}>
+                            Primary
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 3, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                        {g.phone && <span>{g.phone}</span>}
+                        {g.email && <span>{g.email}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add guardian form */}
+            <div style={{ padding: '14px', background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.6px', textTransform: 'uppercase', color: 'var(--txt3)', fontFamily: 'var(--font2)', marginBottom: 12 }}>
+                Add Guardian
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px' }}>
+                <Field label="Full Name *">
+                  <input value={guardianForm.fullName} onChange={e => setGuardianForm(f => ({ ...f, fullName: e.target.value }))} placeholder="e.g. Sarah Nakato" style={inputStyle} />
+                </Field>
+                <Field label="Relationship">
+                  <input value={guardianForm.relationship} onChange={e => setGuardianForm(f => ({ ...f, relationship: e.target.value }))} placeholder="e.g. Mother, Father, Uncle" style={inputStyle} />
+                </Field>
+                <Field label="Phone">
+                  <input value={guardianForm.phone} onChange={e => setGuardianForm(f => ({ ...f, phone: e.target.value }))} placeholder="+256 7XX XXX XXX" style={inputStyle} />
+                </Field>
+                <Field label="Email">
+                  <input value={guardianForm.email} onChange={e => setGuardianForm(f => ({ ...f, email: e.target.value }))} placeholder="parent@email.com" style={inputStyle} />
+                </Field>
+              </div>
+              {guardianError && (
+                <div style={{ marginTop: 10, fontSize: 12, color: 'var(--danger)', fontWeight: 600 }}>{guardianError}</div>
+              )}
+              {guardianSaved && (
+                <div style={{ marginTop: 10, fontSize: 12, color: 'var(--success)', fontWeight: 700 }}>Guardian saved.</div>
+              )}
+              <div style={{ marginTop: 12 }}>
+                <button
+                  onClick={() => void handleAddGuardian()}
+                  disabled={guardianSaving}
+                  style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,var(--brand),var(--brand-dark))', color: '#fff', fontWeight: 700, fontSize: 13, cursor: guardianSaving ? 'wait' : 'pointer', opacity: guardianSaving ? .7 : 1 }}
+                >
+                  {guardianSaving ? 'Saving…' : 'Add Guardian'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

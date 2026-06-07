@@ -1,9 +1,11 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useStaff, type StaffFilters } from '../../hooks/useStaff'
 import { useDepartments } from '../../hooks/useClasses'
 import { StaffRegistrationWizard } from './StaffRegistrationWizard'
 import { Avatar } from '../../components/shared/Avatar'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { supabase } from '../../lib/supabase'
 import type { Staff, UserRole } from '../../types/app'
 
 // ── Role metadata ─────────────────────────────────────────────────────────────
@@ -48,7 +50,7 @@ const ROLE_FILTER_TABS = [
 ]
 
 // ── Staff Card ────────────────────────────────────────────────────────────────
-function StaffCard({ staff, deptName }: { staff: Staff; deptName: string | null }) {
+function StaffCard({ staff, deptName, onEdit }: { staff: Staff; deptName: string | null; onEdit: (s: Staff) => void }) {
   const [hovered, setHovered] = useState(false)
   const [c1, c2] = roleGrad(staff.role)
   const roleLabel = ROLE_LABELS[staff.role] ?? staff.role
@@ -163,7 +165,7 @@ function StaffCard({ staff, deptName }: { staff: Staff; deptName: string | null 
           </div>
         )}
 
-        {/* Footer: employment chip + status */}
+        {/* Footer: employment chip + status + edit */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: '.5px solid var(--border)' }}>
           {staff.employmentType ? (
             <span style={{
@@ -175,14 +177,22 @@ function StaffCard({ staff, deptName }: { staff: Staff; deptName: string | null 
             </span>
           ) : <span />}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{
-              width: 7, height: 7, borderRadius: '50%',
-              background: staff.isActive ? 'var(--success)' : 'var(--txt3)',
-            }} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: staff.isActive ? 'var(--success)' : 'var(--txt3)' }}>
-              {staff.isActive ? 'Active' : 'Inactive'}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: staff.isActive ? 'var(--success)' : 'var(--txt3)',
+              }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: staff.isActive ? 'var(--success)' : 'var(--txt3)' }}>
+                {staff.isActive ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+            <button
+              onClick={e => { e.stopPropagation(); onEdit(staff) }}
+              style={{ padding: '3px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font2)' }}
+            >
+              Edit
+            </button>
           </div>
         </div>
       </div>
@@ -215,7 +225,7 @@ function SkeletonCard() {
 }
 
 // ── Mobile Staff Row ─────────────────────────────────────────────────────────
-function MobileStaffRow({ staff, deptName }: { staff: Staff; deptName: string | null }) {
+function MobileStaffRow({ staff, deptName, onEdit }: { staff: Staff; deptName: string | null; onEdit: (s: Staff) => void }) {
   const [c1, c2] = roleGrad(staff.role)
   const roleLabel = ROLE_LABELS[staff.role] ?? staff.role
 
@@ -272,13 +282,141 @@ function MobileStaffRow({ staff, deptName }: { staff: Staff; deptName: string | 
         )}
       </div>
 
-      <div style={{ flexShrink: 0, textAlign: 'right' }}>
-        <div style={{ fontSize: 10.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginBottom: 6 }}>
+      <div style={{ flexShrink: 0, textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+        <div style={{ fontSize: 10.5, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>
           {staff.staffNumber}
         </div>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" strokeLinecap="round">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
+        <button
+          onClick={() => onEdit(staff)}
+          style={{ padding: '3px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font2)' }}
+        >
+          Edit
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Staff Edit Modal ──────────────────────────────────────────────────────────
+function StaffEditModal({ staff, depts, onClose }: {
+  staff:  Staff
+  depts:  { id: string; name: string }[]
+  onClose: () => void
+}) {
+  const qc = useQueryClient()
+  const [form, setForm] = useState({
+    firstName:      staff.firstName,
+    lastName:       staff.lastName,
+    email:          staff.email ?? '',
+    phone:          staff.phone ?? '',
+    role:           staff.role,
+    departmentId:   staff.departmentId ?? '',
+    employmentType: staff.employmentType ?? 'full_time',
+  })
+  const [saving,  setSaving]  = useState(false)
+  const [saveErr, setSaveErr] = useState<string | null>(null)
+  const [saved,   setSaved]   = useState(false)
+
+  function set(field: keyof typeof form, value: string) {
+    setForm(f => ({ ...f, [field]: value })); setSaved(false)
+  }
+
+  async function handleSave() {
+    setSaving(true); setSaveErr(null)
+    try {
+      const { error } = await supabase.from('staff').update({
+        first_name:      form.firstName.trim(),
+        last_name:       form.lastName.trim(),
+        email:           form.email.trim() || null,
+        phone:           form.phone.trim() || null,
+        role:            form.role,
+        department_id:   form.departmentId || null,
+        employment_type: form.employmentType || null,
+      }).eq('id', staff.id)
+      if (error) throw error
+      void qc.invalidateQueries({ queryKey: ['staff'] })
+      setSaved(true)
+      setTimeout(() => onClose(), 1200)
+    } catch (e) {
+      setSaveErr(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', fontSize: 13, background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10, color: 'var(--txt)', outline: 'none', boxSizing: 'border-box' }
+  const sel: React.CSSProperties = { ...inp, appearance: 'none' as const }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ width: '100%', maxWidth: 520, background: 'var(--surface)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
+        <div style={{ padding: '20px 24px 16px', borderBottom: '.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 17, color: 'var(--txt)' }}>Edit Staff Member</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', padding: 4, borderRadius: 6 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>First Name</label>
+              <input value={form.firstName} onChange={e => set('firstName', e.target.value)} style={inp} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>Last Name</label>
+              <input value={form.lastName} onChange={e => set('lastName', e.target.value)} style={inp} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>Email</label>
+              <input value={form.email} onChange={e => set('email', e.target.value)} style={inp} type="email" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>Phone</label>
+              <input value={form.phone} onChange={e => set('phone', e.target.value)} style={inp} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>Role</label>
+              <div style={{ position: 'relative' }}>
+                <select value={form.role} onChange={e => set('role', e.target.value)} style={sel}>
+                  {['teacher','class_teacher','dos','deputy','secretary','bursar','it_admin'].map(r => (
+                    <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
+                  ))}
+                </select>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>Department</label>
+              <div style={{ position: 'relative' }}>
+                <select value={form.departmentId} onChange={e => set('departmentId', e.target.value)} style={sel}>
+                  <option value="">None</option>
+                  {depts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>Employment Type</label>
+              <div style={{ position: 'relative' }}>
+                <select value={form.employmentType} onChange={e => set('employmentType', e.target.value)} style={sel}>
+                  <option value="full_time">Full Time</option>
+                  <option value="part_time">Part Time</option>
+                  <option value="contract">Contract</option>
+                </select>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+            </div>
+          </div>
+          {saveErr && <div style={{ fontSize: 12.5, color: 'var(--danger)', fontWeight: 600 }}>{saveErr}</div>}
+          {saved && <div style={{ fontSize: 12.5, color: 'var(--success)', fontWeight: 700 }}>Saved successfully!</div>}
+        </div>
+        <div style={{ padding: '12px 24px 20px', borderTop: '.5px solid var(--border)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 10, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+          <button onClick={() => void handleSave()} disabled={saving}
+            style={{ padding: '9px 22px', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,var(--brand),var(--brand-dark))', color: '#fff', fontWeight: 700, fontSize: 13, cursor: saving ? 'wait' : 'pointer', opacity: saving ? .7 : 1 }}>
+            {saving ? 'Saving…' : 'Save Changes'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -288,6 +426,7 @@ function MobileStaffRow({ staff, deptName }: { staff: Staff; deptName: string | 
 export function SecretaryStaffPage() {
   const isMobile   = useIsMobile()
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null)
   const [search,     setSearch]     = useState('')
   const [roleFilter, setRoleFilter] = useState('')
 
@@ -608,6 +747,7 @@ export function SecretaryStaffPage() {
                 key={staff.id}
                 staff={staff}
                 deptName={staff.departmentId ? (deptMap.get(staff.departmentId) ?? null) : null}
+                onEdit={setEditingStaff}
               />
             ))}
           </div>
@@ -619,6 +759,7 @@ export function SecretaryStaffPage() {
                 key={staff.id}
                 staff={staff}
                 deptName={staff.departmentId ? (deptMap.get(staff.departmentId) ?? null) : null}
+                onEdit={setEditingStaff}
               />
             ))}
           </div>
@@ -650,6 +791,14 @@ export function SecretaryStaffPage() {
       )}
 
       <StaffRegistrationWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+
+      {editingStaff && (
+        <StaffEditModal
+          staff={editingStaff}
+          depts={depts}
+          onClose={() => setEditingStaff(null)}
+        />
+      )}
     </>
   )
 }
