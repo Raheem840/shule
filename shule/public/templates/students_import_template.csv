@@ -1,19 +1,31 @@
-first_name,last_name,dob,gender,class_name,stream_name,student_type,nationality,religion,previous_school,medical_notes
-Amara,Nakato,2011-03-15,Female,S.1,East,day,Ugandan,Christian,Kiyinda Primary School,
-Brian,Ssemwanga,2011-07-22,Male,S.1,East,boarder,Ugandan,Muslim,Kibuli Primary School,
-Christine,Aber,2011-01-10,Female,S.1,West,day,Ugandan,Catholic,St. Mary's Primary School,Mild asthma - has inhaler
-David,Okello,2011-11-05,Male,S.1,West,day,Ugandan,Christian,Mbale Primary School,
-Esther,Namukasa,2011-05-20,Female,S.1,East,boarder,Ugandan,Christian,Gayaza Primary School,
-Frank,Ochieng,2011-08-14,Male,S.1,West,day,Ugandan,Muslim,Green Hill Academy,
-Grace,Atim,2010-02-28,Female,S.2,East,day,Ugandan,Christian,Nakawa Primary School,
-Henry,Mubiru,2010-09-17,Male,S.2,East,boarder,Ugandan,Catholic,St. Jude Primary School,
-Irene,Nalwoga,2010-04-03,Female,S.2,West,day,Ugandan,Christian,Ntinda Primary School,
-James,Byarugaba,2010-12-19,Male,S.2,West,boarder,Ugandan,Anglican,Mbarara Primary School,
-Josephine,Auma,2009-06-11,Female,S.3,East,day,Ugandan,Christian,Gulu Primary School,
-Kenneth,Turyahabwe,2009-10-25,Male,S.3,East,boarder,Ugandan,Catholic,Kabale Primary School,
-Lydia,Nassazi,2009-03-08,Female,S.3,West,day,Ugandan,Muslim,Old Kampala Primary,
-Michael,Ocen,2009-08-30,Male,S.3,West,day,Ugandan,Christian,St. Peters Primary Soroti,
-Naomi,Kisakye,2008-01-14,Female,S.4,East,boarder,Ugandan,Christian,Naalya Primary School,
-Patrick,Ssali,2008-07-06,Male,S.4,East,day,Ugandan,Anglican,Kampala Parents School,
-Rachel,Achola,2008-11-22,Female,S.4,West,boarder,Ugandan,Christian,Sacred Heart Primary Gulu,
-Samuel,Waweru,2008-04-16,Male,S.4,West,day,Kenyan,Christian,Kisumu Primary Kenya,
+admission_number,first_name,last_name,dob,gender,class_name,stream_name,student_type,nationality,parent_name,parent_phone,parent_email,parent_relationship
+SHULE/2026/001,Raheem,Stone,2011-01-15,Male,S1,,day,Ugandan,Mary Stone,+256772000001,mstone@gmail.com,Mother
+,Amara,Nakato,2011-03-15,Female,S1,East,day,Ugandan,Peter Nakato,+256701000002,,Father
+,Brian,Ssemwanga,2011-07-22,Male,S1,East,boarder,Ugandan,Rose Ssemwanga,+256782000003,rssemwanga@gmail.com,Mother
+,Christine,Aber,2011-01-10,Female,S1,West,day,Ugandan,George Aber,+256756000004,,Father
+,David,Okello,2011-11-05,Male,S1,West,day,Ugandan,Sylvia Okello,+256714000005,sokello@yahoo.com,Mother
+,Esther,Namukasa,2011-05-20,Female,S1,East,boarder,Ugandan,John Namukasa,+256792000006,,Father
+,Frank,Ochieng,2011-08-14,Male,S1,West,day,Ugandan,Agnes Ochieng,+256703000007,aochieng@gmail.com,Mother
+,Grace,Atim,2011-09-30,Female,S1,East,day,Ugandan,Charles Atim,+256745000008,,Father
+,Grace,Namugga,2010-02-28,Female,S2,East,day,Ugandan,Samuel Namugga,+256723000009,snamugga@gmail.com,Father
+,Henry,Mubiru,2010-09-17,Male,S2,East,boarder,Ugandan,Florence Mubiru,+256784000010,,Mother
+,Irene,Nalwoga,2010-04-03,Female,S2,West,day,Ugandan,Patrick Nalwoga,+256712000011,pnalwoga@gmail.com,Father
+,James,Byarugaba,2010-12-19,Male,S2,West,boarder,Ugandan,Janet Byarugaba,+256763000012,,Mother
+,Kevin,Ssali,2010-06-07,Male,S2,East,day,Ugandan,Dorothy Ssali,+256701000013,dssali@gmail.com,Mother
+,Lydia,Auma,2010-08-25,Female,S2,West,boarder,Ugandan,Robert Auma,+256782000014,,Father
+,Josephine,Auma,2009-06-11,Female,S3,East,day,Ugandan,Michael Auma,+256756000015,mauma@gmail.com,Father
+,Kenneth,Turyahabwe,2009-10-25,Male,S3,East,boarder,Ugandan,Sarah Turyahabwe,+256714000016,,Mother
+,Lydia,Nassazi,2009-03-08,Female,S3,West,day,Ugandan,Moses Nassazi,+256792000017,mnassazi@yahoo.com,Father
+,Michael,Ocen,2009-08-30,Male,S3,West,day,Ugandan,Beatrice Ocen,+256703000018,,Mother
+,Nathan,Kizito,2009-05-14,Male,S3,East,boarder,Ugandan,Helen Kizito,+256745000019,hkizito@gmail.com,Mother
+,Olivia,Achola,2009-11-22,Female,S3,West,day,Ugandan,David Achola,+256723000020,,Father
+,Naomi,Kisakye,2008-01-14,Female,S4,East,boarder,Ugandan,Paul Kisakye,+256784000021,pkisakye@gmail.com,Father
+,Patrick,Ssali,2008-07-06,Male,S4,East,day,Ugandan,Margaret Ssali,+256712000022,,Mother
+,Rachel,Achola,2008-11-22,Female,S4,West,boarder,Ugandan,Emmanuel Achola,+256763000023,eachola@gmail.com,Father
+,Samuel,Waweru,2008-04-16,Male,S4,West,day,Kenyan,Grace Waweru,+256701000024,,Mother
+,Teopista,Nanfuka,2008-09-03,Female,S4,East,day,Ugandan,Joseph Nanfuka,+256782000025,jnanfuka@gmail.com,Father
+,Umar,Ssenoga,2008-03-19,Male,S4,West,boarder,Ugandan,Fatuma Ssenoga,+256756000026,,Mother
+,Victor,Bwire,2008-07-28,Male,S4,East,boarder,Ugandan,Susan Bwire,+256714000027,sbwire@yahoo.com,Mother
+,Winnie,Mutesi,2008-12-05,Female,S4,West,day,Ugandan,Alex Mutesi,+256792000028,,Father
+,Xavier,Kato,2008-02-17,Male,S4,East,day,Ugandan,Miriam Kato,+256703000029,mkato@gmail.com,Mother
+,Yvonne,Nalubega,2008-10-11,Female,S4,West,boarder,Ugandan,Dennis Nalubega,+256745000030,,Father

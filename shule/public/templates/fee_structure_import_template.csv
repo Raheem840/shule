@@ -1,0 +1,31 @@
+name,amount,applies_to,term,is_compulsory,class_name
+School Fees (Day) S1,750000,day_scholars,1,true,S1
+School Fees (Day) S2,750000,day_scholars,1,true,S2
+School Fees (Day) S3,800000,day_scholars,1,true,S3
+School Fees (Day) S4,850000,day_scholars,1,true,S4
+Boarding Supplement S1,600000,boarders,1,true,S1
+Boarding Supplement S2,600000,boarders,1,true,S2
+Boarding Supplement S3,650000,boarders,1,true,S3
+Boarding Supplement S4,700000,boarders,1,true,S4
+ICT Levy,30000,all,1,true,
+Library Levy,25000,all,1,true,
+School Fees (Day) S1,750000,day_scholars,2,true,S1
+School Fees (Day) S2,750000,day_scholars,2,true,S2
+School Fees (Day) S3,800000,day_scholars,2,true,S3
+School Fees (Day) S4,850000,day_scholars,2,true,S4
+Boarding Supplement S1,600000,boarders,2,true,S1
+Boarding Supplement S2,600000,boarders,2,true,S2
+Boarding Supplement S3,650000,boarders,2,true,S3
+Boarding Supplement S4,700000,boarders,2,true,S4
+ICT Levy,30000,all,2,true,
+Library Levy,25000,all,2,true,
+School Fees (Day) S1,750000,day_scholars,3,true,S1
+School Fees (Day) S2,750000,day_scholars,3,true,S2
+School Fees (Day) S3,800000,day_scholars,3,true,S3
+School Fees (Day) S4,850000,day_scholars,3,true,S4
+Boarding Supplement S1,600000,boarders,3,true,S1
+Boarding Supplement S2,600000,boarders,3,true,S2
+Boarding Supplement S3,650000,boarders,3,true,S3
+Boarding Supplement S4,700000,boarders,3,true,S4
+ICT Levy,30000,all,3,true,
+Library Levy,25000,all,3,true,

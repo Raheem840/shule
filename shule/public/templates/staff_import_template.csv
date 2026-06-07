@@ -1,15 +1,21 @@
-first_name,last_name,role,email,phone,national_id,employment_type,department_name,qualification_level,qualification_title,date_of_birth,gender
-Sarah,Namutebi,teacher,snamutebi@school.ac.ug,0772123456,CM80012345678P,full_time,Mathematics,Bachelors,BSc Mathematics Education,1980-01-23,Female
-Peter,Ochieng,class_teacher,pochieng@school.ac.ug,0701987654,CF79099876543Q,full_time,Sciences,Bachelors,BSc Biology,1979-09-14,Male
-Grace,Akello,dos,gakello@school.ac.ug,0782345678,CF82056712345R,full_time,Administration,Masters,MEd Educational Administration,1982-05-07,Female
-Moses,Waiswa,teacher,mwaiswa@school.ac.ug,0756789012,CM75034567890S,full_time,English,Bachelors,BA English Literature,1975-11-30,Male
-Juliet,Kansiime,bursar,jkansiime@school.ac.ug,0714567890,CF88067890123T,full_time,Finance,Bachelors,BCom Accounting,1988-03-19,Female
-Robert,Mugisha,teacher,rmugisha@school.ac.ug,0792345678,CM83045678901U,full_time,History & CRE,Bachelors,BA History,1983-07-25,Male
-Agnes,Atukunda,class_teacher,aatukunda@school.ac.ug,0703456789,CF86078901234V,full_time,Sciences,Bachelors,BSc Chemistry,1986-12-11,Female
-Denis,Lubwama,teacher,dlubwama@school.ac.ug,0724567890,CM78056789012W,full_time,Mathematics,Bachelors,BSc Applied Mathematics,1978-04-02,Male
-Harriet,Nakawesa,secretary,hnakawesa@school.ac.ug,0745678901,CF91034567890X,full_time,Administration,Diploma,Diploma in Secretarial Studies,1991-08-16,Female
-Isaac,Tumwesigye,teacher,itumwesigye@school.ac.ug,0763789012,CM77012345678Y,full_time,Physics,Bachelors,BSc Physics,1977-02-28,Male
-Joyce,Nambi,teacher,jnambi@school.ac.ug,0784890123,CF85090123456Z,full_time,English,Bachelors,BA Education,1985-06-20,Female
-Kevin,Ssebuliba,class_teacher,kssebuliba@school.ac.ug,0712901234,CM89023456789A,full_time,Geography,Bachelors,BSc Geography,1989-10-05,Male
-Lillian,Nakazibwe,teacher,lnakazibwe@school.ac.ug,0735012345,CF77056789012B,full_time,Biology,Bachelors,BSc Biology Education,1977-01-17,Female
-Olive,Byakatonda,teacher,obyakatonda@school.ac.ug,0777234567,CF93012345678D,full_time,Commerce,Bachelors,BCom Business Education,1993-04-28,Female
+first_name,last_name,role,email,phone,national_id,employment_type,department_name,subject1,subject2,gender,date_of_birth,address
+Sarah,Namutebi,teacher,sarah.namutebi@school.ug,+256772123456,CM80012345678P,full_time,Sciences,Mathematics,,Female,1980-01-23,Ntinda Kampala
+Peter,Ochieng,class_teacher,peter.ochieng@school.ug,+256701987654,CM79099876543Q,full_time,Sciences,Biology,Chemistry,Male,1979-09-14,Naguru Kampala
+Moses,Waiswa,teacher,moses.waiswa@school.ug,+256756789012,CM75034567890S,full_time,Humanities,English Literature,,Male,1975-11-30,Mukono
+Robert,Mugisha,teacher,robert.mugisha@school.ug,+256792345678,CM83045678901U,full_time,Humanities,History,,Male,1983-07-25,Bugolobi Kampala
+Agnes,Atukunda,class_teacher,agnes.atukunda@school.ug,+256703456789,CF86078901234V,full_time,Sciences,Chemistry,Physics,Female,1986-12-11,Muyenga Kampala
+Denis,Lubwama,teacher,denis.lubwama@school.ug,+256724567890,CM78056789012W,full_time,Sciences,Mathematics,Physics,Male,1978-04-02,Kireka Wakiso
+Isaac,Tumwesigye,teacher,isaac.tumwesigye@school.ug,+256763789012,CM77012345678Y,full_time,Sciences,Physics,,Male,1977-02-28,Lubaga Kampala
+Joyce,Nambi,teacher,joyce.nambi@school.ug,+256784890123,CF85090123456Z,full_time,Humanities,English,,Female,1985-06-20,Kasangati Wakiso
+Kevin,Ssebuliba,class_teacher,kevin.ssebuliba@school.ug,+256712901234,CM89023456789A,full_time,Humanities,Geography,,Male,1989-10-05,Kisaasi Kampala
+Lillian,Nakazibwe,teacher,lillian.nakazibwe@school.ug,+256735012345,CF77056789012B,full_time,Sciences,Biology,,Female,1977-01-17,Entebbe
+Olive,Byakatonda,teacher,olive.byakatonda@school.ug,+256777234567,CF93012345678D,full_time,Humanities,History,Geography,Female,1993-04-28,Gayaza Wakiso
+Paul,Nkurunziza,teacher,paul.nkurunziza@school.ug,+256751345678,CM85067890123E,full_time,Sciences,Mathematics,Biology,Male,1985-09-03,Kira Wakiso
+Rachael,Aligawesa,teacher,rachael.aligawesa@school.ug,+256704456789,CF90034567890F,full_time,Humanities,English Literature,History,Female,1990-02-14,Makindye Kampala
+Simon,Tumusiime,class_teacher,simon.tumusiime@school.ug,+256773567890,CM81078901234G,full_time,Sciences,Chemistry,,Male,1981-11-07,Rubaga Kampala
+Teresa,Nakamya,teacher,teresa.nakamya@school.ug,+256706678901,CF87045678901H,full_time,Sciences,Biology,Chemistry,Female,1987-06-22,Nansana Wakiso
+Umar,Ssekandi,teacher,umar.ssekandi@school.ug,+256742789012,CM92012345678I,part_time,Humanities,History,,Male,1992-08-30,Old Kampala
+Violet,Ankunda,teacher,violet.ankunda@school.ug,+256785890123,CF84089012345J,part_time,Humanities,Geography,,Female,1984-03-16,Naguru Kampala
+William,Opio,teacher,william.opio@school.ug,+256716901234,CM76056789012K,full_time,Sciences,Physics,Mathematics,Male,1976-12-19,Gulu
+Xavier,Namukwaya,teacher,xavier.namukwaya@school.ug,+256757012345,CM94023456789L,full_time,Humanities,English,,Male,1994-01-08,Jinja
+Yvonne,Tusiime,class_teacher,yvonne.tusiime@school.ug,+256798123456,CF88090123456M,full_time,Sciences,Biology,Chemistry,Female,1988-07-25,Buwaate Wakiso
