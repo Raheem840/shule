@@ -109,6 +109,117 @@ function PaymentRow({ p }: { p: ReturnType<typeof useRecentPayments>['data'] ext
 // ─────────────────────────────────────────────────────────────
 const CURRENT_YEAR = new Date().getFullYear()
 
+// ── Chart card ────────────────────────────────────────────────
+function ChartCard({
+  term, points, classNames, totalCollected, totalOutstanding, collectionPct, isLoading,
+}: {
+  term: number; points: any[]; classNames: string[]
+  totalCollected: number; totalOutstanding: number; collectionPct: number; isLoading: boolean
+}) {
+  function exportCSV() {
+    if (!points.length) return
+    const cols = ['Month', ...classNames.slice(0, 8)]
+    const rows = points.map(p => cols.map(c => c === 'Month' ? p.month : (p[c] ?? 0)).join(','))
+    const csv  = [cols.join(','), ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url; a.download = `fee-collection-trend.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const hasData = totalCollected + totalOutstanding > 0
+
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ padding: '20px 24px 0', background: 'linear-gradient(135deg,rgba(13,148,136,.05) 0%,rgba(139,92,246,.03) 100%)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+          <div>
+            <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 16, color: 'var(--txt)', letterSpacing: -.3, marginBottom: 3 }}>
+              Fee Collection Trend
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--txt3)' }}>Monthly payments received per class · all terms</div>
+          </div>
+          <button
+            onClick={exportCSV}
+            disabled={!points.length}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 12, cursor: points.length ? 'pointer' : 'not-allowed', opacity: points.length ? 1 : 0.4, transition: 'all .14s' }}
+            onMouseEnter={e => { if (points.length) { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)' } }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--txt2)' }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export CSV
+          </button>
+        </div>
+
+        {/* Stat strip */}
+        {hasData && (
+          <div style={{ display: 'flex', borderTop: '1px solid var(--border)', borderLeft: '1px solid var(--border)', borderRadius: '10px 10px 0 0', overflow: 'hidden' }}>
+            {([
+              { label: 'Total Collected',  value: ugxCompact(totalCollected),    color: 'var(--success)' as const, pct: null },
+              { label: 'Outstanding',      value: ugxCompact(totalOutstanding),  color: 'var(--danger)'  as const, pct: null },
+              { label: `Term ${term} Rate`,value: `${collectionPct}%`,           color: (collectionPct >= 80 ? 'var(--success)' : collectionPct >= 50 ? 'var(--brand)' : 'var(--warning)') as string, pct: collectionPct },
+            ] as const).map((s, i) => (
+              <div key={s.label} style={{ flex: 1, padding: '12px 16px', background: 'var(--surface)', borderRight: i < 2 ? '1px solid var(--border)' : 'none' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', fontFamily: 'var(--font2)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>{s.label}</div>
+                <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 15, color: s.color, lineHeight: 1 }}>{s.value}</div>
+                {s.pct !== null && (
+                  <div style={{ marginTop: 6, height: 3, borderRadius: 99, background: 'var(--surface2)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${s.pct}%`, background: s.color, borderRadius: 99, transition: 'width .6s' }} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Chart body */}
+      <div style={{ padding: '16px 20px 20px' }}>
+        {isLoading ? (
+          <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LoadingSpinner size="md" /></div>
+        ) : points.length === 0 ? (
+          <div style={{ height: 260, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt2)', fontFamily: 'var(--font2)' }}>No payment data yet</div>
+            <div style={{ fontSize: 12, color: 'var(--txt3)' }}>Record payments with dates to see the trend</div>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={320}>
+            <AreaChart data={points} margin={{ top: 10, right: 16, left: 8, bottom: 0 }}>
+              <defs>
+                {classNames.slice(0, 8).map((cls, i) => (
+                  <linearGradient key={cls} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={CLASS_COLORS[i % CLASS_COLORS.length]} stopOpacity={0.28} />
+                    <stop offset="95%" stopColor={CLASS_COLORS[i % CLASS_COLORS.length]} stopOpacity={0.02} />
+                  </linearGradient>
+                ))}
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--txt3)', fontFamily: 'var(--font2)' }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={axisCompact} tick={{ fontSize: 11, fill: 'var(--txt3)' }} axisLine={false} tickLine={false} width={52} />
+              <Tooltip content={<ChartTooltip />} />
+              <Legend wrapperStyle={{ fontSize: 11.5, fontFamily: 'var(--font2)', paddingTop: 14 }} iconType="circle" iconSize={8} />
+              {classNames.slice(0, 8).map((cls, i) => (
+                <Area key={cls} type="monotone" dataKey={cls}
+                  stroke={CLASS_COLORS[i % CLASS_COLORS.length]} strokeWidth={2.5}
+                  fill={`url(#grad-${i})`} dot={false}
+                  activeDot={{ r: 5, strokeWidth: 2, fill: CLASS_COLORS[i % CLASS_COLORS.length] }}
+                />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function BursarDashboard() {
   const [term, setTerm]           = useState<1 | 2 | 3>(1)
   const [academicYearId, setAcademicYearId] = useState<string | null>(null)
@@ -191,101 +302,15 @@ export function BursarDashboard() {
       </div>
 
       {/* ── PREMIUM FEE COLLECTION CHART ──────────────────────── */}
-      <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 18, overflow: 'hidden',
-      }}>
-        {/* Chart header */}
-        <div style={{
-          padding: '18px 24px 16px',
-          background: 'linear-gradient(135deg,rgba(13,148,136,.06) 0%,rgba(139,92,246,.04) 100%)',
-          borderBottom: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12,
-        }}>
-          <div>
-            <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 15, color: 'var(--txt)', letterSpacing: -.3 }}>
-              Fee Collection by Class — Over Time
-            </div>
-            <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2 }}>
-              Monthly payments received per class across all terms
-            </div>
-          </div>
-          {/* Collection progress pill */}
-          {totalCollected + totalOutstanding > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ fontSize: 11, color: 'var(--txt3)', fontWeight: 700, fontFamily: 'var(--font2)' }}>
-                Term {term} progress
-              </div>
-              <div style={{ position: 'relative', width: 120, height: 8, borderRadius: 99, background: 'var(--surface2)', overflow: 'hidden' }}>
-                <div style={{
-                  position: 'absolute', left: 0, top: 0, height: '100%',
-                  width: `${collectionPct}%`,
-                  background: collectionPct >= 80 ? 'var(--success)' : collectionPct >= 50 ? 'var(--brand)' : 'var(--warning)',
-                  borderRadius: 99, transition: 'width .6s ease',
-                }} />
-              </div>
-              <div style={{ fontFamily: 'var(--font3)', fontWeight: 800, fontSize: 13, color: 'var(--brand)' }}>
-                {collectionPct}%
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Chart body */}
-        <div style={{ padding: '20px 20px 16px' }}>
-          {overTime.isLoading ? (
-            <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <LoadingSpinner size="md" />
-            </div>
-          ) : points.length === 0 ? (
-            <div style={{ height: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-              <div style={{ fontSize: 13, color: 'var(--txt3)', fontWeight: 600 }}>No payment data yet</div>
-              <div style={{ fontSize: 12, color: 'var(--txt3)' }}>Payments with dates will appear here as a trend chart</div>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={320}>
-              <AreaChart data={points} margin={{ top: 10, right: 16, left: 8, bottom: 0 }}>
-                <defs>
-                  {classNames.slice(0, 8).map((cls, i) => (
-                    <linearGradient key={cls} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor={CLASS_COLORS[i % CLASS_COLORS.length]} stopOpacity={0.25} />
-                      <stop offset="95%" stopColor={CLASS_COLORS[i % CLASS_COLORS.length]} stopOpacity={0.02} />
-                    </linearGradient>
-                  ))}
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 11, fill: 'var(--txt3)', fontFamily: 'var(--font2)' }}
-                  axisLine={false} tickLine={false}
-                />
-                <YAxis
-                  tickFormatter={axisCompact}
-                  tick={{ fontSize: 11, fill: 'var(--txt3)' }}
-                  axisLine={false} tickLine={false} width={52}
-                />
-                <Tooltip content={<ChartTooltip />} />
-                <Legend
-                  wrapperStyle={{ fontSize: 12, fontFamily: 'var(--font2)', paddingTop: 12 }}
-                />
-                {classNames.slice(0, 8).map((cls, i) => (
-                  <Area
-                    key={cls}
-                    type="monotone"
-                    dataKey={cls}
-                    stroke={CLASS_COLORS[i % CLASS_COLORS.length]}
-                    strokeWidth={2.5}
-                    fill={`url(#grad-${i})`}
-                    dot={false}
-                    activeDot={{ r: 5, strokeWidth: 2 }}
-                  />
-                ))}
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </div>
+      <ChartCard
+        term={term}
+        points={points}
+        classNames={classNames}
+        totalCollected={totalCollected}
+        totalOutstanding={totalOutstanding}
+        collectionPct={collectionPct}
+        isLoading={overTime.isLoading}
+      />
 
       {/* ── Class breakdown bar + Recent payments ─────────────── */}
       <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 16 }}>
