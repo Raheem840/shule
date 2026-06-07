@@ -281,7 +281,7 @@ export function useFeeCollectionOverTime() {
         if (!cid) continue
         const date = new Date(p.payment_date as string)
         if (isNaN(date.getTime())) continue
-        const monthKey = date.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })
+        const monthKey = date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
         if (!bucket.has(monthKey)) bucket.set(monthKey, new Map())
         const m = bucket.get(monthKey)!
         m.set(cid, (m.get(cid) ?? 0) + (Number(p.amount_paid) || 0))
