@@ -259,6 +259,8 @@ export function PrincipalDashboard() {
 
       {/* Hero band */}
       <div className="sui-hero-band mob-hero mob-hero-principal">
+        {/* Desktop parallax ambient orb (CSS-animated, mobile-suppressed) */}
+        <span className="sui-hero-orb mob-fab-hide" aria-hidden="true" />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <h1 className="mob-hero-title" style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 23, color: 'var(--txt)', margin: 0, letterSpacing: '-0.4px' }}>
             School Overview

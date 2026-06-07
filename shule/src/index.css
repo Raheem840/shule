@@ -3370,3 +3370,262 @@ select.sui-select:hover:not(:disabled):not(:focus) {
   .mob-hero { min-height: 140px; padding-top: calc(16px + env(safe-area-inset-top)) !important; }
   .mob-quick-btn { min-width: 68px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PREMIUM DESKTOP / TABLET SYSTEM  (the_designer)
+   Research-driven: Linear sidebar pills · Stripe metric depth · Raycast
+   keyboard hints · Figma toolbar craft · Framer spring motion · Craft
+   ambient depth · macOS selection states.
+   Everything here is desktop/tablet-scoped (≥769px) so the exhaustive
+   mobile system above is never touched. Fills genuine gaps only — no
+   duplication of existing card/hero/modal/toast/skeleton patterns.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Global keyframes (safe at any width) ──────────────────────────────────── */
+@keyframes navPillIn {
+  from { transform: scaleY(0);   opacity: 0; }
+  to   { transform: scaleY(1);   opacity: 1; }
+}
+@keyframes sheenSweep {
+  0%   { transform: translateX(-120%) rotate(8deg); }
+  100% { transform: translateX(320%)  rotate(8deg); }
+}
+@keyframes orbFloatSlow {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  50%      { transform: translate(-14px,18px) scale(1.08); }
+}
+@keyframes emptyFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-9px); }
+}
+@keyframes kbdPop {
+  from { opacity: 0; transform: translateY(3px) scale(0.9); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (min-width: 769px) {
+
+  /* ── 1. UNIVERSAL BUTTON PRESS PHYSICS (Framer/Linear "tactile" feel) ──────
+     The desktop sui-btn-* variants had hover-lift but no press feedback.
+     Add a crisp scale-down on :active across every button variant. */
+  .sui-btn:active:not(:disabled),
+  .sui-btn-primary:active:not(:disabled),
+  .sui-btn-secondary:active:not(:disabled),
+  .sui-btn-outline:active:not(:disabled),
+  .sui-btn-ghost:active:not(:disabled),
+  .sui-btn-danger:active:not(:disabled),
+  .sui-quick-btn:active,
+  .btn:active,
+  .btn-primary:active,
+  .btn-secondary:active {
+    transform: scale(0.965) !important;
+    transition: transform 0.07s ease !important;
+  }
+
+  /* Topbar icon buttons + theme toggle get the same press feel */
+  .tb-icon:active,
+  .sui-tb-icon:active,
+  .theme-toggle:active { transform: scale(0.93) !important; }
+
+  /* ── 2. SIDEBAR ACTIVE PILL — sliding indicator (Linear/Arc) ───────────────
+     Replace the static left border with an animated rounded pill that
+     springs in when an item becomes active, plus a hover slide affordance. */
+  .ni {
+    border-radius: 0 8px 8px 0;
+    margin-right: 8px;
+    transition: color 0.15s, background 0.18s, padding-left 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .ni::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 50%;
+    transform: translateY(-50%) scaleY(0);
+    width: 3px; height: 60%;
+    border-radius: 0 3px 3px 0;
+    background: linear-gradient(180deg, var(--sb-active), #22d3ee);
+    box-shadow: 0 0 10px rgba(13,217,196,0.6);
+    transition: transform 0.26s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .ni.on { border-left-color: transparent; }
+  .ni.on::before {
+    transform: translateY(-50%) scaleY(1);
+    animation: navPillIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  /* Hover: nudge the label right + reveal a faint chevron affordance */
+  .ni:not(.on):hover { padding-left: 1.3rem; }
+  .ni:not(.on)::after {
+    content: '';
+    margin-left: auto;
+    width: 5px; height: 5px;
+    border-right: 1.5px solid currentColor;
+    border-top: 1.5px solid currentColor;
+    transform: rotate(45deg) translateX(-4px);
+    opacity: 0;
+    transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .ni:not(.on):hover::after { opacity: 0.5; transform: rotate(45deg) translateX(0); }
+
+  /* ── 3. DATA TABLE ROW — left-border colour slide on hover (Stripe) ────────
+     Existing rule only swapped background. Add a brand accent bar that
+     wipes in from the left edge, and lift the row text weight subtly. */
+  .sui-tr td:first-child,
+  .dtable tbody tr td:first-child { position: relative; }
+  .sui-tr td:first-child::before,
+  .dtable tbody tr td:first-child::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--brand);
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .sui-tr:hover td:first-child::before,
+  .dtable tbody tr:hover td:first-child::before,
+  .sui-tr-selected td:first-child::before { transform: scaleY(1); }
+
+  /* ── 4. CARD AMBIENT SHEEN — diagonal light sweep on hover (Craft) ─────────
+     A subtle moving highlight that reads as glass catching light. Layered
+     under content; only fires on hover so it never distracts at rest. */
+     Pseudo-element based — activates on every .sui-glass-card with zero JSX. */
+  .sui-glass-card { position: relative; }
+  .sui-glass-card::after {
+    content: '';
+    position: absolute;
+    top: -60%; left: 0;
+    width: 45%; height: 220%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 2;
+    will-change: transform, opacity;
+  }
+  .sui-glass-card:hover::after {
+    opacity: 1;
+    animation: sheenSweep 0.9s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  .ar[data-theme="dark"] .sui-glass-card::after {
+    background: linear-gradient(90deg, transparent, rgba(13,217,196,0.14), transparent);
+  }
+
+  /* ── 5. KEYBOARD SHORTCUT HINTS — refined kbd chip (Raycast) ───────────────
+     Standardised kbd styling + a reveal-on-hover variant for buttons. */
+  kbd, .sui-kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    font-family: var(--font3);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--txt3);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    line-height: 1;
+  }
+  .sui-kbd-reveal {
+    opacity: 0;
+    transform: translateY(3px) scale(0.9);
+    transition: opacity 0.16s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  *:hover > .sui-kbd-reveal { animation: kbdPop 0.2s ease both; opacity: 1; transform: none; }
+
+  /* ── 6. HERO BAND — third ambient orb + richer dark gradient (Spline) ──────
+     Adds a slow-drifting accent orb beyond the two existing ones for
+     parallax depth on the wide desktop hero. */
+  .sui-hero-band > .sui-hero-orb {
+    position: absolute;
+    top: 30%; left: 12%;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(34,211,238,0.10) 0%, transparent 70%);
+    animation: orbFloatSlow 14s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .ar[data-theme="dark"] .sui-hero-band {
+    background: linear-gradient(135deg,
+      rgba(13,217,196,0.10) 0%,
+      rgba(8,145,178,0.06) 45%,
+      rgba(139,92,246,0.09) 100%);
+  }
+
+  /* ── 7. DEEPER DARK SURFACES — richer card/surface depth in dark mode ──────
+     The dark palette read slightly flat; deepen surface + add a hairline
+     top highlight so cards feel lifted off the near-black background. */
+  .ar[data-theme="dark"] .sui-glass-panel,
+  .ar[data-theme="dark"] .card {
+    background: rgba(11,21,40,0.66);
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+
+  /* ── 8. SECTION ENTRANCE — gentle reveal for section heads (Notion) ────────
+     Section heads slide their accent bar in for a crafted first-paint. */
+  .sui-section-head::before {
+    transform-origin: center;
+    animation: navPillIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+
+  /* ── 9. EMPTY-STATE FLOAT — illustrated stub breathes (Linear empty pages) ─ */
+  .stub-card .stub-card-icon,
+  .sui-empty-illustration {
+    animation: emptyFloat 4.5s ease-in-out infinite;
+  }
+
+  /* ── 10. TOPBAR SEARCH — magnetic focus ring + kbd brighten (Raycast) ──────
+     The search pill gains a soft brand ring on focus-within so keyboard
+     users get the same affordance as the Ctrl+K palette. */
+  .topbar button:focus-visible,
+  .tb-icon:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--brand-glow);
+    border-color: var(--brand) !important;
+  }
+
+  /* ── 11. FOCUS-VISIBLE RING — consistent keyboard nav across controls ──────
+     macOS-grade keyboard focus that never shows on mouse click. */
+  .sui-btn-primary:focus-visible,
+  .sui-btn-secondary:focus-visible,
+  .sui-btn-outline:focus-visible,
+  .sui-btn-ghost:focus-visible,
+  .sui-btn-danger:focus-visible,
+  .ni:focus-visible,
+  .sui-tab-pill:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--brand-glow);
+  }
+
+  /* ── 12. SCROLLBAR REFINEMENT — thinner, brand-tinted on hover (Arc) ──────── */
+  .shell-main:hover::-webkit-scrollbar-thumb { background: var(--border2); }
+  .shell-main::-webkit-scrollbar-thumb:hover { background: var(--brand); }
+}
+
+/* Respect reduced-motion for every new desktop animation */
+@media (min-width: 769px) and (prefers-reduced-motion: reduce) {
+  .ni::before,
+  .ni:not(.on)::after,
+  .sui-glass-card::after,
+  .sui-hero-band > .sui-hero-orb,
+  .sui-section-head::before,
+  .stub-card .stub-card-icon,
+  .sui-empty-illustration,
+  .sui-tr td:first-child::before,
+  .dtable tbody tr td:first-child::before {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Disable new desktop animations under low-bandwidth mode */
+[data-low-bandwidth] .ni::before,
+[data-low-bandwidth] .sui-glass-card::after,
+[data-low-bandwidth] .sui-hero-band > .sui-hero-orb,
+[data-low-bandwidth] .stub-card .stub-card-icon,
+[data-low-bandwidth] .sui-empty-illustration {
+  animation: none !important;
+}
