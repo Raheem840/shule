@@ -1,17 +1,12 @@
-// OfflineBanner.tsx — Sticky banner at the top of AppShell.
+// OfflineBanner.tsx — Premium floating status banner.
 // Three states:
-//   1. Browser offline → amber "No internet" banner with age of cached data
-//   2. Online but Supabase unreachable → amber "Can't reach server" banner
-//   3. Just came back online → green flash for 3 s then hides
-//
-// The banner never polls — it relies on browser online/offline events for
-// the primary state and a lightweight Supabase probe (via useOfflineMode)
-// to detect server-side outages.
+//   1. Browser offline     → dark pill with animated wifi-off + queued count
+//   2. Server unreachable  → dark pill with animated cloud-x icon
+//   3. Back online         → green pill with checkmark, auto-dismisses after 3s
 
 import { useState, useEffect } from 'react'
-import { useOfflineMode }      from '../../hooks/useOfflineMode'
+import { useOfflineMode } from '../../hooks/useOfflineMode'
 
-// Format "2h ago", "45m ago", "just now"
 function formatAge(date: Date): string {
   const diffMs   = Date.now() - date.getTime()
   const diffMins = Math.floor(diffMs / 60_000)
@@ -22,155 +17,212 @@ function formatAge(date: Date): string {
   return `${Math.floor(diffHrs / 24)}d ago`
 }
 
+// ── Layered wifi-off icon ─────────────────────────────────────
+function WifiOffIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round">
+      {/* Arcs */}
+      <path d="M8.53 16.11a6 6 0 0 1 6.95 0" stroke="currentColor" strokeWidth="1.8" opacity=".4"/>
+      <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" stroke="currentColor" strokeWidth="1.8" opacity=".6"/>
+      <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" stroke="currentColor" strokeWidth="1.8" opacity=".6"/>
+      {/* Strike-through */}
+      <line x1="2" y1="2" x2="22" y2="22" stroke="currentColor" strokeWidth="2"/>
+      {/* Dot */}
+      <circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none"
+        style={{ animation: 'ob-pulse 1.8s ease-in-out infinite' }} />
+    </svg>
+  )
+}
+
+// ── Server cloud-off icon ─────────────────────────────────────
+function ServerOffIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" opacity=".5"/>
+      <line x1="4.22" y1="4.22" x2="19.78" y2="19.78" strokeWidth="2"/>
+    </svg>
+  )
+}
+
+// ── Animated back-online check ────────────────────────────────
+function CheckIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round"
+      style={{ animation: 'ob-pop .4s cubic-bezier(.18,.89,.32,1.28) both' }}>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6"
+        strokeDasharray="56.5" style={{ animation: 'ob-ring .5s ease both' }} />
+      <polyline points="7 12.5 10.5 16 17 9" stroke="currentColor" strokeWidth="2.2"
+        style={{ strokeDasharray: 14, animation: 'ob-check .3s .3s ease forwards', strokeDashoffset: 14 }} />
+    </svg>
+  )
+}
+
+// ── Queued changes badge ──────────────────────────────────────
+function QueueBadge({ count }: { count: number }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 4,
+      padding: '2px 8px', borderRadius: 99,
+      background: 'rgba(251,191,36,.15)', border: '1px solid rgba(251,191,36,.3)',
+      fontSize: 11, fontWeight: 700, color: '#fbbf24',
+    }}>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+        <path d="M22 12H2M17 5l5 7-5 7"/>
+      </svg>
+      {count} pending
+    </div>
+  )
+}
+
+const KEYFRAMES = `
+  @keyframes ob-in    { from { opacity:0; transform:translateX(-50%) translateY(-18px) scale(.9) } to { opacity:1; transform:translateX(-50%) translateY(0) scale(1) } }
+  @keyframes ob-out   { from { opacity:1; transform:translateX(-50%) translateY(0) scale(1) } to { opacity:0; transform:translateX(-50%) translateY(-14px) scale(.94) } }
+  @keyframes ob-pulse { 0%,100% { opacity:.35; transform:scale(.75) } 55% { opacity:1; transform:scale(1.2) } }
+  @keyframes ob-ring  { from { stroke-dashoffset:56.5 } to { stroke-dashoffset:0 } }
+  @keyframes ob-check { to   { stroke-dashoffset:0 } }
+  @keyframes ob-pop   { from { transform:scale(.6); opacity:0 } to { transform:scale(1); opacity:1 } }
+  @keyframes ob-spin  { to   { transform:rotate(360deg) } }
+`
+
 export function OfflineBanner() {
   const { isOffline, isSupabaseUnreachable, lastOnlineAt } = useOfflineMode()
   const [showOnlineFlash, setShowOnlineFlash] = useState(false)
   const [wasOffline,      setWasOffline]      = useState(false)
+  const [leaving,         setLeaving]         = useState(false)
   const [ageLabel,        setAgeLabel]        = useState<string | null>(null)
   const [retrying,        setRetrying]        = useState(false)
 
-  // Detect transition → online to trigger the "Back online" flash
   useEffect(() => {
     if (!isOffline && !isSupabaseUnreachable && wasOffline) {
       setShowOnlineFlash(true)
+      setLeaving(false)
     }
     setWasOffline(isOffline || isSupabaseUnreachable)
-  }, [isOffline, isSupabaseUnreachable, wasOffline])
+  }, [isOffline, isSupabaseUnreachable])
 
-  // Auto-dismiss the online flash after 3 s
   useEffect(() => {
     if (!showOnlineFlash) return
-    const t = setTimeout(() => setShowOnlineFlash(false), 3000)
-    return () => clearTimeout(t)
+    const dismiss = setTimeout(() => {
+      setLeaving(true)
+      setTimeout(() => { setShowOnlineFlash(false); setLeaving(false) }, 350)
+    }, 3_000)
+    return () => clearTimeout(dismiss)
   }, [showOnlineFlash])
 
-  // Refresh the "X ago" label every 30 s
   useEffect(() => {
-    if ((!isOffline && !isSupabaseUnreachable) || !lastOnlineAt) {
-      setAgeLabel(null)
-      return
-    }
+    if ((!isOffline && !isSupabaseUnreachable) || !lastOnlineAt) { setAgeLabel(null); return }
     setAgeLabel(formatAge(lastOnlineAt))
     const t = setInterval(() => setAgeLabel(formatAge(lastOnlineAt)), 30_000)
     return () => clearInterval(t)
   }, [isOffline, isSupabaseUnreachable, lastOnlineAt])
 
-  // Manual retry — just reload the page; the sync listener fires automatically
   function handleRetry() {
     setRetrying(true)
-    // Give the browser 300 ms to attempt reconnect before the reload
     setTimeout(() => window.location.reload(), 300)
   }
 
-  // ── Offline banner ──────────────────────────────────────────────────────────
-  if (isOffline || isSupabaseUnreachable) {
-    const message = isOffline
-      ? 'No internet connection — showing cached data'
-      : "Can't reach server — showing cached data"
-
-    return (
+  const pill = (children: React.ReactNode, cfg: { bg: string; border: string; color: string; glow: string }, testId: string) => (
+    <>
+      <style>{KEYFRAMES}</style>
       <div
-        data-testid="offline-banner"
+        data-testid={testId}
+        role="status"
+        aria-live="polite"
         style={{
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-          gap:            10,
-          background:     'var(--warning-bg, #fef3c7)',
-          color:          '#92400e',
-          padding:        '7px 16px',
-          fontSize:       13,
-          fontWeight:     600,
-          borderBottom:   '1px solid var(--warning, #f59e0b)',
-          fontFamily:     'var(--font1, Plus Jakarta Sans, sans-serif)',
+          position: 'fixed', top: 56, left: '50%',
+          zIndex: 9998,
+          animation: leaving ? 'ob-out .35s ease forwards' : 'ob-in .38s cubic-bezier(.32,.72,0,1) both',
+          willChange: 'transform, opacity',
         }}
       >
-        {/* Wifi-off icon */}
-        <svg
-          width="15" height="15"
-          viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="2"
-          strokeLinecap="round" strokeLinejoin="round"
-          aria-hidden="true"
-          style={{ flexShrink: 0, opacity: 0.75 }}
-        >
-          <line x1="1" y1="1" x2="23" y2="23" />
-          <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
-          <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
-          <path d="M10.71 5.05A16 16 0 0 1 22.56 9" />
-          <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" />
-          <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-          <circle cx="12" cy="20" r="1" fill="currentColor" stroke="none" />
-        </svg>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 14px',
+          borderRadius: 99,
+          background: cfg.bg,
+          backdropFilter: 'blur(24px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          border: `1px solid ${cfg.border}`,
+          boxShadow: `0 8px 40px rgba(0,0,0,.32), 0 0 0 1px ${cfg.border} inset, 0 0 24px ${cfg.glow}`,
+          color: cfg.color,
+          fontFamily: 'var(--font2)',
+          fontWeight: 700,
+          fontSize: 13,
+          userSelect: 'none',
+          whiteSpace: 'nowrap',
+          minWidth: 240,
+        }}>
+          {children}
+        </div>
+      </div>
+    </>
+  )
 
-        <span style={{ flex: 1, textAlign: 'center' }}>
-          {message}
-          {ageLabel && (
-            <span style={{ marginLeft: 6, fontWeight: 400, opacity: 0.8 }}>
-              · Last synced {ageLabel}
+  // ── Offline ──────────────────────────────────────────────────
+  if (isOffline || isSupabaseUnreachable) {
+    const isServerIssue = !isOffline && isSupabaseUnreachable
+    return pill(
+      <>
+        {/* Icon bubble */}
+        <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(251,191,36,.12)', border: '1px solid rgba(251,191,36,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fbbf24' }}>
+          {isServerIssue ? <ServerOffIcon /> : <WifiOffIcon />}
+        </div>
+
+        {/* Labels */}
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: -.2 }}>
+            {isServerIssue ? 'Server unreachable' : 'No internet'}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+            <span style={{ fontSize: 11, fontWeight: 500, opacity: .65 }}>
+              {ageLabel ? `Cached · ${ageLabel}` : 'Showing cached data'}
             </span>
-          )}
-        </span>
-
-        {/* Changes saved locally notice */}
-        {isOffline && (
-          <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 12 }}>
-            Writes queued locally
-          </span>
-        )}
+          </div>
+        </div>
 
         {/* Retry button */}
         <button
           onClick={handleRetry}
           disabled={retrying}
-          aria-label="Retry connection"
           style={{
-            marginLeft:   8,
-            padding:      '3px 10px',
-            borderRadius: 6,
-            border:       '1.5px solid #92400e',
-            background:   'transparent',
-            color:        '#92400e',
-            fontSize:     11,
-            fontWeight:   700,
-            cursor:       retrying ? 'wait' : 'pointer',
-            flexShrink:   0,
-            fontFamily:   'inherit',
-            opacity:      retrying ? 0.6 : 1,
+            padding: '5px 12px', borderRadius: 99,
+            border: '1px solid rgba(251,191,36,.4)',
+            background: retrying ? 'transparent' : 'rgba(251,191,36,.12)',
+            color: '#fbbf24', fontSize: 11.5, fontWeight: 800,
+            cursor: retrying ? 'wait' : 'pointer',
+            fontFamily: 'inherit', transition: 'all .15s',
+            display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
           }}
         >
-          {retrying ? 'Retrying…' : 'Retry'}
+          {retrying
+            ? <><svg style={{ animation: 'ob-spin .8s linear infinite' }} width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 11-6.2-8.6"/></svg> Retrying</>
+            : <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 013.51 15"/></svg> Retry</>
+          }
         </button>
-      </div>
+
+        {/* Pulse dot */}
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 0 3px rgba(245,158,11,.25)', animation: 'ob-pulse 2s ease-in-out infinite', flexShrink: 0 }} />
+      </>,
+      { bg: 'rgba(15,23,42,.88)', border: 'rgba(245,158,11,.3)', color: '#fde68a', glow: 'rgba(245,158,11,.08)' },
+      'offline-banner'
     )
   }
 
-  // ── Back online flash ───────────────────────────────────────────────────────
+  // ── Back online ──────────────────────────────────────────────
   if (showOnlineFlash) {
-    return (
-      <div
-        data-testid="online-banner"
-        style={{
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-          gap:            8,
-          background:     'var(--success-bg, #d1fae5)',
-          color:          '#065f46',
-          padding:        '7px 16px',
-          fontSize:       13,
-          fontWeight:     600,
-          borderBottom:   '1px solid var(--success, #10b981)',
-          fontFamily:     'var(--font1, Plus Jakarta Sans, sans-serif)',
-        }}
-      >
-        {/* Check-circle icon */}
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-          <polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
-        Back online — syncing queued changes…
-      </div>
+    return pill(
+      <>
+        <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(110,231,183,.15)', border: '1px solid rgba(110,231,183,.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#6ee7b7' }}>
+          <CheckIcon />
+        </div>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: -.2 }}>Back online</div>
+          <div style={{ fontSize: 11, fontWeight: 500, opacity: .7, marginTop: 2 }}>Syncing queued changes…</div>
+        </div>
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 0 3px rgba(16,185,129,.25)', flexShrink: 0 }} />
+      </>,
+      { bg: 'rgba(5,150,105,.9)', border: 'rgba(110,231,183,.35)', color: '#fff', glow: 'rgba(16,185,129,.12)' },
+      'online-banner'
     )
   }
 
