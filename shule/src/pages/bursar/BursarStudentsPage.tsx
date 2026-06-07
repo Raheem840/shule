@@ -862,7 +862,7 @@ function StudentCard({
           </div>
 
           {/* Fee amounts */}
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 10 }}>
+          <div className="mob-bursar-fee-amounts" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 10 }}>
             {[
               { label: 'Due',     value: ugx(student.amountDue),  color: 'var(--txt)'     },
               { label: 'Paid',    value: ugx(student.amountPaid), color: 'var(--success)'  },
@@ -1266,7 +1266,7 @@ export function BursarStudentsPage() {
   }
 
   return (
-    <div style={{
+    <div className="mob-bursar-students" style={{
       padding: '1.5rem 2rem', maxWidth: 1400, margin: '0 auto',
       display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)',
       gap: 16,
@@ -1334,7 +1334,7 @@ export function BursarStudentsPage() {
           </div>
 
           {/* KPI chips */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
+          <div className="mob-bursar-kpis" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
             {[
               { label: 'Total Students', value: isLoading ? '—' : kpis.total,   accent: 'rgba(255,255,255,.22)' },
               { label: 'Fully Paid',     value: isLoading ? '—' : kpis.paid,    accent: 'rgba(16,185,129,.35)'  },
@@ -1359,7 +1359,7 @@ export function BursarStudentsPage() {
       </div>
 
       {/* ── Filter bar ───────────────────────────────────────── */}
-      <div style={{
+      <div className="mob-bursar-filters" style={{
         display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
         flexShrink: 0, background: 'var(--surface)',
         border: '1px solid var(--border)', borderRadius: 14,
@@ -1562,6 +1562,8 @@ export function BursarStudentsPage() {
                 return (
                   <div
                     key={student.id}
+                    data-index={vItem.index}
+                    ref={virtualizer.measureElement}
                     style={{
                       position: 'absolute', top: 0, left: 0, right: 0,
                       transform: `translateY(${vItem.start}px)`,

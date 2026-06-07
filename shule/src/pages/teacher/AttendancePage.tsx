@@ -19,12 +19,14 @@ const STATUSES: AttendanceStatus[] = ['present', 'absent', 'late', 'excused']
 
 function StatusToggle({ value, onChange }: { value: AttendanceStatus; onChange: (s: AttendanceStatus) => void }) {
   return (
-    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+    <div className="mob-att-toggle" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
       {STATUSES.map(s => {
         const active = value === s
         const cfg    = STATUS_CFG[s]
         return (
           <button key={s} type="button" onClick={() => onChange(s)}
+            className={`mob-att-pill${active ? ' is-active' : ''}`}
+            data-short={cfg.label.charAt(0)}
             style={{
               padding: '4px 11px', borderRadius: 7,
               fontSize: 11, fontWeight: 800, fontFamily: 'var(--font2)',
@@ -34,7 +36,7 @@ function StatusToggle({ value, onChange }: { value: AttendanceStatus; onChange: 
               color:      active ? cfg.color : 'var(--txt3)',
               whiteSpace: 'nowrap',
             }}>
-            {cfg.label}
+            <span className="mob-att-pill-full">{cfg.label}</span>
           </button>
         )
       })}
@@ -225,7 +227,7 @@ export function AttendancePage() {
       </div>
 
       {/* ── Filter bar ──────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', alignItems: 'flex-end' }}>
+      <div className="mob-att-filters" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', alignItems: 'flex-end' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '.5px', fontFamily: 'var(--font2)' }}>Date</label>
           <input type="date" value={date} max={today}

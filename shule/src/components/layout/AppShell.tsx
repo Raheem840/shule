@@ -60,6 +60,38 @@ function getStoredTheme(): 'light' | 'dark' {
   }
 }
 
+// ─── Shule brand badge (fallback when no school logo uploaded) ─────────────────
+function ShuleBadge({ size = 34 }: { size?: number }) {
+  const r = Math.round(size * 0.29)   // border-radius
+  const p = Math.round(size * 0.12)   // inner padding
+  const ic = size - p * 2             // icon canvas
+  return (
+    <div
+      title="Shule — upload your school badge in Settings"
+      style={{
+        width: size, height: size, borderRadius: r, flexShrink: 0,
+        background: 'linear-gradient(145deg,#0d9488 0%,#0f766e 55%,#064e3b 100%)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 2px 10px rgba(13,148,136,.45), inset 0 1px 0 rgba(255,255,255,.18)',
+        position: 'relative', overflow: 'hidden',
+      }}
+    >
+      {/* Subtle top-right glow */}
+      <div style={{ position: 'absolute', top: -4, right: -4, width: size * 0.7, height: size * 0.7, borderRadius: '50%', background: 'rgba(255,255,255,.07)', pointerEvents: 'none' }} />
+      {/* Book + graduation cap mark */}
+      <svg width={ic} height={ic} viewBox="0 0 20 20" fill="none" style={{ position: 'relative', zIndex: 1 }}>
+        {/* Open book */}
+        <path d="M10 15.5C10 15.5 5 13.5 2 14V5.5C5 5 8.5 6.5 10 8C11.5 6.5 15 5 18 5.5V14C15 13.5 10 15.5 10 15.5Z" fill="rgba(255,255,255,.9)" />
+        <line x1="10" y1="8" x2="10" y2="15.5" stroke="rgba(13,148,136,.6)" strokeWidth="1" />
+        {/* Cap / mortarboard */}
+        <polygon points="10,2 16,5 10,8 4,5" fill="#fff" opacity=".95" />
+        <line x1="16" y1="5" x2="16" y2="8.5" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" opacity=".8" />
+        <circle cx="16" cy="9" r="1" fill="#fff" opacity=".8" />
+      </svg>
+    </div>
+  )
+}
+
 // ─── Initials from a full name ─────────────────────────────────────────────────
 function initials(name: string): string {
   return name
@@ -296,19 +328,11 @@ export function AppShell() {
             </svg>
           </button>
 
-          {/* School logo / badge */}
+          {/* School logo / badge — uploaded logo or Shule brand mark */}
           {schoolSettings?.logoUrl ? (
-            <img src={schoolSettings.logoUrl} alt="" style={{ width: 30, height: 30, borderRadius: 9, objectFit: 'contain', flexShrink: 0, boxShadow: '0 1px 6px rgba(0,0,0,.12)' }} />
+            <img src={schoolSettings.logoUrl} alt="School badge" style={{ width: 34, height: 34, borderRadius: 10, objectFit: 'contain', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,.18)' }} />
           ) : (
-            <div style={{
-              width: 30, height: 30, borderRadius: 9, flexShrink: 0,
-              background: `linear-gradient(145deg, var(--brand) 0%, var(--brand-dark) 100%)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 13, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)',
-              boxShadow: '0 2px 8px rgba(13,148,136,.36)',
-            }}>
-              {(schoolSettings?.shortName || schoolSettings?.schoolName || 'S')[0]?.toUpperCase()}
-            </div>
+            <ShuleBadge size={34} />
           )}
 
           {/* Page title (centered) */}

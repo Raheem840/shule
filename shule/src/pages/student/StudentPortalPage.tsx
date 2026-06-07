@@ -1559,7 +1559,7 @@ export function StudentPortalPage() {
           </div>
 
           {/* Tab bar */}
-          <div className="portal-tab-scroll" style={{
+          <div className="portal-tab-scroll mob-tab-row mob-stu-tab-row" style={{
             display: 'flex', gap: 2, overflowX: 'auto',
             scrollbarWidth: 'none',
             borderBottom: '1px solid rgba(255,255,255,.08)',

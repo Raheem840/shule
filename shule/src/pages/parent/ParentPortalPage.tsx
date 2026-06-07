@@ -1182,14 +1182,14 @@ function TabBar({ active, onChange }: { active: TabName; onChange: (t: TabName) 
   const scrollRef = useRef<HTMLDivElement>(null)
 
   return (
-    <div style={{
+    <div className="mob-tab-sticky" style={{
       background: 'var(--surface)', borderBottom: '1px solid var(--border)',
       padding: '0 1rem',
       position: 'sticky', top: 0, zIndex: 10,
     }}>
       <div
         ref={scrollRef}
-        className="portal-tab-scroll"
+        className="portal-tab-scroll mob-tab-row"
         style={{
           display: 'flex', gap: 0, overflowX: 'auto',
           scrollbarWidth: 'none',
@@ -1328,22 +1328,39 @@ function ChildHeroCard({
   ]
 
   return (
-    <div style={{
+    <div className="mob-child-card" style={{
       margin: '0 1rem 0',
       background: 'var(--surface)', borderRadius: 20,
       border: '1px solid var(--border)',
       boxShadow: '0 2px 16px rgba(0,0,0,0.07)',
       overflow: 'hidden',
     }}>
-      {/* Coloured top strip */}
-      <div style={{
-        height: 5,
-        background: `linear-gradient(90deg, hsl(${hue},60%,48%) 0%, var(--brand) 100%)`,
-      }} />
+      {/* Coloured top strip — becomes a full gradient hero on mobile */}
+      <div
+        className="mob-child-hero"
+        style={{
+          height: 5,
+          background: `linear-gradient(90deg, hsl(${hue},60%,48%) 0%, var(--brand) 100%)`,
+          ['--child-hue' as any]: String(hue),
+        }}
+      >
+        {/* Glow blob — only visible inside the mobile gradient hero */}
+        <div className="mob-child-hero-blob" />
+        {/* Name overlay — only rendered visually on mobile via CSS */}
+        <div className="mob-child-hero-overlay">
+          <div className="mob-child-hero-name">{child.firstName} {child.lastName}</div>
+          <div className="mob-child-hero-meta">
+            <span className="mob-child-hero-pill">{className}{streamName ? ` · ${streamName}` : ''}</span>
+            <span className={`mob-child-hero-status ${child.status === 'active' ? 'is-active' : 'is-inactive'}`}>
+              {child.status.charAt(0).toUpperCase() + child.status.slice(1)}
+            </span>
+          </div>
+        </div>
+      </div>
 
-      <div style={{ padding: '1.25rem', display: 'flex', gap: '1.1rem', alignItems: 'flex-start' }}>
-        {/* Big avatar */}
-        <div style={{
+      <div className="mob-child-body" style={{ padding: '1.25rem', display: 'flex', gap: '1.1rem', alignItems: 'flex-start' }}>
+        {/* Big avatar — overlaps the gradient hero on mobile */}
+        <div className="mob-child-avatar" style={{
           width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
           border: `3px solid hsl(${hue},60%,60%)`,
           boxShadow: `0 4px 14px hsl(${hue},60%,50%,0.3)`,
@@ -1357,8 +1374,11 @@ function ChildHeroCard({
           />
         </div>
 
-        {/* Info block */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Admission number — mobile-only, sits under the avatar */}
+        <div className="mob-child-admno">{child.admissionNumber}</div>
+
+        {/* Info block — hidden on mobile (lives in the gradient hero instead) */}
+        <div className="mob-child-info" style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 17, color: 'var(--txt)', lineHeight: 1.2 }}>
             {child.firstName} {child.lastName}
           </div>

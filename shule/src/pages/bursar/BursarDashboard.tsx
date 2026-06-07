@@ -293,7 +293,7 @@ export function BursarDashboard() {
       </div>
 
       {/* ── KPI grid ──────────────────────────────────────────── */}
-      <div className="stagger-cards" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      <div className="stagger-cards mob-kpi-2col" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <KpiCard label="Total Expected"  value={K ? ugxCompact(K.expected)    : '—'} sub={K && K.expected >= 1000 ? ugx(K.expected) : `Term ${term}`} accent="brand" />
         <KpiCard label="Total Collected" value={K ? ugxCompact(K.collected)   : '—'} sub={K && K.collected >= 1000 ? ugx(K.collected) : undefined} accent="success" />
         <KpiCard label="Outstanding"     value={K ? ugxCompact(K.outstanding) : '—'} sub={K && K.outstanding >= 1000 ? ugx(K.outstanding) : undefined} accent="danger" />

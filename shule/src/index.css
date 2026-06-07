@@ -2825,3 +2825,287 @@ select.sui-select:hover:not(:disabled):not(:focus) {
     gap: 10px !important;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PREMIUM MOBILE v2 — lifelike fintech/edtech polish (mobile_dweeb)
+   Parent child-hero gradient · sticky blurred tab bars · deeper card depth.
+   All rules scoped to ≤768px / ≤480px so desktop is untouched.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Parent: ChildHeroCard → full-bleed gradient hero on mobile ──
+   Desktop keeps the flat 5px strip + side-by-side avatar/info. On phones the
+   strip becomes a 124px gradient banner carrying the child's name, class pill
+   and status, with the avatar overlapping the banner edge (Revolut-style). */
+@media (max-width: 768px) {
+  .mob-child-card {
+    border-radius: 18px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06), 0 14px 34px rgba(0,0,0,.10) !important;
+  }
+
+  .mob-child-hero {
+    height: 124px !important;
+    position: relative;
+    background: linear-gradient(
+      150deg,
+      hsl(var(--child-hue, 170), 62%, 38%) 0%,
+      var(--brand-dark) 52%,
+      #0f172a 100%
+    ) !important;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+  }
+  .mob-child-hero-blob {
+    position: absolute;
+    top: -50px; right: -30px;
+    width: 170px; height: 170px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.18) 0%, transparent 68%);
+    pointer-events: none;
+  }
+  .mob-child-hero-blob::after {
+    content: '';
+    position: absolute;
+    bottom: -120px; left: -90px;
+    width: 150px; height: 150px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(13,148,136,.35) 0%, transparent 70%);
+  }
+  .mob-child-hero-overlay {
+    position: relative;
+    z-index: 1;
+    /* leave room for the 76px avatar that overlaps from the body below */
+    padding: 0 1.1rem 0.95rem 96px;
+    width: 100%;
+  }
+  .mob-child-hero-name {
+    font-family: var(--font2);
+    font-weight: 900;
+    font-size: clamp(17px, 5vw, 21px);
+    letter-spacing: -.4px;
+    color: #fff;
+    line-height: 1.15;
+    text-shadow: 0 1px 8px rgba(0,0,0,.35);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mob-child-hero-meta {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .mob-child-hero-pill {
+    font-family: var(--font2);
+    font-weight: 800;
+    font-size: 11px;
+    color: #fff;
+    background: rgba(255,255,255,.18);
+    border: 1px solid rgba(255,255,255,.28);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 3px 10px;
+    border-radius: 99px;
+    white-space: nowrap;
+  }
+  .mob-child-hero-status {
+    font-family: var(--font2);
+    font-weight: 800;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 3px 9px;
+    border-radius: 99px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .mob-child-hero-status::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 6px currentColor;
+  }
+  .mob-child-hero-status.is-active   { color: #6ee7b7; background: rgba(16,185,129,.22); }
+  .mob-child-hero-status.is-inactive { color: #fda4af; background: rgba(244,63,94,.22); }
+
+  /* Body: avatar pulls up to overlap the gradient; info block hidden (name
+     now lives in the hero). Admission no. shows as a mono caption. */
+  .mob-child-body {
+    padding: 0 1.1rem 0.9rem !important;
+    align-items: center !important;
+    gap: 0.85rem !important;
+  }
+  .mob-child-avatar {
+    width: 76px !important;
+    height: 76px !important;
+    margin-top: -42px !important;
+    border-width: 3.5px !important;
+    box-shadow: 0 6px 18px rgba(0,0,0,.28) !important;
+    z-index: 2;
+  }
+  .mob-child-info { display: none !important; }
+  .mob-child-admno {
+    display: block;
+    font-family: var(--font3);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--txt3);
+    letter-spacing: .2px;
+  }
+
+  /* KPI strip: bolder Monzo-style numbers in the 2×2 grid */
+  .portal-kpi-grid > div > div:first-child {
+    font-size: 19px !important;
+    letter-spacing: -.4px !important;
+  }
+  .portal-kpi-grid > div > div:last-child {
+    font-size: 9.5px !important;
+    text-transform: uppercase !important;
+    letter-spacing: .6px !important;
+    font-weight: 700 !important;
+  }
+}
+/* Admission caption is mobile-only */
+.mob-child-admno { display: none; }
+
+/* ── Sticky blurred tab bars (parent + student portals) ──
+   Translucent backdrop blur so content scrolls under the tabs like iOS. */
+@media (max-width: 768px) {
+  .mob-tab-sticky {
+    background: color-mix(in srgb, var(--surface) 78%, transparent) !important;
+    backdrop-filter: blur(14px) saturate(1.4);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    box-shadow: 0 1px 0 var(--border), 0 6px 18px -12px rgba(0,0,0,.25);
+  }
+
+  /* Student hero tab row: make it stick to the top of the viewport while the
+     dark gradient hero scrolls away. A blurred dark glass strip carries it. */
+  .mob-stu-tab-row {
+    position: sticky !important;
+    top: 0;
+    z-index: 12;
+    margin: 0 -1.5rem !important;
+    padding: 0 1.5rem !important;
+    background: color-mix(in srgb, #0c2236 72%, transparent);
+    backdrop-filter: blur(14px) saturate(1.3);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  }
+
+  /* Tab buttons: comfortable 44px thumb targets with snappy active glow */
+  .mob-tab-row > button {
+    min-height: 44px !important;
+    scroll-snap-align: start;
+    transition: color .18s ease, border-color .18s ease, transform .12s ease !important;
+  }
+  .mob-tab-row > button:active { transform: scale(.94); }
+  .mob-tab-row { scroll-snap-type: x proximity; }
+}
+
+/* ── Deeper, layered card depth on mobile portals ──
+   Two-shadow stack (close contact + soft ambient) reads as floating glass. */
+@media (max-width: 768px) {
+  .portal-hero-card {
+    box-shadow: 0 2px 8px rgba(0,0,0,.06), 0 16px 38px -10px rgba(0,0,0,.18) !important;
+    border-radius: 18px !important;
+  }
+  /* Fee amount sub-cells: subtle inner depth so the 3-up grid reads as chips */
+  .portal-fee-row .portal-fee-amounts > div {
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+}
+
+@media (max-width: 480px) {
+  .mob-child-hero { height: 116px !important; }
+  .mob-child-hero-name { font-size: 18px !important; }
+}
+
+/* ── Bursar: Student Fee Tracker — phone reflow ──
+   The desktop page uses a fixed 100vh shell with a wide filter bar and
+   wide-margin padding. On phones tighten padding, let the hero KPI chips
+   form a 2×2 grid, and make the filter selects full-width touch targets. */
+@media (max-width: 768px) {
+  .mob-bursar-students {
+    /* keep the fixed-height shell (virtualizer needs a bounded scroll parent),
+       just tighten the wide desktop padding for phones */
+    padding: 0.9rem 0.85rem !important;
+    gap: 12px !important;
+  }
+
+  /* Hero KPI chips → even 2×2 grid with bigger numbers */
+  .mob-bursar-kpis {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  .mob-bursar-kpis > div { min-width: 0 !important; }
+  .mob-bursar-kpis > div > div:first-child { font-size: 26px !important; letter-spacing: -.5px; }
+
+  /* Filter bar → stacked, full-width selects @ 40px min height */
+  .mob-bursar-filters > select,
+  .mob-bursar-filters > div:nth-last-child(2) /* search wrapper */ {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    min-height: 40px !important;
+  }
+  .mob-bursar-filters > select { font-size: 14px !important; }
+
+  /* Student-card fee amounts → 2×2 chip grid so values never crowd */
+  .mob-bursar-fee-amounts {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px 14px !important;
+  }
+}
+
+/* ── Generic: bigger mobile numbers on the KPI flex rows that use
+   .mob-kpi-2col (bursar dashboard, etc) — force a clean 2-up grid ── */
+@media (max-width: 768px) {
+  .mob-kpi-2col {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 11px !important;
+  }
+  .mob-kpi-2col > * { min-width: 0 !important; flex: unset !important; }
+}
+
+/* ── Teacher: Attendance — compact status toggle + tidy filter bar ──
+   The 4 status pills (Present/Absent/Late/Excused) wrap & break the
+   fixed-height virtualized row on phones. Collapse them to single-letter
+   chips that always fit on one line, with the active chip filled. */
+@media (max-width: 768px) {
+  .mob-att-filters > div { flex: 1 1 100% !important; }
+  .mob-att-filters select,
+  .mob-att-filters input[type="date"] { width: 100% !important; min-height: 40px; }
+  .mob-att-filters > div:last-child { text-align: left; }
+
+  .mob-att-toggle { flex-wrap: nowrap !important; gap: 5px !important; }
+  .mob-att-pill {
+    width: 34px;
+    height: 32px;
+    padding: 0 !important;
+    border-radius: 9px !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px !important;
+    flex-shrink: 0;
+  }
+  .mob-att-pill .mob-att-pill-full { display: none; }
+  .mob-att-pill::after {
+    content: attr(data-short);
+    font-family: var(--font2);
+    font-weight: 900;
+  }
+  .mob-att-pill.is-active {
+    box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    transform: scale(1.04);
+  }
+}
+
+@media (max-width: 480px) {
+  .mob-att-pill { width: 32px; height: 30px; }
+}
