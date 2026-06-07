@@ -231,21 +231,25 @@ export type MonthlyClassPoint = {
   [cls: string]: number | string
 }
 
-export function useFeeCollectionOverTime() {
+export function useFeeCollectionOverTime(term: number, academicYearId: string | null) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['fee-over-time', user?.schoolId],
+    queryKey: ['fee-over-time', user?.schoolId, term, academicYearId],
     enabled:  !!user?.schoolId,
     staleTime: 60_000,
     queryFn: async () => {
+      let payQ = supabase
+        .from('fee_payments')
+        .select('student_id, amount_paid, payment_date')
+        .eq('school_id', user!.schoolId)
+        .eq('term', term)
+        .not('payment_date', 'is', null)
+        .order('payment_date', { ascending: true })
+      if (academicYearId) payQ = payQ.eq('academic_year_id', academicYearId)
+
       const [paymentsRes, studentsRes, classesRes] = await Promise.all([
-        supabase
-          .from('fee_payments')
-          .select('student_id, amount_paid, payment_date')
-          .eq('school_id', user!.schoolId)
-          .not('payment_date', 'is', null)
-          .order('payment_date', { ascending: true }),
+        payQ,
         supabase
           .from('students')
           .select('id, class_id')

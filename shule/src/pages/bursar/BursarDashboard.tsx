@@ -230,7 +230,7 @@ export function BursarDashboard() {
 
   const kpis      = useBursarKpis(term, effectiveYearId)
   const byClass   = useFeeCollectionByClass(term, effectiveYearId)
-  const overTime  = useFeeCollectionOverTime()
+  const overTime  = useFeeCollectionOverTime(term, effectiveYearId)
   const recent    = useRecentPayments(10)
   const smsCount  = useSmsCount()
 
