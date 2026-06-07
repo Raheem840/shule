@@ -681,3 +681,70 @@ export function useUploadAttachment() {
     },
   })
 }
+
+// ── useSearchStudentsForMessaging ──────────────────────────────
+// Search students by name, return their linked activated parent accounts.
+// Used by the "New Conversation" compose flow on bursar/teacher message pages.
+export type StudentParentResult = {
+  parentAuthUserId: string
+  parentName:       string
+  parentEmail:      string
+  studentNames:     string[]
+  admissionNumbers: string[]
+}
+
+export function useSearchStudentsForMessaging(query: string) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['student-parent-search', user?.schoolId, query],
+    enabled:  !!user?.schoolId && query.trim().length >= 2,
+    staleTime: 30_000,
+    queryFn: async (): Promise<StudentParentResult[]> => {
+      const q = query.trim()
+
+      // 1. Find matching active students
+      const { data: students, error: stuErr } = await supabase
+        .from('students')
+        .select('id, first_name, last_name, admission_number')
+        .eq('school_id', user!.schoolId)
+        .eq('status', 'active')
+        .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,admission_number.ilike.%${q}%`)
+        .limit(15)
+      if (stuErr) throw stuErr
+      if (!students?.length) return []
+
+      const studentIds = students.map(s => s.id as string)
+
+      // 2. Find activated parent accounts linked to these students
+      const { data: parents } = await supabase
+        .from('parent_accounts')
+        .select('auth_user_id, full_name, email, student_ids')
+        .eq('school_id', user!.schoolId)
+        .not('auth_user_id', 'is', null)
+        .overlaps('student_ids', studentIds)
+
+      if (!parents?.length) return []
+
+      // Dedupe parents and map to result shape
+      const seen = new Set<string>()
+      const results: StudentParentResult[] = []
+      for (const p of parents) {
+        const authId = p.auth_user_id as string
+        if (seen.has(authId)) continue
+        seen.add(authId)
+        const linked = students.filter(s =>
+          (p.student_ids as string[]).includes(s.id as string)
+        )
+        results.push({
+          parentAuthUserId: authId,
+          parentName:       (p.full_name as string) || (p.email as string),
+          parentEmail:      p.email as string,
+          studentNames:     linked.map(s => `${s.first_name} ${s.last_name}`),
+          admissionNumbers: linked.map(s => s.admission_number as string),
+        })
+      }
+      return results
+    },
+  })
+}

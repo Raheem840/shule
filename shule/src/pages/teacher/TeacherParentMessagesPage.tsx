@@ -20,7 +20,9 @@ import {
   useSendMessageToParent,
   useMarkParentThreadRead,
   useUploadAttachment,
+  useSearchStudentsForMessaging,
   type ParentConversation,
+  type StudentParentResult,
 } from '../../hooks/useMessaging'
 import { supabase } from '../../lib/supabase'
 import { useQuery } from '@tanstack/react-query'
@@ -486,15 +488,26 @@ function ThreadPanel({ conv, onBack, classNameMap }: {
   )
 }
 
-// ─── Contact list ──────────────────────────────────────────────────────────
-function ContactList({ convs, loading, onSelect, activeId, classNameMap }: {
+// ─── Contact list (with compose / new-conversation flow) ───────────────────
+function ContactList({ convs, loading, onSelect, activeId }: {
   convs: ParentConversation[]
   loading: boolean
   onSelect: (c: ParentConversation) => void
   activeId: string | null
-  classNameMap: Map<string, string>
 }) {
-  const [q, setQ] = useState('')
+  const [q, setQ]               = useState('')
+  const [composing, setComposing] = useState(false)
+  const [searchQ, setSearchQ]     = useState('')
+  const [debouncedQ, setDebouncedQ] = useState('')
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(searchQ), 300)
+    return () => clearTimeout(t)
+  }, [searchQ])
+
+  const { data: searchResults = [], isFetching: searching } =
+    useSearchStudentsForMessaging(debouncedQ)
+
   const filtered = q.trim()
     ? convs.filter(c =>
         c.parentName.toLowerCase().includes(q.toLowerCase()) ||
@@ -504,71 +517,152 @@ function ContactList({ convs, loading, onSelect, activeId, classNameMap }: {
 
   const totalUnread = convs.reduce((s, c) => s + c.unreadCount, 0)
 
+  function startConversation(r: StudentParentResult) {
+    const synthetic: ParentConversation = {
+      parentAuthUserId: r.parentAuthUserId,
+      parentName:       r.parentName,
+      studentNames:     r.studentNames,
+      latestBody:       '',
+      latestSentAt:     new Date().toISOString(),
+      unreadCount:      0,
+    }
+    setComposing(false)
+    setSearchQ('')
+    onSelect(synthetic)
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--ms-cl-bg)', borderRight: 'var(--ms-cl-border)' }}>
       <div style={{ padding: '18px 18px 14px', flexShrink: 0, borderBottom: 'var(--ms-cl-border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
           <span style={{ flex: 1, fontSize: 20, fontWeight: 900, color: 'var(--ms-cl-title)', fontFamily: 'var(--font2)', letterSpacing: -.5 }}>Parent Messages</span>
-          {totalUnread > 0 && (
-            <div style={{ background: 'linear-gradient(135deg,#0d9488,#0ea5e9)', color: '#fff', borderRadius: 99, fontSize: 12, fontWeight: 800, padding: '2px 10px', boxShadow: '0 3px 12px rgba(13,148,136,.5)' }}>
+          {totalUnread > 0 && !composing && (
+            <div style={{ background: 'linear-gradient(135deg,#0d9488,#0ea5e9)', color: '#fff', borderRadius: 99, fontSize: 12, fontWeight: 800, padding: '2px 10px', boxShadow: '0 3px 12px rgba(13,148,136,.5)', marginRight: 8 }}>
               {totalUnread > 99 ? '99+' : totalUnread}
             </div>
           )}
+          <button
+            onClick={() => { setComposing(v => !v); setSearchQ('') }}
+            title={composing ? 'Cancel' : 'New Conversation'}
+            style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: composing ? 'rgba(13,148,136,.15)' : 'var(--ms-cl-search-bg)', color: composing ? '#0d9488' : 'var(--ms-cl-sub)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .14s', flexShrink: 0 }}
+          >
+            {composing
+              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            }
+          </button>
         </div>
-        <div style={{ position: 'relative' }}>
-          <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ms-cl-search-ph)" strokeWidth="2.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search parents or students…"
-            style={{ width: '100%', paddingLeft: 36, height: 40, borderRadius: 12, background: 'var(--ms-cl-search-bg)', border: 'var(--ms-cl-search-bdr)', fontSize: 14, color: 'var(--ms-cl-search-txt)', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }} />
-        </div>
-      </div>
 
-      <div style={{ padding: '8px 18px 4px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1.2, flexShrink: 0 }}>
-        Parents ({filtered.length})
-      </div>
-
-      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-        {loading && Array.from({ length: 4 }).map((_item, _i) => (
-          <div key={i} style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '12px 18px', minHeight: 76 }}>
-            <div className="shule-skeleton" style={{ width: 52, height: 52, borderRadius: '50%', flexShrink: 0, opacity: 'var(--ms-skeleton-op)' as any }} />
-            <div style={{ flex: 1 }}>
-              <div className="shule-skeleton" style={{ height: 13, borderRadius: 6, marginBottom: 7, width: '55%', opacity: 'var(--ms-skeleton-op)' as any }} />
-              <div className="shule-skeleton" style={{ height: 10, borderRadius: 5, width: '75%', opacity: 'var(--ms-skeleton-op)' as any }} />
-            </div>
+        {composing ? (
+          <div style={{ position: 'relative' }}>
+            <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ms-cl-search-ph)" strokeWidth="2.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input
+              autoFocus value={searchQ} onChange={e => setSearchQ(e.target.value)}
+              placeholder="Search student name…"
+              style={{ width: '100%', paddingLeft: 36, height: 40, borderRadius: 12, background: 'var(--ms-cl-search-bg)', border: '1.5px solid #0d9488', fontSize: 14, color: 'var(--ms-cl-search-txt)', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }}
+            />
+            {searching && (
+              <svg style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', animation: 'tpmSpin .7s linear infinite' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ms-cl-search-ph)" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity=".25"/><path d="M12 2a10 10 0 010 20"/></svg>
+            )}
           </div>
-        ))}
-
-        {!loading && filtered.length === 0 && (
-          <div style={{ padding: '28px 18px', textAlign: 'center', color: 'var(--ms-cl-sub)', fontSize: 13.5 }}>
-            {q ? 'No matches found.' : 'No parent messages yet.'}
+        ) : (
+          <div style={{ position: 'relative' }}>
+            <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ms-cl-search-ph)" strokeWidth="2.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search parents or students…"
+              style={{ width: '100%', paddingLeft: 36, height: 40, borderRadius: 12, background: 'var(--ms-cl-search-bg)', border: 'var(--ms-cl-search-bdr)', fontSize: 14, color: 'var(--ms-cl-search-txt)', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }} />
           </div>
         )}
-
-        {filtered.map(c => {
-          const isActive = activeId === c.parentAuthUserId
-          const [col] = colorFor(c.parentName)
-          return (
-            <div key={c.parentAuthUserId} onClick={() => onSelect(c)} className="tpm-c-row"
-              style={{ background: isActive ? `${col}18` : undefined, borderLeft: `3.5px solid ${isActive ? col : 'transparent'}` }}>
-              <Av name={c.parentName} size={52} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
-                  <span style={{ fontWeight: 700, fontSize: 15, color: isActive ? col : 'var(--ms-cl-name)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: -.1, flex: 1, minWidth: 0 }}>{c.parentName}</span>
-                  <span style={{ fontSize: 11, color: 'var(--ms-cl-sub)', flexShrink: 0 }}>{relativeTime(c.latestSentAt)}</span>
-                </div>
-                <div style={{ fontSize: 12.5, color: 'var(--ms-cl-sub)', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {`Parent of ${c.studentNames.join(', ')}`}
-                </div>
-                <div style={{ fontSize: 12.5, color: 'var(--ms-cl-sub)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: .8 }}>{c.latestBody}</div>
-              </div>
-              {c.unreadCount > 0 && (
-                <div style={{ background: `linear-gradient(145deg,${col},${DARKS[COLORS.indexOf(col)] ?? col})`, color: '#fff', borderRadius: 99, fontSize: 12, fontWeight: 800, minWidth: 22, height: 22, padding: '0 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 10px ${col}55` }}>
-                  {c.unreadCount > 9 ? '9+' : c.unreadCount}
-                </div>
-              )}
-            </div>
-          )
-        })}
       </div>
+
+      {composing ? (
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {!debouncedQ.trim() && (
+            <div style={{ padding: '32px 18px', textAlign: 'center' }}>
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(13,148,136,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ms-cl-name)', marginBottom: 4 }}>Find a student</div>
+              <div style={{ fontSize: 12.5, color: 'var(--ms-cl-sub)', lineHeight: 1.6 }}>Type a student's name to find their parent and start a conversation</div>
+            </div>
+          )}
+          {debouncedQ.trim() && !searching && searchResults.length === 0 && (
+            <div style={{ padding: '28px 18px', textAlign: 'center', color: 'var(--ms-cl-sub)', fontSize: 13.5 }}>
+              No parents found for "{debouncedQ}".
+              <div style={{ fontSize: 12, marginTop: 6 }}>The parent may not have an active account yet.</div>
+            </div>
+          )}
+          {searchResults.map(r => {
+            const [col] = colorFor(r.parentName)
+            return (
+              <div key={r.parentAuthUserId} onClick={() => startConversation(r)} className="tpm-c-row">
+                <Av name={r.parentName} size={48} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--ms-cl-name)', marginBottom: 2 }}>{r.parentName}</div>
+                  <div style={{ fontSize: 12, color: 'var(--ms-cl-sub)', marginBottom: 1 }}>Parent of {r.studentNames.join(', ')}</div>
+                  <div style={{ fontSize: 11.5, color: '#0d9488', fontFamily: 'var(--font3)' }}>{r.admissionNumbers.join(', ')}</div>
+                </div>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: `${col}14`, border: `1px solid ${col}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <>
+          <div style={{ padding: '8px 18px 4px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1.2, flexShrink: 0 }}>
+            {filtered.length > 0 ? `Parents (${filtered.length})` : 'No conversations yet — use ✏ to start one'}
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+            {loading && Array.from({ length: 4 }).map((_, idx) => (
+              <div key={idx} style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '12px 18px', minHeight: 76 }}>
+                <div className="shule-skeleton" style={{ width: 52, height: 52, borderRadius: '50%', flexShrink: 0, opacity: 'var(--ms-skeleton-op)' as any }} />
+                <div style={{ flex: 1 }}>
+                  <div className="shule-skeleton" style={{ height: 13, borderRadius: 6, marginBottom: 7, width: '55%', opacity: 'var(--ms-skeleton-op)' as any }} />
+                  <div className="shule-skeleton" style={{ height: 10, borderRadius: 5, width: '75%', opacity: 'var(--ms-skeleton-op)' as any }} />
+                </div>
+              </div>
+            ))}
+
+            {!loading && filtered.length === 0 && (
+              <div style={{ padding: '40px 18px', textAlign: 'center' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ms-cl-name)', marginBottom: 6 }}>
+                  {q ? 'No matches found' : 'No conversations yet'}
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--ms-cl-sub)', lineHeight: 1.7 }}>
+                  {q ? 'Try a different name.' : 'Tap the ✏ button above to search for a student and message their parent.'}
+                </div>
+              </div>
+            )}
+
+            {filtered.map(c => {
+              const isActive = activeId === c.parentAuthUserId
+              const [col] = colorFor(c.parentName)
+              return (
+                <div key={c.parentAuthUserId} onClick={() => onSelect(c)} className="tpm-c-row"
+                  style={{ background: isActive ? `${col}18` : undefined, borderLeft: `3.5px solid ${isActive ? col : 'transparent'}` }}>
+                  <Av name={c.parentName} size={52} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
+                      <span style={{ fontWeight: 700, fontSize: 15, color: isActive ? col : 'var(--ms-cl-name)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: -.1, flex: 1, minWidth: 0 }}>{c.parentName}</span>
+                      <span style={{ fontSize: 11, color: 'var(--ms-cl-sub)', flexShrink: 0 }}>{relativeTime(c.latestSentAt)}</span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--ms-cl-sub)', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {`Parent of ${c.studentNames.join(', ')}`}
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--ms-cl-sub)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: .8 }}>{c.latestBody}</div>
+                  </div>
+                  {c.unreadCount > 0 && (
+                    <div style={{ background: `linear-gradient(145deg,${col},${DARKS[COLORS.indexOf(col)] ?? col})`, color: '#fff', borderRadius: 99, fontSize: 12, fontWeight: 800, minWidth: 22, height: 22, padding: '0 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 2px 10px ${col}55` }}>
+                      {c.unreadCount > 9 ? '9+' : c.unreadCount}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -630,7 +724,7 @@ export function TeacherParentMessagesPage() {
           zIndex: 36, overflow: 'hidden', background: 'var(--ms-cl-bg)',
         }}>
           <div style={{ position: 'absolute', inset: 0 }}>
-            <ContactList convs={convs} loading={isLoading} onSelect={setActive} activeId={active?.parentAuthUserId ?? null} classNameMap={classNameMap} />
+            <ContactList convs={convs} loading={isLoading} onSelect={setActive} activeId={active?.parentAuthUserId ?? null} />
           </div>
           <div style={{
             position: 'absolute', inset: 0, background: 'var(--ms-feed-bg)',
@@ -639,7 +733,7 @@ export function TeacherParentMessagesPage() {
             willChange: 'transform',
             boxShadow: active !== null ? '-10px 0 40px rgba(0,0,0,.35)' : 'none',
           }}>
-            {active && <ThreadPanel conv={active} onBack={() => setActive(null)} classNameMap={classNameMap} />}
+            {active && <ThreadPanel conv={active} onBack={() => setActive(null)} />}
           </div>
         </div>
       </>,
@@ -673,10 +767,10 @@ export function TeacherParentMessagesPage() {
         border: '1px solid rgba(0,0,0,.1)',
       }}>
         <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(0,0,0,.06)' }}>
-          <ContactList convs={convs} loading={isLoading} onSelect={setActive} activeId={active?.parentAuthUserId ?? null} classNameMap={classNameMap} />
+          <ContactList convs={convs} loading={isLoading} onSelect={setActive} activeId={active?.parentAuthUserId ?? null} />
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
-          {active === null ? <EmptyState /> : <ThreadPanel conv={active} classNameMap={classNameMap} />}
+          {active === null ? <EmptyState /> : <ThreadPanel conv={active} />}
         </div>
       </div>
     </>
