@@ -178,7 +178,7 @@ export function DeputyDashboard() {
     <div className="sui-page-enter stagger-sections" style={{ display:'flex', flexDirection:'column', gap:24 }}>
 
       {/* ── Hero ── */}
-      <div className="sui-hero-band" style={{ position:'relative', overflow:'hidden' }}>
+      <div className="sui-hero-band mob-hero mob-hero-deputy" style={{ position:'relative', overflow:'hidden' }}>
         {/* Decorative orbs */}
         <div style={{ position:'absolute', top:-40, right:-40, width:180, height:180, borderRadius:'50%', background:'radial-gradient(circle,rgba(13,148,136,.18),transparent 70%)', filter:'blur(40px)', pointerEvents:'none' }}/>
         <div style={{ position:'absolute', bottom:-30, left:60, width:140, height:140, borderRadius:'50%', background:'radial-gradient(circle,rgba(14,165,233,.14),transparent 70%)', filter:'blur(36px)', pointerEvents:'none' }}/>
@@ -189,11 +189,11 @@ export function DeputyDashboard() {
                 <div style={{ width:40, height:40, borderRadius:13, background:'linear-gradient(145deg,var(--brand),var(--brand-dark))', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 16px rgba(13,148,136,.4)' }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
                 </div>
-                <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:isMobile?18:22, margin:0, lineHeight:1.2 }}>
+                <h1 className="mob-hero-title" style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:isMobile?18:22, margin:0, lineHeight:1.2 }}>
                   <span className="gradient-text">Deputy Principal</span>
                 </h1>
               </div>
-              <p style={{ fontSize:13, color:'var(--txt3)', margin:0, maxWidth:480 }}>
+              <p className="mob-hero-sub" style={{ fontSize:13, color:'var(--txt3)', margin:0, maxWidth:480 }}>
                 Attendance oversight, student discipline tracking and timetable management.
               </p>
             </div>
@@ -209,7 +209,7 @@ export function DeputyDashboard() {
       <SafeTermProgressTimeline />
 
       {/* ── KPI row ── */}
-      <div className="stagger-cards sui-kpi-grid" style={{ display:'flex', gap:14, flexWrap:'wrap' }}>
+      <div className="stagger-cards sui-kpi-grid mob-kpi-grid" style={{ display:'flex', gap:14, flexWrap:'wrap' }}>
         <KPI
           label="Discipline Incidents"
           value={incidents}

@@ -690,13 +690,13 @@ export function DosDashboard() {
     <div className="sui-page-enter stagger-sections" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
       {/* ── Hero band ── */}
-      <div className="sui-hero-band">
+      <div className="sui-hero-band mob-hero mob-hero-dos">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
           <div>
-            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, margin: '0 0 4px', lineHeight: 1.2 }}>
+            <h1 className="mob-hero-title" style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, margin: '0 0 4px', lineHeight: 1.2 }}>
               <span className="gradient-text">Director of Studies</span>
             </h1>
-            <p style={{ fontSize: 13, color: 'var(--txt3)', margin: 0 }}>
+            <p className="mob-hero-sub" style={{ fontSize: 13, color: 'var(--txt3)', margin: 0 }}>
               Academic performance, curriculum tracking & teacher oversight.
             </p>
           </div>
@@ -712,12 +712,17 @@ export function DosDashboard() {
             Academic
           </div>
         </div>
+        {/* Mobile-only hero metric */}
+        <div className="mob-only mob-hero-stat">
+          <div className="mob-hero-stat-num">{kpiLoading ? '—' : `${overview?.overallPassRate ?? 0}%`}</div>
+          <div className="mob-hero-stat-label">School Pass Rate</div>
+        </div>
       </div>
 
       <SafeTermProgressTimeline />
 
       {/* KPI Cards */}
-      <div className="stagger-cards" style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+      <div className="stagger-cards mob-kpi-grid" style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         <KpiCard
           label="School Pass Rate"
           value={kpiLoading ? '—' : `${overview?.overallPassRate ?? 0}%`}
@@ -749,7 +754,7 @@ export function DosDashboard() {
 
       <Tabs.Root defaultValue="overview">
         <Tabs.List asChild>
-          <div className="sui-tab-list-pill" style={{ marginBottom: 24 }}>
+          <div className="sui-tab-list-pill mob-tab-scroll" style={{ marginBottom: 24 }}>
             {[
               { value: 'overview',     label: 'Overview' },
               { value: 'class-perf',   label: 'Class Performance' },

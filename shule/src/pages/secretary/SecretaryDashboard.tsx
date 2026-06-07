@@ -395,23 +395,23 @@ export function SecretaryDashboard() {
     <div className="sui-page-enter stagger-sections" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
 
       {/* ── [1] Greeting hero band ─────────────────────────────────────────── */}
-      <div className="sui-hero-band" style={{ position: 'relative', overflow: 'hidden' }}>
+      <div className="sui-hero-band mob-hero mob-hero-secretary" style={{ position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, color: 'var(--txt3)', fontWeight: 600, marginBottom: 4 }}>
+              <div className="mob-hero-sub" style={{ fontSize: 12, color: 'var(--txt3)', fontWeight: 600, marginBottom: 4 }}>
                 {greeting}, {firstName}
               </div>
-              <h1 style={{
+              <h1 className="mob-hero-title" style={{
                 fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22,
                 color: 'var(--txt)', margin: 0, letterSpacing: '-0.5px',
               }}>
                 {d.schoolName}
               </h1>
-              <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 4 }}>{dateStr}</div>
+              <div className="mob-hero-sub" style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 4 }}>{dateStr}</div>
             </div>
             {termInfo && (
-              <div style={{
+              <div className="mob-hero-glass" style={{
                 background: 'rgba(13,148,136,0.08)',
                 border: '1px solid rgba(13,148,136,0.2)',
                 borderRadius: 10,
@@ -431,7 +431,7 @@ export function SecretaryDashboard() {
           </div>
 
           {termInfo && (
-            <div>
+            <div className="mob-hero-progress">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11, color: 'var(--txt3)' }}>
                 <span>Term progress</span>
                 <span style={{ fontWeight: 700, color: 'var(--brand)' }}>{termInfo.progress}%</span>
@@ -455,7 +455,7 @@ export function SecretaryDashboard() {
       </div>
 
       {/* ── [2] 4 KPI tiles ───────────────────────────────────────────────── */}
-      <div className="stagger-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 14 }}>
+      <div className="stagger-cards mob-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 14 }}>
         <KpiTile label="Active Students"    value={d.activeStudents}    accent="brand"   iconPath="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
         <KpiTile label="Active Staff"       value={d.activeStaff}       accent="violet"  iconPath="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" />
         <KpiTile label="Report Cards Ready" value={d.readyCardsCount}   accent="warning" iconPath="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8" />

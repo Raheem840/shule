@@ -46,7 +46,7 @@ function SystemKpisSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div className="stagger-cards" style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+      <div className="stagger-cards mob-kpi-grid" style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <KpiCard
           label="Total Users" value={kpis.totalUsers} accent="brand"
           icon={<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="7" cy="7" r="3"/><path d="M1 18a6 6 0 0112 0"/><circle cx="15" cy="5" r="2.5"/><path d="M18 16a4 4 0 00-7.2-2.4"/></svg>}
@@ -909,13 +909,13 @@ export function AdminDashboard() {
     <div className="sui-page-enter stagger-sections" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
       {/* ── Hero band ── */}
-      <div className="sui-hero-band">
+      <div className="sui-hero-band mob-hero mob-hero-admin">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
           <div>
-            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, margin: '0 0 4px', lineHeight: 1.2 }}>
+            <h1 className="mob-hero-title" style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, margin: '0 0 4px', lineHeight: 1.2 }}>
               <span className="gradient-text">IT Administration</span>
             </h1>
-            <p style={{ fontSize: 13, color: 'var(--txt3)', margin: 0 }}>
+            <p className="mob-hero-sub" style={{ fontSize: 13, color: 'var(--txt3)', margin: 0 }}>
               System health, user management & school configuration.
             </p>
           </div>
@@ -935,7 +935,7 @@ export function AdminDashboard() {
 
       <Tabs.Root defaultValue="kpis">
         <Tabs.List asChild>
-          <div className="sui-tab-list-pill" style={{ marginBottom: 24 }}>
+          <div className="sui-tab-list-pill mob-tab-scroll" style={{ marginBottom: 24 }}>
             {[
               { value: 'kpis',     label: 'System KPIs' },
               { value: 'users',    label: 'User Management' },

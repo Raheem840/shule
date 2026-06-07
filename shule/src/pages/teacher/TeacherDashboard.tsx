@@ -149,15 +149,44 @@ export function TeacherDashboard() {
     <div className="sui-page-enter stagger-sections" style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
 
       {/* Hero */}
-      <div className="sui-hero-band">
+      <div className="sui-hero-band mob-hero mob-hero-teacher">
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 23, color: 'var(--txt)', margin: 0, letterSpacing: '-0.4px' }}>
+          <h1 className="mob-hero-title" style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 23, color: 'var(--txt)', margin: 0, letterSpacing: '-0.4px' }}>
             Teacher Dashboard
           </h1>
-          <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 5 }}>
+          <div className="mob-hero-sub" style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 5 }}>
             Your upcoming events, assessments, and teaching tools.
           </div>
+          {/* Mobile-only hero metric */}
+          <div className="mob-only mob-hero-stat">
+            <div className="mob-hero-stat-num">{kpis?.journalsThisTerm ?? '—'}</div>
+            <div className="mob-hero-stat-label">Journals · Term {kpis?.currentTerm ?? ''}</div>
+          </div>
         </div>
+      </div>
+
+      {/* Mobile-only quick-action pill row */}
+      <div className="mob-only mob-quick-actions">
+        <button className="mob-quick-btn mob-qa-info" onClick={() => navigate('/teacher/attendance')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          <span className="mob-quick-btn-label">Attendance</span>
+        </button>
+        <button className="mob-quick-btn mob-qa-violet" onClick={() => navigate('/teacher/exams')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6"/></svg>
+          <span className="mob-quick-btn-label">Marks</span>
+        </button>
+        <button className="mob-quick-btn mob-qa-success" onClick={() => navigate('/teacher/curriculum')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5h18M3 12h18M3 19h12"/></svg>
+          <span className="mob-quick-btn-label">Curriculum</span>
+        </button>
+        <button className="mob-quick-btn mob-qa-brand" onClick={() => navigate('/teacher/events')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          <span className="mob-quick-btn-label">Events</span>
+        </button>
+        <button className="mob-quick-btn mob-qa-warning" onClick={() => navigate('/teacher/timetable')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <span className="mob-quick-btn-label">Timetable</span>
+        </button>
       </div>
 
       <SafeTermProgressTimeline />
@@ -168,7 +197,7 @@ export function TeacherDashboard() {
           <LoadingSpinner size="md" />
         </div>
       ) : kpis && (
-        <div className="stagger-cards sui-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
+        <div className="stagger-cards sui-kpi-grid mob-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
           <KpiCard
             label="My Classes"
             value={kpis.myClasses}

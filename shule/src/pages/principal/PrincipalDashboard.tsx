@@ -74,7 +74,7 @@ function QuickActions() {
   ]
 
   return (
-    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+    <div className="mob-hscroll" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
       {actions.map(a => (
         <button
           key={a.path}
@@ -258,13 +258,18 @@ export function PrincipalDashboard() {
     <div className="stagger-sections" style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
       {/* Hero band */}
-      <div className="sui-hero-band">
+      <div className="sui-hero-band mob-hero mob-hero-principal">
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 23, color: 'var(--txt)', margin: 0, letterSpacing: '-0.4px' }}>
+          <h1 className="mob-hero-title" style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 23, color: 'var(--txt)', margin: 0, letterSpacing: '-0.4px' }}>
             School Overview
           </h1>
-          <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 5 }}>
+          <div className="mob-hero-sub" style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 5 }}>
             Full visibility across academics, finance, attendance, and staff.
+          </div>
+          {/* Mobile-only hero metric */}
+          <div className="mob-only mob-hero-stat">
+            <div className="mob-hero-stat-num">{kpisLoading ? '—' : kpis?.totalStudents ?? 0}</div>
+            <div className="mob-hero-stat-label">Students Enrolled</div>
           </div>
         </div>
       </div>
@@ -273,7 +278,7 @@ export function PrincipalDashboard() {
       <SafeTermProgressTimeline />
 
       {/* KPI Cards */}
-      <div className="stagger-cards" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      <div className="stagger-cards mob-kpi-grid" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         {kpisLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="sui-kpi-v2" style={{ flex: 1, minWidth: 150 }}>

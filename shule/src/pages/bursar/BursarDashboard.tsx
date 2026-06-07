@@ -248,7 +248,7 @@ export function BursarDashboard() {
     <div className="sui-page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* ── Hero band ─────────────────────────────────────────── */}
-      <div style={{
+      <div className="mob-hero" style={{
         borderRadius: 18, overflow: 'hidden',
         background: 'linear-gradient(135deg,#0f172a 0%,#1e293b 55%,#0c2a28 100%)',
         padding: '26px 28px 22px', position: 'relative',
@@ -269,7 +269,7 @@ export function BursarDashboard() {
       </div>
 
       {/* ── Term selector ─────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="mob-hscroll" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5, marginRight: 4 }}>Term</span>
         {([1, 2, 3] as const).map(t => (
           <button key={t} onClick={() => setTerm(t)} style={{
@@ -293,7 +293,7 @@ export function BursarDashboard() {
       </div>
 
       {/* ── KPI grid ──────────────────────────────────────────── */}
-      <div className="stagger-cards mob-kpi-2col" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      <div className="stagger-cards mob-kpi-2col mob-kpi-grid" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <KpiCard label="Total Expected"  value={K ? ugxCompact(K.expected)    : '—'} sub={K && K.expected >= 1000 ? ugx(K.expected) : `Term ${term}`} accent="brand" />
         <KpiCard label="Total Collected" value={K ? ugxCompact(K.collected)   : '—'} sub={K && K.collected >= 1000 ? ugx(K.collected) : undefined} accent="success" />
         <KpiCard label="Outstanding"     value={K ? ugxCompact(K.outstanding) : '—'} sub={K && K.outstanding >= 1000 ? ugx(K.outstanding) : undefined} accent="danger" />
