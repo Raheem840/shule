@@ -197,6 +197,64 @@ export function useDepartments() {
   })
 }
 
+// ── useCreateDepartment ────────────────────────────────────────
+export function useCreateDepartment() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { name: string; description?: string; accentColor?: string }) => {
+      const { data, error } = await supabase
+        .from('departments')
+        .insert({
+          school_id:    user!.schoolId,
+          name:         input.name.trim(),
+          description:  input.description ?? null,
+          accent_color: input.accentColor ?? null,
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+      return data.id as string
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['departments', user?.schoolId] }) },
+  })
+}
+
+// ── useUpdateDepartment ────────────────────────────────────────
+export function useUpdateDepartment() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string; name?: string; description?: string; accentColor?: string; headTeacherId?: string | null }) => {
+      const patch: Record<string, unknown> = {}
+      if (input.name        !== undefined) patch.name           = input.name.trim()
+      if (input.description !== undefined) patch.description    = input.description
+      if (input.accentColor !== undefined) patch.accent_color   = input.accentColor
+      if (input.headTeacherId !== undefined) patch.head_teacher_id = input.headTeacherId
+      const { error } = await supabase
+        .from('departments').update(patch)
+        .eq('id', input.id).eq('school_id', user!.schoolId)
+      if (error) throw error
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['departments', user?.schoolId] }) },
+  })
+}
+
+// ── useArchiveDepartment ───────────────────────────────────────
+export function useArchiveDepartment() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, archived }: { id: string; archived: boolean }) => {
+      const { error } = await supabase
+        .from('departments').update({ archived })
+        .eq('id', id).eq('school_id', user!.schoolId)
+      if (error) throw error
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['departments', user?.schoolId] }) },
+  })
+}
+
 // ── useCreateStream ────────────────────────────────────────────
 export function useCreateStream() {
   const { user } = useAuth()

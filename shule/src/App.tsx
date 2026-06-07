@@ -32,6 +32,7 @@ const DeputyTimetablePage      = lazy(() => import('./pages/deputy/DeputyTimetab
 const DisciplinePage           = lazy(() => import('./pages/deputy/DisciplinePage').then(m => ({ default: m.DisciplinePage })))
 const DeputyStudentsPage       = lazy(() => import('./pages/deputy/DeputyStudentsPage').then(m => ({ default: m.DeputyStudentsPage })))
 const DeputyStaffPage          = lazy(() => import('./pages/deputy/DeputyStaffPage').then(m => ({ default: m.DeputyStaffPage })))
+const DeputyDepartmentsPage    = lazy(() => import('./pages/deputy/DeputyDepartmentsPage').then(m => ({ default: m.DeputyDepartmentsPage })))
 
 // DoS
 const DosDashboard             = lazy(() => import('./pages/dos/DosDashboard').then(m => ({ default: m.DosDashboard })))
@@ -176,6 +177,7 @@ export default function App() {
             <Route path="/deputy/students/:studentId"   element={<StudentFullProfilePage />} />
             <Route path="/deputy/staff"                 element={<DeputyStaffPage />} />
             <Route path="/deputy/staff/:staffId"        element={<PrincipalStaffProfilePage />} />
+            <Route path="/deputy/departments"           element={<DeputyDepartmentsPage />} />
             <Route path="/deputy/events"                element={<SharedEventsPage />} />
             <Route path="/deputy/messages"              element={<MessagingPage />} />
             <Route path="/deputy/surveys"               element={<DosSurveysPage />} />
