@@ -12,8 +12,8 @@ export interface NotifPayload {
 }
 
 /**
- * Insert notification rows for one or more recipients.
- * Fire-and-forget — caller should not await when it isn't critical.
+ * Insert notification rows for one or more recipients and fire Web Push
+ * for background delivery (requires VAPID keys configured in Supabase secrets).
  */
 export async function sendNotifications(payload: NotifPayload): Promise<void> {
   if (!payload.userIds.length) return
@@ -29,4 +29,19 @@ export async function sendNotifications(payload: NotifPayload): Promise<void> {
   }))
 
   await supabase.from('notifications').insert(rows)
+
+  // Fire Web Push for each recipient (best-effort, background delivery)
+  void Promise.allSettled(
+    payload.userIds.map(uid =>
+      supabase.functions.invoke('send-push', {
+        body: {
+          userId:   uid,
+          schoolId: payload.schoolId,
+          title:    payload.title ?? 'Shule',
+          body:     payload.body,
+          url:      payload.link ?? '/',
+        },
+      })
+    )
+  )
 }

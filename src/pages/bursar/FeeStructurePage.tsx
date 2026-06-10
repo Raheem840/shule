@@ -74,7 +74,7 @@ function ImportFeeStructureModal({ onClose }: { onClose: () => void }) {
     const header = lines[0].toLowerCase().split(',').map(h => h.trim())
     const idx = (name: string) => header.indexOf(name)
 
-    return lines.slice(1).map((line, i) => {
+    return lines.slice(1).map((line, _i) => {
       const cols = line.split(',').map(c => c.trim())
       const get  = (name: string) => cols[idx(name)] ?? ''
 
@@ -412,7 +412,7 @@ function EditFeeModal({ fee, onClose }: { fee: FeeStructure; onClose: () => void
 
   async function handleSave() {
     try {
-      await updateMut.mutateAsync({ id: fee.id, ...form })
+      await updateMut.mutateAsync({ id: fee.id, ...form, term: form.term as 1 | 2 | 3 })
       ok(`"${form.name}" updated`)
       onClose()
     } catch (e: any) { err(e.message ?? 'Update failed') }

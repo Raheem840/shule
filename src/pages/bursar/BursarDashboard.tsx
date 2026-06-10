@@ -107,7 +107,6 @@ function PaymentRow({ p }: { p: ReturnType<typeof useRecentPayments>['data'] ext
 }
 
 // ─────────────────────────────────────────────────────────────
-const CURRENT_YEAR = new Date().getFullYear()
 
 // ── Chart card ────────────────────────────────────────────────
 function ChartCard({

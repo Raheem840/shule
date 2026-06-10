@@ -57,22 +57,6 @@ function CheckIcon() {
   )
 }
 
-// ── Queued changes badge ──────────────────────────────────────
-function QueueBadge({ count }: { count: number }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 4,
-      padding: '2px 8px', borderRadius: 99,
-      background: 'rgba(251,191,36,.15)', border: '1px solid rgba(251,191,36,.3)',
-      fontSize: 11, fontWeight: 700, color: '#fbbf24',
-    }}>
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-        <path d="M22 12H2M17 5l5 7-5 7"/>
-      </svg>
-      {count} pending
-    </div>
-  )
-}
 
 const KEYFRAMES = `
   @keyframes ob-in    { from { opacity:0; transform:translateX(-50%) translateY(-18px) scale(.9) } to { opacity:1; transform:translateX(-50%) translateY(0) scale(1) } }

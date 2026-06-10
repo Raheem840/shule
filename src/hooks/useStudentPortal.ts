@@ -174,6 +174,7 @@ export function useMyFeeBalance(studentId: string | null) {
         return {
           id:            r.id as string,
           termLabel:     `Term ${r.term}`,
+          feeName:       'Fee Payment',
           amountDue:     amtDue,
           amountPaid:    amtPaid,
           balance,

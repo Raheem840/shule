@@ -151,7 +151,7 @@ function SelectivePromotionPanel({ onDone }: { onDone: (result: { promoted: numb
 
   const loadCandidates = useLoadPromotionCandidates()
   const selectivePromote = useSelectivePromote()
-  const { success: ok, error: err } = useToast()
+  const { success: _ok, error: err } = useToast()
 
   async function handleLoad() {
     try {

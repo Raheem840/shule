@@ -271,7 +271,7 @@ function StudentProfileModal({ student, streamName, className, onClose }: {
 
 // ── Student card (same design pattern as secretary page) ──────────────────────
 
-function StudentCard({ student, streamName, className, onClick }: {
+function StudentCard({ student, streamName: _streamName, className, onClick }: {
   student: { id: string; firstName: string; lastName: string; admissionNumber: string; photoUrl: string | null; gender: string | null; dob: string | null; studentType: string; status: string }
   streamName: string
   className: string

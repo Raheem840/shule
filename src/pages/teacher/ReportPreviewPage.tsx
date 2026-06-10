@@ -37,7 +37,7 @@ function ScoresTable({ studentId, journalIds }: { studentId: string; journalIds:
         </tr>
       </thead>
       <tbody>
-        {myResults.map((r: Record<string, unknown>) => {
+        {myResults.map(r => {
           const cbc = r.score != null ? calcCBC(0, 0, r.score) : null
           return (
             <tr key={r.id} style={{ borderBottom: '.5px solid var(--border)' }}>
@@ -64,7 +64,7 @@ export function ReportPreviewPage() {
   const { data: reportCards = [], isLoading: rcLoading } = useReportCards({ term: String(term), year, classId: classId || undefined }, !!classId)
   const { data: remarks } = useTeacherRemarks({ term: String(term), year, classId: classId || undefined, streamId: null })
 
-  const rcMap      = new Map(reportCards.map((r: Record<string, unknown>) => [r.studentId, r]))
+  const rcMap      = new Map(reportCards.map(r => [r.studentId, r]))
   const journalIds = journals.map(j => j.id)
   const isLoading  = !!classId && rcLoading
 

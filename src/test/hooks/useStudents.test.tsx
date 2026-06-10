@@ -207,7 +207,7 @@ describe('useRegisterStudent', () => {
         photoUrl: null, medicalNotes: null,
         admissionNumber: 'KJA/2025/050', classId: 'cls-1',
         streamId: null, studentType: 'day', previousSchool: null,
-        enrolledAt: '2025-01-15',
+        enrolledAt: '2025-01-15', academicYearId: 'test-year-id',
         guardians: [{
           fullName: 'Mary Apio', relationship: 'mother', phone: '0700111222',
           email: null, isPrimary: true, doNotContact: false, commsPreference: 'sms',
@@ -232,7 +232,7 @@ describe('useRegisterStudent', () => {
           nationality: null, religion: null, photoUrl: null, medicalNotes: null,
           admissionNumber: 'KJA/2025/001', classId: 'cls-1',
           streamId: null, studentType: null, previousSchool: null,
-          enrolledAt: '2025-01-15', guardians: [],
+          enrolledAt: '2025-01-15', academicYearId: 'test-year-id', guardians: [],
         })
       ).rejects.toEqual({ message: 'Duplicate admission number' })
     })

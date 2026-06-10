@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -139,7 +139,7 @@ function StudentDropdown({
 function StudentFinder({
   selected,
   onSelect,
-  term,
+  term: _term,
 }: {
   selected: Student | null
   onSelect: (s: Student | null) => void

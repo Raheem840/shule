@@ -9,7 +9,8 @@ const EVENT_SELECT =
   ' subject_id, class_id, stream_id, total_marks, pass_mark,' +
   ' journaled, journal_id, created_by, term, year, created_at,' +
   ' visible_to_parents,' +
-  ' subjects(name), classes(name), streams(name)'
+  ' subjects(name), classes(name), streams(name),' +
+  ' creator:created_by(first_name, last_name)'
 
 // ── Mapper ─────────────────────────────────────────────────────────────────
 function mapRow(r: any): SchoolEvent {
@@ -31,6 +32,7 @@ function mapRow(r: any): SchoolEvent {
     journaled:        r.journaled ?? false,
     journalId:        r.journal_id,
     createdBy:        r.created_by,
+    creatorName:      r.creator ? `${r.creator.first_name} ${r.creator.last_name}` : null,
     term:             r.term,
     year:             r.year,
     createdAt:        r.created_at,

@@ -188,7 +188,7 @@ export function GlobalSearch({ open, onClose }: Props) {
                   color:    nameColor(name),
                 }
               })
-            )
+            ) as Promise<SearchResult[]>
         )
       }
 
@@ -215,7 +215,7 @@ export function GlobalSearch({ open, onClose }: Props) {
                   color:    nameColor(name),
                 }
               })
-            )
+            ) as Promise<SearchResult[]>
         )
       }
 

@@ -723,7 +723,6 @@ function MyAnalyticsPanel({
     const studentTerms = new Map<string, { name: string; scores: { key: string; score: number }[] }>()
     for (const r of baseResults) {
       if (r.score == null || r.isAbsent) continue
-      const j = journalMeta.get(r.examJournalId)
       const termKey = `T${r.term} ${r.year}`
       if (!studentTerms.has(r.studentId)) {
         studentTerms.set(r.studentId, { name: r.studentName, scores: [] })

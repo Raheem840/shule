@@ -402,7 +402,6 @@ export function FeeLedgerPage() {
     async (parsedRows: ParsedRow[], strategy: ConflictStrategy): Promise<ImportResult> => {
       const result: ImportResult = { imported: 0, updated: 0, skipped: 0, failed: [] }
       const term = filters.term ?? 1
-      const year = filters.year ?? CURRENT_YEAR
 
       // Resolve admission numbers → student IDs
       const admNums = [...new Set(parsedRows.map(r => r.admission_number).filter(Boolean))]

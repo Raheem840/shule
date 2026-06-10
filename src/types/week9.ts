@@ -274,6 +274,7 @@ export type SchoolEvent = {
   journaled: boolean
   journalId: string | null
   createdBy: string | null
+  creatorName: string | null
   term: string | null
   year: number | null
   createdAt: string

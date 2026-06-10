@@ -243,7 +243,8 @@ export function useStudentFullProfile(studentId: string | null) {
 
       if (studentRes.error) throw new Error(studentRes.error.message)
 
-      const stu = studentRes.data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stu = studentRes.data as any
       const att = attendanceRes.data ?? []
       const totalDays    = att.length
       const presentDays  = att.filter((a: any) => a.status === 'present' || a.status === 'late').length

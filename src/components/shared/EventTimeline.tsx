@@ -203,12 +203,13 @@ function TimelineNode({
         <div
           onMouseEnter={() => setOpen(true)}
           onMouseLeave={() => setOpen(false)}
+          onClick={() => setOpen(o => !o)}
           style={{
             background: open ? `${color}06` : 'var(--surface)',
             border: `1px solid ${open ? color + '45' : today ? color + '30' : 'var(--border)'}`,
             borderRadius: 14,
             overflow: 'hidden',
-            cursor: 'default',
+            cursor: 'pointer',
             transition: 'border-color 0.22s ease, background 0.22s ease, box-shadow 0.22s ease',
             boxShadow: open
               ? `0 12px 40px ${color}16, 0 3px 10px rgba(0,0,0,0.07)`
@@ -321,6 +322,14 @@ function TimelineNode({
                       Pass: {event.passMark}
                     </span>
                   )}
+                </div>
+              )}
+
+              {/* Creator */}
+              {event.creatorName && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--txt3)', marginBottom: 8 }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <span style={{ fontWeight: 600 }}>{event.creatorName}</span>
                 </div>
               )}
 

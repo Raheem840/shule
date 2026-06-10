@@ -58,7 +58,7 @@ self.addEventListener('push', (event) => {
   }
 
   const title   = data.title ?? 'Shule'
-  const options: NotificationOptions = {
+  const options: NotificationOptions & { vibrate?: number[] } = {
     body:    data.body ?? 'You have a new notification',
     icon:    '/icon-192.png',
     badge:   '/icon-192.png',
@@ -67,7 +67,7 @@ self.addEventListener('push', (event) => {
     data:    { url: data.url ?? '/' },
   }
 
-  event.waitUntil(self.registration.showNotification(title, options as NotificationOptions & { vibrate?: number[] }))
+  event.waitUntil(self.registration.showNotification(title, options))
 })
 
 // When user clicks the notification, open/focus the app

@@ -15,6 +15,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
+import { sendNotifications } from '../lib/notifications'
 import type { Staff, StaffDocument } from '../types/app'
 
 type AnyRow = Record<string, unknown>
@@ -128,6 +129,7 @@ export function useStaffById(id: string | null | undefined) {
         supabase
           .from('staff_documents')
           .select('id, school_id, staff_id, doc_type, file_name, file_url, uploaded_by, uploaded_at')
+          .eq('school_id', user!.schoolId)
           .eq('staff_id', id!)
           .order('uploaded_at', { ascending: false }),
       ])
@@ -274,7 +276,33 @@ export function useRegisterStaff() {
         else if (docErr) throw docErr
       }
 
-      return newStaff.id as string
+      const staffId = newStaff.id as string
+
+      // Notify DoS users about the new teacher (best-effort)
+      void (async () => {
+        try {
+          const { data: dosUsers } = await supabase
+            .from('staff')
+            .select('auth_user_id')
+            .eq('school_id', user!.schoolId)
+            .in('role', ['dos', 'principal'])
+            .not('auth_user_id', 'is', null)
+          const recipients = (dosUsers ?? []).map((d: any) => d.auth_user_id as string)
+          if (recipients.length > 0) {
+            await sendNotifications({
+              schoolId: user!.schoolId,
+              userIds:  recipients,
+              type:     'general',
+              title:    'New Teacher Registered',
+              body:     `${input.firstName} ${input.lastName} has been registered. Click to assign class and subjects.`,
+              link:     `/dos/teachers`,
+              fromUser: user!.id,
+            })
+          }
+        } catch { /* best-effort */ }
+      })()
+
+      return staffId
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })

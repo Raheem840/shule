@@ -569,8 +569,9 @@ function PendingActivationsBanner({
       .eq('school_id', schoolId)
       .is('auth_user_id', null)
       .eq('is_active', true)
+      .not('email', 'is', null)
     if (error) { err(error.message); return }
-    const staff = (data ?? []).filter((s: { email: string | null }) => !!s.email)
+    const staff = data ?? []
 
     setProgress({ phase: 'running', current: 0, total: staff.length })
     abortRef.current = false

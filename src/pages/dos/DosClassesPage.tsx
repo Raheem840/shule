@@ -440,7 +440,7 @@ export function DosClassesPage() {
 
       {/* ── Main two-column layout ────────────────────────────────────────── */}
       {!isLoading && classes.length > 0 && (
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
           {/* Left: class cards grid */}
           <div style={{

@@ -600,7 +600,7 @@ function PerformanceAnalytics({ marks, students, totalMarks, isCA }: {
                 content={props => (
                   <GradeTooltip
                     active={props.active}
-                    payload={props.payload as Array<{ value: number; payload: { grade: string } }> | undefined}
+                    payload={props.payload as unknown as Array<{ value: number; payload: { grade: string } }> | undefined}
                     totalCount={filtered.length}
                   />
                 )}
@@ -646,7 +646,7 @@ function PerformanceAnalytics({ marks, students, totalMarks, isCA }: {
                 content={props => (
                   <RangeTooltip
                     active={props.active}
-                    payload={props.payload as Array<{ value: number; payload: { range: string } }> | undefined}
+                    payload={props.payload as unknown as Array<{ value: number; payload: { range: string } }> | undefined}
                     totalCount={filteredScoredCount}
                   />
                 )}

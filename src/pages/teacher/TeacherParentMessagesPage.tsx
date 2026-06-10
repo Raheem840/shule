@@ -360,10 +360,10 @@ function InputBar({ onSend, sending, onFileClick, attach, onClearAttach }: {
 }
 
 // ─── Thread panel ──────────────────────────────────────────────────────────
-function ThreadPanel({ conv, onBack, classNameMap }: {
+function ThreadPanel({ conv, onBack, classNameMap: _classNameMap }: {
   conv: ParentConversation
   onBack?: () => void
-  classNameMap: Map<string, string>
+  classNameMap?: Map<string, string>
 }) {
   const { user } = useAuth()
   const { data: msgs = [] } = useConversationWithParent(conv.parentAuthUserId)
@@ -377,7 +377,7 @@ function ThreadPanel({ conv, onBack, classNameMap }: {
   const [c1] = colorFor(conv.parentName)
 
   // Build subtitle with class names for each student
-  const subtitle = conv.studentNames.map((sName, i) => {
+  const subtitle = conv.studentNames.map((sName, _i) => {
     // We can't easily map sName → classId here since we only have names
     // Use classNameMap lookup on studentNames indirectly isn't possible without IDs
     // So just show "Parent of [names]"
@@ -698,7 +698,7 @@ function EmptyState() {
 // ═══════════════════════════════════════════════════════════════════════════════
 export function TeacherParentMessagesPage() {
   const { data: convs = [], isLoading } = useParentConversations()
-  const { data: classNameMap = new Map<string, string>() } = useStudentClassMap()
+  const { data: _classNameMap = new Map<string, string>() } = useStudentClassMap()
   const { data: teacherClassName } = useTeacherClassName()
   const [active, setActive] = useState<ParentConversation | null>(null)
   const isMobile = useIsMobile()

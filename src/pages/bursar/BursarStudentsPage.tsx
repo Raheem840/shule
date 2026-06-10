@@ -4,7 +4,6 @@
  *           quick payment modal, payment history modal, Excel export.
  */
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { supabase } from '../../lib/supabase'

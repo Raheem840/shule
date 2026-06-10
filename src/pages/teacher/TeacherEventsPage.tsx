@@ -3,12 +3,12 @@ import { createPortal } from 'react-dom'
 import { useAuth } from '../../store/AuthContext'
 import { useMyAssignedClasses, useMyAssignedSubjects, useStreams } from '../../hooks/useClasses'
 import {
-  useTeacherEvents, useAllSchoolEvents,
+  useAllSchoolEvents,
   useCreateEvent, useUpdateEvent, useDeleteEvent,
 } from '../../hooks/useTeacherEvents'
 import {
   EventTimeline,
-  typeColor, typeLabel,
+  typeColor,
   ALL_EVENT_TYPES, TEACHER_EVENT_TYPES,
   daysUntil,
 } from '../../components/shared/EventTimeline'
@@ -176,10 +176,9 @@ export function TeacherEventsPage() {
   const isDos = user?.role === 'dos' || user?.role === 'principal'
   const canToggleParents = isDos || user?.role === 'deputy'
 
-  const teacherQ  = useTeacherEvents()
   const allQ      = useAllSchoolEvents()
-  const events    = isDos ? (allQ.data ?? []) : (teacherQ.data ?? [])
-  const isLoading = isDos ? allQ.isLoading : teacherQ.isLoading
+  const events    = allQ.data ?? []
+  const isLoading = allQ.isLoading
 
   const createMut = useCreateEvent()
   const updateMut = useUpdateEvent()

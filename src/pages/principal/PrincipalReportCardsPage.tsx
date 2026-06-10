@@ -8,24 +8,12 @@ import {
 } from '../../hooks/useReportCards'
 import { useStudents } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
-import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Modal, ModalCancelButton } from '../../components/ui/Modal'
 import { Select } from '../../components/ui/Select'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import type { ReportCard } from '../../types/app'
 
-// ── Status badge ───────────────────────────────────────────────
-function RCStatusBadge({ status }: { status: ReportCard['status'] }) {
-  const map: Record<ReportCard['status'], { variant: 'muted'|'green'|'blue'|'teal'; label: string }> = {
-    draft:    { variant: 'muted', label: 'Draft' },
-    ready:    { variant: 'green', label: 'Ready for Review' },
-    approved: { variant: 'blue',  label: 'Approved' },
-    released: { variant: 'teal',  label: 'Released' },
-  }
-  const { variant, label } = map[status]
-  return <Badge variant={variant} dot>{label}</Badge>
-}
 
 // ── Unlock Confirmation Modal ──────────────────────────────────
 function UnlockModal({ card, studentName, onClose }: {

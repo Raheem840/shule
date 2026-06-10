@@ -448,7 +448,7 @@ export function useAssignClassTeacher() {
   return useMutation({
     mutationFn: async ({
       streamId,
-      classId,
+      classId: _classId,
       teacherId,
     }: {
       streamId: string
@@ -456,29 +456,6 @@ export function useAssignClassTeacher() {
       teacherId: string
     }) => {
       if (!user) throw new Error('Not authenticated')
-
-      // Check: does this class already have a class teacher in another stream?
-      const { data: existingStreams, error: checkErr } = await supabase
-        .from('streams')
-        .select('id, class_teacher_id')
-        .eq('school_id', user.schoolId)
-        .eq('class_id', classId)
-        .not('class_teacher_id', 'is', null)
-        .neq('id', streamId)
-
-      if (checkErr) throw new Error(checkErr.message)
-
-      if ((existingStreams ?? []).length > 0) {
-        const existing = (existingStreams ?? []).find(
-          (s: any) => s.class_teacher_id !== teacherId
-        )
-        if (existing) {
-          throw new Error(
-            'This class already has a class teacher assigned to another stream. ' +
-            'Remove them first before assigning a new class teacher.'
-          )
-        }
-      }
 
       // Update the stream
       const { error: streamErr } = await supabase
@@ -512,6 +489,7 @@ export function useAssignClassTeacher() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['dos-teacher-perf', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['streams'] })
+      void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
     },
   })
 }

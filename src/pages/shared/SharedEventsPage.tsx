@@ -7,7 +7,7 @@ import { useToast } from '../../components/ui/Toast'
 import {
   EventTimeline,
   ALL_EVENT_TYPES, DOS_EXTRA_TYPES, TEACHER_EVENT_TYPES,
-  typeColor, typeLabel, isToday, isPast, daysUntil,
+  typeColor, daysUntil,
 } from '../../components/shared/EventTimeline'
 import type { SchoolEvent } from '../../types/week9'
 

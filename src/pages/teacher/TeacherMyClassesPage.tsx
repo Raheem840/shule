@@ -67,7 +67,7 @@ function useClassDetail(classId: string | null) {
 
 // ── ClassCard ─────────────────────────────────────────────────────────────────
 function ClassCard({
-  classId, className, level, isClassTeacherClass, isSelected, onClick,
+  classId: _classId, className, level, isClassTeacherClass, isSelected, onClick,
 }: {
   classId: string; className: string; level: string | null
   isClassTeacherClass: boolean; isSelected: boolean; onClick: () => void

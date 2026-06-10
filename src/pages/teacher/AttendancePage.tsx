@@ -17,20 +17,20 @@ const STATUS_CFG: Record<AttendanceStatus, { label: string; color: string; bg: s
 
 const STATUSES: AttendanceStatus[] = ['present', 'absent', 'late', 'excused']
 
-function StatusToggle({ value, onChange }: { value: AttendanceStatus; onChange: (s: AttendanceStatus) => void }) {
+function StatusToggle({ value, onChange, readOnly }: { value: AttendanceStatus; onChange: (s: AttendanceStatus) => void; readOnly?: boolean }) {
   return (
-    <div className="mob-att-toggle" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+    <div className="mob-att-toggle" style={{ display: 'flex', gap: 4, flexWrap: 'wrap', opacity: readOnly ? 0.6 : 1 }}>
       {STATUSES.map(s => {
         const active = value === s
         const cfg    = STATUS_CFG[s]
         return (
-          <button key={s} type="button" onClick={() => onChange(s)}
+          <button key={s} type="button" onClick={() => !readOnly && onChange(s)}
             className={`mob-att-pill${active ? ' is-active' : ''}`}
             data-short={cfg.label.charAt(0)}
             style={{
-              padding: '4px 11px', borderRadius: 7,
+              padding: '8px 11px', borderRadius: 7,
               fontSize: 11, fontWeight: 800, fontFamily: 'var(--font2)',
-              cursor: 'pointer', transition: 'all 0.12s',
+              cursor: readOnly ? 'default' : 'pointer', transition: 'all 0.12s',
               border:     `.5px solid ${active ? cfg.border : 'var(--border)'}`,
               background: active ? cfg.bg : 'transparent',
               color:      active ? cfg.color : 'var(--txt3)',
@@ -47,12 +47,13 @@ function StatusToggle({ value, onChange }: { value: AttendanceStatus; onChange: 
 const ROW_HEIGHT = 60
 
 function AttendanceRow({
-  student, status, onStatusChange, style,
+  student, status, onStatusChange, style, readOnly,
 }: {
   student: Student
   status: AttendanceStatus
   onStatusChange: (id: string, s: AttendanceStatus) => void
   style: React.CSSProperties
+  readOnly?: boolean
 }) {
   return (
     <tr style={{ ...style, display: 'table' }}>
@@ -75,7 +76,7 @@ function AttendanceRow({
         </div>
       </td>
       <td style={{ padding: '0.65rem 1rem', borderBottom: '.5px solid var(--border)', verticalAlign: 'middle' }}>
-        <StatusToggle value={status} onChange={s => onStatusChange(student.id, s)} />
+        <StatusToggle value={status} onChange={s => onStatusChange(student.id, s)} readOnly={readOnly} />
       </td>
     </tr>
   )
@@ -84,11 +85,12 @@ function AttendanceRow({
 export function AttendancePage() {
   const today = new Date().toISOString().slice(0, 10)
 
-  const [date,     setDate]     = useState(today)
-  const [classId,  setClassId]  = useState('')
-  const [streamId, setStreamId] = useState('')
-  const [marks,    setMarks]    = useState<Map<string, AttendanceStatus>>(new Map())
-  const [saved,    setSaved]    = useState(false)
+  const [date,       setDate]       = useState(today)
+  const [classId,    setClassId]    = useState('')
+  const [streamId,   setStreamId]   = useState('')
+  const [marks,      setMarks]      = useState<Map<string, AttendanceStatus>>(new Map())
+  const [saved,      setSaved]      = useState(false)
+  const [isReadOnly, setIsReadOnly] = useState(false)
 
   const { success: ok, error: err } = useToast()
 
@@ -120,12 +122,14 @@ export function AttendancePage() {
     for (const s of students) init.set(s.id, attendanceMap?.get(s.id) ?? 'present')
     setMarks(init)
     setSaved(false)
+    setIsReadOnly(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentsKey, attendanceKey])
 
   function handleClassChange(cid: string) {
     setClassId(cid)
     setStreamId('')
+    setIsReadOnly(false)
   }
 
   const handleStatusChange = useCallback((studentId: string, status: AttendanceStatus) => {
@@ -153,7 +157,7 @@ export function AttendancePage() {
     saveMutation.mutate(
       { classId, date, records: students.map(s => ({ studentId: s.id, status: marks.get(s.id) ?? 'present' })) },
       {
-        onSuccess: () => { ok('Attendance saved successfully'); setSaved(true) },
+        onSuccess: () => { ok('Attendance saved successfully'); setSaved(true); setIsReadOnly(true) },
         onError:   e  => err(e.message),
       }
     )
@@ -210,7 +214,16 @@ export function AttendancePage() {
             Export CSV
           </button>
         )}
-        {hasClass && studentCount > 0 && (
+        {hasClass && studentCount > 0 && isReadOnly && (
+          <button
+            onClick={() => setIsReadOnly(false)}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 11, border: '1px solid var(--brand)', background: 'transparent', color: 'var(--brand)', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', transition: 'all .18s', flexShrink: 0 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit Attendance
+          </button>
+        )}
+        {hasClass && studentCount > 0 && !isReadOnly && (
           <button
             onClick={handleSave}
             disabled={saveMutation.isPending}
@@ -332,6 +345,7 @@ export function AttendancePage() {
                         student={student}
                         status={marks.get(student.id) ?? 'present'}
                         onStatusChange={handleStatusChange}
+                        readOnly={isReadOnly}
                         style={{
                           position: 'absolute',
                           top:    vRow.start,
