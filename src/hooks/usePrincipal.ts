@@ -255,10 +255,10 @@ export function useStudentFullProfile(studentId: string | null) {
       // Resolve class + stream names in parallel
       const [classRes, streamRes] = await Promise.all([
         stu.class_id
-          ? supabase.from('classes').select('name').eq('id', stu.class_id).maybeSingle()
+          ? supabase.from('classes').select('name').eq('id', stu.class_id).eq('school_id', sid).maybeSingle()
           : Promise.resolve({ data: null }),
         stu.stream_id
-          ? supabase.from('streams').select('name').eq('id', stu.stream_id).maybeSingle()
+          ? supabase.from('streams').select('name').eq('id', stu.stream_id).eq('school_id', sid).maybeSingle()
           : Promise.resolve({ data: null }),
       ])
       const className  = (classRes as any).data?.name  ?? ''
@@ -272,6 +272,7 @@ export function useStudentFullProfile(studentId: string | null) {
         const { data: subs } = await supabase
           .from('subjects')
           .select('id, name')
+          .eq('school_id', sid)
           .in('id', subjectIds as string[])
         subjectMap = Object.fromEntries((subs ?? []).map((s: any) => [s.id, s.name]))
       }

@@ -266,9 +266,9 @@ export function useGenerateReportCards() {
 
       // ── Fetch class + stream names ─────────────────────────
       const [clsRes, strRes] = await Promise.all([
-        supabase.from('classes').select('name').eq('id', classId).single(),
+        supabase.from('classes').select('name').eq('id', classId).eq('school_id', schoolId).single(),
         streamId
-          ? supabase.from('streams').select('name, class_teacher_id').eq('id', streamId).single()
+          ? supabase.from('streams').select('name, class_teacher_id').eq('id', streamId).eq('school_id', schoolId).single()
           : Promise.resolve({ data: null }),
       ])
 
@@ -621,6 +621,8 @@ export function useNotifyPrincipal() {
         title: 'Report Cards Ready for Approval',
         body:  `${count} report card(s) for Term ${term} ${year} are ready for your review.`,
         link:  '/principal/report-cards',
+        read:  false,
+        read_at: null,
       }))
 
       if (rows.length === 0) return

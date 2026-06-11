@@ -180,6 +180,8 @@ export function useRequestPasswordReset() {
         title:       'Password Reset Request',
         body:        `${staffName} wants to change their password. New password: ${desiredPassword}`,
         target_role: 'it_admin',
+        read:        false,
+        read_at:     null,
       }))
 
       const { error } = await supabase.from('notifications').insert(rows)

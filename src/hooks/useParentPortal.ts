@@ -683,6 +683,7 @@ export function useGenerateParentAccess() {
             .from('parent_accounts')
             .update({ student_ids: [...currentIds, student.id] })
             .eq('id', existing.id as string)
+            .eq('school_id', user!.schoolId)
         }
 
         // Always sync auth claims so the JWT has up-to-date student_ids.

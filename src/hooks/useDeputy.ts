@@ -288,6 +288,8 @@ export function useAddDisciplineRecord() {
             body:      notifBody,
             link:      '/parent',
             from_user: user.id,
+            read:      false,
+            read_at:   null,
           }))
         )
 

@@ -161,13 +161,15 @@ export function useSaveRemarks() {
             const parentUserId = (pa as Record<string, unknown>).auth_user_id as string
             const notifBody = `A new remark has been added for Term ${term}, ${year}. Tap to view.`
             void supabase.from('notifications').insert({
-              school_id:  user!.schoolId,
-              user_id:    parentUserId,
-              type:       'message',
-              title:      teacherName,
-              body:       notifBody,
-              from_user:  user!.id,
+              school_id:   user!.schoolId,
+              user_id:     parentUserId,
+              type:        'message',
+              title:       teacherName,
+              body:        notifBody,
+              from_user:   user!.id,
               target_role: 'parent',
+              read:        false,
+              read_at:     null,
             })
             // Also fire background push so parent sees it even when app is closed
             void supabase.functions.invoke('send-push', {

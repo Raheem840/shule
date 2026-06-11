@@ -488,7 +488,7 @@ export function useAssignClassTeacher() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['dos-teacher-perf', user?.schoolId] })
-      void qc.invalidateQueries({ queryKey: ['streams'] })
+      void qc.invalidateQueries({ queryKey: ['streams', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
     },
   })

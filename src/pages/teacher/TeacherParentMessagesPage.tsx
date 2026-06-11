@@ -113,6 +113,7 @@ function useTeacherClassName() {
         .from('classes')
         .select('name')
         .eq('id', classIds[0])
+        .eq('school_id', user!.schoolId)
         .maybeSingle()
       return (cls as any)?.name as string | null
     },

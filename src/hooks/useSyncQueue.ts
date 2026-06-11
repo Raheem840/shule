@@ -59,15 +59,20 @@ export function useSyncQueue(): SyncQueueState {
           let error: { code?: string; message: string } | null = null
 
           if (actionType === 'delete') {
-            const recordId = payload.id as string
+            const recordId = payload.id        as string
+            const schoolId = payload.school_id as string | undefined
             if (recordId) {
-              ({ error } = await supabase.from(table).delete().eq('id', recordId))
+              let q = supabase.from(table).delete().eq('id', recordId)
+              if (schoolId) q = q.eq('school_id', schoolId)
+              ;({ error } = await q)
             }
           } else if (actionType === 'insert') {
             ({ error } = await supabase.from(table).insert(payload))
           } else if (actionType === 'update') {
             const { id, ...patch } = payload
-            ;({ error } = await supabase.from(table).update(patch).eq('id', id as string))
+            let q = supabase.from(table).update(patch).eq('id', id as string)
+            if (patch.school_id) q = q.eq('school_id', patch.school_id as string)
+            ;({ error } = await q)
           } else {
             // Default: upsert
             ;({ error } = await supabase.from(table).upsert(payload, { onConflict: 'id' }))

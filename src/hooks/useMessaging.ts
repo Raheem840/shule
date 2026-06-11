@@ -208,6 +208,8 @@ export function useSendMessage() {
         title:     user.name,
         body:      msgPreview,
         from_user: user.id,
+        read:      false,
+        read_at:   null,
       })
       // Background push — fires even when recipient's tab is closed
       void supabase.functions.invoke('send-push', {
@@ -350,6 +352,8 @@ export function usePostAnnouncement() {
             title:     announceTitle,
             body:      preview,
             from_user: user.id,
+            read:      false,
+            read_at:   null,
           }))
         )
         // Background push to all recipients
@@ -620,6 +624,8 @@ export function useSendMessageToParent() {
         title:     user.name,
         body:      preview,
         from_user: user.id,
+        read:      false,
+        read_at:   null,
       })
     },
     onSuccess: (_data, vars) => {

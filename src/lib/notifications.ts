@@ -26,6 +26,8 @@ export async function sendNotifications(payload: NotifPayload): Promise<void> {
     body:      payload.body,
     link:      payload.link ?? null,
     from_user: payload.fromUser ?? null,
+    read:      false,
+    read_at:   null,
   }))
 
   await supabase.from('notifications').insert(rows)
