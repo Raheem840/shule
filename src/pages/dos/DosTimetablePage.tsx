@@ -583,16 +583,19 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
   const [selectedStream, setSelectedStream] = useState<string | null>(null)
   const [mobileDay,      setMobileDay]      = useState<number>(1)
   const [dragActive,     setDragActive]     = useState(false)
-  const [published,      setPublished]      = useState(false)
+  const [dragError,      setDragError]      = useState<string | null>(null)
 
   const { data: streams = [] } = useStreams(selectedClass)
   const { data: slots = [], isLoading } = useTimetableSlots({ classId: selectedClass, streamId: selectedStream, term, year })
-  const deleteSlot = useDeleteTimetableSlot()
-  const createSlot = useCreateTimetableSlot()
-  const publishMut = usePublishTimetable()
+  const deleteSlot     = useDeleteTimetableSlot()
+  const createSlot     = useCreateTimetableSlot()
+  const publishMut     = usePublishTimetable()
+  const checkCollision = useCheckCollision()
 
-  // Reset stream/published when class changes
-  useEffect(() => { setSelectedStream(null); setPublished(false) }, [selectedClass])
+  // Derived publish status — never stale because it reads live slot data
+  const isFullyPublished = slots.length > 0 && slots.every(s => s.isPublished)
+
+  // (stream reset is done synchronously in the class selector onChange)
 
   const slotMap = useMemo(() => {
     const m = new Map<string, TimetableSlot>()
@@ -622,23 +625,64 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     setDragActive(false)
+    setDragError(null)
     if (!over || !selectedClass) return
-    const parts = (over.id as string).split('-')
-    const newDay = parseInt(parts[1]) as 1|2|3|4|5|6|7
-    const newPeriod = parseInt(parts[2])
+
+    // Read drop target from dnd-kit data instead of parsing the string id
+    const dropData = over.data.current as { day: number; period: number } | undefined
+    const newDay    = (dropData?.day    ?? parseInt((over.id as string).split('-')[1])) as 1|2|3|4|5|6|7
+    const newPeriod = dropData?.period  ?? parseInt((over.id as string).split('-')[2])
+
     const slot = active.data.current?.slot as TimetableSlot | undefined
     if (!slot) return
     if (slot.dayOfWeek === newDay && slot.periodNumber === newPeriod) return
     if (slotMap.has(`${newDay}-${newPeriod}`)) return
+
+    // Check teacher conflict across ALL classes before moving
+    try {
+      const { teacherConflict } = await checkCollision.mutateAsync({
+        classId: slot.classId, streamId: slot.streamId,
+        teacherId: slot.teacherId,
+        dayOfWeek: newDay, periodNumber: newPeriod,
+        term, year,
+        excludeSlotId: slot.id,
+      })
+      if (teacherConflict) {
+        const dayLabel = DAYS.find(d => d[0] === newDay)?.[1] ?? newDay
+        setDragError(`${slot.teacherName ?? 'Teacher'} is already teaching another class on ${dayLabel} period ${newPeriod}.`)
+        return
+      }
+    } catch {
+      setDragError('Could not verify teacher availability — move cancelled.')
+      return
+    }
+
+    // Delete at old position then create at new position;
+    // on any failure, restore the slot at its original position.
     try {
       await deleteSlot.mutateAsync(slot.id)
-      await createSlot.mutateAsync({
-        classId: slot.classId, streamId: slot.streamId,
-        subjectId: slot.subjectId, teacherId: slot.teacherId,
-        dayOfWeek: newDay, periodNumber: newPeriod,
-        startTime: slot.startTime, endTime: slot.endTime, term, year,
-      })
-    } catch { /**/ }
+      try {
+        await createSlot.mutateAsync({
+          classId: slot.classId, streamId: slot.streamId,
+          subjectId: slot.subjectId, teacherId: slot.teacherId,
+          dayOfWeek: newDay, periodNumber: newPeriod,
+          startTime: slot.startTime, endTime: slot.endTime, term, year,
+        })
+      } catch {
+        // Create failed after delete — restore at original position
+        try {
+          await createSlot.mutateAsync({
+            classId: slot.classId, streamId: slot.streamId,
+            subjectId: slot.subjectId, teacherId: slot.teacherId,
+            dayOfWeek: slot.dayOfWeek, periodNumber: slot.periodNumber,
+            startTime: slot.startTime, endTime: slot.endTime, term, year,
+          })
+        } catch { /**/ }
+        setDragError('Move failed — slot restored to original position.')
+      }
+    } catch {
+      setDragError('Move failed — please try again.')
+    }
   }
 
   const selectedClassName = classes.find(c => c.id === selectedClass)?.name ?? ''
@@ -648,7 +692,7 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 16px', alignItems: 'flex-end' }}>
       <div style={{ flex: '1 1 160px', minWidth: 140 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Class</div>
-        <select value={selectedClass ?? ''} onChange={e => setSelectedClass(e.target.value || null)} className="sui-input" style={{ width: '100%' }}>
+        <select value={selectedClass ?? ''} onChange={e => { setSelectedClass(e.target.value || null); setSelectedStream(null) }} className="sui-input" style={{ width: '100%' }}>
           <option value="">Select class…</option>
           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
@@ -671,11 +715,11 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
           }}>
             {slots.length}/{totalClassSlots} slots
           </span>
-          <button disabled={publishMut.isPending || published || slots.length === 0}
-            onClick={() => { void publishMut.mutateAsync({ classId: selectedClass!, term, year }).then(() => setPublished(true)) }}
-            style={{ padding: '8px 16px', borderRadius: 10, border: published ? '.5px solid rgba(16,185,129,.3)' : 'none', background: published ? 'rgba(16,185,129,.1)' : slots.length === 0 ? 'var(--surface2)' : 'linear-gradient(145deg,#10b981,#059669)', color: published ? 'var(--success)' : slots.length === 0 ? 'var(--txt3)' : '#fff', fontWeight: 700, fontSize: 12.5, cursor: published || slots.length === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, boxShadow: published || slots.length === 0 ? 'none' : '0 3px 10px rgba(16,185,129,.4)' }}
+          <button disabled={publishMut.isPending || isFullyPublished || slots.length === 0}
+            onClick={() => { void publishMut.mutateAsync({ classId: selectedClass!, streamId: selectedStream, term, year }) }}
+            style={{ padding: '8px 16px', borderRadius: 10, border: isFullyPublished ? '.5px solid rgba(16,185,129,.3)' : 'none', background: isFullyPublished ? 'rgba(16,185,129,.1)' : slots.length === 0 ? 'var(--surface2)' : 'linear-gradient(145deg,#10b981,#059669)', color: isFullyPublished ? 'var(--success)' : slots.length === 0 ? 'var(--txt3)' : '#fff', fontWeight: 700, fontSize: 12.5, cursor: isFullyPublished || slots.length === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, boxShadow: isFullyPublished || slots.length === 0 ? 'none' : '0 3px 10px rgba(16,185,129,.4)' }}
           >
-            {published ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>Published</> : publishMut.isPending ? 'Publishing…' : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 15v4a2 2 0 002 2h14a2 2 0 002-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Publish</>}
+            {isFullyPublished ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>Published</> : publishMut.isPending ? 'Publishing…' : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 15v4a2 2 0 002 2h14a2 2 0 002-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Publish</>}
           </button>
         </div>
       )}
@@ -786,9 +830,18 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {ClassPicker}
+      {dragError && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, background: 'rgba(244,63,94,.08)', border: '.5px solid rgba(244,63,94,.3)', color: 'var(--danger)', fontSize: 13, fontWeight: 600 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          <span style={{ flex: 1 }}>{dragError}</span>
+          <button onClick={() => setDragError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: 2, display: 'flex', alignItems: 'center' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      )}
       {isLoading && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{[1,2,3].map(i => <div key={i} className="shule-skeleton" style={{ height: 80, borderRadius: 10 }} />)}</div>}
       {!isLoading && (
-        <DndContext onDragStart={() => setDragActive(true)} onDragEnd={e => { void handleDragEnd(e) }} onDragCancel={() => setDragActive(false)}>
+        <DndContext onDragStart={() => { setDragActive(true); setDragError(null) }} onDragEnd={e => { void handleDragEnd(e) }} onDragCancel={() => setDragActive(false)}>
           <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 2px 20px rgba(0,0,0,.06)' }}>
             {/* Grid header bar */}
             <div style={{ padding: '14px 20px 12px', borderBottom: '.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, background: 'linear-gradient(135deg,rgba(139,92,246,.04),transparent)' }}>

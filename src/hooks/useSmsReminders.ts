@@ -160,21 +160,20 @@ export function useSmsReminderLog() {
     queryKey: ['sms-log', user?.schoolId],
     enabled:  !!user?.schoolId,
     queryFn: async () => {
-      const [remindersRes, studentsRes] = await Promise.all([
-        supabase
-          .from('sms_reminders')
-          .select('id, school_id, student_id, parent_phone, channel, message, status, sent_at, created_at')
-          .eq('school_id', user!.schoolId)
-          .order('created_at', { ascending: false })
-          .limit(500),
-        supabase
-          .from('students')
-          .select('id, first_name, last_name')
-          .eq('school_id', user!.schoolId),
-      ])
-
+      const remindersRes = await supabase
+        .from('sms_reminders')
+        .select('id, school_id, student_id, parent_phone, channel, message, status, sent_at, created_at')
+        .eq('school_id', user!.schoolId)
+        .order('created_at', { ascending: false })
+        .limit(500)
       if (remindersRes.error) throw remindersRes.error
-      if (studentsRes.error)  throw studentsRes.error
+
+      const studentIds = [...new Set((remindersRes.data ?? []).map(r => r.student_id as string).filter(Boolean))]
+      const studentsRes = studentIds.length
+        ? await supabase.from('students').select('id, first_name, last_name').in('id', studentIds)
+        : { data: [], error: null }
+
+      if (studentsRes.error) throw studentsRes.error
 
       const studentMap = new Map<string, { firstName: string; lastName: string }>()
       for (const s of studentsRes.data ?? []) {

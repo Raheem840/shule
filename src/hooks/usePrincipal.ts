@@ -20,13 +20,12 @@ export function usePrincipalKpis() {
       const weekStartStr = weekStart.toISOString().slice(0, 10)
 
       const [studentsRes, staffRes, resultsRes, journalsRes, paymentsRes,
-             feeStructureRes, attendanceRes, reportCardsRes] = await Promise.all([
+             attendanceRes, reportCardsRes] = await Promise.all([
         supabase.from('students').select('id').eq('school_id', sid).eq('status', 'active'),
         supabase.from('staff').select('id').eq('school_id', sid).eq('is_active', true),
         supabase.from('exam_results').select('score, exam_journal_id').eq('school_id', sid),
         supabase.from('exam_journal').select('id, pass_mark').eq('school_id', sid),
-        supabase.from('fee_payments').select('amount_paid').eq('school_id', sid),
-        supabase.from('fee_structure').select('amount').eq('school_id', sid),
+        supabase.from('fee_payments').select('amount_paid, amount_due').eq('school_id', sid),
         supabase.from('attendance').select('status, date').eq('school_id', sid)
           .gte('date', weekStartStr).lte('date', today),
         supabase.from('report_cards').select('id').eq('school_id', sid).eq('status', 'ready'),
@@ -41,8 +40,9 @@ export function usePrincipalKpis() {
       const overallPassRate = graded.length > 0
         ? Math.round((passed.length / graded.length) * 100) : 0
 
-      // Fee collection rate
-      const totalExpected  = (feeStructureRes.data ?? []).reduce((s: number, r: any) => s + (r.amount ?? 0), 0)
+      // Fee collection rate — use amount_due (per-payment billed amount) as the expected baseline,
+      // not fee_structure.amount (which is the unit price, not multiplied by student count)
+      const totalExpected  = (paymentsRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_due  ?? 0), 0)
       const totalCollected = (paymentsRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_paid ?? 0), 0)
       const feeCollectionRate = totalExpected > 0
         ? Math.round((totalCollected / totalExpected) * 100) : 0
@@ -125,19 +125,21 @@ export function useSchoolFeeSummary() {
     queryFn: async (): Promise<FeeSummary> => {
       const sid = user!.schoolId
 
-      const [paymentsRes, structureRes] = await Promise.all([
-        supabase.from('fee_payments').select('amount_paid, balance').eq('school_id', sid),
-        supabase.from('fee_structure').select('amount').eq('school_id', sid),
-      ])
+      const { data: payments } = await supabase
+        .from('fee_payments')
+        .select('amount_paid, amount_due, balance')
+        .eq('school_id', sid)
 
-      const totalCollected = (paymentsRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_paid ?? 0), 0)
-      const totalExpected  = (structureRes.data ?? []).reduce((s: number, r: any) => s + (r.amount ?? 0), 0)
-      const overdueCount   = (paymentsRes.data ?? []).filter((r: any) => (r.balance ?? 0) > 0).length
+      const rows = payments ?? []
+      const totalCollected = rows.reduce((s: number, r: any) => s + (r.amount_paid ?? 0), 0)
+      const totalExpected  = rows.reduce((s: number, r: any) => s + (r.amount_due  ?? 0), 0)
+      const outstanding    = rows.reduce((s: number, r: any) => s + Math.max(0, Number(r.balance) || 0), 0)
+      const overdueCount   = rows.filter((r: any) => (r.balance ?? 0) > 0).length
 
       return {
         totalExpected,
         totalCollected,
-        outstanding: Math.max(0, totalExpected - totalCollected),
+        outstanding,
         overdueCount,
       }
     },

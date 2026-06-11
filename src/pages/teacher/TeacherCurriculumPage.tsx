@@ -108,7 +108,7 @@ function useMarkCovered() {
         await supabase.from('notifications').insert({
           school_id: user.schoolId, user_id: (dosStaff as any).auth_user_id,
           type: 'general', body: 'A curriculum topic has been marked as covered.',
-          link: '/dos/curriculum', read_at: null,
+          link: '/dos/curriculum', read: false, read_at: null,
         })
       }
     },

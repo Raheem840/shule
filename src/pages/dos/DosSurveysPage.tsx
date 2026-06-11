@@ -22,11 +22,11 @@ function useSurveyResponses(term: string, year: number) {
     queryKey: ['survey-responses', user?.schoolId, term, year],
     enabled: !!user,
     queryFn: async (): Promise<{ responses: SurveyResponse[]; summary: SurveySummary }> => {
-      const { data, error } = await supabase.from('student_surveys').select('id, overall_rating, teacher_rating, hardest_subject_id, favourite_subject_id, suggestions, created_at, term, year, student_id').eq('school_id', user!.schoolId).eq('term', term).eq('year', year).order('created_at', { ascending: false })
+      const { data, error } = await supabase.from('student_surveys').select('id, rating, teacher_rating, hardest_subject_id, favourite_subject_id, suggestions, submitted_at, term, year, student_id').eq('school_id', user!.schoolId).eq('term', term).eq('year', year).order('submitted_at', { ascending: false })
       if (error?.code === '42P01') return { responses: [], summary: { total: 0, avgOverall: 0, avgTeacher: 0, hardestSubjects: [], favouriteSubjects: [] } }
       if (error) throw error
       const rows = data ?? []
-      const responses: SurveyResponse[] = rows.map((r: any) => ({ id: r.id, studentName: `Student ${r.student_id?.slice(0, 8) ?? 'Unknown'}`, className: '—', overallRating: r.overall_rating ?? 0, teacherRating: r.teacher_rating ?? 0, hardestSubject: r.hardest_subject_id ?? null, favouriteSubject: r.favourite_subject_id ?? null, suggestions: r.suggestions ?? null, submittedAt: r.created_at }))
+      const responses: SurveyResponse[] = rows.map((r: any) => ({ id: r.id, studentName: `Student ${r.student_id?.slice(0, 8) ?? 'Unknown'}`, className: '—', overallRating: r.rating ?? 0, teacherRating: r.teacher_rating ?? 0, hardestSubject: r.hardest_subject_id ?? null, favouriteSubject: r.favourite_subject_id ?? null, suggestions: r.suggestions ?? null, submittedAt: r.submitted_at }))
       const total      = responses.length
       const avgOverall = total > 0 ? Math.round((responses.reduce((s, r) => s + r.overallRating, 0) / total) * 10) / 10 : 0
       const avgTeacher = total > 0 ? Math.round((responses.reduce((s, r) => s + r.teacherRating, 0) / total) * 10) / 10 : 0

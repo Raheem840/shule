@@ -101,8 +101,8 @@ export function DeputyTimetablePage() {
     if (user?.schoolId) setPeriodDefs(loadPeriodDefs(user.schoolId))
   }, [user?.schoolId])
 
-  // Load ALL slots (no class filter) for the school view
-  const { data: allSlots = [], isLoading } = useTimetableSlots({ term, year })
+  // Load only published slots — deputies should not see DoS draft work
+  const { data: allSlots = [], isLoading } = useTimetableSlots({ term, year, published: true })
 
   const classNameMap = useMemo(() => {
     const m = new Map<string, string>()

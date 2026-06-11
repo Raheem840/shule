@@ -506,6 +506,7 @@ export function useAddPayment() {
       qc.invalidateQueries({ queryKey: ['bursar-kpis',     user?.schoolId] })
       qc.invalidateQueries({ queryKey: ['fee-by-class',    user?.schoolId] })
       qc.invalidateQueries({ queryKey: ['recent-payments', user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['fee-over-time',   user?.schoolId] })
     },
   })
 }
@@ -530,7 +531,7 @@ export function useUpdatePayment() {
 
       const { error: updErr } = await supabase
         .from('fee_payments')
-        .update({ amount_paid: input.amountPaid })
+        .update({ amount_paid: input.amountPaid, balance: newBalance })
         .eq('id', input.id)
         .eq('school_id', user!.schoolId)
 
@@ -556,6 +557,7 @@ export function useUpdatePayment() {
       qc.invalidateQueries({ queryKey: ['bursar-kpis',     user?.schoolId] })
       qc.invalidateQueries({ queryKey: ['fee-by-class',    user?.schoolId] })
       qc.invalidateQueries({ queryKey: ['recent-payments', user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['fee-over-time',   user?.schoolId] })
     },
   })
 }

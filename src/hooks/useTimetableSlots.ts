@@ -16,8 +16,8 @@ export function useTimetableSlots(params: {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['timetable-slots', user?.schoolId, params],
-    enabled: !!user,
+    queryKey: ['timetable-slots', user?.schoolId, params.classId, params.streamId, params.term, params.year, params.published ?? false],
+    enabled: !!user?.schoolId,
     queryFn: async (): Promise<TimetableSlot[]> => {
       const sid = user!.schoolId
       let q = supabase
@@ -62,10 +62,10 @@ export function useTimetableSlots(params: {
 
       const [subjectsRes, teachersRes] = await Promise.all([
         subjectIds.length > 0
-          ? supabase.from('subjects').select('id, name').in('id', subjectIds)
+          ? supabase.from('subjects').select('id, name').eq('school_id', sid).in('id', subjectIds)
           : { data: [], error: null },
         teacherIds.length > 0
-          ? supabase.from('staff').select('id, first_name, last_name').in('id', teacherIds)
+          ? supabase.from('staff').select('id, first_name, last_name').eq('school_id', sid).in('id', teacherIds)
           : { data: [], error: null },
       ])
 
@@ -151,10 +151,10 @@ export function useTeacherTimetable(params: {
 
       const [subjectsRes, classesRes] = await Promise.all([
         subjectIds.length > 0
-          ? supabase.from('subjects').select('id, name').in('id', subjectIds)
+          ? supabase.from('subjects').select('id, name').eq('school_id', sid).in('id', subjectIds)
           : { data: [], error: null },
         classIds.length > 0
-          ? supabase.from('classes').select('id, name').in('id', classIds)
+          ? supabase.from('classes').select('id, name').eq('school_id', sid).in('id', classIds)
           : { data: [], error: null },
       ])
 
@@ -195,18 +195,27 @@ export function useCheckCollision() {
       excludeSlotId?: string  // for editing an existing slot
     }): Promise<{ classConflict: TimetableSlot | null; teacherConflict: TimetableSlot | null }> => {
       const sid = user!.schoolId
-      const { classId, teacherId, dayOfWeek, periodNumber, term, year, excludeSlotId } = params
+      const { classId, streamId, teacherId, dayOfWeek, periodNumber, term, year, excludeSlotId } = params
+
+      let classQ = supabase
+        .from('timetable_slots')
+        .select('id, class_id, stream_id, teacher_id, subject_id, day_of_week, period_number, term, year, is_published')
+        .eq('school_id', sid)
+        .eq('class_id', classId)
+        .eq('day_of_week', dayOfWeek)
+        .eq('period_number', periodNumber)
+        .eq('term', term)
+        .eq('year', year)
+
+      // Scope class conflict to the same stream so S4A doesn't block S4B
+      if (streamId) {
+        classQ = classQ.eq('stream_id', streamId)
+      } else {
+        classQ = classQ.is('stream_id', null)
+      }
 
       const [classRes, teacherRes] = await Promise.all([
-        supabase
-          .from('timetable_slots')
-          .select('id, class_id, stream_id, teacher_id, subject_id, day_of_week, period_number, term, year, is_published')
-          .eq('school_id', sid)
-          .eq('class_id', classId)
-          .eq('day_of_week', dayOfWeek)
-          .eq('period_number', periodNumber)
-          .eq('term', term)
-          .eq('year', year),
+        classQ,
         supabase
           .from('timetable_slots')
           .select('id, class_id, stream_id, teacher_id, subject_id, day_of_week, period_number, term, year, is_published')
@@ -285,6 +294,7 @@ export function useCreateTimetableSlot() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['timetable-slots'] })
+      void qc.invalidateQueries({ queryKey: ['teacher-timetable'] })
     },
   })
 }
@@ -307,12 +317,15 @@ export function useDeleteTimetableSlot() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['timetable-slots'] })
+      void qc.invalidateQueries({ queryKey: ['teacher-timetable'] })
     },
   })
 }
 
 // ── usePublishTimetable ────────────────────────────────────────────────────
-// Marks all slots for a class/term/year as published.
+// Marks all slots for a class/stream/term/year as published.
+// streamId: null means "slots with no stream" (class has no streams);
+// pass a specific UUID to publish only that stream's slots.
 export function usePublishTimetable() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -320,22 +333,32 @@ export function usePublishTimetable() {
   return useMutation({
     mutationFn: async (params: {
       classId: string
+      streamId: string | null
       term: string
       year: number
     }) => {
       if (!user) throw new Error('Not authenticated')
-      const { error } = await supabase
+      let q = supabase
         .from('timetable_slots')
         .update({ is_published: true })
         .eq('school_id', user.schoolId)
         .eq('class_id', params.classId)
         .eq('term', params.term)
         .eq('year', params.year)
+
+      if (params.streamId) {
+        q = q.eq('stream_id', params.streamId)
+      } else {
+        q = q.is('stream_id', null)
+      }
+
+      const { error } = await q
       if (error?.code === '42P01') return  // table not yet created
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['timetable-slots'] })
+      void qc.invalidateQueries({ queryKey: ['teacher-timetable'] })
     },
   })
 }

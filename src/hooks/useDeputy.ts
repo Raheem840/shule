@@ -15,6 +15,7 @@ export function useDeputyOverview() {
     queryFn: async () => {
       const sid = user!.schoolId
 
+      const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10)
       const [classesRes, attendanceRes] = await Promise.all([
         supabase
           .from('classes')
@@ -23,7 +24,8 @@ export function useDeputyOverview() {
         supabase
           .from('attendance')
           .select('class_id, student_id, status')
-          .eq('school_id', sid),
+          .eq('school_id', sid)
+          .gte('date', yearStart),
       ])
 
       if (classesRes.error) throw new Error(classesRes.error.message)
@@ -76,7 +78,8 @@ export function useDeputyKpis() {
         supabase
           .from('attendance')
           .select('student_id, status')
-          .eq('school_id', sid),
+          .eq('school_id', sid)
+          .gte('date', new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10)),
       ])
 
       const studentMap = new Map<string, { present: number; total: number }>()

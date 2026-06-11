@@ -375,11 +375,11 @@ function ActiveCard({ staff, deptName, onReset, onLink, onDeactivated }: { staff
     setDeactivateBusy(true)
     try {
       await Promise.all([
-        supabase.from('staff').update({ is_active: false }).eq('id', staff.id),
+        supabase.from('staff').update({ is_active: false }).eq('id', staff.id).eq('school_id', staff.schoolId),
         callSetUserDisabled(staff.authUserId, true),
       ])
       ok(`${staffName}'s access revoked`)
-      void qc.invalidateQueries({ queryKey: ['staff'] })
+      void qc.invalidateQueries({ queryKey: ['staff', staff.schoolId] })
       onDeactivated()
     } catch (e) { err(e instanceof Error ? e.message : 'Deactivation failed') }
     finally { setDeactivateBusy(false); setShowPrincipalConfirm(false) }
@@ -390,11 +390,11 @@ function ActiveCard({ staff, deptName, onReset, onLink, onDeactivated }: { staff
     setDeactivateBusy(true)
     try {
       await Promise.all([
-        supabase.from('staff').update({ is_active: true }).eq('id', staff.id),
+        supabase.from('staff').update({ is_active: true }).eq('id', staff.id).eq('school_id', staff.schoolId),
         callSetUserDisabled(staff.authUserId, false),
       ])
       ok(`${staffName}'s access restored`)
-      void qc.invalidateQueries({ queryKey: ['staff'] })
+      void qc.invalidateQueries({ queryKey: ['staff', staff.schoolId] })
       onDeactivated()
     } catch (e) { err(e instanceof Error ? e.message : 'Reactivation failed') }
     finally { setDeactivateBusy(false) }
@@ -527,10 +527,28 @@ function PendingActivationsBanner({
   const total = pendingStudentCount + pendingStaffCount
   if (dismissed || total === 0) return null
 
+  function genBulkPassword(): string {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+    const arr = new Uint8Array(12)
+    crypto.getRandomValues(arr)
+    return Array.from(arr, b => chars[b % chars.length]).join('')
+  }
+
   async function bulkActivateStudents() {
+    // Fetch school short_name once so we can derive emails per student
+    const { data: schoolData } = await supabase
+      .from('school_profile')
+      .select('short_name, school_name')
+      .eq('id', schoolId)
+      .maybeSingle()
+    const rawDomain = (schoolData?.short_name as string | null)
+      || (schoolData?.school_name as string | null)
+      || 'school'
+    const shortName = rawDomain.toLowerCase().replace(/[^a-z0-9]/g, '')
+
     const { data, error } = await supabase
       .from('students')
-      .select('id, first_name, last_name')
+      .select('id, first_name, last_name, admission_number, auth_email')
       .eq('school_id', schoolId)
       .is('auth_user_id', null)
       .eq('status', 'active')
@@ -545,10 +563,13 @@ function PendingActivationsBanner({
     for (let i = 0; i < students.length; i += 10) {
       if (abortRef.current) break
       const batch = students.slice(i, i + 10)
-      await Promise.all(batch.map(async s => {
+      await Promise.all(batch.map(async (s: { id: string; admission_number: string; auth_email: string | null }) => {
         try {
+          const admSlug = (s.admission_number ?? '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'student'
+          const email    = s.auth_email || `${admSlug}@${shortName}.ug`
+          const password = genBulkPassword()
           const { error: fnError } = await supabase.functions.invoke('create-student-auth-user', {
-            body: { studentId: s.id, schoolId },
+            body: { studentId: s.id, email, schoolId, password },
           })
           if (fnError) throw fnError
           activated++
@@ -580,10 +601,11 @@ function PendingActivationsBanner({
     for (let i = 0; i < staff.length; i += 10) {
       if (abortRef.current) break
       const batch = staff.slice(i, i + 10)
-      await Promise.all(batch.map(async (s: { id: string }) => {
+      await Promise.all(batch.map(async (s: { id: string; email: string | null }) => {
         try {
+          const password = genBulkPassword()
           const { error: fnError } = await supabase.functions.invoke('create-staff-auth-user', {
-            body: { staffId: s.id, schoolId },
+            body: { staffId: s.id, email: s.email, schoolId, password },
           })
           if (fnError) throw fnError
           activated++
@@ -980,11 +1002,11 @@ function StudentActiveCard({ student, className, onReset, onToggled }: {
     setBusy(true)
     try {
       await Promise.all([
-        supabase.from('students').update({ status: 'suspended' }).eq('id', student.id),
+        supabase.from('students').update({ status: 'suspended' }).eq('id', student.id).eq('school_id', student.school_id),
         callSetUserDisabled(student.auth_user_id, true),
       ])
       ok(`${name}'s access revoked`)
-      void qc.invalidateQueries({ queryKey: ['students-active-login'] })
+      void qc.invalidateQueries({ queryKey: ['students-active-login', student.school_id] })
       void qc.invalidateQueries({ queryKey: ['my-student-record'] })
       onToggled()
     } catch (e) { err(e instanceof Error ? e.message : 'Deactivation failed') }
@@ -996,11 +1018,11 @@ function StudentActiveCard({ student, className, onReset, onToggled }: {
     setBusy(true)
     try {
       await Promise.all([
-        supabase.from('students').update({ status: 'active' }).eq('id', student.id),
+        supabase.from('students').update({ status: 'active' }).eq('id', student.id).eq('school_id', student.school_id),
         callSetUserDisabled(student.auth_user_id, false),
       ])
       ok(`${name}'s access restored`)
-      void qc.invalidateQueries({ queryKey: ['students-active-login'] })
+      void qc.invalidateQueries({ queryKey: ['students-active-login', student.school_id] })
       void qc.invalidateQueries({ queryKey: ['my-student-record'] })
       onToggled()
     } catch (e) { err(e instanceof Error ? e.message : 'Reactivation failed') }

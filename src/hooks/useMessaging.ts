@@ -84,7 +84,7 @@ export function useMessages(contactId: string | null) {
 
       const { data, error } = await supabase
         .from('messages')
-        .select('id, school_id, from_user_id, to_user_id, body, attachment_url, sent_at, read_at')
+        .select('id, school_id, from_user_id, to_user_id, body, attachment_url, attachment_name, attachment_type, sent_at, read_at')
         .eq('school_id', user!.schoolId)
         .or(
           `and(from_user_id.eq.${uid},to_user_id.eq.${cid}),` +

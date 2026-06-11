@@ -10,7 +10,7 @@ export function useSystemKpis() {
 
   return useQuery({
     queryKey: ['system-kpis', user?.schoolId],
-    enabled: !!user,
+    enabled: !!user?.schoolId,
     queryFn: async (): Promise<SystemKpis> => {
       const sid = user!.schoolId
 
@@ -334,6 +334,34 @@ const KNOWN_BUCKETS: Array<{ name: string; public: boolean }> = [
   { name: 'staff-attachments', public: true  },
 ]
 
+// Recursively list all files in a bucket prefix, up to 4 levels deep.
+// Items with a non-null id are files; null-id items are virtual folders.
+async function listBucketFiles(
+  bucket: string,
+  prefix: string,
+  depth = 0,
+): Promise<{ fileCount: number; totalBytes: number }> {
+  if (depth > 4) return { fileCount: 0, totalBytes: 0 }
+  const { data } = await supabase.storage.from(bucket).list(prefix, { limit: 1000 })
+  const items = data ?? []
+  let fileCount = 0
+  let totalBytes = 0
+  await Promise.all(
+    items.map(async item => {
+      if (item.id !== null) {
+        fileCount++
+        totalBytes += (item.metadata as { size?: number } | null)?.size ?? 0
+      } else {
+        const sub = prefix ? `${prefix}/${item.name}` : item.name
+        const r = await listBucketFiles(bucket, sub, depth + 1)
+        fileCount  += r.fileCount
+        totalBytes += r.totalBytes
+      }
+    })
+  )
+  return { fileCount, totalBytes }
+}
+
 export function useStorageBuckets() {
   const { user } = useAuth()
 
@@ -343,13 +371,11 @@ export function useStorageBuckets() {
     queryFn: async () => {
       const results = await Promise.allSettled(
         KNOWN_BUCKETS.map(async (b) => {
-          const { data: files } = await supabase.storage.from(b.name).list('', { limit: 1000 })
-          const fileList  = files ?? []
-          const totalBytes = fileList.reduce((sum, f) => sum + (f.metadata?.size ?? 0), 0)
+          const { fileCount, totalBytes } = await listBucketFiles(b.name, '')
           return {
             name:      b.name,
             isPublic:  b.public,
-            fileCount: fileList.length,
+            fileCount,
             sizeMb:    +(totalBytes / (1024 * 1024)).toFixed(2),
           }
         })

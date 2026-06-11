@@ -340,13 +340,15 @@ export type PortalMessage = {
 }
 
 // ── useParentMessagesWithBursar ───────────────────────────────
-// Fetches all messages between the current parent and the bursar/secretary.
-export function useParentMessagesWithBursar() {
+// Fetches messages between the current parent and the school bursar.
+export function useParentMessagesWithBursar(bursarAuthUserId: string | null | undefined) {
   const { user } = useAuth()
+  const me      = user?.id ?? ''
+  const bursar  = bursarAuthUserId ?? ''
 
   return useQuery({
-    queryKey: ['parent-bursar-messages', user?.schoolId, user?.id],
-    enabled:  !!user?.schoolId && !!user?.id,
+    queryKey: ['parent-bursar-messages', user?.schoolId, me, bursar],
+    enabled:  !!user?.schoolId && !!me && !!bursar,
     refetchInterval: 15_000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -354,7 +356,7 @@ export function useParentMessagesWithBursar() {
         .select('id, from_user_id, to_user_id, body, sent_at')
         .eq('school_id', user!.schoolId)
         .eq('is_announcement', false)
-        .or(`from_user_id.eq.${user!.id},to_user_id.eq.${user!.id}`)
+        .or(`and(from_user_id.eq.${me},to_user_id.eq.${bursar}),and(from_user_id.eq.${bursar},to_user_id.eq.${me})`)
         .order('sent_at', { ascending: true })
 
       if (error) throw error

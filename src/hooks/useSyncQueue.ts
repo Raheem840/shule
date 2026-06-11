@@ -52,10 +52,26 @@ export function useSyncQueue(): SyncQueueState {
       let failed = 0
       for (const item of items) {
         try {
-          const payload = JSON.parse(item.payload) as Record<string, unknown>
-          const { error } = await supabase
-            .from(item.tableName as string)
-            .upsert(payload, { onConflict: 'id' })
+          const payload    = JSON.parse(item.payload) as Record<string, unknown>
+          const table      = item.tableName as string
+          const actionType = (item.actionType as string | undefined)?.toLowerCase() ?? 'upsert'
+
+          let error: { code?: string; message: string } | null = null
+
+          if (actionType === 'delete') {
+            const recordId = payload.id as string
+            if (recordId) {
+              ({ error } = await supabase.from(table).delete().eq('id', recordId))
+            }
+          } else if (actionType === 'insert') {
+            ({ error } = await supabase.from(table).insert(payload))
+          } else if (actionType === 'update') {
+            const { id, ...patch } = payload
+            ;({ error } = await supabase.from(table).update(patch).eq('id', id as string))
+          } else {
+            // Default: upsert
+            ;({ error } = await supabase.from(table).upsert(payload, { onConflict: 'id' }))
+          }
 
           if (!error) {
             await markSynced(item.id!)

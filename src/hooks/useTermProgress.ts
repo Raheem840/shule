@@ -147,15 +147,18 @@ export function useTermProgress() {
       const curWeek  = Math.min(totWeeks, Math.floor(elapsed / 7) + 1)
 
       // Fetch exam journal events for this term
+      const currentYear = new Date().getFullYear()
       const [journalsRes, schoolEventsRes] = await Promise.all([
         supabase
           .from('exam_journal')
           .select('id, name, assessment_type, date_given, subject_id, class_id, term, year')
-          .eq('school_id', sid),
+          .eq('school_id', sid)
+          .eq('year', currentYear),
         supabase
           .from('school_events')
           .select('id, title, event_date, event_type, subject_id, class_id')
-          .eq('school_id', sid),
+          .eq('school_id', sid)
+          .gte('event_date', `${currentYear}-01-01`),
       ])
 
       const events: TermEvent[] = []

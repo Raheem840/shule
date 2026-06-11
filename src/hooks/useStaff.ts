@@ -327,8 +327,8 @@ export function useSetStaffActive() {
       return id
     },
     onSuccess: id => {
-      qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
-      qc.invalidateQueries({ queryKey: ['staff-by-id', id] })
+      qc.invalidateQueries({ queryKey: ['staff',        user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['staff-member', user?.schoolId, id] })
     },
   })
 }

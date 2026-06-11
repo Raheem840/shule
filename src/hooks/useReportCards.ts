@@ -584,8 +584,12 @@ function useUpdateStatus(action: 'approve' | 'release' | 'unlock') {
       if (error) throw error
       return reportCardId
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['report-cards', user?.schoolId] })
+    onSuccess: (_id, vars) => {
+      qc.invalidateQueries({ queryKey: ['report-cards',        user?.schoolId] })
+      if ((vars as any)?.status === 'released' || action === 'release') {
+        qc.invalidateQueries({ queryKey: ['parent-report-cards', user?.schoolId] })
+        qc.invalidateQueries({ queryKey: ['my-report-cards',     user?.schoolId] })
+      }
     },
   })
 }
@@ -601,16 +605,26 @@ export function useNotifyPrincipal() {
 
   return useMutation({
     mutationFn: async ({ term, year, count }: { term: number; year: number; count: number }) => {
-      const { error } = await supabase
-        .from('notifications')
-        .insert({
-          school_id: user!.schoolId,
-          from_user: user!.id,
-          target_role: 'principal',
-          title: 'Report Cards Ready for Approval',
-          body:  `${count} report card(s) for Term ${term} ${year} are ready for your review.`,
-          link:  '/principal/report-cards',
-        })
+      // Fetch all principals so each gets a notification row (user_id is required for the bell query)
+      const { data: principals } = await supabase
+        .from('staff')
+        .select('auth_user_id')
+        .eq('school_id', user!.schoolId)
+        .eq('role', 'principal')
+        .not('auth_user_id', 'is', null)
+
+      const rows = (principals ?? []).map((p: any) => ({
+        school_id:   user!.schoolId,
+        user_id:     p.auth_user_id as string,
+        from_user:   user!.id,
+        target_role: 'principal',
+        title: 'Report Cards Ready for Approval',
+        body:  `${count} report card(s) for Term ${term} ${year} are ready for your review.`,
+        link:  '/principal/report-cards',
+      }))
+
+      if (rows.length === 0) return
+      const { error } = await supabase.from('notifications').insert(rows)
       if (error) throw error
     },
   })

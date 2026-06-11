@@ -54,7 +54,7 @@ function useClassDetail(classId: string | null) {
     staleTime: 3 * 60_000,
     queryFn: async () => {
       const [classRes, streamsRes] = await Promise.all([
-        supabase.from('classes').select('id, name, level').eq('id', classId!).single(),
+        supabase.from('classes').select('id, name, level').eq('id', classId!).eq('school_id', user!.schoolId).single(),
         supabase.from('streams').select('id, name, class_teacher_id, staff!class_teacher_id(first_name, last_name)').eq('class_id', classId!).eq('school_id', user!.schoolId),
       ])
       return {
@@ -250,6 +250,7 @@ export function TeacherMyClassesPage() {
         .from('classes')
         .select('id, name, level')
         .in('id', myData.classIds)
+        .eq('school_id', user!.schoolId)
         .order('name')
       return (data ?? []) as { id: string; name: string; level: string | null }[]
     },

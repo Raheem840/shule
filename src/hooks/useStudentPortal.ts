@@ -79,7 +79,7 @@ export function useMyReleasedReportCards(studentId: string | null) {
 
       return ((data ?? []) as AnyRow[]).map(r => ({
         id:         r.id as string,
-        term:       r.term as number,
+        term:       r.term as string,
         year:       r.year as number,
         pdfUrl:     (r.pdf_url as string) ?? null,
         releasedAt: (r.released_at as string) ?? null,

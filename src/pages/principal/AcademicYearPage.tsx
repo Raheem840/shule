@@ -59,7 +59,7 @@ function useSetActiveYear() {
     mutationFn: async (yearId: string) => {
       if (!user) throw new Error('Not authenticated')
       await supabase.from('academic_years').update({ is_active: false }).eq('school_id', user.schoolId)
-      const { error } = await supabase.from('academic_years').update({ is_active: true }).eq('id', yearId)
+      const { error } = await supabase.from('academic_years').update({ is_active: true }).eq('id', yearId).eq('school_id', user.schoolId)
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
@@ -161,7 +161,7 @@ function usePromoteAllStudents() {
 
       // Activate the new academic year
       await supabase.from('academic_years').update({ is_active: false }).eq('school_id', sid)
-      const { error: activateErr } = await supabase.from('academic_years').update({ is_active: true }).eq('id', newYearId)
+      const { error: activateErr } = await supabase.from('academic_years').update({ is_active: true }).eq('id', newYearId).eq('school_id', sid)
       if (activateErr) throw new Error(activateErr.message)
 
       return { graduated: toGraduate.length, promoted: toPromote.length }

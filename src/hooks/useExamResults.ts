@@ -118,6 +118,11 @@ export function useSaveMarks() {
     },
     onSuccess: journalId => {
       qc.invalidateQueries({ queryKey: ['exam-results', journalId] })
+      qc.invalidateQueries({ queryKey: ['dos-overview',       user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['dos-class-perf',     user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['principal-kpis',     user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['secretary-briefing', user?.schoolId] })
+      qc.invalidateQueries({ queryKey: ['term-progress',      user?.schoolId] })
     },
   })
 }

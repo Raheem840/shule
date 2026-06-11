@@ -69,7 +69,7 @@ export function useSubjects(level?: string) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['subjects', level],
+    queryKey: ['subjects', user?.schoolId, level ?? 'all'],
     enabled:  !!user?.schoolId,
     queryFn: async () => {
       let q = supabase
@@ -118,7 +118,7 @@ export function useAddSubject() {
       return data
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['subjects'] })
+      void qc.invalidateQueries({ queryKey: ['subjects', user?.schoolId] })
     },
   })
 }
@@ -143,7 +143,7 @@ export function useUpdateSubject() {
       return input.id
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['subjects'] })
+      void qc.invalidateQueries({ queryKey: ['subjects', user?.schoolId] })
     },
   })
 }
@@ -163,7 +163,7 @@ export function useToggleSubjectActive() {
       return id
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['subjects'] })
+      void qc.invalidateQueries({ queryKey: ['subjects', user?.schoolId] })
     },
   })
 }
