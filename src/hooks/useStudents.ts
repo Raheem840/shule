@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
@@ -80,12 +81,13 @@ export type StudentFilters = {
 
 // ── useStudents ────────────────────────────────────────────────
 // Returns the full list for the school, optionally filtered.
-// search is done client-side — the list is typically < 2000 rows.
+// search is client-side only — excluded from queryKey so typing never triggers a refetch.
 export function useStudents(filters: StudentFilters = {}, enabled = true) {
   const { user } = useAuth()
+  const { search, ...dbFilters } = filters
 
-  return useQuery({
-    queryKey: ['students', user?.schoolId, filters],
+  const query = useQuery({
+    queryKey: ['students', user?.schoolId, dbFilters],
     enabled:  !!user?.schoolId && enabled,
     queryFn: async () => {
       let q = supabase
@@ -94,28 +96,29 @@ export function useStudents(filters: StudentFilters = {}, enabled = true) {
         .eq('school_id', user!.schoolId)
         .order('last_name', { ascending: true })
 
-      if (filters.classId)  q = q.eq('class_id',  filters.classId)
-      if (filters.streamId) q = q.eq('stream_id', filters.streamId)
-      if (filters.status)   q = q.eq('status',    filters.status)
+      if (dbFilters.classId)  q = q.eq('class_id',  dbFilters.classId)
+      if (dbFilters.streamId) q = q.eq('stream_id', dbFilters.streamId)
+      if (dbFilters.status)   q = q.eq('status',    dbFilters.status)
 
       const { data, error } = await q
       if (error) throw error
-
-      const students = (data ?? []).map(r => toStudent(r as unknown as AnyRow))
-
-      // Client-side search across name + admission number
-      if (filters.search) {
-        const term = filters.search.toLowerCase()
-        return students.filter(s =>
-          s.firstName.toLowerCase().includes(term)      ||
-          s.lastName.toLowerCase().includes(term)       ||
-          s.admissionNumber.toLowerCase().includes(term)
-        )
-      }
-
-      return students
+      return (data ?? []).map(r => toStudent(r as unknown as AnyRow))
     },
+    staleTime: 30_000,
   })
+
+  // Apply search client-side — no refetch, no cache miss
+  const data = useMemo(() => {
+    if (!search || !query.data) return query.data
+    const term = search.toLowerCase()
+    return query.data.filter(s =>
+      s.firstName.toLowerCase().includes(term)      ||
+      s.lastName.toLowerCase().includes(term)       ||
+      s.admissionNumber.toLowerCase().includes(term)
+    )
+  }, [query.data, search])
+
+  return { ...query, data }
 }
 
 // ── useStudentById ─────────────────────────────────────────────

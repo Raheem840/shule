@@ -147,6 +147,7 @@ export function AppShell() {
   const [showOnboarding, setShowOnboarding]   = useState(false)
   const [isFirstLogin, setIsFirstLogin]       = useState(false)
   const [searchOpen, setSearchOpen]           = useState(false)
+  const [sidebarMini, setSidebarMini]         = useState(() => localStorage.getItem('shule-sb-mini') === '1')
 
   const openSearch  = useCallback(() => setSearchOpen(true),  [])
   const closeSearch = useCallback(() => setSearchOpen(false), [])
@@ -191,13 +192,18 @@ export function AppShell() {
   })
 
   useEffect(() => { localStorage.setItem('shule-theme', theme) }, [theme])
+  useEffect(() => { localStorage.setItem('shule-sb-mini', sidebarMini ? '1' : '0') }, [sidebarMini])
 
-  // Global Ctrl+K / Cmd+K shortcut
+  // Global Ctrl+K (search) and Ctrl+B (sidebar toggle) shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault()
         setSearchOpen(o => !o)
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault()
+        setSidebarMini(m => !m)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -255,7 +261,7 @@ export function AppShell() {
   const showWizard = schoolNeedsSetup || showOnboarding
 
   return (
-    <div className="ar" data-theme={theme}>
+    <div className={`ar${sidebarMini && !isMobile ? ' sb-mini-mode' : ''}`} data-theme={theme}>
       {showWizard && (
         <OnboardingWizard
           isFirstLogin={isFirstLogin}
@@ -285,6 +291,8 @@ export function AppShell() {
         schoolLogoUrl={schoolSettings?.logoUrl ?? null}
         drawerOpen={drawerOpen}
         onClose={() => setDrawer(false)}
+        mini={sidebarMini && !isMobile}
+        onToggleMini={() => setSidebarMini(m => !m)}
       />
 
       {/* ── RIGHT PANEL ──────────────────────────────────────────── */}
@@ -489,9 +497,11 @@ type SidebarProps = {
   schoolLogoUrl: string | null
   drawerOpen?:   boolean
   onClose?:      () => void
+  mini?:         boolean
+  onToggleMini?: () => void
 }
 
-function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolName, schoolMotto, schoolLogoUrl, drawerOpen, onClose }: SidebarProps) {
+function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolName, schoolMotto, schoolLogoUrl, drawerOpen, onClose, mini, onToggleMini }: SidebarProps) {
   const navigate = useNavigate()
   const { data: msgUnread = 0 } = useUnreadCount()
 
@@ -516,7 +526,7 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
   const schoolInitial = hasSchoolName ? (displayName.trim()[0]?.toUpperCase() ?? 'S') : null
 
   return (
-    <nav className={`sb${drawerOpen ? ' sb-open' : ''}`}>
+    <nav className={`sb${drawerOpen ? ' sb-open' : ''}${mini ? ' sb-mini' : ''}`}>
       {/* Mobile drawer close button */}
       {onClose && (
         <button
@@ -533,6 +543,30 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
           className="mob-drawer-close"
           aria-label="Close menu"
         >×</button>
+      )}
+
+      {/* Mini toggle button — desktop only, positioned at top-right of sidebar */}
+      {onToggleMini && (
+        <button
+          onClick={onToggleMini}
+          title={mini ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
+          style={{
+            position: 'absolute', top: 12, right: mini ? 8 : 12,
+            width: 24, height: 24, borderRadius: 6, border: 'none',
+            background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'opacity 0.15s', zIndex: 1,
+          }}
+          className="mob-hide-btn"
+          aria-label={mini ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            {mini
+              ? <><polyline points="9 18 15 12 9 6"/></>
+              : <><polyline points="15 18 9 12 15 6"/></>
+            }
+          </svg>
+        </button>
       )}
 
       {/* Logo + school name */}
@@ -609,6 +643,7 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
                   key={item.path}
                   to={item.path}
                   className={`ni${isActive ? ' on' : ''}`}
+                  title={item.label}
                 >
                   {/* Icon */}
                   <span

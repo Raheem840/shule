@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Cell,
@@ -74,22 +75,35 @@ const GRADE_LABEL: Record<string, string> = {
 
 const CA_LABELS: Record<number, string> = { 0: 'None', 1: 'Basic', 2: 'Adequate', 3: 'Exceptional' }
 
-function CAScoreInput({ value, onChange, disabled }: {
-  value:    number | null
-  onChange: (v: number) => void
-  disabled: boolean
+function CAScoreInput({ value, onChange, disabled, fullWidth }: {
+  value:      number | null
+  onChange:   (v: number) => void
+  disabled:   boolean
+  fullWidth?: boolean
 }) {
   return (
-    <div style={{ display: 'flex', gap: 2 }}>
+    <div
+      style={{ display: 'flex', gap: 2, width: fullWidth ? '100%' : undefined }}
+      tabIndex={disabled ? -1 : 0}
+      onKeyDown={e => {
+        if (disabled) return
+        const cur = value ?? 0
+        if (e.key === 'ArrowRight' && cur < 3) { onChange(cur + 1); e.preventDefault() }
+        if (e.key === 'ArrowLeft'  && cur > 0) { onChange(cur - 1); e.preventDefault() }
+        const d = parseInt(e.key)
+        if (!isNaN(d) && d >= 0 && d <= 3)    { onChange(d);       e.preventDefault() }
+      }}
+    >
       {[0, 1, 2, 3].map(n => (
         <button key={n} type="button" disabled={disabled} title={CA_LABELS[n]} onClick={() => onChange(n)}
           style={{
-            width: 32, height: 28, border: '.5px solid',
+            flex: fullWidth ? 1 : undefined,
+            width: fullWidth ? undefined : 32, height: 44, border: '.5px solid',
             borderColor: value === n ? 'var(--brand)' : 'var(--border)',
             background:  value === n ? 'var(--brand)' : 'var(--surface2)',
             color:       value === n ? '#fff' : 'var(--txt2)',
-            borderRadius: n === 0 ? '6px 0 0 6px' : n === 3 ? '0 6px 6px 0' : 0,
-            fontFamily: 'var(--font3)', fontSize: 12, fontWeight: 700,
+            borderRadius: n === 0 ? '8px 0 0 8px' : n === 3 ? '0 8px 8px 0' : 0,
+            fontFamily: 'var(--font3)', fontSize: 14, fontWeight: 700,
             cursor: disabled ? 'not-allowed' : 'pointer',
             opacity: disabled ? 0.5 : 1, transition: 'background 0.1s, color 0.1s',
           }}>{n}</button>
@@ -690,6 +704,7 @@ export function MarkEntryPage() {
   const { journalId }   = useParams<{ journalId: string }>()
   const navigate        = useNavigate()
   const [searchParams]  = useSearchParams()
+  const isMobile        = useIsMobile()
   const qc              = useQueryClient()
   const { user }        = useAuth()
 
@@ -734,8 +749,8 @@ export function MarkEntryPage() {
   const rowVirt   = useVirtualizer({
     count:            students.length,
     getScrollElement: () => parentRef.current,
-    estimateSize:     () => 48,
-    overscan:         10,
+    estimateSize:     () => isMobile ? 100 : 48,
+    overscan:         8,
   })
 
   const subjectMap = new Map(subjects.map(s => [s.id, s.name]))
@@ -913,22 +928,25 @@ export function MarkEntryPage() {
       )}
 
       <div style={{ background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)', overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: isCA ? '140px 1fr 120px 60px' : '140px 1fr 160px 80px 60px',
-          background: 'var(--surface2)', borderBottom: '.5px solid var(--border)',
-          padding: '11px 16px',
-          fontSize: 11, fontWeight: 700, color: 'var(--txt2)',
-          textTransform: 'uppercase', letterSpacing: .7, fontFamily: 'var(--font2)',
-        }}>
-          <div>Adm. No</div>
-          <div>Student Name</div>
-          <div>{isCA ? 'Score (0–3)' : `Score (/ ${totalMarks})`}</div>
-          {!isCA && <div>Grade</div>}
-          <div>Absent</div>
-        </div>
+        {/* Desktop column headers */}
+        {!isMobile && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isCA ? '140px 1fr 120px 60px' : '140px 1fr 160px 80px 60px',
+            background: 'var(--surface2)', borderBottom: '.5px solid var(--border)',
+            padding: '11px 16px',
+            fontSize: 11, fontWeight: 700, color: 'var(--txt2)',
+            textTransform: 'uppercase', letterSpacing: .7, fontFamily: 'var(--font2)',
+          }}>
+            <div>Adm. No</div>
+            <div>Student Name</div>
+            <div>{isCA ? 'Score (0–3)' : `Score (/ ${totalMarks})`}</div>
+            {!isCA && <div>Grade</div>}
+            <div>Absent</div>
+          </div>
+        )}
 
-        <div ref={parentRef} style={{ maxHeight: 420, overflowY: 'auto' }}>
+        <div ref={parentRef} style={{ maxHeight: isMobile ? 'calc(100dvh - 280px)' : 420, overflowY: 'auto' }}>
           <div style={{ height: rowVirt.getTotalSize(), position: 'relative' }}>
             {rowVirt.getVirtualItems().map(vRow => {
               const student  = students[vRow.index]
@@ -944,6 +962,68 @@ export function MarkEntryPage() {
               const hasWarning = !isAbsent && score !== null && score > totalMarks
               const isMissing  = !isAbsent && score === null
 
+              if (isMobile) {
+                /* ── Mobile: one card per student ── */
+                return (
+                  <div key={student.id} style={{
+                    position: 'absolute', top: vRow.start, left: 0, right: 0, height: vRow.size,
+                    padding: '8px 16px', borderBottom: '.5px solid var(--border)',
+                    background: isAbsent ? 'rgba(14,165,233,.04)' : hasWarning ? 'rgba(245,158,11,.05)' : 'transparent',
+                    display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6,
+                  }}>
+                    {/* Row 1: name + absent toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {student.firstName} {student.lastName}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>
+                          {student.admissionNumber}
+                          {displayGrade && (
+                            <span style={{ marginLeft: 8, padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 800, background: GRADE_COLORS[displayGrade] + '20', color: GRADE_COLORS[displayGrade] }}>
+                              {displayGrade}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMark(student.id, null, !isAbsent)}
+                        style={{
+                          flexShrink: 0, padding: '6px 12px', borderRadius: 8, border: '.5px solid',
+                          borderColor: isAbsent ? 'var(--info)' : 'var(--border)',
+                          background: isAbsent ? 'rgba(14,165,233,.1)' : 'var(--surface2)',
+                          color: isAbsent ? 'var(--info)' : 'var(--txt3)',
+                          fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                        }}
+                      >
+                        {isAbsent ? 'ABSENT' : 'Present'}
+                      </button>
+                    </div>
+                    {/* Row 2: score input */}
+                    {!isAbsent && (
+                      isCA ? (
+                        <CAScoreInput value={score} onChange={v => setMark(student.id, v, false)} disabled={false} fullWidth />
+                      ) : (
+                        <input
+                          type="number" min={0} max={totalMarks} step={0.5}
+                          value={score ?? ''}
+                          onChange={e => setMark(student.id, e.target.value === '' ? null : parseFloat(e.target.value), false)}
+                          placeholder={`Score / ${totalMarks}`}
+                          style={{
+                            width: '100%', padding: '10px 14px', border: `.5px solid ${hasWarning ? 'var(--warning)' : 'var(--border)'}`,
+                            borderRadius: 10, fontSize: 16, fontFamily: 'var(--font3)',
+                            background: 'var(--surface)', color: 'var(--txt)', boxSizing: 'border-box',
+                          }}
+                        />
+                      )
+                    )}
+                    {hasWarning && <span style={{ fontSize: 11, color: 'var(--warning)' }}>Score exceeds max ({totalMarks})</span>}
+                  </div>
+                )
+              }
+
+              /* ── Desktop: grid row ── */
               return (
                 <div key={student.id} style={{
                   position: 'absolute', top: vRow.start, left: 0, right: 0, height: vRow.size,
@@ -995,6 +1075,22 @@ export function MarkEntryPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Mobile sticky action bar ── */}
+      {isMobile && (
+        <div className="mob-action-bar">
+          <button onClick={() => void handleSaveAll()} disabled={saveMarks.isPending}
+            style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: '.5px solid var(--border)', background: saved ? 'rgba(16,185,129,.1)' : 'var(--surface2)', color: saved ? '#065f46' : 'var(--txt2)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            {saveMarks.isPending ? 'Saving…' : saved ? '✓ Saved' : 'Save All'}
+          </button>
+          {journal?.status === 'draft' && (
+            <button onClick={() => void handlePublish()} disabled={publish.isPending}
+              style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 3px 12px rgba(13,148,136,.35)' }}>
+              {publish.isPending ? 'Publishing…' : 'Publish'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Performance Analytics ──────────────────────────── */}
       {students.length > 0 && (

@@ -182,9 +182,41 @@ html, body, #root {
   overflow-x: hidden;
   scrollbar-width: none;
   z-index: 40;
-  transition: background 0.25s;
+  transition: width 0.22s cubic-bezier(0.4,0,0.2,1), background 0.25s;
 }
 .sb::-webkit-scrollbar { display: none; }
+
+/* ── Sidebar mini-mode (Ctrl+B) ── */
+.sb.sb-mini { width: 64px; }
+.sb.sb-mini .sname,
+.sb.sb-mini .ssub,
+.sb.sb-mini .ngl,
+.sb.sb-mini .school-pill-text,
+.sb.sb-mini .u-name,
+.sb.sb-mini .u-role,
+.sb.sb-mini .u-dot,
+.sb.sb-mini .nb { display: none !important; }
+.sb.sb-mini .sbrand { justify-content: center; padding: 0 !important; }
+.sb.sb-mini .slogo  { margin: 0 auto; }
+.sb.sb-mini .school-pill { justify-content: center; padding: 8px 0 !important; }
+.sb.sb-mini .school-ico  { margin: 0 auto; }
+.sb.sb-mini .school-logo-img { width: 32px; height: 32px; margin: 0 auto; }
+.sb.sb-mini .ni   { justify-content: center; padding: 10px !important; }
+.sb.sb-mini .ni .ico { margin: 0 !important; }
+.sb.sb-mini .upill { flex-direction: column; align-items: center; padding: 8px 4px !important; gap: 4px; }
+.sb.sb-mini .uava  { flex-shrink: 0; }
+.sb.sb-mini .sb-signout-btn { justify-content: center; padding: 10px !important; }
+/* Mini mode tooltip on nav items */
+.sb.sb-mini .ni { position: relative; }
+.sb.sb-mini .ni:hover::after {
+  content: attr(title);
+  position: absolute; left: calc(100% + 10px); top: 50%;
+  transform: translateY(-50%);
+  background: var(--txt); color: var(--bg);
+  padding: 4px 10px; border-radius: 6px;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+  pointer-events: none; z-index: 100;
+}
 
 /* ── Shell right (topbar + main) ── */
 .shell-r {
@@ -194,7 +226,9 @@ html, body, #root {
   flex-direction: column;
   min-height: 100vh;
   overflow: hidden;
+  transition: margin-left 0.22s cubic-bezier(0.4,0,0.2,1);
 }
+.ar.sb-mini-mode .shell-r { margin-left: 64px; }
 
 /* ── TopBar ── */
 .topbar {
@@ -3145,6 +3179,10 @@ select.sui-select:hover:not(:disabled):not(:focus) {
 
 /* Mobile-only elements are hidden on desktop by default */
 .mob-only { display: none; }
+
+/* Hide on mobile (desktop-only controls) */
+.mob-hide-btn { display: flex; }
+@media (max-width: 768px) { .mob-hide-btn { display: none !important; } }
 
 @media (max-width: 768px) {
 

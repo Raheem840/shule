@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   useReportCards,
   useStudentReadiness,
@@ -115,6 +115,49 @@ function ApproveModal({ card, studentName, onClose }: {
   )
 }
 
+// ── Bulk Approve Modal ─────────────────────────────────────────
+function BulkApproveModal({ count, onConfirm, onClose, loading }: {
+  count:     number
+  onConfirm: (remarks: string | null) => void
+  onClose:   () => void
+  loading:   boolean
+}) {
+  const [remarks, setRemarks] = useState('')
+  return (
+    <Modal open onClose={onClose} title={`Approve ${count} Report Card${count !== 1 ? 's' : ''}`} size="sm"
+      footer={
+        <>
+          <ModalCancelButton onClose={onClose} />
+          <Button variant="primary" onClick={() => onConfirm(remarks.trim() || null)} loading={loading}>
+            Approve {count}
+          </Button>
+        </>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ fontSize: 13, color: 'var(--txt2)' }}>
+          Approving <strong>{count}</strong> report card{count !== 1 ? 's' : ''}. This cannot be undone without unlocking.
+        </div>
+        <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt2)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          Shared principal remarks (optional — applied to all)
+          <textarea
+            value={remarks}
+            onChange={e => setRemarks(e.target.value)}
+            rows={3}
+            placeholder="e.g. Well done on your performance this term."
+            style={{
+              padding: '8px 10px', border: '1px solid var(--border)',
+              borderRadius: 8, fontSize: 13, resize: 'vertical',
+              background: 'var(--surface)', color: 'var(--txt)',
+              fontFamily: 'var(--font1)',
+            }}
+          />
+        </label>
+      </div>
+    </Modal>
+  )
+}
+
 // ── RC table ───────────────────────────────────────────────────
 type CardTableProps = {
   cards:          ReportCard[]
@@ -125,12 +168,17 @@ type CardTableProps = {
   onUnlock?:      (card: ReportCard, name: string) => void
   releaseLoading?: boolean
   emptyMessage:   string
+  selectable?:    boolean
+  selectedIds?:   Set<string>
+  onToggle?:      (id: string) => void
+  onToggleAll?:   (ids: string[]) => void
 }
 
 function RCTable({
   cards, studentNameMap, readinessMap,
   onApprove, onRelease, onUnlock,
   releaseLoading, emptyMessage,
+  selectable, selectedIds, onToggle, onToggleAll,
 }: CardTableProps) {
   if (cards.length === 0) {
     return (
@@ -145,18 +193,32 @@ function RCTable({
     )
   }
 
+  const allIds    = cards.map(c => c.id)
+  const allChecked = selectable && selectedIds && allIds.length > 0 && allIds.every(id => selectedIds.has(id))
+  const cols = selectable ? '40px 1fr 160px 120px 200px' : '1fr 160px 120px 200px'
+
   return (
     <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden' }}>
       {/* Header */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 160px 120px 200px',
+        gridTemplateColumns: cols,
         padding: '10px 16px', background: 'var(--surface2)',
         borderBottom: '1px solid var(--border)',
         fontSize: 11, fontWeight: 700, color: 'var(--txt3)',
         textTransform: 'uppercase', letterSpacing: 0.5,
         fontFamily: 'var(--font2)',
       }}>
+        {selectable && (
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={!!allChecked}
+              onChange={() => onToggleAll?.(allIds)}
+              style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--brand)' }}
+            />
+          </div>
+        )}
         <div>Student</div>
         <div>Adm. No</div>
         <div>PDF</div>
@@ -167,15 +229,27 @@ function RCTable({
         const name    = studentNameMap.get(card.studentId) ?? card.studentId
         const readRow = readinessMap.get(card.studentId)
         const admNo   = (readRow as { admissionNumber?: string } | undefined)?.admissionNumber ?? '—'
+        const checked = selectable && selectedIds?.has(card.id)
 
         return (
           <div key={card.id} style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 160px 120px 200px',
+            gridTemplateColumns: cols,
             padding: '12px 16px',
             borderBottom: i < cards.length - 1 ? '1px solid var(--border)' : 'none',
             alignItems: 'center',
+            background: checked ? 'rgba(13,148,136,0.05)' : undefined,
           }}>
+            {selectable && (
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={!!checked}
+                  onChange={() => onToggle?.(card.id)}
+                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--brand)' }}
+                />
+              </div>
+            )}
             <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--txt)' }}>{name}</div>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--txt3)' }}>{admNo}</div>
 
@@ -237,10 +311,58 @@ export function PrincipalReportCardsPage() {
 
   const [unlockCard,  setUnlockCard]  = useState<{ card: ReportCard; name: string } | null>(null)
   const [approveCard, setApproveCard] = useState<{ card: ReportCard; name: string } | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkAction,  setBulkAction]  = useState<'approve' | 'release' | null>(null)
+  const [bulkLoading, setBulkLoading] = useState(false)
+
+  // Clear selection when switching tabs
+  useEffect(() => setSelectedIds(new Set()), [activeTab])
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll(ids: string[]) {
+    setSelectedIds(prev => {
+      if (ids.every(id => prev.has(id))) return new Set<string>()
+      return new Set(ids)
+    })
+  }
 
   const { data: classes  = [] } = useClasses()
   const { data: streams  = [] } = useStreams(classId || null)
   const release                 = useReleaseReportCard()
+  const approve                 = useApproveReportCard()
+
+  async function handleBulkApprove(remarks: string | null) {
+    setBulkLoading(true)
+    try {
+      for (const id of selectedIds) {
+        await approve.mutateAsync({ reportCardId: id, principalRemarks: remarks })
+      }
+      setSelectedIds(new Set())
+    } finally {
+      setBulkLoading(false)
+      setBulkAction(null)
+    }
+  }
+
+  async function handleBulkRelease() {
+    setBulkLoading(true)
+    try {
+      for (const id of selectedIds) {
+        await release.mutateAsync({ reportCardId: id })
+      }
+      setSelectedIds(new Set())
+    } finally {
+      setBulkLoading(false)
+      setBulkAction(null)
+    }
+  }
 
   const cohortReady = !!term && !!classId
 
@@ -377,26 +499,80 @@ export function PrincipalReportCardsPage() {
 
           {/* Tab: Awaiting Approval (status = 'ready' only) */}
           {activeTab === 'awaiting' && (
-            <RCTable
-              cards={awaitingCards}
-              studentNameMap={studentNameMap}
-              readinessMap={readinessMap}
-              onApprove={(card, name) => setApproveCard({ card, name })}
-              emptyMessage="No report cards are awaiting approval. The secretary must generate and submit cards first."
-            />
+            <>
+              {selectedIds.size > 0 && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 14px', marginBottom: 10,
+                  background: 'rgba(13,148,136,0.08)', borderRadius: 10,
+                  border: '1px solid rgba(13,148,136,0.25)',
+                }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--brand)', flex: 1 }}>
+                    {selectedIds.size} selected
+                  </span>
+                  <Button size="sm" variant="primary" onClick={() => setBulkAction('approve')}>
+                    Approve Selected ({selectedIds.size})
+                  </Button>
+                  <button
+                    onClick={() => setSelectedIds(new Set())}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--txt3)', padding: '4px 8px' }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+              <RCTable
+                cards={awaitingCards}
+                studentNameMap={studentNameMap}
+                readinessMap={readinessMap}
+                onApprove={(card, name) => setApproveCard({ card, name })}
+                emptyMessage="No report cards are awaiting approval. The secretary must generate and submit cards first."
+                selectable
+                selectedIds={selectedIds}
+                onToggle={toggleSelect}
+                onToggleAll={toggleAll}
+              />
+            </>
           )}
 
           {/* Tab: Approved (status = 'approved') */}
           {activeTab === 'approved' && (
-            <RCTable
-              cards={approvedCards}
-              studentNameMap={studentNameMap}
-              readinessMap={readinessMap}
-              onRelease={card => release.mutateAsync({ reportCardId: card.id })}
-              onUnlock={(card, name) => setUnlockCard({ card, name })}
-              releaseLoading={release.isPending}
-              emptyMessage="No approved report cards yet. Approve cards from the 'Awaiting Approval' tab."
-            />
+            <>
+              {selectedIds.size > 0 && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 14px', marginBottom: 10,
+                  background: 'rgba(14,165,233,0.08)', borderRadius: 10,
+                  border: '1px solid rgba(14,165,233,0.25)',
+                }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--info)', flex: 1 }}>
+                    {selectedIds.size} selected
+                  </span>
+                  <Button size="sm" variant="primary" onClick={() => setBulkAction('release')} loading={bulkLoading}>
+                    Release Selected ({selectedIds.size})
+                  </Button>
+                  <button
+                    onClick={() => setSelectedIds(new Set())}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--txt3)', padding: '4px 8px' }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+              <RCTable
+                cards={approvedCards}
+                studentNameMap={studentNameMap}
+                readinessMap={readinessMap}
+                onRelease={card => release.mutateAsync({ reportCardId: card.id })}
+                onUnlock={(card, name) => setUnlockCard({ card, name })}
+                releaseLoading={release.isPending}
+                emptyMessage="No approved report cards yet. Approve cards from the 'Awaiting Approval' tab."
+                selectable
+                selectedIds={selectedIds}
+                onToggle={toggleSelect}
+                onToggleAll={toggleAll}
+              />
+            </>
           )}
 
           {/* Tab: Released (status = 'released') */}
@@ -426,6 +602,31 @@ export function PrincipalReportCardsPage() {
           studentName={unlockCard.name}
           onClose={() => setUnlockCard(null)}
         />
+      )}
+      {bulkAction === 'approve' && (
+        <BulkApproveModal
+          count={selectedIds.size}
+          onConfirm={remarks => void handleBulkApprove(remarks)}
+          onClose={() => setBulkAction(null)}
+          loading={bulkLoading}
+        />
+      )}
+      {bulkAction === 'release' && (
+        <Modal open onClose={() => setBulkAction(null)}
+          title={`Release ${selectedIds.size} Report Card${selectedIds.size !== 1 ? 's' : ''}`} size="sm"
+          footer={
+            <>
+              <ModalCancelButton onClose={() => setBulkAction(null)} />
+              <Button variant="primary" onClick={() => void handleBulkRelease()} loading={bulkLoading}>
+                Release {selectedIds.size}
+              </Button>
+            </>
+          }
+        >
+          <div style={{ fontSize: 13, color: 'var(--txt2)' }}>
+            Releasing <strong>{selectedIds.size}</strong> report card{selectedIds.size !== 1 ? 's' : ''} will make them visible to students and parents immediately.
+          </div>
+        </Modal>
       )}
     </div>
   )
