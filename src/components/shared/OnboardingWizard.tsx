@@ -239,7 +239,6 @@ function DoneScreen({ title, subtitle, cta, note, onDone }: {
 function ItAdminWizard({ onDone }: { onDone: () => void }) {
   const { user } = useAuth()
   const qc = useQueryClient()
-  const navigate = useNavigate()
   const save = useSaveSchoolSettings()
   const logoRef = useRef<HTMLInputElement>(null)
 
@@ -463,7 +462,6 @@ function ItAdminWizard({ onDone }: { onDone: () => void }) {
 // PRINCIPAL WIZARD — First login orientation
 // ═══════════════════════════════════════════════════════════════════════════
 function PrincipalWizard({ onDone }: { onDone: () => void }) {
-  const { user } = useAuth()
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
 

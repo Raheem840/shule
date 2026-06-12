@@ -1224,7 +1224,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
 }) {
   const { user }                        = useAuth()
   const qc                              = useQueryClient()
-  const { success: ok, error: showErr } = useToast()
+  const { success: ok } = useToast()
 
   const [step,   setStep]   = useState<'type' | 'details' | 'done'>('type')
   const [entity, setEntity] = useState<WEntityType | null>(null)

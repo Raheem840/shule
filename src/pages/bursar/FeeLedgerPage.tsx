@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useMemo } from 'react'
-import { useIsMobile } from '../../hooks/useIsMobile'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -259,7 +258,6 @@ const CURRENT_YEAR = new Date().getFullYear()
 
 export function FeeLedgerPage() {
   const { user } = useAuth()
-  const isMobile = useIsMobile()
   const [filters, setFilters] = useState<FeeFilters>({
     term: 1, year: CURRENT_YEAR,
   })
