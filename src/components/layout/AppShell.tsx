@@ -170,7 +170,7 @@ export function AppShell() {
         .from('staff')
         .select('first_name, last_login_at')
         .eq('auth_user_id', user!.id)
-        .single()
+        .maybeSingle()
       if (!data) return null
 
       // First login: show role-specific onboarding wizard + password banner
