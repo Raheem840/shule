@@ -26,11 +26,17 @@ import type { UserRole } from '../../store/AuthContext'
 const SWATCHES = ['#0d9488', '#0ea5e9', '#8b5cf6', '#f59e0b', '#f43f5e', '#10b981', '#6366f1', '#ec4899']
 
 const CSS = `
-  @keyframes ob-in   { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
+  @keyframes ob-in   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
   @keyframes ob-pop  { 0%{opacity:0;transform:scale(.75)} 70%{transform:scale(1.06)} 100%{opacity:1;transform:scale(1)} }
   @keyframes ob-spin { to{transform:rotate(360deg)} }
   @keyframes ob-fade { from{opacity:0} to{opacity:1} }
-  .ob-card  { animation: ob-in .4s cubic-bezier(.2,.8,.4,1) both }
+  @keyframes ob-ping { 0%{transform:scale(1);opacity:.7} 70%{transform:scale(1.15);opacity:0} 100%{transform:scale(1);opacity:0} }
+  @keyframes ob-shimmer { 0%{transform:translateX(-100%) skewX(-12deg)} 100%{transform:translateX(220%) skewX(-12deg)} }
+
+  .ob-card { animation: ob-in .42s cubic-bezier(.2,.8,.4,1) both }
+  .ob-card:nth-child(2) { animation-delay: .06s }
+  .ob-card:nth-child(3) { animation-delay: .12s }
+
   .ob-badge-wrap:hover .ob-badge-ov { opacity:1 }
   .ob-badge-ov {
     position:absolute;inset:0;border-radius:50%;
@@ -42,11 +48,79 @@ const CSS = `
   .ob-g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .ob-g2t{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   @media(max-width:520px){.ob-g2,.ob-g2t{grid-template-columns:1fr}}
+
   .ob-role-card{
     padding:14px 16px;border-radius:14px;border:1.5px solid var(--border);
-    background:var(--surface);transition:all .18s;cursor:default;
+    background:var(--surface);transition:all .2s cubic-bezier(.2,.8,.4,1);cursor:default;
   }
-  .ob-check-row{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:12px;background:var(--surface2);border:1px solid var(--border)}
+  .ob-role-card:hover{
+    background:var(--surface2);
+    border-color:rgba(13,148,136,.3);
+    transform:translateY(-1px);
+    box-shadow:0 4px 14px rgba(13,148,136,.1);
+  }
+
+  .ob-check-row{
+    display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:12px;
+    background:var(--surface2);border:1px solid var(--border);
+    transition:background .15s,border-color .15s;
+  }
+  .ob-check-row:hover{background:var(--surface);border-color:rgba(13,148,136,.2)}
+
+  .ob-primary-btn{
+    position:relative;overflow:hidden;
+    width:100%;padding:13px 20px;border-radius:12px;border:none;cursor:pointer;
+    font-weight:800;font-size:14px;font-family:var(--font2);
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    transition:all .18s;
+  }
+  .ob-primary-btn:disabled{cursor:default}
+  .ob-primary-btn::after{
+    content:'';position:absolute;top:0;left:0;width:45%;height:100%;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);
+    transform:translateX(-100%) skewX(-12deg);
+    transition:none;pointer-events:none;
+  }
+  .ob-primary-btn:not(:disabled):hover::after{
+    animation:ob-shimmer .55s ease forwards;
+  }
+  .ob-primary-btn:not(:disabled):hover{
+    filter:brightness(1.06);
+    box-shadow:0 6px 22px var(--ob-btn-shadow,rgba(13,148,136,.42));
+    transform:translateY(-1px);
+  }
+
+  .ob-done-ping{
+    position:absolute;inset:0;border-radius:50%;
+    background:rgba(13,148,136,.35);
+    animation:ob-ping 2s cubic-bezier(.4,0,.6,1) infinite;
+    pointer-events:none;
+  }
+
+  /* Full-screen on mobile */
+  @media(max-width:640px){
+    .ob-shell-card{
+      border-radius:0 !important;
+      max-width:100% !important;
+      width:100% !important;
+      height:100dvh !important;
+      display:flex !important;
+      flex-direction:column !important;
+    }
+    .ob-shell-overlay{
+      padding:0 !important;
+      align-items:stretch !important;
+    }
+    .ob-shell-content{
+      flex:1 !important;
+      max-height:none !important;
+    }
+  }
+
+  /* Stepper label overflow on narrow screens */
+  @media(max-width:400px){
+    .ob-stepper-label{ font-size:8px !important }
+  }
 `
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
@@ -57,16 +131,20 @@ function Spinner({ size = 14, color = '#fff' }: { size?: number; color?: string 
 function PrimaryBtn({ onClick, disabled, loading, children, color = 'var(--brand)' }: {
   onClick?: () => void; disabled?: boolean; loading?: boolean; children: React.ReactNode; color?: string
 }) {
+  const isDisabled = disabled || loading
   return (
-    <button onClick={onClick} disabled={disabled || loading} style={{
-      width: '100%', padding: '13px 20px', borderRadius: 12, border: 'none', cursor: disabled || loading ? 'default' : 'pointer',
-      background: disabled ? 'var(--surface2)' : color,
-      color: disabled ? 'var(--txt3)' : '#fff',
-      fontWeight: 800, fontSize: 14, fontFamily: 'var(--font2)',
-      boxShadow: disabled ? 'none' : `0 4px 18px ${color === 'var(--brand)' ? 'rgba(13,148,136,.35)' : color + '40'}`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-      transition: 'all .18s',
-    }}>
+    <button
+      onClick={onClick}
+      disabled={isDisabled}
+      className="ob-primary-btn"
+      style={{
+        background: isDisabled ? 'var(--surface2)' : color,
+        color: isDisabled ? 'var(--txt3)' : '#fff',
+        boxShadow: isDisabled ? 'none' : `0 4px 18px ${color === 'var(--brand)' ? 'rgba(13,148,136,.35)' : color + '40'}`,
+        // expose shadow color to CSS hover rule
+        ['--ob-btn-shadow' as string]: color === 'var(--brand)' ? 'rgba(13,148,136,.42)' : color + '55',
+      }}
+    >
       {loading ? <><Spinner /><span>Please wait…</span></> : children}
     </button>
   )
@@ -108,7 +186,7 @@ function Stepper({ steps, current }: { steps: string[]; current: number }) {
                 ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
                 : i + 1}
             </div>
-            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: .3, whiteSpace: 'nowrap', color: current === i + 1 ? 'var(--brand)' : current > i + 1 ? 'var(--txt2)' : 'var(--txt3)' }}>{label}</span>
+            <span className="ob-stepper-label" style={{ fontSize: 9, fontWeight: 700, letterSpacing: .3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 72, color: current === i + 1 ? 'var(--brand)' : current > i + 1 ? 'var(--txt2)' : 'var(--txt3)' }}>{label}</span>
           </div>
           {i < steps.length - 1 && (
             <div style={{ flex: 1, height: 2, background: current > i + 1 ? 'var(--brand)' : 'var(--border)', margin: '-16px 6px 0', transition: 'background .3s' }} />
@@ -125,14 +203,18 @@ function DoneScreen({ title, subtitle, cta, note, onDone }: {
 }) {
   return (
     <div className="ob-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center', padding: '8px 0' }}>
-      <div style={{
-        width: 72, height: 72, borderRadius: '50%',
-        background: 'linear-gradient(135deg, var(--brand), #0f766e)',
-        boxShadow: '0 8px 32px rgba(13,148,136,.4)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        animation: 'ob-pop .55s cubic-bezier(.34,1.56,.64,1) both',
-      }}>
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      {/* checkmark with ping ring */}
+      <div style={{ position: 'relative', width: 72, height: 72, flexShrink: 0 }}>
+        <div className="ob-done-ping" />
+        <div style={{
+          position: 'relative', width: 72, height: 72, borderRadius: '50%',
+          background: 'linear-gradient(135deg, var(--brand), #0f766e)',
+          boxShadow: '0 8px 32px rgba(13,148,136,.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'ob-pop .55s cubic-bezier(.34,1.56,.64,1) both',
+        }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
       </div>
       <div>
         <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--txt)' }}>{title}</div>
@@ -141,10 +223,11 @@ function DoneScreen({ title, subtitle, cta, note, onDone }: {
       {note && (
         <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.25)', fontSize: 12, color: 'var(--warning)', fontWeight: 600, maxWidth: 340 }}>{note}</div>
       )}
-      <button onClick={onDone} style={{
-        padding: '13px 40px', borderRadius: 12, border: 'none', cursor: 'pointer',
-        background: 'var(--brand)', color: '#fff', fontWeight: 800, fontSize: 15, fontFamily: 'var(--font2)',
-        boxShadow: '0 4px 18px rgba(13,148,136,.4)', marginTop: 4,
+      <button onClick={onDone} className="ob-primary-btn" style={{
+        width: 'auto', padding: '13px 40px', marginTop: 4, fontSize: 15,
+        background: 'var(--brand)', color: '#fff',
+        boxShadow: '0 4px 18px rgba(13,148,136,.4)',
+        ['--ob-btn-shadow' as string]: 'rgba(13,148,136,.42)',
       }}>{cta}</button>
     </div>
   )
@@ -495,11 +578,11 @@ function DosWizard({ onDone }: { onDone: () => void }) {
               <div key={i} className="ob-check-row">
                 <div style={{
                   width: 22, height: 22, borderRadius: '50%', flexShrink: 0, marginTop: 1,
-                  background: item.who === 'You' ? 'rgba(13,148,136,.12)' : 'var(--surface)',
+                  background: item.who === 'You' ? 'var(--brand)' : 'var(--surface)',
                   border: `2px solid ${item.who === 'You' ? 'var(--brand)' : 'var(--border)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <span style={{ fontSize: 8.5, fontWeight: 800, color: item.who === 'You' ? 'var(--brand)' : 'var(--txt3)' }}>{i + 1}</span>
+                  <span style={{ fontSize: 8.5, fontWeight: 800, color: item.who === 'You' ? '#fff' : 'var(--txt3)' }}>{i + 1}</span>
                 </div>
                 <div>
                   <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--txt)', lineHeight: 1.4 }}>{item.label}</div>
@@ -587,11 +670,11 @@ function SecretaryWizard({ onDone }: { onDone: () => void }) {
               <div key={i} className="ob-check-row">
                 <div style={{
                   width: 22, height: 22, borderRadius: '50%', flexShrink: 0, marginTop: 1,
-                  background: item.who === 'You' ? 'rgba(13,148,136,.12)' : 'var(--surface)',
+                  background: item.who === 'You' ? 'var(--brand)' : 'var(--surface)',
                   border: `2px solid ${item.who === 'You' ? 'var(--brand)' : 'var(--border)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <span style={{ fontSize: 8.5, fontWeight: 800, color: item.who === 'You' ? 'var(--brand)' : 'var(--txt3)' }}>{i + 1}</span>
+                  <span style={{ fontSize: 8.5, fontWeight: 800, color: item.who === 'You' ? '#fff' : 'var(--txt3)' }}>{i + 1}</span>
                 </div>
                 <div>
                   <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--txt)', lineHeight: 1.4 }}>{item.label}</div>
@@ -704,35 +787,43 @@ function WizardShell({ title, subtitle, steps, currentStep, role, children }: {
   return (
     <>
       <style>{CSS}</style>
-      <div style={{
+      <div className="ob-shell-overlay" style={{
         position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
       }}>
-        <div style={{
+        <div className="ob-shell-card" style={{
           width: '100%', maxWidth: 520,
           background: 'var(--surface)', borderRadius: 24,
           boxShadow: '0 24px 80px rgba(0,0,0,.16)', border: '1px solid var(--border)',
           overflow: 'hidden',
         }}>
-          {/* Header gradient */}
-          <div style={{ background: accent, padding: '20px 24px 18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <div style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+          {/* Header gradient with dot-grid overlay */}
+          <div style={{ background: accent, padding: '20px 24px 18px', position: 'relative', overflow: 'hidden' }}>
+            {/* dot-grid pattern */}
+            <div style={{
+              position: 'absolute', inset: 0, pointerEvents: 'none',
+              backgroundImage: 'radial-gradient(rgba(255,255,255,.2) 1px, transparent 1px)',
+              backgroundSize: '18px 18px',
+            }} />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <div style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                </div>
+                <span style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 13, color: '#fff', opacity: .9 }}>Shule</span>
               </div>
-              <span style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 13, color: '#fff', opacity: .9 }}>Shule</span>
+              <div style={{ fontSize: 17, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)' }}>{title}</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,.72)', marginTop: 2 }}>{subtitle}</div>
+              {steps.length > 1 && (
+                <div style={{ marginTop: 16, background: 'rgba(0,0,0,.15)', borderRadius: 12, padding: '10px 14px' }}>
+                  <Stepper steps={steps} current={currentStep} />
+                </div>
+              )}
             </div>
-            <div style={{ fontSize: 17, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)' }}>{title}</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.72)', marginTop: 2 }}>{subtitle}</div>
-            {steps.length > 1 && (
-              <div style={{ marginTop: 16, background: 'rgba(0,0,0,.15)', borderRadius: 12, padding: '10px 14px' }}>
-                <Stepper steps={steps} current={currentStep} />
-              </div>
-            )}
           </div>
 
           {/* Content */}
-          <div style={{ padding: '22px 24px 26px', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
+          <div className="ob-shell-content" style={{ padding: '22px 24px 26px', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
             {children}
           </div>
         </div>
