@@ -53,7 +53,11 @@ function SortHeader({ label, field, sort, onSort }: {
         background: 'var(--surface2)',
       }}
     >
-      {label} {active ? (sort.dir === 'asc' ? '↑' : '↓') : ''}
+      {label}{active && (
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: 4, verticalAlign: 'middle', transform: sort.dir === 'asc' ? 'none' : 'rotate(180deg)', transition: 'transform 0.15s' }}>
+          <polyline points="18 15 12 9 6 15"/>
+        </svg>
+      )}
     </th>
   )
 }

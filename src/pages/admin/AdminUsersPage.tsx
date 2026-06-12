@@ -970,11 +970,12 @@ function StudentPendingCard({ student, className, pending, schoolId, onActivated
 }
 
 // ── StudentActiveCard ─────────────────────────────────────────────────────────
-function StudentActiveCard({ student, className, onReset, onToggled }: {
-  student:   StudentLoginRow
-  className: string | null
-  onReset:   (c: StudentCredInfo) => void
-  onToggled: () => void
+function StudentActiveCard({ student, className, schoolShortName, onReset, onToggled }: {
+  student:         StudentLoginRow
+  className:       string | null
+  schoolShortName: string
+  onReset:         (c: StudentCredInfo) => void
+  onToggled:       () => void
 }) {
   const reset  = useResetStudentPassword()
   const qc     = useQueryClient()
@@ -989,7 +990,7 @@ function StudentActiveCard({ student, className, onReset, onToggled }: {
       const r = await reset.mutateAsync({
         studentId:       student.id,
         authUserId:      student.auth_user_id,
-        email:           `${student.admission_number.toLowerCase().replace(/\//g, '-')}@school.ug`,
+        email:           `${student.admission_number.toLowerCase().replace(/\//g, '-')}@${schoolShortName || 'school'}.ug`,
         name,
         admissionNumber: student.admission_number,
       })
@@ -1451,7 +1452,7 @@ export function AdminUsersPage() {
         )}
 
         {/* Section switcher: Staff | Students | Parents | Credentials */}
-        <div ref={pendingSectionRef} style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--surface2)', borderRadius: 12, border: '1px solid var(--border)', alignSelf: 'flex-start', flexWrap: 'wrap' }}>
+        <div ref={pendingSectionRef} className="user-section-tabs" style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--surface2)', borderRadius: 12, border: '1px solid var(--border)', overflowX: 'auto' }}>
           {([
             { id: 'staff'       as const, label: 'Staff',       badge: staffPending.length,    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> },
             { id: 'students'    as const, label: 'Students',    badge: studentsPending.length,  icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> },
@@ -1506,7 +1507,7 @@ export function AdminUsersPage() {
 
         {/* Search + role pills (not shown for credentials section) */}
         {section !== 'credentials' && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 12px', height: 38 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '0 12px', height: 44 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input
               value={search}
@@ -1521,7 +1522,7 @@ export function AdminUsersPage() {
             )}
           </div>
           {section === 'staff' && (
-            <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 2, scrollbarWidth: 'none' }}>
+            <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'none' }}>
               {ROLE_TABS.map(rt => {
                 const isActive = roleFilter === rt.value
                 const [c1] = rt.value ? roleGrad(rt.value) : ['#8b5cf6', '#6366f1']
@@ -1597,6 +1598,7 @@ export function AdminUsersPage() {
                       key={s.id}
                       student={s}
                       className={s.class_id ? (classMap.get(s.class_id) ?? null) : null}
+                      schoolShortName={(school?.shortName ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')}
                       onReset={setNewStudentCred}
                       onToggled={() => void qc.invalidateQueries({ queryKey: ['students-active-login', schoolId] })}
                     />
@@ -1673,8 +1675,8 @@ export function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {vaultEntries.map((e, i) => (
-                    <CredVaultRow key={e.id + i} entry={e} schoolName={schoolName} />
+                  {vaultEntries.map((e) => (
+                    <CredVaultRow key={e.id} entry={e} schoolName={schoolName} />
                   ))}
                 </tbody>
               </table>

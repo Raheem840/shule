@@ -28,7 +28,7 @@ function StatusToggle({ value, onChange, readOnly }: { value: AttendanceStatus; 
             className={`mob-att-pill${active ? ' is-active' : ''}`}
             data-short={cfg.label.charAt(0)}
             style={{
-              padding: '8px 11px', borderRadius: 7,
+              padding: '11px 12px', borderRadius: 7,
               fontSize: 11, fontWeight: 800, fontFamily: 'var(--font2)',
               cursor: readOnly ? 'default' : 'pointer', transition: 'all 0.12s',
               border:     `.5px solid ${active ? cfg.border : 'var(--border)'}`,

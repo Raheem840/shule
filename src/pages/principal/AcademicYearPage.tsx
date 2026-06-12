@@ -29,13 +29,13 @@ function useAcademicYearsFull() {
     queryFn: async (): Promise<AcademicYearRow[]> => {
       const { data, error } = await supabase
         .from('academic_years')
-        .select('id, name, start_date, end_date, is_active, survey_active, term1_start, term1_end, term2_start, term2_end, term3_start, term3_end')
+        .select('id, label, start_date, end_date, is_active, survey_active, term1_start, term1_end, term2_start, term2_end, term3_start, term3_end')
         .eq('school_id', user!.schoolId)
         .order('start_date', { ascending: false })
       if (error) throw new Error(error.message)
       return (data ?? []).map((r: any) => ({
         id:          r.id,
-        name:        r.name,
+        name:        r.label,
         startDate:   r.start_date,
         endDate:     r.end_date,
         isActive:    r.is_active,
@@ -139,7 +139,7 @@ function usePromoteAllStudents() {
 
       if (toGraduate.length > 0) {
         const { error } = await supabase
-          .from('students').update({ status: 'graduated', academic_year_id: newYearId })
+          .from('students').update({ academic_year_id: newYearId })
           .in('id', toGraduate).eq('school_id', sid)
         if (error) throw new Error(error.message)
       }

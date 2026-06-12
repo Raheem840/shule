@@ -52,8 +52,8 @@ function StudentProfileModal({ student, classes, streams, onClose, onEdit }: {
   }
 
   const modal = (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 16 }}>
-      <div style={{ background: 'var(--surface)', borderRadius: 20, width: '100%', maxWidth: 520, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,.28)', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 500, padding: 16 }}>
+      <div className="sui-modal-dialog" style={{ background: 'var(--surface)', width: '100%', maxWidth: 520, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header with avatar */}
         <div style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)`, padding: '24px 24px 20px', position: 'relative', flexShrink: 0 }}>

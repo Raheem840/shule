@@ -273,7 +273,7 @@ export function useAcademicYears() {
       const { data, error } = await supabase
         .from('academic_years')
         .select(
-          'id, school_id, name, start_date, end_date, is_active,' +
+          'id, school_id, label, start_date, end_date, is_active,' +
           ' term1_start, term1_end, term2_start, term2_end,' +
           ' term3_start, term3_end, survey_active'
         )
@@ -281,7 +281,7 @@ export function useAcademicYears() {
         .order('start_date', { ascending: false })
 
       if (error) throw new Error(error.message)
-      return data ?? []
+      return (data ?? []).map((r: any) => ({ ...r, name: r.label }))  // label is the real column
     },
     staleTime: 5 * 60_000,
   })

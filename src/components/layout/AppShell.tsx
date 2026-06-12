@@ -701,11 +701,15 @@ function MobileNotifBell({ role: _role }: { role: UserRole }) {
   const unread = notifications.length
 
   useEffect(() => {
-    function handler(e: MouseEvent) {
+    function handler(e: MouseEvent | TouchEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler as EventListener)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler as EventListener)
+    }
   }, [])
 
   return (
@@ -818,13 +822,17 @@ function NotificationBell({ role }: { role: UserRole }) {
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
+    function handleClick(e: MouseEvent | TouchEvent) {
       if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
         setOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    document.addEventListener('touchstart', handleClick as EventListener)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('touchstart', handleClick as EventListener)
+    }
   }, [])
 
   function handleNotifClick(link: string | null, type: NotificationType) {

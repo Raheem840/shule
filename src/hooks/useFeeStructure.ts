@@ -32,7 +32,7 @@ export function useAcademicYears() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('academic_years')
-        .select('id, school_id, name, start_date, end_date, is_active')
+        .select('id, school_id, label, start_date, end_date, is_active')
         .eq('school_id', user!.schoolId)
         .order('start_date', { ascending: false })
 
@@ -41,7 +41,7 @@ export function useAcademicYears() {
       return (data ?? []).map(r => ({
         id:        r.id as string,
         schoolId:  r.school_id as string,
-        name:      r.name as string,
+        name:      r.label as string,  // label is the real column name
         startDate: r.start_date as string,
         endDate:   r.end_date as string,
         isActive:  r.is_active as boolean,

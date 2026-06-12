@@ -194,7 +194,7 @@ function ClassDetailPanel({ classId, className, isMyHomeroom, navigate }: {
           <span>Students ({students.length})</span>
         </div>
         <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-          {students.slice(0, 50).map((s, i) => (
+          {students.slice(0, 50).map((s, i) => (  /* show at most 50; indicator below */
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: i < students.length - 1 ? '.5px solid var(--border)' : 'none' }}>
               <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,var(--brand),#0ea5e9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: '#fff', flexShrink: 0 }}>
                 {s.firstName[0]}{s.lastName[0]}
@@ -206,6 +206,11 @@ function ClassDetailPanel({ classId, className, isMyHomeroom, navigate }: {
               <span style={{ fontSize: 10.5, color: 'var(--txt3)', background: 'var(--surface2)', padding: '2px 8px', borderRadius: 6 }}>{s.gender}</span>
             </div>
           ))}
+          {students.length > 50 && (
+            <div style={{ padding: '8px 16px', fontSize: 11, color: 'var(--txt3)', textAlign: 'center', borderTop: '.5px solid var(--border)' }}>
+              Showing first 50 of {students.length} students
+            </div>
+          )}
           {students.length === 0 && (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No students enrolled yet.</div>
           )}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useClasses, useStreams, useCreateStream, useMoveStudent } from '../../hooks/useClasses'
 import { useStaff } from '../../hooks/useStaff'
@@ -10,11 +10,16 @@ import type { Stream } from '../../types/app'
 const portal = () => document.querySelector('.ar') as HTMLElement ?? document.body
 const PBtn = ({ children, onClick, disabled, loading, primary, type = 'button' }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; loading?: boolean; primary?: boolean; type?: 'button'|'submit' }) => (
   <button type={type} onClick={onClick} disabled={disabled || loading}
-    style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 18px', borderRadius:10, border: primary ? 'none' : '.5px solid var(--border)', background: primary ? 'linear-gradient(145deg,#0ea5e9,#0284c7)' : 'var(--surface2)', color: primary ? '#fff' : 'var(--txt2)', fontWeight:700, fontSize:13, cursor: disabled||loading ? 'default' : 'pointer', opacity: disabled ? .5 : 1, boxShadow: primary ? '0 3px 10px rgba(14,165,233,.4)' : 'none', transition:'all .15s' }}>
+    style={{ display:'flex', alignItems:'center', gap:6, padding:'12px 18px', borderRadius:10, border: primary ? 'none' : '.5px solid var(--border)', background: primary ? 'linear-gradient(145deg,#0ea5e9,#0284c7)' : 'var(--surface2)', color: primary ? '#fff' : 'var(--txt2)', fontWeight:700, fontSize:13, cursor: disabled||loading ? 'default' : 'pointer', opacity: disabled ? .5 : 1, boxShadow: primary ? '0 3px 10px rgba(14,165,233,.4)' : 'none', transition:'all .15s' }}>
     {loading ? 'Working…' : children}
   </button>
 )
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
   return createPortal(
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.52)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:500, padding:20 }} onClick={e => e.target===e.currentTarget && onClose()}>
       <div style={{ width:'100%', maxWidth:440, maxHeight:'88dvh', overflowY:'auto', background:'var(--surface)', borderRadius:20, boxShadow:'0 24px 80px rgba(0,0,0,.28)', padding:'22px 24px 24px' }}>

@@ -967,7 +967,7 @@ export function MarkEntryPage() {
                           const v = e.target.value === '' ? null : parseFloat(e.target.value)
                           setMark(student.id, v, false)
                         }}
-                        style={{ width: 80, padding: '5px 8px', border: `.5px solid ${hasWarning ? 'var(--warning)' : 'var(--border)'}`, borderRadius: 8, fontSize: 13, background: isAbsent ? 'var(--surface2)' : 'var(--surface)', color: 'var(--txt)', fontFamily: 'var(--font3)' }}
+                        style={{ width: 80, padding: '10px 8px', border: `.5px solid ${hasWarning ? 'var(--warning)' : 'var(--border)'}`, borderRadius: 8, fontSize: 16, background: isAbsent ? 'var(--surface2)' : 'var(--surface)', color: 'var(--txt)', fontFamily: 'var(--font3)' }}
                       />
                       {hasWarning && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--warning)' }}>Exceeds max</span>}
                     </div>

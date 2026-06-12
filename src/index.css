@@ -2086,6 +2086,28 @@ select.sui-select:hover:not(:disabled):not(:focus) {
     margin: 0 auto 16px;
   }
 
+  /* ── Touch target minimums (44px iOS HIG / 48dp Material 3) ── */
+  select, .sui-input { min-height: 44px !important; font-size: 16px !important; }
+  .filter-bar button, .sui-btn-primary, .sui-btn-outline, .sui-btn-ghost { min-height: 44px; }
+
+  /* ── Section tab strip: scrolls horizontally on mobile ── */
+  .user-section-tabs { width: 100%; scrollbar-width: none; }
+  .user-section-tabs::-webkit-scrollbar { display: none; }
+  .user-section-tabs button { flex-shrink: 0; min-height: 44px; }
+
+  /* ── Sticky bottom action bar (above bottom nav) ── */
+  .mob-action-bar {
+    position: sticky;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    left: 0; right: 0;
+    display: flex; gap: 8px; align-items: center;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    z-index: 10;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+  }
+
   /* ── Tables: two modes ───────────────────────────────────────────────────────
      .mob-cards  → each <tr> becomes a native-app-style card
      .table-scroll → premium horizontal scroll (virtualizers, timetables, grids)

@@ -675,9 +675,8 @@ export function FeeLedgerPage() {
           {(error as Error).message}
         </div>
       ) : (
-        <div style={{
-          flex: 1, overflow: isMobile ? 'auto' : 'hidden',
-          overflowX: isMobile ? 'auto' : undefined,
+        <div className="table-scroll" style={{
+          flex: 1, overflow: 'auto',
           background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: 'var(--r-lg)', WebkitOverflowScrolling: 'touch' as any,
         }}>
@@ -695,7 +694,7 @@ export function FeeLedgerPage() {
           {/* Scrollable body */}
           <div
             ref={parentRef}
-            style={{ height: 'calc(100% - 37px)', overflowY: 'auto' }}
+            style={{ maxHeight: 'calc(100dvh - 300px)', minHeight: 400, overflowY: 'auto' }}
           >
             {allRows.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--txt3)', fontSize: 13 }}>

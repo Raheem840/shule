@@ -73,7 +73,7 @@ export function useSecretaryBriefing(term: number, year: number) {
       // Step 1: get academic year for term date range
       const { data: ayRows } = await supabase
         .from('academic_years')
-        .select('id, name, label, term1_start, term1_end, term2_start, term2_end, term3_start, term3_end, is_active')
+        .select('id, label, term1_start, term1_end, term2_start, term2_end, term3_start, term3_end, is_active')
         .eq('school_id', sid)
         .order('start_date', { ascending: false })
 

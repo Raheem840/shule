@@ -494,6 +494,14 @@ export function DosJournalsPage() {
                   </select>
                 </div>
               ))}
+              {(search || classFilter || subjectFilter || termFilter || statusFilter) && (
+                <button
+                  onClick={() => { setSearch(''); setClassFilter(''); setSubjectFilter(''); setTermFilter(''); setStatusFilter('') }}
+                  style={{ alignSelf: 'flex-end', padding: '9px 14px', border: 'none', background: 'none', color: 'var(--brand)', fontWeight: 700, fontSize: 12, cursor: 'pointer', borderRadius: 8, flexShrink: 0 }}
+                >
+                  Clear all
+                </button>
+              )}
             </div>
 
             {isLoading && (

@@ -64,7 +64,7 @@ export function useTermProgress() {
       const { data: yearData, error: yearErr } = await supabase
         .from('academic_years')
         .select(
-          'id, name, start_date, end_date, is_active,' +
+          'id, label, start_date, end_date, is_active,' +
           ' term1_start, term1_end, term2_start, term2_end, term3_start, term3_end'
         )
         .eq('school_id', sid)
@@ -111,7 +111,7 @@ export function useTermProgress() {
           return {
             termStart:      yearStart,
             termEnd:        yearEnd,
-            currentTerm:    (row['name'] as string | null) ?? 'Academic Year',
+            currentTerm:    (row['label'] as string | null) ?? 'Academic Year',
             percentElapsed: pct2,
             weekNumber:     curW2,
             totalWeeks:     totW2,
