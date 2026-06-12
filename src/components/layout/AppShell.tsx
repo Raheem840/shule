@@ -33,6 +33,7 @@ import { NotificationToastProvider } from '../shared/NotificationToast'
 import { ConnectionBanner } from '../ui/ConnectionBanner'
 import { SyncManager } from './SyncManager'
 import { GlobalSearch } from './GlobalSearch'
+import { OnboardingWizard } from '../shared/OnboardingWizard'
 
 // Roles that have a /profile page
 const PROFILE_ROLES = new Set<UserRole>([
@@ -142,8 +143,10 @@ export function AppShell() {
   const { user, signOut } = useAuth()
   const [theme, setTheme]               = useState<'light' | 'dark'>(getStoredTheme)
   const [drawerOpen, setDrawer]         = useState(false)
-  const [showPwBanner, setShowPwBanner] = useState(false)
-  const [searchOpen, setSearchOpen]     = useState(false)
+  const [showPwBanner, setShowPwBanner]       = useState(false)
+  const [showOnboarding, setShowOnboarding]   = useState(false)
+  const [isFirstLogin, setIsFirstLogin]       = useState(false)
+  const [searchOpen, setSearchOpen]           = useState(false)
 
   const openSearch  = useCallback(() => setSearchOpen(true),  [])
   const closeSearch = useCallback(() => setSearchOpen(false), [])
@@ -170,10 +173,14 @@ export function AppShell() {
         .single()
       if (!data) return null
 
-      // Show the password change prompt only on the very first login
-      if (!data.last_login_at) setShowPwBanner(true)
+      // First login: show role-specific onboarding wizard + password banner
+      if (!data.last_login_at) {
+        setShowPwBanner(true)
+        setIsFirstLogin(true)
+        setShowOnboarding(true)
+      }
 
-      // Stamp last_login_at so the prompt won't show again
+      // Stamp last_login_at so neither prompt shows again
       void supabase
         .from('staff')
         .update({ last_login_at: new Date().toISOString() })
@@ -242,8 +249,20 @@ export function AppShell() {
   const displayName = staffFirstName ?? user.name
   const pageTitle   = getPageTitle(location.pathname, nav)
 
+  const schoolNeedsSetup = !!schoolSettings && !schoolSettings.schoolName
+
+  // Show onboarding when: school not set up (always for it_admin/principal) OR first login for any staff
+  const showWizard = schoolNeedsSetup || showOnboarding
+
   return (
     <div className="ar" data-theme={theme}>
+      {showWizard && (
+        <OnboardingWizard
+          isFirstLogin={isFirstLogin}
+          schoolNeedsSetup={schoolNeedsSetup}
+          onDone={() => { setShowOnboarding(false); setIsFirstLogin(false) }}
+        />
+      )}}
       <ConnectionBanner />
       <SyncManager />
 
@@ -492,8 +511,9 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
     refetchInterval: 2 * 60_000,
   })
 
-  const displayName   = schoolName || 'My School'
-  const schoolInitial = displayName.trim()[0]?.toUpperCase() ?? 'S'
+  const hasSchoolName = !!schoolName
+  const displayName   = schoolName || 'Setup Required'
+  const schoolInitial = hasSchoolName ? (displayName.trim()[0]?.toUpperCase() ?? 'S') : null
 
   return (
     <nav className={`sb${drawerOpen ? ' sb-open' : ''}`}>
@@ -549,12 +569,21 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
               alt={displayName}
               className="school-logo-img"
             />
-          ) : (
+          ) : schoolInitial ? (
             <div className="school-ico">{schoolInitial}</div>
+          ) : (
+            <div className="school-ico" style={{ background: 'rgba(148,163,184,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 21h18"/><path d="M9 21V7l3-3 3 3v14"/><path d="M3 21V10l6-6"/><path d="M21 21V10l-6-6"/>
+                <rect x="9" y="12" width="2" height="3"/><rect x="13" y="12" width="2" height="3"/>
+              </svg>
+            </div>
           )}
           <div className="school-pill-text">
-            <div className="school-name">{displayName}</div>
-            {schoolMotto && (
+            <div className="school-name" style={!hasSchoolName ? { color: 'var(--txt3)', fontStyle: 'italic', fontSize: 11 } : undefined}>
+              {displayName}
+            </div>
+            {hasSchoolName && schoolMotto && (
               <div className="school-loc">{schoolMotto}</div>
             )}
           </div>

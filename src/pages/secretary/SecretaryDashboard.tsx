@@ -157,7 +157,7 @@ function useSecretaryDashData() {
         supabase.from('school_profile')
           .select('id, school_name, short_name')
           .eq('id', sid)
-          .single(),
+          .maybeSingle(),
       ])
 
       // Students
@@ -383,7 +383,13 @@ export function SecretaryDashboard() {
     )
   }
 
-  const d = data!
+  if (!data) return (
+    <div style={{ padding: 60, textAlign: 'center', color: 'var(--txt3)', fontSize: 14 }}>
+      Could not load dashboard data. Please refresh the page.
+    </div>
+  )
+
+  const d = data
 
   const attentionItems: { label: string; color: string; count: number }[] = []
   if (d.stuckCards > 0) attentionItems.push({ label: `${d.stuckCards} report card${d.stuckCards > 1 ? 's' : ''} stuck in "Ready" for 3+ days`, color: C.warning, count: d.stuckCards })

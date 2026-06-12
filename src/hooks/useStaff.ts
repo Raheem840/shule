@@ -125,7 +125,7 @@ export function useStaffById(id: string | null | undefined) {
           .select(DETAIL_COLS)
           .eq('id', id!)
           .eq('school_id', user!.schoolId)
-          .single(),
+          .maybeSingle(),
         supabase
           .from('staff_documents')
           .select('id, school_id, staff_id, doc_type, file_name, file_url, uploaded_by, uploaded_at')
@@ -173,7 +173,7 @@ export function useNextStaffNumber() {
           .from('school_profile')
           .select('short_name')
           .eq('id', user!.schoolId)
-          .single(),
+          .maybeSingle(),
       ])
 
       if (staffRes.error) throw staffRes.error

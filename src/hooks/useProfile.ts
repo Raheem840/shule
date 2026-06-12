@@ -51,7 +51,7 @@ export function useMyProfile() {
           ].join(', '))
           .eq('school_id', sid)
           .eq('auth_user_id', user!.id)
-          .single(),
+          .maybeSingle(),
         supabase
           .from('school_profile')
           .select('school_name')
@@ -61,6 +61,7 @@ export function useMyProfile() {
       ])
 
       if (staffRes.error) throw new Error(staffRes.error.message)
+      if (!staffRes.data) throw new Error('No staff profile linked to this account. Contact your administrator.')
       const row = staffRes.data as unknown as Record<string, unknown>
 
       let departmentName: string | null = null

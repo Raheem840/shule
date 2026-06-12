@@ -216,7 +216,7 @@ export function useStudentFullProfile(studentId: string | null) {
           )
           .eq('school_id', sid)
           .eq('id', studentId!)
-          .single(),
+          .maybeSingle(),
         supabase
           .from('exam_results')
           .select('subject_id, score, grade, term, year')
@@ -244,6 +244,7 @@ export function useStudentFullProfile(studentId: string | null) {
       ])
 
       if (studentRes.error) throw new Error(studentRes.error.message)
+      if (!studentRes.data) throw new Error('Student not found.')
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const stu = studentRes.data as any
@@ -331,9 +332,10 @@ export function useStaffFullProfile(staffId: string | null) {
         )
         .eq('school_id', user!.schoolId)
         .eq('id', staffId!)
-        .single()
+        .maybeSingle()
 
       if (error) throw new Error(error.message)
+      if (!data) throw new Error('Staff member not found.')
 
       const d = data as any
       return {
@@ -372,7 +374,7 @@ export function useSuspendStudent() {
         .select('auth_user_id')
         .eq('id', studentId)
         .eq('school_id', user.schoolId)
-        .single()
+        .maybeSingle()
 
       const { error } = await supabase
         .from('students')

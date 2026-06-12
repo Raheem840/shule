@@ -515,7 +515,7 @@ function SchoolSettingsSection() {
   const hasPopulated = useRef(false)
   if (settings && !hasPopulated.current) {
     setForm({
-      schoolName:   settings.schoolName,
+      schoolName:   settings.schoolName ?? '',
       shortName:    settings.shortName ?? '',
       motto:        settings.motto ?? '',
       primaryColor: settings.primaryColor,
