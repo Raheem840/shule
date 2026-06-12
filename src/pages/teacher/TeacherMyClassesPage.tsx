@@ -235,6 +235,7 @@ function ClassDetailPanel({ classId, className, isMyHomeroom, navigate }: {
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 export function TeacherMyClassesPage() {
+  const { user } = useAuth()
   const { data: myData, isLoading } = useMyTeachingClasses()
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
   const navigate = useNavigate()

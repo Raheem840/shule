@@ -333,7 +333,7 @@ export function usePublishTimetable() {
   return useMutation({
     mutationFn: async (params: {
       classId: string
-      streamId: string | null
+      streamId?: string | null
       term: string
       year: number
     }) => {
