@@ -316,6 +316,7 @@ function ApplyPaymentForm({
     try {
       await applyPayment.mutateAsync({
         id:            row.id,
+        amountDue:     row.amountDue,
         amountPaid:    row.amountPaid + values.amountToAdd,
         paymentDate:   values.paymentDate,
         receiptNumber: values.receiptNumber || null,
@@ -343,6 +344,7 @@ function ApplyPaymentForm({
     try {
       await applyPayment.mutateAsync({
         id:            row.id,
+        amountDue:     row.amountDue,
         amountPaid:    values.amountPaid,
         paymentDate:   values.paymentDate,
         receiptNumber: values.receiptNumber || null,

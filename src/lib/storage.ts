@@ -121,6 +121,22 @@ export async function deleteFile(bucket: string, path: string): Promise<void> {
   await supabase.storage.from(bucket).remove([path])
 }
 
+export async function downloadFile(bucket: string, path: string): Promise<Blob> {
+  const { data, error } = await supabase.storage.from(bucket).download(path)
+  if (error) throw new Error(`Download failed: ${error.message}`)
+  return data
+}
+
+export async function listFiles(
+  bucket: string,
+  prefix: string,
+  options?: { limit?: number }
+): Promise<Array<{ name: string; id: string | null; updated_at: string | null; created_at: string | null; last_accessed_at: string | null; metadata: Record<string, unknown> | null }>> {
+  const { data, error } = await supabase.storage.from(bucket).list(prefix, { limit: options?.limit ?? 1000 })
+  if (error) throw new Error(`List failed: ${error.message}`)
+  return data ?? []
+}
+
 // ── Image compression ─────────────────────────────────────────────────────────
 
 async function compressImage(file: File, maxDim: number, quality: number): Promise<File> {

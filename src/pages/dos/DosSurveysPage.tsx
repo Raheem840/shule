@@ -26,7 +26,16 @@ function useSurveyResponses(term: string, year: number) {
       if (error?.code === '42P01') return { responses: [], summary: { total: 0, avgOverall: 0, avgTeacher: 0, hardestSubjects: [], favouriteSubjects: [] } }
       if (error) throw error
       const rows = data ?? []
-      const responses: SurveyResponse[] = rows.map((r: any) => ({ id: r.id, studentName: `Student ${r.student_id?.slice(0, 8) ?? 'Unknown'}`, className: '—', overallRating: r.rating ?? 0, teacherRating: r.teacher_rating ?? 0, hardestSubject: r.hardest_subject_id ?? null, favouriteSubject: r.favourite_subject_id ?? null, suggestions: r.suggestions ?? null, submittedAt: r.submitted_at }))
+
+      // Resolve subject UUIDs to names in one query
+      const subjectIds = [...new Set(rows.flatMap((r: any) => [r.hardest_subject_id, r.favourite_subject_id].filter(Boolean) as string[]))]
+      const subjectMap = new Map<string, string>()
+      if (subjectIds.length > 0) {
+        const { data: subjects } = await supabase.from('subjects').select('id, name').eq('school_id', user!.schoolId).in('id', subjectIds)
+        for (const s of subjects ?? []) subjectMap.set((s as any).id, (s as any).name)
+      }
+
+      const responses: SurveyResponse[] = rows.map((r: any) => ({ id: r.id, studentName: `Student ${r.student_id?.slice(0, 8) ?? 'Unknown'}`, className: '—', overallRating: r.rating ?? 0, teacherRating: r.teacher_rating ?? 0, hardestSubject: r.hardest_subject_id ? (subjectMap.get(r.hardest_subject_id) ?? r.hardest_subject_id) : null, favouriteSubject: r.favourite_subject_id ? (subjectMap.get(r.favourite_subject_id) ?? r.favourite_subject_id) : null, suggestions: r.suggestions ?? null, submittedAt: r.submitted_at }))
       const total      = responses.length
       const avgOverall = total > 0 ? Math.round((responses.reduce((s, r) => s + r.overallRating, 0) / total) * 10) / 10 : 0
       const avgTeacher = total > 0 ? Math.round((responses.reduce((s, r) => s + r.teacherRating, 0) / total) * 10) / 10 : 0

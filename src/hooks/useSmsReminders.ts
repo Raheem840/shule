@@ -170,7 +170,7 @@ export function useSmsReminderLog() {
 
       const studentIds = [...new Set((remindersRes.data ?? []).map(r => r.student_id as string).filter(Boolean))]
       const studentsRes = studentIds.length
-        ? await supabase.from('students').select('id, first_name, last_name').in('id', studentIds)
+        ? await supabase.from('students').select('id, first_name, last_name').eq('school_id', user!.schoolId).in('id', studentIds)
         : { data: [], error: null }
 
       if (studentsRes.error) throw studentsRes.error

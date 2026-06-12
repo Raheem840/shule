@@ -116,7 +116,7 @@ export function useStaffById(id: string | null | undefined) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['staff-member', id],
+    queryKey: ['staff-member', user?.schoolId, id],
     enabled:  !!id && !!user?.schoolId,
     queryFn: async () => {
       const [staffRes, docsRes] = await Promise.all([

@@ -168,6 +168,7 @@ export function useStudentExamSummary(studentId: string | null) {
         .from('exam_journal')
         .select('id, name, assessment_type, total_marks, subject_id')
         .in('id', journalIds)
+        .eq('school_id', user!.schoolId)
         .eq('status', 'published')
 
       if (jErr) throw jErr
@@ -176,6 +177,7 @@ export function useStudentExamSummary(studentId: string | null) {
       const { data: subjects } = await supabase
         .from('subjects')
         .select('id, name')
+        .eq('school_id', user!.schoolId)
         .in('id', subjectIds)
 
       const journalMap = new Map<string, AnyRow>()
@@ -431,6 +433,7 @@ export function useFindClassTeacher(classId: string | null | undefined) {
           .from('staff')
           .select('auth_user_id, first_name, last_name, role')
           .eq('id', teacherStaffId)
+          .eq('school_id', user!.schoolId)
           .not('auth_user_id', 'is', null)
           .maybeSingle()
         if (data) {
@@ -770,7 +773,7 @@ export function useStudentGuardians(studentId: string | null) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['student-guardians', studentId],
+    queryKey: ['student-guardians', user?.schoolId, studentId],
     enabled:  !!studentId && !!user?.schoolId,
     queryFn: async () => {
       const { data, error } = await supabase

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
+import { downloadFile, uploadFile, getPublicUrl } from '../lib/storage'
 import { generateReportCardPDF, buildSubjectRows } from '../lib/reportCardPdf'
 import type { ReportCard, ReportCardStatus } from '../types/app'
 import type { RawResult } from '../lib/reportCardPdf'
@@ -244,9 +245,9 @@ export function useGenerateReportCards() {
       const templatePath = (school as Record<string, unknown>).report_template_url as string | null
       if (templatePath) {
         try {
-          const { data: blob, error: dlErr } = await supabase.storage
-            .from('templates')
-            .download(templatePath)
+          let blob: Blob | null = null
+          let dlErr: Error | null = null
+          try { blob = await downloadFile('templates', templatePath) } catch (e) { dlErr = e as Error }
           if (!dlErr && blob) {
             templateMimeType = blob.type || 'image/png'
             const reader = await new Promise<string>((resolve, reject) => {
@@ -494,17 +495,9 @@ export function useGenerateReportCards() {
 
           // Upload to Supabase Storage
           const path = `${schoolId}/${year}/${term}/${studentId}.pdf`
-          const { error: uploadErr } = await supabase.storage
-            .from('report-cards')
-            .upload(path, blob, { upsert: true, contentType: 'application/pdf' })
+          await uploadFile('report-cards', path, blob, { upsert: true, contentType: 'application/pdf' })
 
-          if (uploadErr) throw uploadErr
-
-          const { data: urlData } = supabase.storage
-            .from('report-cards')
-            .getPublicUrl(path)
-
-          const pdfUrl = urlData.publicUrl
+          const pdfUrl = getPublicUrl('report-cards', path) ?? ''
 
           // Upsert report_cards row
           const { error: rcErr } = await supabase

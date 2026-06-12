@@ -93,6 +93,7 @@ export function useMarkSingleNotificationRead() {
         .update({ read_at: new Date().toISOString() })
         .eq('id', notifId)
         .eq('user_id', user.id)
+        .eq('school_id', user.schoolId)
 
       if (error) throw new Error(error.message)
     },

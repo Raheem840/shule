@@ -488,6 +488,7 @@ export function useAddPayment() {
           academic_year_id: input.academicYearId,
           amount_due:       input.amountDue,
           amount_paid:      input.amountPaid,
+          balance:          Math.max(0, input.amountDue - input.amountPaid),
           payment_date:     input.paymentDate || null,
           receipt_number:   input.receiptNumber || null,
           notes:            input.notes || null,
@@ -632,10 +633,10 @@ export function useStudentFeeRows(studentId: string | null, term: number) {
 }
 
 // ── useApplyPayment ───────────────────────────────────────────
-// Updates amount_paid + receipt_number + payment_date on an
-// existing fee_payments row (does NOT re-insert balance — DB computes it).
+// Updates amount_paid + balance + receipt_number + payment_date on an existing row.
 export type ApplyPaymentInput = {
   id:            string
+  amountDue:     number
   amountPaid:    number
   paymentDate:   string
   receiptNumber: string | null
@@ -652,6 +653,7 @@ export function useApplyPayment() {
         .from('fee_payments')
         .update({
           amount_paid:    input.amountPaid,
+          balance:        Math.max(0, input.amountDue - input.amountPaid),
           payment_date:   input.paymentDate || null,
           receipt_number: input.receiptNumber || null,
           notes:          input.notes || null,
@@ -667,7 +669,7 @@ export function useApplyPayment() {
       qc.invalidateQueries({ queryKey: ['bursar-kpis',     user?.schoolId] })
       qc.invalidateQueries({ queryKey: ['fee-by-class',    user?.schoolId] })
       qc.invalidateQueries({ queryKey: ['recent-payments', user?.schoolId] })
-      qc.invalidateQueries({ queryKey: ['bursar-student-fees'] })
+      qc.invalidateQueries({ queryKey: ['bursar-student-fees', user?.schoolId] })
     },
   })
 }

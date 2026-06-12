@@ -115,6 +115,7 @@ export function useMyExamResults(studentId: string | null) {
         .from('exam_journal')
         .select('id, name, assessment_type, total_marks, subject_id')
         .in('id', journalIds)
+        .eq('school_id', user!.schoolId)
         .eq('status', 'published')
 
       if (jErr) throw jErr
@@ -123,6 +124,7 @@ export function useMyExamResults(studentId: string | null) {
       const { data: subjects } = await supabase
         .from('subjects')
         .select('id, name')
+        .eq('school_id', user!.schoolId)
         .in('id', subjectIds)
 
       const journalMap = new Map<string, AnyRow>()

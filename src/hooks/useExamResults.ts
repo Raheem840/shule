@@ -34,7 +34,7 @@ export function useExamResults(journalId: string | null | undefined) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['exam-results', journalId],
+    queryKey: ['exam-results', user?.schoolId, journalId],
     enabled:  !!journalId && !!user,
     queryFn:  async () => {
       const { data, error } = await supabase
@@ -119,7 +119,7 @@ export function useSaveMarks() {
       return journalId
     },
     onSuccess: journalId => {
-      qc.invalidateQueries({ queryKey: ['exam-results', journalId] })
+      qc.invalidateQueries({ queryKey: ['exam-results', user?.schoolId, journalId] })
       qc.invalidateQueries({ queryKey: ['dos-overview',       user?.schoolId] })
       qc.invalidateQueries({ queryKey: ['dos-class-perf',     user?.schoolId] })
       qc.invalidateQueries({ queryKey: ['principal-kpis',     user?.schoolId] })

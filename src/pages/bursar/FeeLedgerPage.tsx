@@ -455,10 +455,9 @@ export function FeeLedgerPage() {
 
           if (existing) {
             if (strategy === 'skip') { result.skipped++; continue }
-            // strategy === 'upsert' — never set balance (generated column)
             const { error } = await supabase
               .from('fee_payments')
-              .update({ amount_due: amountDue, amount_paid: amountPaid, imported: true })
+              .update({ amount_due: amountDue, amount_paid: amountPaid, balance: Math.max(0, amountDue - amountPaid), imported: true })
               .eq('id', existing.id)
             if (error) { result.failed.push({ row: rowNum, reason: error.message }); continue }
             result.updated++
@@ -472,6 +471,7 @@ export function FeeLedgerPage() {
                 academic_year_id: academicYearId,
                 amount_due:       amountDue,
                 amount_paid:      amountPaid,
+                balance:          Math.max(0, amountDue - amountPaid),
                 payment_date:     row.payment_date   || null,
                 receipt_number:   row.receipt_number || null,
                 notes:            row.notes          || null,

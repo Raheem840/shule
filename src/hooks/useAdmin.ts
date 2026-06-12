@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { db } from '../lib/db'
+import { listFiles } from '../lib/storage'
 import type { SystemKpis, UserRow, SchoolSettings, ApiConfig } from '../types/week9'
 
 // ── useSystemKpis ──────────────────────────────────────────────────────────
@@ -342,8 +343,7 @@ async function listBucketFiles(
   depth = 0,
 ): Promise<{ fileCount: number; totalBytes: number }> {
   if (depth > 4) return { fileCount: 0, totalBytes: 0 }
-  const { data } = await supabase.storage.from(bucket).list(prefix, { limit: 1000 })
-  const items = data ?? []
+  const items = await listFiles(bucket, prefix, { limit: 1000 }).catch(() => [] as Awaited<ReturnType<typeof listFiles>>)
   let fileCount = 0
   let totalBytes = 0
   await Promise.all(
@@ -428,45 +428,55 @@ export function usePromoteStudents() {
         'S5':  'S6',  'S6':  null,
       }
 
-      const total = (students ?? []).length
-      let current = 0
-      let promoted = 0
-      let completed = 0
-
       const rows = students ?? []
-      for (let i = 0; i < rows.length; i += 50) {
-        const batch = rows.slice(i, i + 50)
-        for (const s of batch) {
-          const className = classById.get(s.class_id ?? '') ?? ''
-          const nextName  = NEXT_CLASS[className]
+      const total = rows.length
 
-          if (nextName === undefined) {
-            // Not a recognised class name — skip
-          } else if (nextName === null) {
-            // Terminal class — mark completed
-            await supabase
-              .from('students')
-              .update({ status: 'completed', class_id: null, stream_id: null })
-              .eq('school_id', user!.schoolId)
-              .eq('id', s.id)
-            completed++
-          } else {
-            const nextId = classByName.get(nextName)
-            if (nextId) {
-              await supabase
-                .from('students')
-                .update({ class_id: nextId, stream_id: null })
-                .eq('school_id', user!.schoolId)
-                .eq('id', s.id)
-              promoted++
-            }
+      // Group by outcome to avoid N+1 updates
+      const toComplete: string[] = []
+      const toPromoteMap = new Map<string, string[]>()
+
+      for (const s of rows) {
+        const className = classById.get(s.class_id ?? '') ?? ''
+        const nextName  = NEXT_CLASS[className]
+        if (nextName === undefined) continue
+        if (nextName === null) {
+          toComplete.push(s.id)
+        } else {
+          const nextId = classByName.get(nextName)
+          if (nextId) {
+            if (!toPromoteMap.has(nextId)) toPromoteMap.set(nextId, [])
+            toPromoteMap.get(nextId)!.push(s.id)
           }
-
-          current++
-          onProgress?.(current, total)
         }
       }
 
+      let processed = 0
+      if (toComplete.length > 0) {
+        for (let i = 0; i < toComplete.length; i += 100) {
+          const { error } = await supabase.from('students')
+            .update({ status: 'completed', class_id: null, stream_id: null })
+            .eq('school_id', user!.schoolId)
+            .in('id', toComplete.slice(i, i + 100))
+          if (error) throw new Error(error.message)
+          processed += Math.min(100, toComplete.length - i)
+          onProgress?.(processed, total)
+        }
+      }
+
+      for (const [nextId, ids] of toPromoteMap) {
+        for (let i = 0; i < ids.length; i += 100) {
+          const { error } = await supabase.from('students')
+            .update({ class_id: nextId, stream_id: null })
+            .eq('school_id', user!.schoolId)
+            .in('id', ids.slice(i, i + 100))
+          if (error) throw new Error(error.message)
+          processed += Math.min(100, ids.length - i)
+          onProgress?.(processed, total)
+        }
+      }
+
+      const promoted  = [...toPromoteMap.values()].reduce((s, arr) => s + arr.length, 0)
+      const completed = toComplete.length
       return { promoted, completed, total }
     },
     onSuccess: () => {
@@ -607,42 +617,46 @@ export function useSelectivePromote() {
       const classById   = new Map((classes ?? []).map((c: any) => [c.id as string, c.name as string]))
       const classByName = new Map((classes ?? []).map((c: any) => [c.name as string, c.id as string]))
 
-      let promoted = 0
-      let completed = 0
+      const toComplete: string[] = []
+      const toPromoteMap = new Map<string, string[]>()
 
-      // Process in batches of 50
-      const rows = students ?? []
-      for (let i = 0; i < rows.length; i += 50) {
-        const batch = rows.slice(i, i + 50)
-        for (const s of batch) {
-          const cName  = classById.get(s.class_id ?? '') ?? ''
-          const next   = NEXT_CLASS_MAP[cName]
-
-          if (next === undefined) {
-            // Unrecognised class — skip
-          } else if (next === null) {
-            // Terminal: mark completed + clear class
-            await supabase
-              .from('students')
-              .update({ status: 'completed', class_id: null, stream_id: null })
-              .eq('school_id', sid)
-              .eq('id', s.id)
-            completed++
-          } else {
-            const nextId = classByName.get(next)
-            if (nextId) {
-              await supabase
-                .from('students')
-                .update({ class_id: nextId, stream_id: null })
-                .eq('school_id', sid)
-                .eq('id', s.id)
-              promoted++
-            }
+      for (const s of students ?? []) {
+        const cName = classById.get(s.class_id ?? '') ?? ''
+        const next  = NEXT_CLASS_MAP[cName]
+        if (next === undefined) continue
+        if (next === null) {
+          toComplete.push(s.id)
+        } else {
+          const nextId = classByName.get(next)
+          if (nextId) {
+            if (!toPromoteMap.has(nextId)) toPromoteMap.set(nextId, [])
+            toPromoteMap.get(nextId)!.push(s.id)
           }
         }
       }
 
-      return { promoted, completed }
+      if (toComplete.length > 0) {
+        for (let i = 0; i < toComplete.length; i += 100) {
+          const { error } = await supabase.from('students')
+            .update({ status: 'completed', class_id: null, stream_id: null })
+            .eq('school_id', sid).in('id', toComplete.slice(i, i + 100))
+          if (error) throw new Error(error.message)
+        }
+      }
+
+      for (const [nextId, ids] of toPromoteMap) {
+        for (let i = 0; i < ids.length; i += 100) {
+          const { error } = await supabase.from('students')
+            .update({ class_id: nextId, stream_id: null })
+            .eq('school_id', sid).in('id', ids.slice(i, i + 100))
+          if (error) throw new Error(error.message)
+        }
+      }
+
+      return {
+        promoted:  [...toPromoteMap.values()].reduce((s, arr) => s + arr.length, 0),
+        completed: toComplete.length,
+      }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })

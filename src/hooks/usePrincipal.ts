@@ -390,7 +390,7 @@ export function useSuspendStudent() {
     },
     onSuccess: (_d, vars) => {
       void qc.invalidateQueries({ queryKey: ['student-full-profile', user?.schoolId, vars.studentId] })
-      void qc.invalidateQueries({ queryKey: ['principal-kpis'] })
+      void qc.invalidateQueries({ queryKey: ['principal-kpis', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['my-student-record'] })
       void qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
     },
@@ -414,8 +414,8 @@ export function useSuspendStaff() {
     },
     onSuccess: (_d, vars) => {
       void qc.invalidateQueries({ queryKey: ['staff-full-profile', user?.schoolId, vars.staffId] })
-      void qc.invalidateQueries({ queryKey: ['principal-kpis'] })
-      void qc.invalidateQueries({ queryKey: ['user-management'] })
+      void qc.invalidateQueries({ queryKey: ['principal-kpis',    user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['user-management',   user?.schoolId] })
     },
   })
 }

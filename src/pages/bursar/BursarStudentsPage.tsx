@@ -288,6 +288,7 @@ function useRecordPayment() {
         const { error } = await supabase.from('fee_payments')
           .update({
             amount_paid:    newPaid,
+            balance:        Math.max(0, Number(ex.amount_due) - newPaid),
             payment_date:   input.paymentDate,
             receipt_number: input.receiptNumber,
             notes:          input.notes,
@@ -303,6 +304,7 @@ function useRecordPayment() {
           term:             input.term,
           amount_due:       input.amountDue,
           amount_paid:      input.amountPaid,
+          balance:          Math.max(0, input.amountDue - input.amountPaid),
           payment_date:     input.paymentDate,
           receipt_number:   input.receiptNumber,
           notes:            input.notes,
@@ -330,7 +332,7 @@ function useUpdatePaymentAmount() {
       newPaid:   number
     }) => {
       const { error } = await supabase.from('fee_payments')
-        .update({ amount_paid: input.newPaid })
+        .update({ amount_paid: input.newPaid, balance: Math.max(0, input.amountDue - input.newPaid) })
         .eq('id', input.id)
         .eq('school_id', user!.schoolId)
       if (error) throw error

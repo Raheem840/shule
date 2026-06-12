@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { queueSync } from '../lib/db'
+import { uploadFile, getPublicUrl } from '../lib/storage'
 import type { Message } from '../types/app'
 import type { Contact, Announcement } from '../types/week9'
 import { ROLE_SENIORITY as SENIORITY } from '../types/week9'
@@ -673,17 +674,8 @@ export function useUploadAttachment() {
       const ext  = file.name.split('.').pop() ?? 'bin'
       const path = `${user.schoolId}/${user.id}/${Date.now()}.${ext}`
 
-      const { error } = await supabase.storage
-        .from('staff-attachments')
-        .upload(path, file, { upsert: false })
-
-      if (error) throw new Error(error.message)
-
-      const { data } = supabase.storage
-        .from('staff-attachments')
-        .getPublicUrl(path)
-
-      return data.publicUrl
+      await uploadFile('staff-attachments', path, file, { upsert: false })
+      return getPublicUrl('staff-attachments', path) ?? ''
     },
   })
 }
