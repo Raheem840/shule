@@ -1192,9 +1192,526 @@ function CredVaultRow({ entry, schoolName }: { entry: { id: string; name: string
   )
 }
 
+// ── CreateUserWizard ──────────────────────────────────────────────────────────
+const WIZARD_ROLES = [
+  { value: 'principal',     label: 'Principal',           grad: ['#f59e0b', '#d97706'] as [string, string] },
+  { value: 'deputy',        label: 'Deputy Head',         grad: ['#0d9488', '#0f766e'] as [string, string] },
+  { value: 'dos',           label: 'Director of Studies', grad: ['#8b5cf6', '#7c3aed'] as [string, string] },
+  { value: 'secretary',     label: 'Secretary',           grad: ['#0ea5e9', '#0284c7'] as [string, string] },
+  { value: 'bursar',        label: 'Bursar',              grad: ['#f43f5e', '#e11d48'] as [string, string] },
+  { value: 'class_teacher', label: 'Class Teacher',       grad: ['#10b981', '#059669'] as [string, string] },
+  { value: 'teacher',       label: 'Teacher',             grad: ['#6366f1', '#4f46e5'] as [string, string] },
+  { value: 'it_admin',      label: 'IT Admin',            grad: ['#94a3b8', '#64748b'] as [string, string] },
+]
+
+function wizGenPass(): string {
+  // 64-char alphabet: 256 % 64 === 0, so no modulo bias.
+  // Excludes I/l/1/O/0 to prevent visual confusion; includes symbols for strength.
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*+-'
+  const arr   = new Uint8Array(12)
+  crypto.getRandomValues(arr)
+  return Array.from(arr, b => chars[b % chars.length]).join('')
+}
+
+type WEntityType = 'staff' | 'student' | 'parent'
+
+function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, classes }: {
+  onClose:         () => void
+  schoolId:        string
+  schoolShortName: string
+  schoolName:      string
+  classes:         { id: string; name: string; academicYearId: string | null }[]
+}) {
+  const { user }                        = useAuth()
+  const qc                              = useQueryClient()
+  const { success: ok, error: showErr } = useToast()
+
+  const [step,   setStep]   = useState<'type' | 'details' | 'done'>('type')
+  const [entity, setEntity] = useState<WEntityType | null>(null)
+  const [role,   setRole]   = useState('teacher')
+
+  const [firstName,  setFirstName]  = useState('')
+  const [lastName,   setLastName]   = useState('')
+  const [emailInput, setEmailInput] = useState('')
+  const [phone,      setPhone]      = useState('')
+
+  const [classId,  setClassId]  = useState('')
+  const [streamId, setStreamId] = useState('')
+  const [gender,   setGender]   = useState('')
+
+  const [fullName,    setFullName]    = useState('')
+  const [parentEmail, setParentEmail] = useState('')
+  const [parentPhone, setParentPhone] = useState('')
+
+  const [busy,   setBusy]   = useState(false)
+  const [error,  setError]  = useState<string | null>(null)
+  const [result, setResult] = useState<{ email: string; password: string; name: string; note?: string } | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
+
+  const { data: activeYear } = useQuery({
+    queryKey: ['active-year-wizard', schoolId],
+    enabled:  !!schoolId,
+    staleTime: 60_000,
+    queryFn:  async () => {
+      const { data } = await supabase
+        .from('academic_years')
+        .select('id, label')
+        .eq('school_id', schoolId)
+        .eq('is_active', true)
+        .maybeSingle()
+      return data as { id: string; label: string } | null
+    },
+  })
+
+  const { data: streams = [] } = useQuery({
+    queryKey: ['streams-wizard', schoolId, classId],
+    enabled:  !!classId && !!schoolId,
+    queryFn:  async () => {
+      const { data } = await supabase
+        .from('streams')
+        .select('id, name')
+        .eq('school_id', schoolId)
+        .eq('class_id', classId)
+        .order('name')
+      return (data ?? []) as { id: string; name: string }[]
+    },
+  })
+
+  useEffect(() => { setStreamId('') }, [classId])
+  // Reset class selection when active year loads so a pre-selection from
+  // the unfiltered (loading) state can't slip through as a stale classId.
+  useEffect(() => { setClassId(''); setStreamId('') }, [activeYear?.id])
+
+  // Escape closes the wizard. Keep onClose in a ref so the listener is only
+  // re-registered when `busy` changes, not on every parent re-render.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape' && !busy) onCloseRef.current() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [busy])
+
+  // Clears all detail fields when the user picks a different entity type
+  function switchEntity(e: WEntityType) {
+    setEntity(e)
+    setFirstName(''); setLastName(''); setEmailInput(''); setPhone('')
+    setClassId(''); setStreamId(''); setGender('')
+    setFullName(''); setParentEmail(''); setParentPhone('')
+    setError(null)
+  }
+
+  const sn = (schoolShortName || 'school').toLowerCase().replace(/[^a-z0-9]/g, '')
+
+  function previewEmail(): string {
+    if (entity === 'staff') {
+      if (emailInput.trim()) return emailInput.trim().toLowerCase()
+      const fn = firstName.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+      const ln = lastName.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+      if (!fn && !ln) return `username@${sn}.ug`
+      return `${fn}${ln ? '.' + ln : ''}@${sn}.ug`
+    }
+    if (entity === 'student') {
+      const fn = firstName.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+      const ln = lastName.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+      if (!fn && !ln) return `username@${sn}.ug`
+      return `${fn}${ln ? '.' + ln : ''}@${sn}.ug`
+    }
+    return parentEmail.trim() || `parent@${sn}.ug`
+  }
+
+  function isValid(): boolean {
+    if (entity === 'staff')   return !!firstName.trim() && !!lastName.trim()
+    if (entity === 'student') return !!firstName.trim() && !!lastName.trim() && !!classId
+    if (entity === 'parent')  return !!fullName.trim() && !!parentEmail.trim() && parentEmail.includes('@')
+    return false
+  }
+
+  function resetForm() {
+    setStep('type'); setEntity(null); setRole('teacher')
+    setFirstName(''); setLastName(''); setEmailInput(''); setPhone('')
+    setClassId(''); setStreamId(''); setGender('')
+    setFullName(''); setParentEmail(''); setParentPhone('')
+    setResult(null); setError(null)
+  }
+
+  async function handleCreate() {
+    if (busy || !entity) return
+    setBusy(true)
+    setError(null)
+    const password = wizGenPass()
+    // Track the inserted row so we can roll back if the edge function fails
+    let orphanTable: string | null = null
+    let orphanId:    string | null = null
+    try {
+      if (entity === 'staff') {
+        const email = emailInput.trim() ? emailInput.trim().toLowerCase() : previewEmail()
+        const { data: row, error: ie } = await supabase
+          .from('staff')
+          .insert({ school_id: schoolId, first_name: firstName.trim(), last_name: lastName.trim(), role, email, phone: phone.trim() || null, is_active: true })
+          .select('id').single()
+        if (ie) throw ie
+        orphanTable = 'staff'; orphanId = (row as { id: string }).id
+        const { data: fnData, error: fnErr } = await supabase.functions.invoke('create-staff-auth-user', {
+          body: { staffId: orphanId, email, schoolId, password },
+        })
+        if (fnErr || !(fnData as any)?.success) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
+        orphanTable = null
+        void qc.invalidateQueries({ queryKey: ['staff', schoolId] })
+        setResult({ email, password, name: `${firstName.trim()} ${lastName.trim()}` })
+
+      } else if (entity === 'student') {
+        const email = previewEmail()
+        const { data: row, error: ie } = await supabase
+          .from('students')
+          .insert({
+            school_id: schoolId, first_name: firstName.trim(), last_name: lastName.trim(),
+            class_id: classId, stream_id: streamId || null, gender: gender || null,
+            academic_year_id: activeYear?.id ?? null, status: 'active', created_by: user?.id ?? null,
+          })
+          .select('id, admission_number').single()
+        if (ie) throw ie
+        orphanTable = 'students'; orphanId = (row as { id: string }).id
+        const { data: fnData, error: fnErr } = await supabase.functions.invoke('create-student-auth-user', {
+          body: { studentId: orphanId, email, schoolId, password },
+        })
+        if (fnErr || !(fnData as any)?.success) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
+        orphanTable = null
+        void qc.invalidateQueries({ queryKey: ['students', schoolId] })
+        void qc.invalidateQueries({ queryKey: ['students-pending-login', schoolId] })
+        void qc.invalidateQueries({ queryKey: ['students-active-login', schoolId] })
+        setResult({ email, password, name: `${firstName.trim()} ${lastName.trim()}`, note: `Admission: ${(row as any).admission_number ?? '—'}` })
+
+      } else {
+        const email = parentEmail.trim().toLowerCase()
+        const { data: row, error: ie } = await supabase
+          .from('parent_accounts')
+          .insert({ school_id: schoolId, full_name: fullName.trim(), email, phone: parentPhone.trim() || null, student_ids: [], created_by: user?.id ?? null })
+          .select('id').single()
+        if (ie) throw ie
+        orphanTable = 'parent_accounts'; orphanId = (row as { id: string }).id
+        const { data: fnData, error: fnErr } = await supabase.functions.invoke('create-parent-auth-user', {
+          body: { parentAccountId: orphanId, email, schoolId, password },
+        })
+        if (fnErr || !(fnData as any)?.success) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
+        orphanTable = null
+        void qc.invalidateQueries({ queryKey: ['parents-pending-login', schoolId] })
+        void qc.invalidateQueries({ queryKey: ['parents-active-login', schoolId] })
+        setResult({ email, password, name: fullName.trim() })
+      }
+
+      setStep('done')
+      ok(`Account created for ${entity === 'parent' ? fullName.trim() : `${firstName.trim()} ${lastName.trim()}`}`)
+    } catch (e) {
+      // Roll back the DB row if the edge function failed after a successful INSERT.
+      // parent_accounts requires a DELETE RLS policy (see migration 20260612_000003).
+      if (orphanTable && orphanId) {
+        const { error: rbErr } = await supabase.from(orphanTable!).delete().eq('id', orphanId)
+        if (rbErr) console.error('Orphan cleanup failed:', orphanTable, orphanId, rbErr.message)
+      }
+      setError(e instanceof Error ? e.message : 'Failed to create user')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function copy(key: string, val: string) {
+    void navigator.clipboard.writeText(val)
+    setCopied(key)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  const selectedRole = WIZARD_ROLES.find(r => r.value === role)
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '10px 12px', borderRadius: 10,
+    border: '1px solid var(--border)', background: 'var(--surface)',
+    fontSize: 13, color: 'var(--txt)', outline: 'none', boxSizing: 'border-box',
+  }
+  const selectStyle: React.CSSProperties = { ...inputStyle, appearance: 'none' as const }
+  const labelStyle: React.CSSProperties = {
+    fontSize: 11, fontWeight: 700, color: 'var(--txt3)',
+    textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 5,
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(7,13,26,.65)', backdropFilter: 'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget && !busy) onClose() }}
+    >
+      <div style={{ background: 'var(--surface)', borderRadius: 20, width: '100%', maxWidth: 520, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,.3)', border: '1px solid var(--border)', margin: '0 16px' }}>
+
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 10, borderRadius: '20px 20px 0 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 11, background: 'linear-gradient(135deg,#8b5cf6,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            </div>
+            <div>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 16, color: 'var(--txt)', letterSpacing: -.3 }}>
+                {step === 'done' ? 'Account Created' : 'Create New User'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>
+                {step === 'type' ? 'Step 1 — Choose user type' : step === 'details' ? 'Step 2 — Fill details' : 'Login credentials ready'}
+              </div>
+            </div>
+          </div>
+          <button onClick={() => !busy && onClose()} style={{ background: 'none', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', color: 'var(--txt3)', padding: 6, borderRadius: 8 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div style={{ padding: '20px 24px 24px' }}>
+
+          {/* ── Step 1: entity type picker ─────────────────────── */}
+          {step === 'type' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ fontSize: 13, color: 'var(--txt2)', lineHeight: 1.5 }}>
+                Select the type of account to create. The wizard will set up the database record <strong>and</strong> the login in one step.
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                {([
+                  { id: 'staff'   as WEntityType, label: 'Staff',   desc: 'Any staff role', color: '#8b5cf6',
+                    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> },
+                  { id: 'student' as WEntityType, label: 'Student', desc: 'Enrol + login',  color: '#0ea5e9',
+                    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> },
+                  { id: 'parent'  as WEntityType, label: 'Parent',  desc: 'Portal access', color: '#f59e0b',
+                    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg> },
+                ] as const).map(opt => {
+                  const sel = entity === opt.id
+                  return (
+                    <button key={opt.id} onClick={() => switchEntity(opt.id)}
+                      style={{ padding: '14px 8px', borderRadius: 14, border: `2px solid ${sel ? opt.color : 'var(--border)'}`, background: sel ? `${opt.color}12` : 'var(--surface)', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                      <div style={{ color: sel ? opt.color : 'var(--txt3)', transition: 'color 0.15s' }}>{opt.icon}</div>
+                      <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13, color: sel ? opt.color : 'var(--txt)' }}>{opt.label}</div>
+                      <div style={{ fontSize: 10.5, color: 'var(--txt3)', fontWeight: 600, textAlign: 'center' }}>{opt.desc}</div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {entity === 'staff' && (
+                <div>
+                  <div style={{ ...labelStyle, marginBottom: 8 }}>Staff Role</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 7 }}>
+                    {WIZARD_ROLES.map(r => {
+                      const [c1] = r.grad
+                      const sel  = role === r.value
+                      return (
+                        <button key={r.value} onClick={() => setRole(r.value)}
+                          style={{ padding: '9px 12px', borderRadius: 10, border: `1.5px solid ${sel ? c1 : 'var(--border)'}`, background: sel ? `${c1}14` : 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.14s' }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: sel ? c1 : 'var(--border)', flexShrink: 0 }} />
+                          <span style={{ fontSize: 12.5, fontWeight: sel ? 800 : 600, color: sel ? c1 : 'var(--txt2)', fontFamily: 'var(--font2)' }}>{r.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => entity && setStep('details')}
+                disabled={!entity}
+                style={{ marginTop: 4, padding: '12px 0', borderRadius: 12, border: 'none', background: entity ? 'linear-gradient(135deg,#8b5cf6,#6366f1)' : 'var(--border)', color: entity ? '#fff' : 'var(--txt3)', fontWeight: 800, fontSize: 13.5, fontFamily: 'var(--font2)', cursor: entity ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.15s' }}>
+                Next — Fill Details
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
+          )}
+
+          {/* ── Step 2: details form ───────────────────────────── */}
+          {step === 'details' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .7, borderRadius: 99, padding: '3px 10px', ...(entity === 'staff' ? { color: '#8b5cf6', background: '#8b5cf614', border: '1px solid #8b5cf640' } : entity === 'student' ? { color: '#0ea5e9', background: '#0ea5e914', border: '1px solid #0ea5e940' } : { color: '#f59e0b', background: '#f59e0b14', border: '1px solid #f59e0b40' }) }}>
+                  {entity === 'staff' ? (selectedRole?.label ?? 'Staff') : entity === 'student' ? 'Student' : 'Parent'}
+                </span>
+                <button onClick={() => { setStep('type'); setFirstName(''); setLastName(''); setEmailInput(''); setPhone(''); setClassId(''); setStreamId(''); setGender(''); setFullName(''); setParentEmail(''); setParentPhone(''); setError(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--txt3)', padding: 0, textDecoration: 'underline', textUnderlineOffset: 2 }}>Change type</button>
+              </div>
+
+              {entity === 'staff' && <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <div style={labelStyle}>First Name *</div>
+                    <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="John" style={inputStyle} />
+                  </div>
+                  <div>
+                    <div style={labelStyle}>Last Name *</div>
+                    <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Doe" style={inputStyle} />
+                  </div>
+                </div>
+                <div>
+                  <div style={labelStyle}>Email <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(optional — auto-generated if blank)</span></div>
+                  <input value={emailInput} onChange={e => setEmailInput(e.target.value)} placeholder={previewEmail()} style={inputStyle} />
+                  {!emailInput && (firstName || lastName) && (
+                    <div style={{ fontSize: 11, color: 'var(--info)', marginTop: 5, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                      Will use: <code style={{ fontFamily: 'var(--font3)' }}>{previewEmail()}</code>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div style={labelStyle}>Phone <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></div>
+                  <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+256 700 000000" style={inputStyle} />
+                </div>
+              </>}
+
+              {entity === 'student' && <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <div style={labelStyle}>First Name *</div>
+                    <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Alice" style={inputStyle} />
+                  </div>
+                  <div>
+                    <div style={labelStyle}>Last Name *</div>
+                    <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Nakato" style={inputStyle} />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <div style={labelStyle}>Class *</div>
+                    <select value={classId} onChange={e => setClassId(e.target.value)} style={{ ...selectStyle, color: classId ? 'var(--txt)' : 'var(--txt3)' }}>
+                      <option value="">Select class…</option>
+                      {classes
+                        .filter(c => !activeYear || c.academicYearId === activeYear.id)
+                        .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={labelStyle}>Stream <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></div>
+                    <select value={streamId} onChange={e => setStreamId(e.target.value)} disabled={!classId || streams.length === 0} style={{ ...selectStyle, opacity: !classId || streams.length === 0 ? 0.5 : 1 }}>
+                      <option value="">None</option>
+                      {streams.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <div style={labelStyle}>Gender <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></div>
+                  <select value={gender} onChange={e => setGender(e.target.value)} style={selectStyle}>
+                    <option value="">Not specified</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </div>
+                {(firstName || lastName) && (
+                  <div style={{ fontSize: 11, color: 'var(--info)', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    Login email: <code style={{ fontFamily: 'var(--font3)' }}>{previewEmail()}</code>
+                    {activeYear && <span style={{ color: 'var(--txt3)', marginLeft: 4 }}>· Year: {activeYear.label}</span>}
+                  </div>
+                )}
+              </>}
+
+              {entity === 'parent' && <>
+                <div>
+                  <div style={labelStyle}>Full Name *</div>
+                  <input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Sarah Namukasa" style={inputStyle} />
+                </div>
+                <div>
+                  <div style={labelStyle}>Email *</div>
+                  <input type="email" value={parentEmail} onChange={e => setParentEmail(e.target.value)} placeholder="parent@gmail.com" style={inputStyle} />
+                </div>
+                <div>
+                  <div style={labelStyle}>Phone <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></div>
+                  <input value={parentPhone} onChange={e => setParentPhone(e.target.value)} placeholder="+256 700 000000" style={inputStyle} />
+                </div>
+              </>}
+
+              {error && (
+                <div style={{ borderRadius: 10, border: '1px solid rgba(244,63,94,.3)', background: 'rgba(244,63,94,.06)', padding: '10px 14px', fontSize: 12.5, color: 'var(--danger)' }}>
+                  {error}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                <button onClick={() => { setStep('type'); setFirstName(''); setLastName(''); setEmailInput(''); setPhone(''); setClassId(''); setStreamId(''); setGender(''); setFullName(''); setParentEmail(''); setParentPhone(''); setError(null) }}
+                  style={{ flex: '0 0 auto', padding: '11px 20px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, fontFamily: 'var(--font2)', cursor: 'pointer' }}>
+                  Back
+                </button>
+                <button
+                  onClick={() => void handleCreate()}
+                  disabled={!isValid() || busy}
+                  style={{ flex: 1, padding: '11px 0', borderRadius: 12, border: 'none', background: isValid() && !busy ? 'linear-gradient(135deg,#8b5cf6,#6366f1)' : 'var(--border)', color: isValid() && !busy ? '#fff' : 'var(--txt3)', fontWeight: 800, fontSize: 13.5, fontFamily: 'var(--font2)', cursor: isValid() && !busy ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.15s' }}>
+                  {busy
+                    ? 'Creating…'
+                    : <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Create Account</>
+                  }
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step done: credentials ─────────────────────────── */}
+          {step === 'done' && result && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: 'rgba(16,185,129,.06)', border: '1px solid rgba(16,185,129,.2)' }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(16,185,129,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: 'var(--success)' }}>{result.name}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2 }}>
+                    Account created and login activated.{result.note ? ` ${result.note}` : ''}
+                  </div>
+                </div>
+              </div>
+
+              {([
+                { key: 'email', label: 'Email Address', val: result.email },
+                { key: 'pass',  label: 'Password',      val: result.password },
+              ] as const).map(f => (
+                <div key={f.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', gap: 12 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 4 }}>{f.label}</div>
+                    <div style={{ fontFamily: 'var(--font3)', fontSize: 13.5, color: 'var(--txt)', fontWeight: 600, wordBreak: 'break-all' }}>{f.val}</div>
+                  </div>
+                  <button onClick={() => copy(f.key, f.val)}
+                    style={{ flexShrink: 0, padding: '5px 12px', borderRadius: 8, border: `1px solid ${copied === f.key ? 'rgba(16,185,129,.3)' : 'var(--border)'}`, background: copied === f.key ? 'rgba(16,185,129,.1)' : 'var(--surface)', color: copied === f.key ? 'var(--success)' : 'var(--txt2)', fontSize: 11, fontWeight: 800, cursor: 'pointer', transition: 'all 0.15s' }}>
+                    {copied === f.key ? '✓' : 'Copy'}
+                  </button>
+                </div>
+              ))}
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => copy('all', `${result.name}\nEmail: ${result.email}\nPassword: ${result.password}\nURL: ${window.location.origin}`)}
+                  style={{ flex: 1, padding: '9px 0', borderRadius: 10, border: `1px solid ${copied === 'all' ? 'rgba(16,185,129,.3)' : 'var(--border)'}`, background: copied === 'all' ? 'rgba(16,185,129,.08)' : 'var(--surface2)', color: copied === 'all' ? 'var(--success)' : 'var(--txt2)', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.15s' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                  {copied === 'all' ? '✓ Copied All' : 'Copy All'}
+                </button>
+                <button
+                  onClick={() => printCredentialSlip({ staffName: result.name, role: entity === 'staff' ? role : (entity ?? 'user'), deptName: null, email: result.email, password: result.password, schoolName })}
+                  style={{ flex: 1, padding: '9px 0', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.15s' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                  Print Slip
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, paddingTop: 4, borderTop: '1px solid var(--border)' }}>
+                <button onClick={resetForm}
+                  style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, fontFamily: 'var(--font2)', cursor: 'pointer' }}>
+                  Create Another
+                </button>
+                <button onClick={onClose}
+                  style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#8b5cf6,#6366f1)', color: '#fff', fontWeight: 800, fontSize: 13, fontFamily: 'var(--font2)', cursor: 'pointer' }}>
+                  Done
+                </button>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 export function AdminUsersPage() {
   const qc = useQueryClient()
+  const [wizardOpen, setWizardOpen] = useState(false)
+  const closeWizard = useCallback(() => setWizardOpen(false), [])
   // Top-level section switcher: Staff | Students | Parents | Credentials
   const [section,    setSection]    = useState<'staff' | 'students' | 'parents' | 'credentials'>('staff')
   const [tab,        setTab]        = useState<'pending' | 'active'>('pending')
@@ -1393,9 +1910,20 @@ export function AdminUsersPage() {
               </div>
               <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 22, color: '#fff', margin: 0, letterSpacing: -.4 }}>User Logins</h1>
             </div>
-            <p style={{ color: 'rgba(255,255,255,.7)', fontSize: 12.5, margin: '0 0 20px' }}>
-              Activate and manage system access for staff and students
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+              <p style={{ color: 'rgba(255,255,255,.7)', fontSize: 12.5, margin: 0 }}>
+                Activate and manage system access for all users
+              </p>
+              <button
+                onClick={() => setWizardOpen(true)}
+                style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 10, border: 'none', background: 'rgba(255,255,255,.18)', backdropFilter: 'blur(8px)', color: '#fff', fontWeight: 800, fontSize: 12.5, fontFamily: 'var(--font2)', cursor: 'pointer', transition: 'background 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.26)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,.18)' }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Create User
+              </button>
+            </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {heroStats.map(s => (
                 <div key={s.label} style={{ background: s.accent, backdropFilter: 'blur(10px)', borderRadius: 10, padding: '8px 14px', border: '1px solid rgba(255,255,255,.15)' }}>
@@ -1695,6 +2223,16 @@ export function AdminUsersPage() {
       </div>
 
       {linkModal && <LinkAuthModal staffId={linkModal.staffId} staffName={linkModal.staffName} onClose={() => setLinkModal(null)} />}
+
+      {wizardOpen && (
+        <CreateUserWizard
+          onClose={closeWizard}
+          schoolId={schoolId}
+          schoolShortName={(school?.shortName ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')}
+          schoolName={schoolName}
+          classes={classes.map(c => ({ id: c.id, name: c.name, academicYearId: c.academicYearId ?? null }))}
+        />
+      )}
     </>
   )
 }

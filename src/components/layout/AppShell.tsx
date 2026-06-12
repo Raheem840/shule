@@ -29,7 +29,6 @@ import { applyBrandColor } from '../../lib/brandColor'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import type { UserRole } from '../../store/AuthContext'
 import type { NotificationType } from '../../types/week9'
-import { NotificationToastProvider } from '../shared/NotificationToast'
 import { ConnectionBanner } from '../ui/ConnectionBanner'
 import { SyncManager } from './SyncManager'
 import { GlobalSearch } from './GlobalSearch'
@@ -422,7 +421,6 @@ export function AppShell() {
         </main>
 
         <NotificationPushListener />
-        <NotificationToastProvider />
         <GlobalSearch open={searchOpen} onClose={closeSearch} />
 
         {/* ── Bottom navigation (mobile only) ─────────────────────── */}

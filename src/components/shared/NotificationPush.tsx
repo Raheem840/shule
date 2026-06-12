@@ -214,6 +214,35 @@ export function NotificationPushListener() {
   const [queue, setQueue] = useState<(Notification & { key: number; fromName?: string })[]>([])
   const keyRef = useRef(0)
 
+  // Portal root: a .ar sibling of the main app container appended to body.
+  // Lives outside the main .ar so position:fixed toasts are never trapped by
+  // any CSS transform on the main container (e.g. sui-page-enter animations).
+  // Mirrors data-theme so all --surface/--txt/etc tokens resolve correctly.
+  const [portalEl, setPortalEl] = useState<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const arEl = document.querySelector('.ar') as HTMLElement | null
+    const el   = document.createElement('div')
+    el.className  = 'ar'
+    el.style.cssText = 'position:absolute;top:0;left:0;width:0;height:0;overflow:visible;pointer-events:none;'
+    document.body.appendChild(el)
+    setPortalEl(el)
+    const syncTheme = () => {
+      const t = arEl?.getAttribute('data-theme')
+      if (t) el.setAttribute('data-theme', t)
+      else    el.removeAttribute('data-theme')
+    }
+    syncTheme()
+    let obs: MutationObserver | undefined
+    if (arEl) {
+      obs = new MutationObserver(syncTheme)
+      obs.observe(arEl, { attributes: true, attributeFilter: ['data-theme'] })
+    }
+    return () => {
+      obs?.disconnect()
+      if (document.body.contains(el)) document.body.removeChild(el)
+    }
+  }, [])
+
   useEffect(() => {
     if (!user) return
 
@@ -253,9 +282,7 @@ export function NotificationPushListener() {
     return () => { void supabase.removeChannel(channel) }
   }, [user?.id])
 
-  if (queue.length === 0) return null
-
-  const portal = (document.querySelector('.ar') as HTMLElement) ?? document.body
+  if (queue.length === 0 || !portalEl) return null
 
   return createPortal(
     <>
@@ -293,6 +320,6 @@ export function NotificationPushListener() {
         ))}
       </div>
     </>,
-    portal
+    portalEl
   )
 }
