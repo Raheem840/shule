@@ -182,7 +182,7 @@ export function AppShell() {
       }
 
       // Stamp last_login_at so neither prompt shows again
-      void supabase
+      await supabase
         .from('staff')
         .update({ last_login_at: new Date().toISOString() })
         .eq('auth_user_id', user!.id)
@@ -201,7 +201,7 @@ export function AppShell() {
         e.preventDefault()
         setSearchOpen(o => !o)
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b' && !isMobile) {
         e.preventDefault()
         setSidebarMini(m => !m)
       }
@@ -268,7 +268,7 @@ export function AppShell() {
           schoolNeedsSetup={schoolNeedsSetup}
           onDone={() => { setShowOnboarding(false); setIsFirstLogin(false) }}
         />
-      )}}
+      )}
       <ConnectionBanner />
       <SyncManager />
 

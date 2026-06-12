@@ -1008,7 +1008,12 @@ export function MarkEntryPage() {
                         <input
                           type="number" min={0} max={totalMarks} step={0.5}
                           value={score ?? ''}
-                          onChange={e => setMark(student.id, e.target.value === '' ? null : parseFloat(e.target.value), false)}
+                          onChange={e => {
+                            if (e.target.value.endsWith('.')) return
+                            const v = e.target.value === '' ? null : parseFloat(e.target.value)
+                            if (v !== null && isNaN(v)) return
+                            setMark(student.id, v, false)
+                          }}
                           placeholder={`Score / ${totalMarks}`}
                           style={{
                             width: '100%', padding: '10px 14px', border: `.5px solid ${hasWarning ? 'var(--warning)' : 'var(--border)'}`,
@@ -1044,7 +1049,9 @@ export function MarkEntryPage() {
                         value={isAbsent ? '' : (score ?? '')}
                         disabled={isAbsent}
                         onChange={e => {
+                          if (e.target.value.endsWith('.')) return
                           const v = e.target.value === '' ? null : parseFloat(e.target.value)
+                          if (v !== null && isNaN(v)) return
                           setMark(student.id, v, false)
                         }}
                         style={{ width: 80, padding: '10px 8px', border: `.5px solid ${hasWarning ? 'var(--warning)' : 'var(--border)'}`, borderRadius: 8, fontSize: 16, background: isAbsent ? 'var(--surface2)' : 'var(--surface)', color: 'var(--txt)', fontFamily: 'var(--font3)' }}

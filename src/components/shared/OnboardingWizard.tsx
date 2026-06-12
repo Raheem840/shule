@@ -12,7 +12,7 @@
  * School-setup condition: schoolNeedsSetup=true when school_profile.school_name is empty.
  */
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
@@ -846,6 +846,21 @@ interface OnboardingWizardProps {
 
 export function OnboardingWizard({ isFirstLogin, schoolNeedsSetup, onDone }: OnboardingWizardProps) {
   const { user } = useAuth()
+
+  // Dismiss immediately when no branch applies (e.g. it_admin first login, school already set up)
+  useEffect(() => {
+    if (!user) return
+    const role = user.role as UserRole
+    const hasWizard =
+      (role === 'it_admin' && schoolNeedsSetup) ||
+      (role === 'principal' && (isFirstLogin || schoolNeedsSetup)) ||
+      (role === 'dos' && isFirstLogin) ||
+      (role === 'secretary' && isFirstLogin) ||
+      ((role === 'deputy' || role === 'bursar' || role === 'teacher' || role === 'class_teacher') && isFirstLogin)
+    if (!hasWizard) onDone()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   if (!user) return null
 
   const role = user.role as UserRole
@@ -863,6 +878,7 @@ export function OnboardingWizard({ isFirstLogin, schoolNeedsSetup, onDone }: Onb
     if (role === 'deputy' || role === 'bursar' || role === 'teacher' || role === 'class_teacher') {
       return <StaffWelcome role={role} onDone={onDone} />
     }
+    // it_admin first login with school already configured — nothing to show; dismiss via effect
   }
 
   // Principal also sees a reminder if school isn't set up (can't fix, just inform)

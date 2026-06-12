@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   useReportCards,
   useStudentReadiness,
@@ -8,6 +8,7 @@ import {
 } from '../../hooks/useReportCards'
 import { useStudents } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../../components/ui/Button'
 import { Modal, ModalCancelButton } from '../../components/ui/Modal'
 import { Select } from '../../components/ui/Select'
@@ -168,10 +169,11 @@ type CardTableProps = {
   onUnlock?:      (card: ReportCard, name: string) => void
   releaseLoading?: boolean
   emptyMessage:   string
-  selectable?:    boolean
-  selectedIds?:   Set<string>
-  onToggle?:      (id: string) => void
-  onToggleAll?:   (ids: string[]) => void
+  selectable?:      boolean
+  selectedIds?:     Set<string>
+  onToggle?:        (id: string) => void
+  onToggleAll?:     (ids: string[]) => void
+  bulkInProgress?:  boolean
 }
 
 function RCTable({
@@ -179,6 +181,7 @@ function RCTable({
   onApprove, onRelease, onUnlock,
   releaseLoading, emptyMessage,
   selectable, selectedIds, onToggle, onToggleAll,
+  bulkInProgress,
 }: CardTableProps) {
   if (cards.length === 0) {
     return (
@@ -269,6 +272,7 @@ function RCTable({
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               {card.status === 'ready' && onApprove && (
                 <Button size="sm" variant="primary"
+                  disabled={bulkInProgress}
                   onClick={() => onApprove(card, name)}>
                   Approve
                 </Button>
@@ -276,6 +280,7 @@ function RCTable({
               {card.status === 'approved' && onRelease && (
                 <Button size="sm" variant="primary"
                   loading={releaseLoading}
+                  disabled={bulkInProgress}
                   onClick={() => onRelease(card)}>
                   Release
                 </Button>
@@ -311,9 +316,12 @@ export function PrincipalReportCardsPage() {
 
   const [unlockCard,  setUnlockCard]  = useState<{ card: ReportCard; name: string } | null>(null)
   const [approveCard, setApproveCard] = useState<{ card: ReportCard; name: string } | null>(null)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [bulkAction,  setBulkAction]  = useState<'approve' | 'release' | null>(null)
-  const [bulkLoading, setBulkLoading] = useState(false)
+  const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set())
+  const [bulkAction,     setBulkAction]     = useState<'approve' | 'release' | null>(null)
+  const [approveLoading, setApproveLoading] = useState(false)
+  const [releaseLoading2, setReleaseLoading2] = useState(false)
+  const [bulkError,      setBulkError]      = useState<string | null>(null)
+  const bulkInFlight = useRef(false)
 
   // Clear selection when switching tabs
   useEffect(() => setSelectedIds(new Set()), [activeTab])
@@ -337,30 +345,56 @@ export function PrincipalReportCardsPage() {
   const { data: streams  = [] } = useStreams(classId || null)
   const release                 = useReleaseReportCard()
   const approve                 = useApproveReportCard()
+  const qc                      = useQueryClient()
 
   async function handleBulkApprove(remarks: string | null) {
-    setBulkLoading(true)
+    if (bulkInFlight.current) return
+    bulkInFlight.current = true
+    setApproveLoading(true)
+    setBulkError(null)
+    const ids = [...selectedIds]
     try {
-      for (const id of selectedIds) {
-        await approve.mutateAsync({ reportCardId: id, principalRemarks: remarks })
+      const results = await Promise.allSettled(
+        ids.map(id => approve.mutateAsync({ reportCardId: id, principalRemarks: remarks }))
+      )
+      // Invalidate once after all writes settle — avoids N mid-loop re-fetches
+      void qc.invalidateQueries({ queryKey: ['report-cards'] })
+      const failed = results.filter(r => r.status === 'rejected')
+      if (failed.length > 0) {
+        const succeeded = results.length - failed.length
+        setBulkError(`${succeeded} approved, ${failed.length} failed — check permissions and try again for the remaining cards.`)
+      } else {
+        setBulkAction(null)
+        setSelectedIds(new Set())
       }
-      setSelectedIds(new Set())
     } finally {
-      setBulkLoading(false)
-      setBulkAction(null)
+      setApproveLoading(false)
+      bulkInFlight.current = false
     }
   }
 
   async function handleBulkRelease() {
-    setBulkLoading(true)
+    if (bulkInFlight.current) return
+    bulkInFlight.current = true
+    setReleaseLoading2(true)
+    setBulkError(null)
+    const ids = [...selectedIds]
     try {
-      for (const id of selectedIds) {
-        await release.mutateAsync({ reportCardId: id })
+      const results = await Promise.allSettled(
+        ids.map(id => release.mutateAsync({ reportCardId: id }))
+      )
+      void qc.invalidateQueries({ queryKey: ['report-cards'] })
+      const failed = results.filter(r => r.status === 'rejected')
+      if (failed.length > 0) {
+        const succeeded = results.length - failed.length
+        setBulkError(`${succeeded} released, ${failed.length} failed — check permissions and try again for the remaining cards.`)
+      } else {
+        setBulkAction(null)
+        setSelectedIds(new Set())
       }
-      setSelectedIds(new Set())
     } finally {
-      setBulkLoading(false)
-      setBulkAction(null)
+      setReleaseLoading2(false)
+      bulkInFlight.current = false
     }
   }
 
@@ -510,15 +544,23 @@ export function PrincipalReportCardsPage() {
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--brand)', flex: 1 }}>
                     {selectedIds.size} selected
                   </span>
-                  <Button size="sm" variant="primary" onClick={() => setBulkAction('approve')}>
+                  <Button size="sm" variant="primary"
+                    disabled={approveLoading}
+                    onClick={() => { setBulkError(null); setBulkAction('approve') }}>
                     Approve Selected ({selectedIds.size})
                   </Button>
                   <button
-                    onClick={() => setSelectedIds(new Set())}
+                    onClick={() => { setSelectedIds(new Set()); setBulkError(null) }}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--txt3)', padding: '4px 8px' }}
                   >
                     Clear
                   </button>
+                </div>
+              )}
+              {bulkError && (
+                <div style={{ padding: '10px 14px', marginBottom: 10, background: 'rgba(244,63,94,0.08)', borderRadius: 10, border: '1px solid rgba(244,63,94,0.25)', fontSize: 13, color: 'var(--danger)' }}>
+                  {bulkError}
+                  <button onClick={() => setBulkError(null)} style={{ marginLeft: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', fontSize: 12 }}>Dismiss</button>
                 </div>
               )}
               <RCTable
@@ -531,6 +573,7 @@ export function PrincipalReportCardsPage() {
                 selectedIds={selectedIds}
                 onToggle={toggleSelect}
                 onToggleAll={toggleAll}
+                bulkInProgress={approveLoading}
               />
             </>
           )}
@@ -548,15 +591,23 @@ export function PrincipalReportCardsPage() {
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--info)', flex: 1 }}>
                     {selectedIds.size} selected
                   </span>
-                  <Button size="sm" variant="primary" onClick={() => setBulkAction('release')} loading={bulkLoading}>
+                  <Button size="sm" variant="primary"
+                    loading={releaseLoading2}
+                    onClick={() => { setBulkError(null); setBulkAction('release') }}>
                     Release Selected ({selectedIds.size})
                   </Button>
                   <button
-                    onClick={() => setSelectedIds(new Set())}
+                    onClick={() => { setSelectedIds(new Set()); setBulkError(null) }}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--txt3)', padding: '4px 8px' }}
                   >
                     Clear
                   </button>
+                </div>
+              )}
+              {bulkError && (
+                <div style={{ padding: '10px 14px', marginBottom: 10, background: 'rgba(244,63,94,0.08)', borderRadius: 10, border: '1px solid rgba(244,63,94,0.25)', fontSize: 13, color: 'var(--danger)' }}>
+                  {bulkError}
+                  <button onClick={() => setBulkError(null)} style={{ marginLeft: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', fontSize: 12 }}>Dismiss</button>
                 </div>
               )}
               <RCTable
@@ -571,6 +622,7 @@ export function PrincipalReportCardsPage() {
                 selectedIds={selectedIds}
                 onToggle={toggleSelect}
                 onToggleAll={toggleAll}
+                bulkInProgress={releaseLoading2}
               />
             </>
           )}
@@ -606,18 +658,18 @@ export function PrincipalReportCardsPage() {
       {bulkAction === 'approve' && (
         <BulkApproveModal
           count={selectedIds.size}
-          onConfirm={remarks => void handleBulkApprove(remarks)}
-          onClose={() => setBulkAction(null)}
-          loading={bulkLoading}
+          onConfirm={remarks => { void handleBulkApprove(remarks) }}
+          onClose={() => { if (!approveLoading) setBulkAction(null) }}
+          loading={approveLoading}
         />
       )}
       {bulkAction === 'release' && (
-        <Modal open onClose={() => setBulkAction(null)}
+        <Modal open onClose={() => { if (!releaseLoading2) setBulkAction(null) }}
           title={`Release ${selectedIds.size} Report Card${selectedIds.size !== 1 ? 's' : ''}`} size="sm"
           footer={
             <>
-              <ModalCancelButton onClose={() => setBulkAction(null)} />
-              <Button variant="primary" onClick={() => void handleBulkRelease()} loading={bulkLoading}>
+              <ModalCancelButton onClose={() => { if (!releaseLoading2) setBulkAction(null) }} />
+              <Button variant="primary" onClick={() => { void handleBulkRelease() }} loading={releaseLoading2}>
                 Release {selectedIds.size}
               </Button>
             </>

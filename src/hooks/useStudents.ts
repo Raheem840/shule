@@ -35,7 +35,7 @@ function toStudent(r: AnyRow): Student {
   return {
     id:              r.id as string,
     schoolId:        r.school_id as string,
-    admissionNumber: r.admission_number as string,
+    admissionNumber: (r.admission_number as string) ?? '',
     firstName:       r.first_name as string,
     lastName:        r.last_name as string,
     dob:             (r.dob as string) ?? null,
