@@ -45,7 +45,7 @@ function EventFormModal({ initial, onSave, onClose, saving, showParentsToggle }:
     totalMarks:       initial?.totalMarks       ?? '',
     passMark:         initial?.passMark         ?? '',
     description:      initial?.description      ?? '',
-    term:             initial?.term             ?? 'Term 1',
+    term:             initial?.term             ?? '1',
     year:             initial?.year             ?? String(new Date().getFullYear()),
     visibleToParents: initial?.visibleToParents ?? false,
   })
@@ -113,7 +113,7 @@ function EventFormModal({ initial, onSave, onClose, saving, showParentsToggle }:
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div><Lbl>Term</Lbl><select {...f('term')} className="sui-input" style={{ width: '100%' }}>{['Term 1','Term 2','Term 3'].map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+              <div><Lbl>Term</Lbl><select {...f('term')} className="sui-input" style={{ width: '100%' }}>{['1','2','3'].map(t => <option key={t} value={t}>Term {t}</option>)}</select></div>
               <div><Lbl>Year</Lbl><input type="number" {...f('year')} className="sui-input" style={{ width: '100%' }} /></div>
             </div>
 
@@ -339,7 +339,7 @@ export function TeacherEventsPage() {
       {showCreate && <EventFormModal onSave={handleCreate} onClose={() => setShowCreate(false)} saving={createMut.isPending} showParentsToggle={canToggleParents} />}
       {editEvent   && (
         <EventFormModal
-          initial={{ title: editEvent.title, eventType: editEvent.eventType, subjectId: editEvent.subjectId ?? '', classId: editEvent.classId ?? '', streamId: editEvent.streamId ?? '', eventDate: editEvent.eventDate, totalMarks: editEvent.totalMarks?.toString() ?? '', passMark: editEvent.passMark?.toString() ?? '', description: editEvent.description ?? '', term: editEvent.term ?? 'Term 1', year: editEvent.year?.toString() ?? String(new Date().getFullYear()), visibleToParents: editEvent.visibleToParents }}
+          initial={{ title: editEvent.title, eventType: editEvent.eventType, subjectId: editEvent.subjectId ?? '', classId: editEvent.classId ?? '', streamId: editEvent.streamId ?? '', eventDate: editEvent.eventDate, totalMarks: editEvent.totalMarks?.toString() ?? '', passMark: editEvent.passMark?.toString() ?? '', description: editEvent.description ?? '', term: editEvent.term ?? '1', year: editEvent.year?.toString() ?? String(new Date().getFullYear()), visibleToParents: editEvent.visibleToParents }}
           onSave={handleUpdate} onClose={() => setEditEvent(null)} saving={updateMut.isPending} showParentsToggle={canToggleParents}
         />
       )}

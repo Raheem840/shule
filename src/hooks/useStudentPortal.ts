@@ -68,7 +68,7 @@ export function useMyReleasedReportCards(studentId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('report_cards')
-        .select('id, term, year, pdf_url, released_at')
+        .select('id, term, year, pdf_url, released_at, principal_remarks')
         .eq('school_id',  user!.schoolId)
         .eq('student_id', studentId!)
         .eq('status',     'released')
@@ -81,8 +81,9 @@ export function useMyReleasedReportCards(studentId: string | null) {
         id:         r.id as string,
         term:       r.term as string,
         year:       r.year as number,
-        pdfUrl:     (r.pdf_url as string) ?? null,
-        releasedAt: (r.released_at as string) ?? null,
+        pdfUrl:           (r.pdf_url as string) ?? null,
+        releasedAt:       (r.released_at as string) ?? null,
+        principalRemarks: (r.principal_remarks as string) ?? null,
       } satisfies PortalReportCard))
     },
   })
@@ -231,7 +232,7 @@ export function useSubmitSurvey() {
 }
 
 // ── useIsEndOfTermSurveyActive ────────────────────────────────
-// DoS can toggle academic_years.survey_active to show the survey tab to students.
+// Returns survey active flag plus the academic year context needed to submit.
 export function useIsEndOfTermSurveyActive() {
   const { user } = useAuth()
 
@@ -241,13 +242,32 @@ export function useIsEndOfTermSurveyActive() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('academic_years')
-        .select('survey_active')
+        .select('id, survey_active, term1_start, term1_end, term2_start, term2_end, term3_start, term3_end')
         .eq('school_id', user!.schoolId)
         .eq('is_active', true)
         .maybeSingle()
 
       if (error) throw error
-      return !!(data as AnyRow)?.survey_active
+      if (!data) return { isActive: false, academicYearId: null, currentTerm: null, currentYear: null }
+
+      const row = data as AnyRow
+      const isActive = !!row.survey_active
+      const academicYearId = row.id as string
+      const today = new Date()
+      const termDates = [
+        { term: '1', start: row.term1_start as string | null, end: row.term1_end as string | null },
+        { term: '2', start: row.term2_start as string | null, end: row.term2_end as string | null },
+        { term: '3', start: row.term3_start as string | null, end: row.term3_end as string | null },
+      ]
+      let currentTerm: string | null = null
+      for (const t of termDates) {
+        if (!t.start || !t.end) continue
+        if (today >= new Date(t.start) && today <= new Date(t.end)) {
+          currentTerm = t.term
+          break
+        }
+      }
+      return { isActive, academicYearId, currentTerm, currentYear: today.getFullYear() }
     },
   })
 }

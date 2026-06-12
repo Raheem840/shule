@@ -13,7 +13,7 @@ import { calculateCBCGrade } from '../../types/app'
 type JournalRow = {
   id: string; assessmentType: string; subjectId: string | null; classId: string | null
   term: string; year: number; totalMarks: number; passMark: number; status: string
-  createdAt: string; teacherName: string; teacherId: string
+  dateGiven: string | null; teacherName: string; teacherId: string
 }
 
 type ResultRow = {
@@ -58,8 +58,8 @@ function useAllJournals() {
       const sid = user!.schoolId
       const [journalsRes, staffRes] = await Promise.all([
         supabase.from('exam_journal')
-          .select('id, assessment_type, subject_id, class_id, term, year, total_marks, pass_mark, status, created_at, teacher_id')
-          .eq('school_id', sid).order('created_at', { ascending: false }).limit(500),
+          .select('id, assessment_type, subject_id, class_id, term, year, total_marks, pass_mark, status, date_given, teacher_id')
+          .eq('school_id', sid).order('date_given', { ascending: false }).limit(500),
         supabase.from('staff').select('id, first_name, last_name').eq('school_id', sid),
       ])
       if (journalsRes.error) throw new Error(journalsRes.error.message)
@@ -70,7 +70,7 @@ function useAllJournals() {
         id: r.id, assessmentType: r.assessment_type, subjectId: r.subject_id ?? null,
         classId: r.class_id ?? null, term: r.term, year: r.year,
         totalMarks: r.total_marks, passMark: r.pass_mark, status: r.status ?? 'draft',
-        createdAt: r.created_at, teacherName: staffMap.get(r.teacher_id) ?? '—',
+        dateGiven: r.date_given ?? null, teacherName: staffMap.get(r.teacher_id) ?? '—',
         teacherId: r.teacher_id as string,
       }))
     },

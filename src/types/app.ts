@@ -302,6 +302,7 @@ export type ExamResult = {
   score: number | null            // null when is_absent = true
   grade: 'A' | 'B' | 'C' | 'D' | 'E' | null  // null for end_of_term (needs CA to calculate)
   isAbsent: boolean
+  remarks: string | null
   term: string
   year: number
   teacherId: string

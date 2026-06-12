@@ -29,7 +29,7 @@ function subjColor(id: string): [string, string] {
 
 export function TeacherTimetablePage() {
   const isMobile    = useIsMobile()
-  const [term,      setTerm]      = useState('Term 1')
+  const [term,      setTerm]      = useState('1')
   const [year,      setYear]      = useState(new Date().getFullYear())
   const [mobileDay, setMobileDay] = useState<number>(() => jsToSchoolDay(new Date().getDay()) ?? 1)
   const [classFilter, setClassFilter] = useState<string>('')
@@ -97,7 +97,7 @@ export function TeacherTimetablePage() {
         <div style={{ flex: '0 0 110px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Term</div>
           <select value={term} onChange={e => setTerm(e.target.value)} className="sui-input" style={{ width: '100%' }}>
-            {['Term 1','Term 2','Term 3'].map(t => <option key={t} value={t}>{t}</option>)}
+            {['1','2','3'].map(t => <option key={t} value={t}>Term {t}</option>)}
           </select>
         </div>
         <div style={{ flex: '0 0 88px' }}>

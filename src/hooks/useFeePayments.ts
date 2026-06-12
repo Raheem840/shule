@@ -662,7 +662,7 @@ export function useApplyPayment() {
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['student-fee-rows'] })
+      qc.invalidateQueries({ queryKey: ['student-fee-rows', user?.schoolId] })
       qc.invalidateQueries({ queryKey: ['fee-payments',    user?.schoolId] })
       qc.invalidateQueries({ queryKey: ['bursar-kpis',     user?.schoolId] })
       qc.invalidateQueries({ queryKey: ['fee-by-class',    user?.schoolId] })

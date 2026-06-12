@@ -138,6 +138,7 @@ export function useRecentDiscipline() {
         const { data: stus } = await supabase
           .from('students')
           .select('id, first_name, last_name')
+          .eq('school_id', sid)
           .in('id', studentIds)
         for (const s of stus ?? []) nameMap.set(s.id, `${s.first_name} ${s.last_name}`)
       }
@@ -199,6 +200,7 @@ export function useDisciplineRecords(filters?: {
         const { data: stus } = await supabase
           .from('students')
           .select('id, first_name, last_name')
+          .eq('school_id', sid)
           .in('id', studentIds)
         for (const s of stus ?? []) nameMap.set(s.id, `${s.first_name} ${s.last_name}`)
       }

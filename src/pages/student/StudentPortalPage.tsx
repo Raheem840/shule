@@ -767,7 +767,7 @@ function StarRating({ value, onChange }: { value: number; onChange: (n: number) 
 
 // ─── Survey tab ────────────────────────────────────────────────────────────────
 function SurveyTab({ studentId }: { studentId: string }) {
-  const { data: surveyActive, isLoading: surveyLoading } = useIsEndOfTermSurveyActive()
+  const { data: surveyMeta, isLoading: surveyLoading } = useIsEndOfTermSurveyActive()
   const submitSurvey = useSubmitSurvey()
   const [rating,    setRating]    = useState(0)
   const [enjoyed,   setEnjoyed]   = useState('')
@@ -782,9 +782,9 @@ function SurveyTab({ studentId }: { studentId: string }) {
     try {
       await submitSurvey.mutateAsync({
         studentId,
-        academicYearId: null,
-        term: null,
-        year: null,
+        academicYearId: surveyMeta?.academicYearId ?? null,
+        term:           surveyMeta?.currentTerm    ?? null,
+        year:           surveyMeta?.currentYear    ?? null,
         rating,
         suggestions: [enjoyed.trim(), improve.trim()].filter(Boolean).join('\n\n') || null,
       })
@@ -802,7 +802,7 @@ function SurveyTab({ studentId }: { studentId: string }) {
     )
   }
 
-  if (!surveyActive) {
+  if (!surveyMeta?.isActive) {
     return (
       <div style={{
         ...card, padding: '3rem 1.5rem', textAlign: 'center',
@@ -1319,7 +1319,7 @@ const TAB_ICONS: Record<TabName, React.ReactNode> = {
 // ─── StudentPortalPage ─────────────────────────────────────────────────────────
 export function StudentPortalPage() {
   const { data: student, isLoading: studentLoading } = useMyStudentRecord()
-  const { data: surveyActive } = useIsEndOfTermSurveyActive()
+  const { data: surveyMeta } = useIsEndOfTermSurveyActive()
   const { data: fees = [] } = useMyFeeBalance(student?.id ?? '')
   const { data: attendance } = useAttendanceSummary(student?.id ?? '')
   const { data: results = [] } = useMyExamResults(student?.id ?? '')
@@ -1589,7 +1589,7 @@ export function StudentPortalPage() {
                     {TAB_ICONS[t]}
                   </span>
                   {t}
-                  {isSurvey && surveyActive && (
+                  {isSurvey && surveyMeta?.isActive && (
                     <span style={{
                       width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
                       background: '#8b5cf6', boxShadow: '0 0 6px #8b5cf680',

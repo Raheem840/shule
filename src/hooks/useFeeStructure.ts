@@ -272,7 +272,7 @@ export function useAutoChargeFees() {
       const inserts = toCharge.map(sid => ({
         school_id: user.schoolId, student_id: sid, fee_structure_id: feeStructureId,
         academic_year_id: academicYearId, term, amount_due: amount,
-        amount_paid: 0, imported: false, created_by: user.staffId ?? null,
+        amount_paid: 0, balance: amount, imported: false, created_by: user.staffId ?? null,
       }))
       for (let i = 0; i < inserts.length; i += 100) {
         const { error } = await supabase.from('fee_payments').insert(inserts.slice(i, i + 100))

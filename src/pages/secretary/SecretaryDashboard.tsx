@@ -37,7 +37,7 @@ interface AcademicYearRow {
 }
 
 interface TermInfo {
-  term:       number
+  term:       string
   week:       number
   totalWeeks: number
   progress:   number
@@ -60,7 +60,7 @@ function computeTermInfo(academicYears: AcademicYearRow[]): TermInfo | null {
       const weekNum    = Math.ceil((today.getTime() - s.getTime()) / (7 * 86400000))
       const totalWeeks = Math.ceil((e.getTime() - s.getTime()) / (7 * 86400000))
       const progress   = Math.min(100, Math.round(((today.getTime() - s.getTime()) / (e.getTime() - s.getTime())) * 100))
-      return { term: t.num, week: weekNum, totalWeeks, progress }
+      return { term: String(t.num), week: weekNum, totalWeeks, progress }
     }
   }
   return null

@@ -140,6 +140,7 @@ export function useStudentById(id: string | null | undefined) {
         supabase
           .from('student_guardians')
           .select(GUARDIAN_COLS)
+          .eq('school_id', user!.schoolId)
           .eq('student_id', id!)
           .order('id', { ascending: true }),
       ])
