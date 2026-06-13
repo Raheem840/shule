@@ -308,7 +308,7 @@ export type TimetableSlot = {
 export type PrincipalKpis = {
   totalStudents: number
   totalStaff: number
-  overallPassRate: number
+  overallPassRate: number | null   // null = no exam data for active year yet
   feeCollectionRate: number
   attendanceRateThisWeek: number
   pendingReportCards: number

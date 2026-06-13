@@ -294,7 +294,9 @@ export function PrincipalDashboard() {
               accent="brand" iconKey="students" />
             <KpiCard label="Total Staff" value={kpis.totalStaff}
               accent="violet" iconKey="staff" />
-            <KpiCard label="Pass Rate" value={`${kpis.overallPassRate}%`} sub="This term"
+            <KpiCard label="Pass Rate"
+              value={kpis.overallPassRate != null ? `${kpis.overallPassRate}%` : 'N/A'}
+              sub={kpis.overallPassRate != null ? 'This term' : 'No exams published yet'}
               accent="success" iconKey="pass" />
             <KpiCard label="Fee Collection" value={`${kpis.feeCollectionRate}%`}
               sub="of expected fees" danger={kpis.feeCollectionRate < 80}

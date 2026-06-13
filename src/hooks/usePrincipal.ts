@@ -19,38 +19,45 @@ export function usePrincipalKpis() {
       weekStart.setDate(weekStart.getDate() - weekStart.getDay())
       const weekStartStr = weekStart.toISOString().slice(0, 10)
 
-      // Fetch active year first so fee_payments can be filtered server-side (avoids 1000-row cap)
+      // Fetch active year first — used to scope fee_payments and exam_journal
       const activeYearRes = await supabase
-        .from('academic_years').select('id, start_date').eq('school_id', sid).eq('is_active', true).maybeSingle()
+        .from('academic_years').select('id').eq('school_id', sid).eq('is_active', true).maybeSingle()
       if (activeYearRes.error) throw activeYearRes.error
       const activeYearId = activeYearRes.data?.id ?? null
-      const activeYear   = activeYearRes.data?.start_date
-        ? new Date(activeYearRes.data.start_date).getFullYear()
-        : new Date().getFullYear()
 
       let feeQ = supabase.from('fee_payments').select('amount_paid, amount_due').eq('school_id', sid)
       if (activeYearId) feeQ = feeQ.eq('academic_year_id', activeYearId)
 
-      const [studentsRes, staffRes, resultsRes, journalsRes, paymentsRes,
+      // exam_journal scoped by academic_year_id (exam records store calendar year, not academic year
+      // start year — using the FK is the only reliable cross-year-boundary filter)
+      const journalQ = activeYearId
+        ? supabase.from('exam_journal').select('id, pass_mark').eq('school_id', sid).eq('academic_year_id', activeYearId)
+        : Promise.resolve({ data: [] as any[], error: null })
+
+      const [studentsRes, staffRes, journalsRes, paymentsRes,
              attendanceRes, reportCardsRes] = await Promise.all([
         supabase.from('students').select('id').eq('school_id', sid).eq('status', 'active'),
         supabase.from('staff').select('id').eq('school_id', sid).eq('is_active', true),
-        supabase.from('exam_results').select('score, exam_journal_id').eq('school_id', sid).eq('year', activeYear),
-        supabase.from('exam_journal').select('id, pass_mark').eq('school_id', sid).eq('year', activeYear),
+        journalQ,
         activeYearId ? feeQ : Promise.resolve({ data: [] as any[], error: null }),
         supabase.from('attendance').select('status, date').eq('school_id', sid)
           .gte('date', weekStartStr).lte('date', today),
         supabase.from('report_cards').select('id').eq('school_id', sid).eq('status', 'ready'),
       ])
 
-      // Pass rate
-      const passMarkMap = new Map<string, number>(
-        (journalsRes.data ?? []).map((j: any) => [j.id, j.pass_mark])
-      )
-      const graded = (resultsRes.data ?? []).filter((r: any) => r.score != null)
-      const passed = graded.filter((r: any) => r.score >= (passMarkMap.get(r.exam_journal_id) ?? 50))
-      const overallPassRate = graded.length > 0
-        ? Math.round((passed.length / graded.length) * 100) : 0
+      // Pass rate — exam_results filtered by journal IDs so scoping follows academic_year_id
+      const journals    = journalsRes.data ?? []
+      const passMarkMap = new Map<string, number>(journals.map((j: any) => [j.id, j.pass_mark]))
+      const journalIds  = journals.map((j: any) => j.id as string)
+      let overallPassRate: number | null = null
+      if (journalIds.length > 0) {
+        const resultsRes = await supabase
+          .from('exam_results').select('score, exam_journal_id').eq('school_id', sid)
+          .in('exam_journal_id', journalIds)
+        const graded = (resultsRes.data ?? []).filter((r: any) => r.score != null)
+        const passed = graded.filter((r: any) => r.score >= (passMarkMap.get(r.exam_journal_id) ?? 50))
+        if (graded.length > 0) overallPassRate = Math.round((passed.length / graded.length) * 100)
+      }
 
       // Fee collection rate — server-side filtered to active year; empty when no active year
       const totalExpected  = (paymentsRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_due  ?? 0), 0)

@@ -329,7 +329,7 @@ function useFeeCompletion(studentIds: string[], year: number | null) {
 // ── Main Page ──────────────────────────────────────────────────
 export function ReportCardsPage() {
   const [activeTab, setActiveTab] = useState<'readiness' | 'cards'>('readiness')
-  const [term,     setTerm]     = useState<string>('')
+  const [term,     setTerm]     = useState<string>('1')
   const [year,     setYear]     = useState<string>(String(new Date().getFullYear()))
   const [classId,  setClassId]  = useState<string>('')
   const [streamId, setStreamId] = useState<string>('')
@@ -485,6 +485,7 @@ export function ReportCardsPage() {
   }
 
   async function handleSendForApproval() {
+    if (!term) return
     const count = reportCards.filter(c => c.status === 'ready').length
     if (count === 0) return
     await notify.mutateAsync({ term: Number(term), year: Number(year), count })
@@ -623,7 +624,7 @@ export function ReportCardsPage() {
             Cohort
           </span>
           <GlassSelect value={year} onChange={setYear} options={yearOptions} />
-          <TermPicker value={term} onChange={setTerm} allowAll allLabel="Select term" />
+          <TermPicker value={term} onChange={setTerm} />
           <GlassSelect
             value={classId} onChange={v => { setClassId(v); setStreamId('') }}
             options={classes.map(c => ({ value: c.id, label: c.name }))}
