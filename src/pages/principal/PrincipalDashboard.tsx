@@ -113,7 +113,7 @@ function TopClassesChart() {
           {classes.map((c: any) => (
             <tr key={c.className}>
               <td style={{ padding: '4px 8px', fontWeight: 600, color: 'var(--txt)' }}>{c.className}</td>
-              <td style={{ padding: '4px 8px', color: 'var(--brand)' }}>{c.passRate}%</td>
+              <td style={{ padding: '4px 8px', color: 'var(--brand)' }}>{c.passRate != null ? `${c.passRate}%` : '—'}</td>
               <td style={{ padding: '4px 8px', color: 'var(--txt2)' }}>{c.avgScore ?? '—'}</td>
             </tr>
           ))}

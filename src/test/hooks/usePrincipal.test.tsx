@@ -84,14 +84,15 @@ describe('usePrincipalKpis', () => {
       { score: 40, exam_journal_id: 'j-1' },  // fail
       { score: 60, exam_journal_id: 'j-1' },  // pass
     ]
-    setResponse('students',      { data: [], error: null })
-    setResponse('staff',         { data: [], error: null })
-    setResponse('exam_results',  { data: results, error: null })
-    setResponse('exam_journal',  { data: journals, error: null })
-    setResponse('fee_payments',  { data: [], error: null })
-    setResponse('fee_structure', { data: [], error: null })
-    setResponse('attendance',    { data: [], error: null })
-    setResponse('report_cards',  { data: [], error: null })
+    setResponse('academic_years', { data: { id: 'year-1' }, error: null })
+    setResponse('students',       { data: [], error: null })
+    setResponse('staff',          { data: [], error: null })
+    setResponse('exam_results',   { data: results, error: null })
+    setResponse('exam_journal',   { data: journals, error: null })
+    setResponse('fee_payments',   { data: [], error: null })
+    setResponse('fee_structure',  { data: [], error: null })
+    setResponse('attendance',     { data: [], error: null })
+    setResponse('report_cards',   { data: [], error: null })
 
     const { result } = renderHook(() => usePrincipalKpis(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
@@ -116,10 +117,11 @@ describe('usePrincipalKpis', () => {
 
 describe('useTopClasses', () => {
   it('returns empty array when no data', async () => {
-    setResponse('classes',      { data: [], error: null })
-    setResponse('students',     { data: [], error: null })
-    setResponse('exam_results', { data: [], error: null })
-    setResponse('exam_journal', { data: [], error: null })
+    setResponse('academic_years', { data: { id: 'year-1' }, error: null })
+    setResponse('classes',        { data: [], error: null })
+    setResponse('students',       { data: [], error: null })
+    setResponse('exam_results',   { data: [], error: null })
+    setResponse('exam_journal',   { data: [], error: null })
 
     const { result } = renderHook(() => useTopClasses(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
@@ -127,10 +129,11 @@ describe('useTopClasses', () => {
   })
 
   it('builds top class rankings from results', async () => {
-    setResponse('classes',      { data: [{ id: 'cls-1', name: 'Senior 1' }], error: null })
-    setResponse('students',     { data: [{ id: 'stu-1', class_id: 'cls-1' }], error: null })
-    setResponse('exam_results', { data: [{ student_id: 'stu-1', score: 75, exam_journal_id: 'j-1' }], error: null })
-    setResponse('exam_journal', { data: [{ id: 'j-1', pass_mark: 50, class_id: 'cls-1' }], error: null })
+    setResponse('academic_years', { data: { id: 'year-1' }, error: null })
+    setResponse('classes',        { data: [{ id: 'cls-1', name: 'Senior 1' }], error: null })
+    setResponse('students',       { data: [{ id: 'stu-1', class_id: 'cls-1' }], error: null })
+    setResponse('exam_results',   { data: [{ student_id: 'stu-1', score: 75, exam_journal_id: 'j-1' }], error: null })
+    setResponse('exam_journal',   { data: [{ id: 'j-1', pass_mark: 50, class_id: 'cls-1' }], error: null })
 
     const { result } = renderHook(() => useTopClasses(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))

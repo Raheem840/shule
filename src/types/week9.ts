@@ -317,7 +317,7 @@ export type PrincipalKpis = {
 export type TopClass = {
   classId: string
   className: string
-  passRate: number
+  passRate: number | null   // null = no exam data yet for this class
   studentCount: number
 }
 

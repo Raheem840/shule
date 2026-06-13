@@ -44,6 +44,12 @@ export function usePrincipalKpis() {
           .gte('date', weekStartStr).lte('date', today),
         supabase.from('report_cards').select('id').eq('school_id', sid).eq('status', 'ready'),
       ])
+      if (studentsRes.error)    throw studentsRes.error
+      if (staffRes.error)       throw staffRes.error
+      if (journalsRes.error)    throw journalsRes.error
+      if (paymentsRes.error)    throw paymentsRes.error
+      if (attendanceRes.error)  throw attendanceRes.error
+      if (reportCardsRes.error) throw reportCardsRes.error
 
       // Pass rate — exam_results filtered by journal IDs so scoping follows academic_year_id
       const journals    = journalsRes.data ?? []
@@ -124,14 +130,14 @@ export function useTopClasses() {
       const passMarkMap = new Map<string, number>(journals.map((j: any) => [j.id, j.pass_mark ?? 50]))
       const journalIds  = journals.map((j: any) => j.id as string)
 
-      let results: any[] = []
-      if (journalIds.length > 0) {
-        const resultsRes = await supabase
-          .from('exam_results').select('student_id, score, exam_journal_id')
-          .eq('school_id', sid).in('exam_journal_id', journalIds).limit(50000)
-        if (resultsRes.error) throw resultsRes.error
-        results = resultsRes.data ?? []
-      }
+      // No journals in the active year → no pass-rate data yet
+      if (journalIds.length === 0) return []
+
+      const resultsRes = await supabase
+        .from('exam_results').select('student_id, score, exam_journal_id')
+        .eq('school_id', sid).in('exam_journal_id', journalIds).limit(50000)
+      if (resultsRes.error) throw resultsRes.error
+      const results = resultsRes.data ?? []
 
       return classes.map((cls: any) => {
         const classStudentIds = new Set(
@@ -146,11 +152,11 @@ export function useTopClasses() {
         return {
           classId:      cls.id,
           className:    cls.name,
-          passRate:     classResults.length > 0 ? Math.round((classPassed.length / classResults.length) * 100) : 0,
+          passRate:     classResults.length > 0 ? Math.round((classPassed.length / classResults.length) * 100) : null,
           studentCount: classStudentIds.size,
         } satisfies TopClass
       })
-        .sort((a, b) => b.passRate - a.passRate)
+        .sort((a, b) => (b.passRate ?? -1) - (a.passRate ?? -1))
         .slice(0, 5)
     },
     staleTime: 10 * 60_000,
