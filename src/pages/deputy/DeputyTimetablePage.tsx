@@ -25,13 +25,13 @@ function jsToSchoolDay(d: number): number | null {
 }
 
 const EVENT_META: Record<EventType, { color: string; bg: string; icon: string }> = {
-  class:    { color: '#64748b', bg: 'var(--surface2)',      icon: '📚' },
-  break:    { color: '#f59e0b', bg: 'rgba(245,158,11,.12)', icon: '☕' },
-  lunch:    { color: '#0ea5e9', bg: 'rgba(14,165,233,.12)', icon: '🍽' },
-  assembly: { color: '#8b5cf6', bg: 'rgba(139,92,246,.12)', icon: '🎓' },
-  prayer:   { color: '#10b981', bg: 'rgba(16,185,129,.12)', icon: '🙏' },
-  preps:    { color: '#f43f5e', bg: 'rgba(244,63,94,.12)',  icon: '📖' },
-  custom:   { color: '#0d9488', bg: 'rgba(13,148,136,.12)', icon: '⭐' },
+  class:    { color: 'var(--txt3)',    bg: 'var(--surface2)',      icon: '📚' },
+  break:    { color: 'var(--warning)', bg: 'rgba(245,158,11,.12)', icon: '☕' },
+  lunch:    { color: 'var(--info)',    bg: 'rgba(14,165,233,.12)', icon: '🍽' },
+  assembly: { color: 'var(--violet)',  bg: 'rgba(139,92,246,.12)', icon: '🎓' },
+  prayer:   { color: 'var(--success)', bg: 'rgba(16,185,129,.12)', icon: '🙏' },
+  preps:    { color: 'var(--danger)',  bg: 'rgba(244,63,94,.12)',  icon: '📖' },
+  custom:   { color: 'var(--brand)',   bg: 'rgba(13,148,136,.12)', icon: '⭐' },
 }
 
 const DEFAULT_PERIODS: PeriodDef[] = [
@@ -213,7 +213,7 @@ export function DeputyTimetablePage() {
                     {DAYS.map(([d, label]) => (
                       <th key={d} style={{ padding: '12px 8px', background: d === todayCol ? 'rgba(14,165,233,.06)' : 'var(--surface2)', fontWeight: 800, fontSize: 11, color: d === todayCol ? '#0ea5e9' : 'var(--txt2)', textTransform: 'uppercase', letterSpacing: .8, borderBottom: '.5px solid var(--border)', textAlign: 'center', position: 'relative' }}>
                         {label}
-                        {d === todayCol && <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 18, height: 2.5, borderRadius: 2, background: '#0ea5e9' }} />}
+                        {d === todayCol && <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 18, height: 2.5, borderRadius: 2, background: 'var(--info)' }} />}
                       </th>
                     ))}
                   </tr>
@@ -408,7 +408,7 @@ export function DeputyTimetablePage() {
                     {DAYS.map(([d, label]) => (
                       <th key={d} style={{ padding: '12px 8px', background: d === todayCol ? 'rgba(14,165,233,.05)' : 'var(--surface2)', fontWeight: 800, fontSize: 11, color: d === todayCol ? '#0ea5e9' : 'var(--txt2)', textTransform: 'uppercase', letterSpacing: .8, borderBottom: '.5px solid var(--border)', textAlign: 'center', position: 'relative' }}>
                         {label}
-                        {d === todayCol && <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 20, height: 2.5, borderRadius: 2, background: '#0ea5e9' }} />}
+                        {d === todayCol && <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 20, height: 2.5, borderRadius: 2, background: 'var(--info)' }} />}
                       </th>
                     ))}
                   </tr>

@@ -174,11 +174,12 @@ export function useMyFeeBalance(studentId: string | null) {
       const feeStructureIds = [...new Set(((data ?? []) as AnyRow[]).map(r => r.fee_structure_id as string).filter(Boolean))]
       const feeNameMap = new Map<string, string>()
       if (feeStructureIds.length > 0) {
-        const { data: feeStructures } = await supabase
+        const { data: feeStructures, error: fsError } = await supabase
           .from('fee_structure')
           .select('id, name')
           .eq('school_id', user!.schoolId)
           .in('id', feeStructureIds)
+        if (fsError) throw fsError
         for (const fs of (feeStructures ?? []) as AnyRow[]) {
           feeNameMap.set(fs.id as string, fs.name as string)
         }
@@ -187,7 +188,7 @@ export function useMyFeeBalance(studentId: string | null) {
       return ((data ?? []) as AnyRow[]).map(r => {
         const amtDue  = Number(r.amount_due)  || 0
         const amtPaid = Number(r.amount_paid) || 0
-        const balance = Number(r.balance)     ?? (amtDue - amtPaid)
+        const balance = r.balance != null ? Number(r.balance) : (amtDue - amtPaid)
         return {
           id:            r.id as string,
           termLabel:     `Term ${r.term}`,

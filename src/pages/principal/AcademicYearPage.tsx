@@ -668,6 +668,8 @@ function AcademicTimeline({ year }: { year: AcademicYearRow }) {
 
 // ── Main Page ──────────────────────────────────────────────────────────────
 export function AcademicYearPage() {
+  const { user } = useAuth()
+  const isPrincipal = user?.role === 'principal'
   const { data = [], isLoading } = useAcademicYearsFull()
   const { success: ok, error: err } = useToast()
   const setActive    = useSetActiveYear()
@@ -706,34 +708,36 @@ export function AcademicYearPage() {
           <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>Manage terms, academic periods and surveys</p>
         </div>
       </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button
-            onClick={() => setShowPromote(true)}
-            title={term3Done ? 'Promote students to next class' : 'Available after Term 3 ends'}
-            style={{
-              padding: '8px 16px', borderRadius: 10, fontWeight: 700,
-              fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font2)',
-              background: term3Done
-                ? 'linear-gradient(135deg, #7c3aed, #6d28d9)'
-                : 'var(--surface2)',
-              color: term3Done ? '#fff' : 'var(--txt3)',
-              boxShadow: term3Done ? '0 3px 12px rgba(124,58,237,.3)' : 'none',
-              transition: 'all .15s', display: 'flex', alignItems: 'center', gap: 6,
-              border: term3Done ? 'none' : '1px solid var(--border)',
-            }}
-          >
-            {!term3Done && (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
-              </svg>
-            )}
-            Promote All Students
-            {!term3Done && <span style={{ fontSize: 10, opacity: .7 }}>(Term 3 pending)</span>}
-          </button>
-          <button className="sui-btn-primary" style={{ fontSize: 13 }} onClick={() => setShowCreate(true)}>
-            + New Year
-          </button>
-        </div>
+        {isPrincipal && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              onClick={() => setShowPromote(true)}
+              title={term3Done ? 'Promote students to next class' : 'Available after Term 3 ends'}
+              style={{
+                padding: '8px 16px', borderRadius: 10, fontWeight: 700,
+                fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font2)',
+                background: term3Done
+                  ? 'linear-gradient(135deg, #7c3aed, #6d28d9)'
+                  : 'var(--surface2)',
+                color: term3Done ? '#fff' : 'var(--txt3)',
+                boxShadow: term3Done ? '0 3px 12px rgba(124,58,237,.3)' : 'none',
+                transition: 'all .15s', display: 'flex', alignItems: 'center', gap: 6,
+                border: term3Done ? 'none' : '1px solid var(--border)',
+              }}
+            >
+              {!term3Done && (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+                </svg>
+              )}
+              Promote All Students
+              {!term3Done && <span style={{ fontSize: 10, opacity: .7 }}>(Term 3 pending)</span>}
+            </button>
+            <button className="sui-btn-primary" style={{ fontSize: 13 }} onClick={() => setShowCreate(true)}>
+              + New Year
+            </button>
+          </div>
+        )}
       </div>
 
       {isLoading && (
@@ -769,7 +773,7 @@ export function AcademicYearPage() {
                   >
                     {expanded === year.id ? 'Collapse' : 'View Terms'}
                   </button>
-                  {!year.isActive && (
+                  {isPrincipal && !year.isActive && (
                     <button
                       className="sui-btn-primary"
                       style={{ fontSize: 12, padding: '6px 14px' }}
@@ -779,17 +783,19 @@ export function AcademicYearPage() {
                       Set Active
                     </button>
                   )}
-                  <button
-                    onClick={() => handleToggleSurvey(year.id, year.surveyActive)}
-                    style={{
-                      padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                      cursor: 'pointer', border: 'none',
-                      background: year.surveyActive ? 'var(--success-bg)' : 'var(--surface2)',
-                      color:      year.surveyActive ? 'var(--success)'    : 'var(--txt3)',
-                    }}
-                  >
-                    Survey {year.surveyActive ? 'Open' : 'Closed'}
-                  </button>
+                  {isPrincipal && (
+                    <button
+                      onClick={() => handleToggleSurvey(year.id, year.surveyActive)}
+                      style={{
+                        padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                        cursor: 'pointer', border: 'none',
+                        background: year.surveyActive ? 'var(--success-bg)' : 'var(--surface2)',
+                        color:      year.surveyActive ? 'var(--success)'    : 'var(--txt3)',
+                      }}
+                    >
+                      Survey {year.surveyActive ? 'Open' : 'Closed'}
+                    </button>
+                  )}
                 </div>
               </div>
 

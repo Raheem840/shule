@@ -84,7 +84,6 @@ function AddPaymentModal({
       receiptNumber: values.receiptNumber || null,
       notes:         values.notes || null,
       term,
-      year,
     })
     onClose()
   }

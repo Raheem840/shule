@@ -213,7 +213,7 @@ export function useStudentReadiness(params: {
 // ── useGenerateReportCards ─────────────────────────────────────
 export type GenerateInput = {
   studentIds: string[]
-  term:       number
+  term:       number | string
   year:       number
   classId:    string
   streamId:   string | null

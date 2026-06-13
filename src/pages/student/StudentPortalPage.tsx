@@ -449,10 +449,10 @@ function MyFeesTab({ studentId }: { studentId: string }) {
 
 // ─── Attendance tab ────────────────────────────────────────────────────────────
 const ATT_META: Record<string, { color: string; label: string; dot: string }> = {
-  present: { color: 'var(--success)', label: 'Present', dot: '#10b981' },
-  absent:  { color: 'var(--danger)',  label: 'Absent',  dot: '#f43f5e' },
-  late:    { color: 'var(--warning)', label: 'Late',    dot: '#f59e0b' },
-  excused: { color: 'var(--info)',    label: 'Excused', dot: '#0ea5e9' },
+  present: { color: 'var(--success)', label: 'Present', dot: 'var(--success)' },
+  absent:  { color: 'var(--danger)',  label: 'Absent',  dot: 'var(--danger)' },
+  late:    { color: 'var(--warning)', label: 'Late',    dot: 'var(--warning)' },
+  excused: { color: 'var(--info)',    label: 'Excused', dot: 'var(--info)' },
 }
 
 function MyAttendanceTab({ studentId }: { studentId: string }) {
@@ -1464,7 +1464,7 @@ export function StudentPortalPage() {
               <div style={{
                 position: 'absolute', bottom: 2, right: 2,
                 width: 16, height: 16, borderRadius: '50%',
-                background: student.status === 'active' ? '#10b981' : '#f43f5e',
+                background: student.status === 'active' ? 'var(--success)' : 'var(--danger)',
                 border: '2.5px solid #051018',
               }} />
             </div>
@@ -1593,7 +1593,7 @@ export function StudentPortalPage() {
                   {isSurvey && surveyMeta?.isActive && (
                     <span style={{
                       width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-                      background: '#8b5cf6', boxShadow: '0 0 6px #8b5cf680',
+                      background: 'var(--violet)', boxShadow: '0 0 6px rgba(139,92,246,.5)',
                     }} />
                   )}
                 </button>

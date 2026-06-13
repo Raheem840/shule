@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import JSZip from 'jszip'
+import { TermPicker } from '../../components/ui/TermPicker'
 import {
   useReportCards,
   useStudentReadiness,
@@ -622,11 +623,7 @@ export function ReportCardsPage() {
             Cohort
           </span>
           <GlassSelect value={year} onChange={setYear} options={yearOptions} />
-          <GlassSelect
-            value={term} onChange={setTerm}
-            options={[{ value: '1', label: 'Term 1' }, { value: '2', label: 'Term 2' }, { value: '3', label: 'Term 3' }]}
-            placeholder="Select term"
-          />
+          <TermPicker value={term} onChange={setTerm} allowAll allLabel="Select term" />
           <GlassSelect
             value={classId} onChange={v => { setClassId(v); setStreamId('') }}
             options={classes.map(c => ({ value: c.id, label: c.name }))}

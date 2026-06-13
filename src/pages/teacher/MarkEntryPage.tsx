@@ -818,10 +818,11 @@ export function MarkEntryPage() {
       validRows.map(r => {
         let grade: string | null = null
         if (!r.isAbsent && r.score !== null && journal.assessmentType !== 'end_of_term') {
-          const pct = journal.assessmentType === 'ca'
-            ? (r.score / 3) * 100
-            : (r.score / journal.totalMarks) * 100
-          grade = calculateCBCGrade(pct)
+          if (journal.assessmentType === 'ca') {
+            grade = calculateCBCGrade((r.score / 3) * 100)
+          } else if (journal.totalMarks > 0) {
+            grade = calculateCBCGrade((r.score / journal.totalMarks) * 100)
+          }
         }
         return {
           school_id:       user.schoolId,

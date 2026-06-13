@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTeacherRemarks, useSaveRemarks } from '../../hooks/useTeacherRemarks'
 import { useStudents } from '../../hooks/useStudents'
 import { useMyAssignedClasses, useStreams } from '../../hooks/useClasses'
+import { TermPicker } from '../../components/ui/TermPicker'
 import type { Student } from '../../types/app'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -148,8 +149,11 @@ export function TeacherRemarksPage() {
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', alignItems: 'flex-end' }}>
+        <div style={{ flex: '1 1 220px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Term</div>
+          <TermPicker value={term} onChange={setTerm} allowAll allLabel="Select term" />
+        </div>
         {[
-          { label: 'Term', val: term, set: setTerm, opts: [['','Select term'],['1','Term 1'],['2','Term 2'],['3','Term 3']] as [string,string][] },
           { label: 'Class', val: classId, set: setClassId, opts: [['','Select class'],...classes.map(c => [c.id, c.name])] as [string,string][] },
           { label: 'Stream', val: streamId, set: setStreamId, opts: [['','All streams'],...streams.map(s => [s.id, s.name])] as [string,string][], disabled: !classId },
         ].map(({ label, val, set, opts, disabled }) => (

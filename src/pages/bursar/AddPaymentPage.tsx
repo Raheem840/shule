@@ -587,7 +587,6 @@ function NewFeeRowForm({
         receiptNumber: values.receiptNumber || null,
         notes:         values.notes || null,
         term,
-        year,
       })
       toastOk(`Payment of ${ugx(values.amountPaid)} recorded`)
       onDone()

@@ -401,7 +401,7 @@ export function useFeePayments(filters: FeeFilters = {}) {
         const stu       = studentMap.get(r.student_id as string)
         const amtPaid   = Number(r.amount_paid) || 0
         const amtDue    = Number(r.amount_due)  || 0
-        const balance   = Number(r.balance) ?? (amtDue - amtPaid)
+        const balance   = r.balance != null ? Number(r.balance) : (amtDue - amtPaid)
         return {
           id:             r.id as string,
           schoolId:       r.school_id as string,
@@ -470,7 +470,6 @@ export type AddPaymentInput = {
   receiptNumber:  string | null
   notes:          string | null
   term:           number
-  year:           number
 }
 
 export function useAddPayment() {

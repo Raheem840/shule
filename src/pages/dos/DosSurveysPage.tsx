@@ -85,7 +85,7 @@ function Stars({ value }: { value: number }) {
   return (
     <div style={{ display: 'flex', gap: 2 }}>
       {[1,2,3,4,5].map(i => (
-        <span key={i} style={{ fontSize: 13, color: i <= Math.round(value) ? '#f59e0b' : 'var(--border)' }}>★</span>
+        <span key={i} style={{ fontSize: 13, color: i <= Math.round(value) ? 'var(--warning)' : 'var(--border)' }}>★</span>
       ))}
     </div>
   )
@@ -204,7 +204,7 @@ export function DosSurveysPage() {
         <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle,rgba(139,92,246,.18),transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', position: 'relative' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-            <div style={{ width: 46, height: 46, borderRadius: 15, background: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 18px rgba(139,92,246,.45)', flexShrink: 0 }}>
+            <div style={{ width: 46, height: 46, borderRadius: 15, background: 'linear-gradient(145deg,var(--violet),#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 18px rgba(139,92,246,.45)', flexShrink: 0 }}>
               <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             </div>
             <div>
@@ -214,7 +214,7 @@ export function DosSurveysPage() {
           </div>
           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
             <button onClick={() => exportExcel()} disabled={!responses.length}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 11, border: 'none', background: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', cursor: responses.length ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, color: '#fff', opacity: responses.length ? 1 : 0.5, boxShadow: '0 3px 12px rgba(139,92,246,.35)' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 11, border: 'none', background: 'linear-gradient(145deg,var(--violet),#7c3aed)', cursor: responses.length ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, color: '#fff', opacity: responses.length ? 1 : 0.5, boxShadow: '0 3px 12px rgba(139,92,246,.35)' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Export Excel
             </button>
@@ -247,9 +247,9 @@ export function DosSurveysPage() {
           {/* KPI cards */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {[
-              { label: 'Responses',        value: summary.total,      color: '#8b5cf6', glow: 'rgba(139,92,246,.18)' },
-              { label: 'Avg Overall',       value: summary.avgOverall, color: '#f59e0b', glow: 'rgba(245,158,11,.18)', sub: '/ 5' },
-              { label: 'Avg Teacher',       value: summary.avgTeacher, color: '#0d9488', glow: 'rgba(13,148,136,.18)', sub: '/ 5' },
+              { label: 'Responses',        value: summary.total,      color: 'var(--violet)',  glow: 'rgba(139,92,246,.18)' },
+              { label: 'Avg Overall',       value: summary.avgOverall, color: 'var(--warning)', glow: 'rgba(245,158,11,.18)', sub: '/ 5' },
+              { label: 'Avg Teacher',       value: summary.avgTeacher, color: 'var(--brand)',   glow: 'rgba(13,148,136,.18)', sub: '/ 5' },
             ].map(k => (
               <div key={k.label} style={{ flex: '1 1 120px', padding: '16px 18px', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, position: 'relative', overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,.04)' }}>
                 <div style={{ position: 'absolute', top: -14, right: -14, width: 60, height: 60, borderRadius: '50%', background: k.glow, filter: 'blur(18px)', pointerEvents: 'none' }} />

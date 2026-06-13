@@ -62,7 +62,7 @@ export function RemarksViewPage() {
 
       {/* ── Hero ───────────────────────────────────────────────────────────── */}
       <div style={{
-        background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 60%, #5b21b6 100%)',
+        background: 'linear-gradient(135deg, var(--violet) 0%, #7c3aed 60%, #5b21b6 100%)',
         padding: '32px 28px 36px',
         position: 'relative', overflow: 'hidden',
       }}>
@@ -136,7 +136,7 @@ export function RemarksViewPage() {
         ) : filteredStudents.length === 0 ? (
           <div style={{ padding: '60px 24px', textAlign: 'center', background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)' }}>
             <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(139,92,246,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" strokeWidth="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             </div>
             <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)', marginBottom: 8 }}>
               {remarksMap.size === 0 ? 'No remarks recorded yet' : 'No students match your filters'}
@@ -181,7 +181,7 @@ export function RemarksViewPage() {
                     </div>
                     <div style={{ flexShrink: 0 }}>
                       {hasRemark ? (
-                        <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: 'rgba(139,92,246,.1)', color: '#8b5cf6', border: '.5px solid rgba(139,92,246,.2)' }}>
+                        <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: 'rgba(139,92,246,.1)', color: 'var(--violet)', border: '.5px solid rgba(139,92,246,.2)' }}>
                           {remarks.length} remark{remarks.length !== 1 ? 's' : ''}
                         </span>
                       ) : (
@@ -199,11 +199,11 @@ export function RemarksViewPage() {
                         const teacherName = staffMap.get(r.teacherId) ?? 'Unknown Teacher'
                         return (
                           <div key={r.id ?? i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                            <div style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(139,92,246,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, fontWeight: 900, color: '#8b5cf6', fontFamily: 'var(--font2)' }}>
+                            <div style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(139,92,246,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, fontWeight: 900, color: 'var(--violet)', fontFamily: 'var(--font2)' }}>
                               {teacherName.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
                             </div>
                             <div style={{ flex: 1, background: 'var(--surface2)', borderRadius: 12, padding: '10px 14px', border: '.5px solid var(--border)' }}>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: '#8b5cf6', marginBottom: 5 }}>{teacherName}</div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--violet)', marginBottom: 5 }}>{teacherName}</div>
                               <div style={{ fontSize: 13, color: 'var(--txt)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{r.remarks || <span style={{ color: 'var(--txt3)', fontStyle: 'italic' }}>No text entered.</span>}</div>
                             </div>
                           </div>

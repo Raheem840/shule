@@ -105,7 +105,7 @@ export function useSmsStudents(filters: SmsFilters) {
       for (const p of paymentsRes.data ?? []) {
         // Skip payments from other academic years when we have active year info
         const pyid = (p as any).academic_year_id as string | null
-        if (activeYearIds.size > 0 && pyid && !activeYearIds.has(pyid)) continue
+        if (activeYearIds.size > 0 && (!pyid || !activeYearIds.has(pyid))) continue
         const sid  = p.student_id as string
         const curr = feeMap.get(sid) ?? { amountDue: 0, amountPaid: 0, balance: 0 }
         curr.amountDue  += Number(p.amount_due)  || 0

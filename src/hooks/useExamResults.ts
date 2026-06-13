@@ -86,10 +86,11 @@ export function useSaveMarks() {
         // Grade: null for end_of_term (needs CA to combine), calculated for all others
         let grade: ExamResult['grade'] = null
         if (!m.isAbsent && m.score !== null && assessmentType !== 'end_of_term') {
-          const pct = assessmentType === 'ca'
-            ? (m.score / 3) * 100
-            : (m.score / totalMarks) * 100
-          grade = calculateCBCGrade(pct)
+          if (assessmentType === 'ca') {
+            grade = calculateCBCGrade((m.score / 3) * 100)
+          } else if (totalMarks > 0) {
+            grade = calculateCBCGrade((m.score / totalMarks) * 100)
+          }
         }
 
         return {
