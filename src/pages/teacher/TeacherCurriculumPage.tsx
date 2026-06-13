@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { useClasses, useSubjects } from '../../hooks/useClasses'
+import { TermPicker } from '../../components/ui/TermPicker'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Topic = {
@@ -156,28 +157,6 @@ function ProgressArc({ pct, size = 110, stroke = 10 }: { pct: number; size?: num
 }
 
 // ─── iOS-style segmented term picker ─────────────────────────────────────────
-function TermPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <div style={{ display: 'flex', background: 'var(--surface2)', borderRadius: 14, padding: 4, border: '.5px solid var(--border)', gap: 2 }}>
-      {['1', '2', '3'].map(t => {
-        const on = value === t
-        return (
-          <button key={t} onClick={() => onChange(t)}
-            style={{
-              flex: 1, height: 38, borderRadius: 11, border: 'none', cursor: 'pointer',
-              fontFamily: 'var(--font2)', fontWeight: on ? 800 : 600, fontSize: 13.5,
-              background: on ? 'var(--surface)' : 'transparent',
-              color: on ? 'var(--brand)' : 'var(--txt3)',
-              boxShadow: on ? '0 2px 10px rgba(0,0,0,.09)' : 'none',
-              transition: 'all .18s cubic-bezier(.32,.72,0,1)',
-            }}>
-            Term {t}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
 
 // ─── Topic card ───────────────────────────────────────────────────────────────
 function TopicCard({ topic, onMark, onUnmark, onDelete, busy }: {

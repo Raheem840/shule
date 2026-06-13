@@ -13,6 +13,7 @@ import { useAttendanceSummary, useStudentAttendanceHistory } from '../../hooks/u
 import { useTimetableSlots } from '../../hooks/useTimetableSlots'
 import { useAuth } from '../../store/AuthContext'
 import { Avatar } from '../../components/shared/Avatar'
+import { TermPicker } from '../../components/ui/TermPicker'
 import type { AttendanceDay } from '../../hooks/useAttendance'
 import type { ExamResultRow, StudentFeeRecord, PortalReportCard } from '../../hooks/useParentPortal'
 
@@ -1117,10 +1118,10 @@ function MyTimetableTab({ classId, streamId }: { classId: string | null; streamI
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Term / year selector */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <select value={term} onChange={e => setTerm(e.target.value)} className="sui-input" style={{ minWidth: 110 }}>
-          {['Term 1', 'Term 2', 'Term 3'].map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ flex: '1 1 220px' }}>
+          <TermPicker format="full" value={term} onChange={setTerm} />
+        </div>
         <input type="number" value={year} onChange={e => setYear(parseInt(e.target.value))} className="sui-input" style={{ width: 84 }} />
       </div>
 

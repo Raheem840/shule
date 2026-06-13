@@ -4,6 +4,7 @@ import { useTimetableSlots } from '../../hooks/useTimetableSlots'
 import { useAuth } from '../../store/AuthContext'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import type { TimetableSlot } from '../../types/week9'
+import { TermPicker } from '../../components/ui/TermPicker'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EventType = 'class' | 'break' | 'lunch' | 'assembly' | 'prayer' | 'preps' | 'custom'
@@ -323,11 +324,9 @@ export function DeputyTimetablePage() {
             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
-        <div style={{ flex: '0 0 110px' }}>
+        <div style={{ flex: '1 1 240px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Term</div>
-          <select value={term} onChange={e => setTerm(e.target.value)} className="sui-input" style={{ width: '100%' }}>
-            {['Term 1','Term 2','Term 3'].map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <TermPicker format="full" value={term} onChange={setTerm} />
         </div>
         <div style={{ flex: '0 0 88px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Year</div>

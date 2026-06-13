@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useTeacherTimetable } from '../../hooks/useTimetableSlots'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useMyAssignedClasses } from '../../hooks/useClasses'
+import { TermPicker } from '../../components/ui/TermPicker'
 
 const DAYS: [number, string, string][] = [
   [1,'Mon','Monday'], [2,'Tue','Tuesday'], [3,'Wed','Wednesday'],
@@ -94,11 +95,9 @@ export function TeacherTimetablePage() {
 
       {/* ── Term / Year / Class selectors ── */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', alignItems: 'flex-end' }}>
-        <div style={{ flex: '0 0 110px' }}>
+        <div style={{ flex: '1 1 220px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Term</div>
-          <select value={term} onChange={e => setTerm(e.target.value)} className="sui-input" style={{ width: '100%' }}>
-            {['1','2','3'].map(t => <option key={t} value={t}>Term {t}</option>)}
-          </select>
+          <TermPicker value={term} onChange={setTerm} />
         </div>
         <div style={{ flex: '0 0 88px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Year</div>

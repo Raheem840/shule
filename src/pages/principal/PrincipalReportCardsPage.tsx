@@ -14,6 +14,7 @@ import { Modal, ModalCancelButton } from '../../components/ui/Modal'
 import { Select } from '../../components/ui/Select'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import type { ReportCard } from '../../types/app'
+import { TermPicker } from '../../components/ui/TermPicker'
 
 
 // ── Unlock Confirmation Modal ──────────────────────────────────
@@ -461,12 +462,11 @@ export function PrincipalReportCardsPage() {
       </div>
 
       {/* ── Cohort filters ─────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         <Select value={year} onChange={e => setYear(e.target.value)} options={yearOptions} style={{ minWidth: 110 }} />
-        <Select value={term} onChange={e => setTerm(e.target.value)}
-          options={[{ value: '', label: 'Select term' }, { value: '1', label: 'Term 1' }, { value: '2', label: 'Term 2' }, { value: '3', label: 'Term 3' }]}
-          style={{ minWidth: 120 }}
-        />
+        <div style={{ flex: '1 1 220px' }}>
+          <TermPicker value={term} onChange={setTerm} allowAll allLabel="All Terms" />
+        </div>
         <Select value={classId} onChange={e => { setClassId(e.target.value); setStreamId('') }}
           options={[{ value: '', label: 'Select class' }, ...classes.map(c => ({ value: c.id, label: c.name }))]}
           style={{ minWidth: 140 }}

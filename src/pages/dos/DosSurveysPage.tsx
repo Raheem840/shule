@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
+import { TermPicker } from '../../components/ui/TermPicker'
 
 type SurveyResponse = {
   id: string; studentName: string; className: string
@@ -227,11 +228,9 @@ export function DosSurveysPage() {
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', alignItems: 'flex-end' }}>
-        <div style={{ flex: '0 0 110px' }}>
+        <div style={{ flex: '1 1 220px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Term</div>
-          <select value={term} onChange={e => setTerm(e.target.value)} className="sui-input" style={{ width: '100%' }}>
-            {['1','2','3'].map(t => <option key={t} value={t}>Term {t}</option>)}
-          </select>
+          <TermPicker value={term} onChange={setTerm} />
         </div>
         <div style={{ flex: '0 0 88px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Year</div>

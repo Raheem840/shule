@@ -61,7 +61,7 @@ export function useUserManagement() {
     queryFn: async (): Promise<UserRow[]> => {
       const { data, error } = await supabase
         .from('staff')
-        .select('id, auth_user_id, first_name, last_name, role, is_active')
+        .select('id, auth_user_id, first_name, last_name, role, is_active, last_login_at')
         .eq('school_id', user!.schoolId)
         .order('first_name', { ascending: true })
 
@@ -72,7 +72,7 @@ export function useUserManagement() {
         authUserId: r.auth_user_id,
         name:       `${r.first_name} ${r.last_name}`,
         role:       r.role,
-        lastLogin:  null,
+        lastLogin:  (r.last_login_at as string) ?? null,
         isActive:   r.is_active,
       } satisfies UserRow))
     },

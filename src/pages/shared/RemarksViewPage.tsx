@@ -9,6 +9,7 @@ import { useStudents } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useAllTeacherRemarks } from '../../hooks/useTeacherRemarks'
 import { useStaff } from '../../hooks/useStaff'
+import { TermPicker } from '../../components/ui/TermPicker'
 
 export function RemarksViewPage() {
   const currentYear = new Date().getFullYear()
@@ -80,15 +81,10 @@ export function RemarksViewPage() {
             </div>
           </div>
           {/* Term/Year selectors */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.7)', textTransform: 'uppercase', letterSpacing: .7 }}>Term</label>
-              <select value={term} onChange={e => setTerm(e.target.value)}
-                style={{ padding: '7px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,.3)', background: 'rgba(255,255,255,.15)', color: '#fff', fontSize: 13, fontWeight: 700, outline: 'none', cursor: 'pointer', backdropFilter: 'blur(8px)' }}>
-                <option value="1" style={{ color: '#000' }}>Term 1</option>
-                <option value="2" style={{ color: '#000' }}>Term 2</option>
-                <option value="3" style={{ color: '#000' }}>Term 3</option>
-              </select>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ flex: '1 1 220px' }}>
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.7)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Term</label>
+              <TermPicker value={term} onChange={setTerm} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <label style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.7)', textTransform: 'uppercase', letterSpacing: .7 }}>Year</label>

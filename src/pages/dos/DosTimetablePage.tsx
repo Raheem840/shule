@@ -17,6 +17,7 @@ import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import type { TimetableSlot } from '../../types/week9'
+import { TermPicker } from '../../components/ui/TermPicker'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EventType = 'class' | 'break' | 'lunch' | 'assembly' | 'prayer' | 'preps' | 'custom'
@@ -1599,11 +1600,9 @@ export function DosTimetablePage() {
       {/* ── Filters + view toggle row ── */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 16, padding: '14px 18px', boxShadow: '0 1px 8px rgba(0,0,0,.04)' }}>
         {/* Term */}
-        <div style={{ flex: '0 0 110px' }}>
+        <div style={{ flex: '1 1 240px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Term</div>
-          <select value={term} onChange={e => setTerm(e.target.value)} className="sui-input" style={{ width: '100%' }}>
-            {['Term 1','Term 2','Term 3'].map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <TermPicker format="full" value={term} onChange={setTerm} />
         </div>
         {/* Year */}
         <div style={{ flex: '0 0 88px' }}>

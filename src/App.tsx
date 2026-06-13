@@ -220,8 +220,9 @@ export default function App() {
             <Route path="/secretary/portal-links" element={<ParentCredentialsPage />} />
             <Route path="/secretary/import"       element={<ImportDataPage />} />
             <Route path="/secretary/messages"     element={<MessagingPage />} />
-            <Route path="/secretary/briefing"     element={<SchoolAtAGlancePage />} />
-            <Route path="/secretary/reports"      element={<SecretaryReportsPage />} />
+            <Route path="/secretary/briefing"       element={<SchoolAtAGlancePage />} />
+            <Route path="/secretary/reports"        element={<SecretaryReportsPage />} />
+            <Route path="/secretary/academic-year"  element={<AcademicYearPage />} />
           </Route>
 
           {/* ── Bursar ─────────────────────────────────────────────── */}
