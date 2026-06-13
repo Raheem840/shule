@@ -91,10 +91,11 @@ function QuickActions() {
 
 // ── Top Classes Bar Chart ──────────────────────────────────────────────────
 function TopClassesChart() {
-  const { data: classes = [], isLoading } = useTopClasses()
+  const { data: classes = [], isLoading, isError } = useTopClasses()
   const { isLowBandwidth } = useBandwidth()
 
   if (isLoading) return <div style={{ color: 'var(--txt3)', fontSize: 13 }}>Loading class data…</div>
+  if (isError) return <div style={{ color: 'var(--danger)', fontSize: 13 }}>Could not load class data — refresh to try again.</div>
   if (classes.length === 0) return <div style={{ color: 'var(--txt3)', fontSize: 13 }}>No class performance data yet.</div>
 
   if (isLowBandwidth) {

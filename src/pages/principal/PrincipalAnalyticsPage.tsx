@@ -162,7 +162,7 @@ export function PrincipalAnalyticsPage() {
 
   const { data: kpis, isLoading: kpisLoading, isError: kpisError } = usePrincipalKpis()
   const { data: dos,        isLoading: dosLoading         } = useDosOverview()
-  const { data: classPerf,  isLoading: classPerfLoading   } = useAllClassPerformance()
+  const { data: classPerf,  isLoading: classPerfLoading, isError: classPerfError } = useAllClassPerformance()
   const { data: attByClass, isLoading: attLoading         } = useAttendanceByClass()
   const { data: gender,     isLoading: genderLoading      } = useGenderEnrollment()
   const { data: staffRoles, isLoading: staffRolesLoading  } = useStaffRoleBreakdown()
@@ -222,7 +222,11 @@ export function PrincipalAnalyticsPage() {
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 6 }}>
                   Class Pass Rate Heatmap
                 </div>
-                {!classPerf?.length ? (
+                {classPerfError ? (
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--danger)', fontSize: 13 }}>
+                    Could not load class data — refresh to try again.
+                  </div>
+                ) : !classPerf?.length ? (
                   <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--txt3)', fontSize: 13 }}>
                     Class performance data will appear once teachers enter and publish exam marks.
                   </div>
