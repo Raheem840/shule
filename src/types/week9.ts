@@ -55,6 +55,7 @@ export type TimetablePeriod = {
   id: string
   schoolId: string
   classId: string
+  streamId: string | null
   subjectId: string
   teacherId: string
   dayOfWeek: 1 | 2 | 3 | 4 | 5 | 6 | 7   // 1=Mon … 5=Fri
@@ -63,6 +64,7 @@ export type TimetablePeriod = {
   endTime: string
   term: string
   year: number
+  isPublished: boolean
 }
 
 // ── CURRICULUM TOPIC ───────────────────────────────────────────────────────

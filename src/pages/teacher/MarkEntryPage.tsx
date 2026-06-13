@@ -815,17 +815,27 @@ export function MarkEntryPage() {
     if (validRows.length === 0) return result
 
     const { error } = await supabase.from('exam_results').upsert(
-      validRows.map(r => ({
-        school_id:       user.schoolId,
-        exam_journal_id: journal.id,
-        student_id:      r.studentId,
-        teacher_id:      user.staffId ?? user.id,
-        subject_id:      journal.subjectId,
-        score:           r.isAbsent ? null : r.score,
-        is_absent:       r.isAbsent,
-        term:            journal.term,
-        year:            journal.year,
-      })),
+      validRows.map(r => {
+        let grade: string | null = null
+        if (!r.isAbsent && r.score !== null && journal.assessmentType !== 'end_of_term') {
+          const pct = journal.assessmentType === 'ca'
+            ? (r.score / 3) * 100
+            : (r.score / journal.totalMarks) * 100
+          grade = calculateCBCGrade(pct)
+        }
+        return {
+          school_id:       user.schoolId,
+          exam_journal_id: journal.id,
+          student_id:      r.studentId,
+          teacher_id:      user.staffId ?? user.id,
+          subject_id:      journal.subjectId,
+          score:           r.isAbsent ? null : r.score,
+          grade,
+          is_absent:       r.isAbsent,
+          term:            journal.term,
+          year:            journal.year,
+        }
+      }),
       { onConflict: 'exam_journal_id,student_id' },
     )
 

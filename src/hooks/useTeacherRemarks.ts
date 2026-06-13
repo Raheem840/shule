@@ -107,7 +107,7 @@ export type RemarkRow = {
 }
 
 // ── useSaveRemarks ─────────────────────────────────────────────
-// Upserts all remarks. Conflict key: (school_id, student_id, term, year).
+// Upserts all remarks. Conflict key: (school_id, student_id, teacher_id, term, year).
 export function useSaveRemarks() {
   const { user } = useAuth()
   const qc = useQueryClient()

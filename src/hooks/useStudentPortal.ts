@@ -162,13 +162,27 @@ export function useMyFeeBalance(studentId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('fee_payments')
-        .select('id, amount_due, amount_paid, balance, payment_date, receipt_number, term')
+        .select('id, amount_due, amount_paid, balance, payment_date, receipt_number, term, fee_structure_id')
         .eq('school_id',  user!.schoolId)
         .eq('student_id', studentId!)
         .order('payment_date', { ascending: false, nullsFirst: false })
         .order('term', { ascending: false })
 
       if (error) throw error
+
+      // Resolve fee structure names
+      const feeStructureIds = [...new Set(((data ?? []) as AnyRow[]).map(r => r.fee_structure_id as string).filter(Boolean))]
+      const feeNameMap = new Map<string, string>()
+      if (feeStructureIds.length > 0) {
+        const { data: feeStructures } = await supabase
+          .from('fee_structure')
+          .select('id, name')
+          .eq('school_id', user!.schoolId)
+          .in('id', feeStructureIds)
+        for (const fs of (feeStructures ?? []) as AnyRow[]) {
+          feeNameMap.set(fs.id as string, fs.name as string)
+        }
+      }
 
       return ((data ?? []) as AnyRow[]).map(r => {
         const amtDue  = Number(r.amount_due)  || 0
@@ -177,7 +191,7 @@ export function useMyFeeBalance(studentId: string | null) {
         return {
           id:            r.id as string,
           termLabel:     `Term ${r.term}`,
-          feeName:       'Fee Payment',
+          feeName:       feeNameMap.get(r.fee_structure_id as string) ?? 'Fee Payment',
           amountDue:     amtDue,
           amountPaid:    amtPaid,
           balance,

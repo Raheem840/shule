@@ -72,11 +72,12 @@ export function useSmsStudents(filters: SmsFilters) {
           .eq('is_active', true),
       ])
 
-      if (studentsRes.error)  throw studentsRes.error
-      if (guardiansRes.error) throw guardiansRes.error
-      if (paymentsRes.error)  throw paymentsRes.error
-      if (classesRes.error)   throw classesRes.error
-      if (streamsRes.error)   throw streamsRes.error
+      if (studentsRes.error)   throw studentsRes.error
+      if (guardiansRes.error)  throw guardiansRes.error
+      if (paymentsRes.error)   throw paymentsRes.error
+      if (classesRes.error)    throw classesRes.error
+      if (streamsRes.error)    throw streamsRes.error
+      if (activeYearsRes.error) throw activeYearsRes.error
 
       // Limit to the active academic year to avoid cross-year fee data
       const activeYearIds = new Set((activeYearsRes.data ?? []).map((y: any) => y.id as string))
