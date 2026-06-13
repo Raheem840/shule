@@ -75,7 +75,7 @@ export function useParentStudents() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
-        .select('id, school_id, admission_number, first_name, last_name, dob, gender, class_id, stream_id, photo_url, status, enrolled_at, student_type, nationality, religion, medical_notes, previous_school')
+        .select('id, school_id, admission_number, first_name, last_name, dob, gender, class_id, stream_id, photo_url, status, enrolled_at, student_type, nationality, religion, medical_notes, previous_school, auth_user_id')
         .eq('school_id', user!.schoolId)
         .in('id', effectiveIds)
         .order('first_name')

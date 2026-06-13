@@ -487,7 +487,7 @@ type MessageLogRow = {
 function useMessageLog(dateFrom: string, dateTo: string) {
   const { user } = useAuth()
 
-  const { data: staffNames = {} } = useQuery({
+  const { data: staffNames = {}, isSuccess: staffNamesReady } = useQuery({
     queryKey: ['staff-name-map', user?.schoolId],
     enabled: !!user,
     queryFn: async (): Promise<Record<string, string>> => {
@@ -528,7 +528,7 @@ function useMessageLog(dateFrom: string, dateTo: string) {
         attachmentUrl: r.attachment_url ?? null,
       }))
     },
-    enabled: !!user && Object.keys(staffNames).length > 0,
+    enabled: !!user && staffNamesReady,
     staleTime: 60_000,
   })
 }

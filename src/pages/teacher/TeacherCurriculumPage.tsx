@@ -99,7 +99,7 @@ function useMarkCovered() {
     mutationFn: async (id: string) => {
       if (!user) throw new Error('Not authenticated')
       const { error } = await supabase.from('curriculum_plan')
-        .update({ covered_at: new Date().toISOString(), covered_by: user.id })
+        .update({ covered: true, covered_at: new Date().toISOString(), covered_by: user.staffId ?? user.id })
         .eq('id', id).eq('school_id', user.schoolId)
       if (error) throw new Error(error.message)
       const { data: dosStaff } = await supabase.from('staff').select('auth_user_id')
@@ -124,7 +124,7 @@ function useUnmarkCovered() {
     mutationFn: async (id: string) => {
       if (!user) throw new Error('Not authenticated')
       const { error } = await supabase.from('curriculum_plan')
-        .update({ covered_at: null, covered_by: null })
+        .update({ covered: false, covered_at: null, covered_by: null })
         .eq('id', id).eq('school_id', user.schoolId)
       if (error) throw new Error(error.message)
     },

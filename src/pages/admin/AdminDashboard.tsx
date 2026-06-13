@@ -241,10 +241,8 @@ function UserManagementSection() {
         <div ref={listRef} style={{ overflowY: 'auto', maxHeight: 440, position: 'relative' }}>
           <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
             {rowVirtualizer.getVirtualItems().map(vr => {
-              const u = users[vr.index] // use original `users` since virtualizer uses that count
+              const u = filtered[vr.index]
               if (!u) return null
-              // Skip if filtered out
-              if (filtered.indexOf(u) === -1 && search.trim()) return null
               const meta = umRole(u.role)
               return (
                 <div

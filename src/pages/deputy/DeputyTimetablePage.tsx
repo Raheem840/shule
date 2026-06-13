@@ -331,7 +331,7 @@ export function DeputyTimetablePage() {
         </div>
         <div style={{ flex: '0 0 88px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Year</div>
-          <input type="number" value={year} min={2020} max={2099} onChange={e => setYear(parseInt(e.target.value))} className="sui-input" style={{ width: '100%' }} />
+          <input type="number" value={year} min={2020} max={2099} onChange={e => setYear(parseInt(e.target.value) || new Date().getFullYear())} className="sui-input" style={{ width: '100%' }} />
         </div>
       </div>
 

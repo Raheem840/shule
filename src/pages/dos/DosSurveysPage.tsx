@@ -27,15 +27,45 @@ function useSurveyResponses(term: string, year: number) {
       if (error) throw error
       const rows = data ?? []
 
-      // Resolve subject UUIDs to names in one query
-      const subjectIds = [...new Set(rows.flatMap((r: any) => [r.hardest_subject_id, r.favourite_subject_id].filter(Boolean) as string[]))]
-      const subjectMap = new Map<string, string>()
-      if (subjectIds.length > 0) {
-        const { data: subjects } = await supabase.from('subjects').select('id, name').eq('school_id', user!.schoolId).in('id', subjectIds)
-        for (const s of subjects ?? []) subjectMap.set((s as any).id, (s as any).name)
+      // Resolve subject UUIDs and student names in parallel
+      const subjectIds  = [...new Set(rows.flatMap((r: any) => [r.hardest_subject_id, r.favourite_subject_id].filter(Boolean) as string[]))]
+      const studentIds  = [...new Set(rows.map((r: any) => r.student_id as string).filter(Boolean))]
+      const subjectMap  = new Map<string, string>()
+      const studentMap  = new Map<string, { name: string; classId: string | null }>()
+      const classMap    = new Map<string, string>()
+
+      const [subjectsRes, studentsRes] = await Promise.all([
+        subjectIds.length > 0
+          ? supabase.from('subjects').select('id, name').eq('school_id', user!.schoolId).in('id', subjectIds)
+          : Promise.resolve({ data: [] }),
+        studentIds.length > 0
+          ? supabase.from('students').select('id, first_name, last_name, class_id').eq('school_id', user!.schoolId).in('id', studentIds)
+          : Promise.resolve({ data: [] }),
+      ])
+      for (const s of (subjectsRes as any).data ?? []) subjectMap.set(s.id, s.name)
+      const classIds = [...new Set(((studentsRes as any).data ?? []).map((s: any) => s.class_id as string).filter(Boolean))]
+      if (classIds.length > 0) {
+        const { data: classes } = await supabase.from('classes').select('id, name').eq('school_id', user!.schoolId).in('id', classIds)
+        for (const c of classes ?? []) classMap.set((c as any).id, (c as any).name)
+      }
+      for (const s of (studentsRes as any).data ?? []) {
+        studentMap.set(s.id, { name: `${s.first_name} ${s.last_name}`, classId: s.class_id ?? null })
       }
 
-      const responses: SurveyResponse[] = rows.map((r: any) => ({ id: r.id, studentName: `Student ${r.student_id?.slice(0, 8) ?? 'Unknown'}`, className: '—', overallRating: r.rating ?? 0, teacherRating: r.teacher_rating ?? 0, hardestSubject: r.hardest_subject_id ? (subjectMap.get(r.hardest_subject_id) ?? r.hardest_subject_id) : null, favouriteSubject: r.favourite_subject_id ? (subjectMap.get(r.favourite_subject_id) ?? r.favourite_subject_id) : null, suggestions: r.suggestions ?? null, submittedAt: r.submitted_at }))
+      const responses: SurveyResponse[] = rows.map((r: any) => {
+        const stu = studentMap.get(r.student_id)
+        return {
+          id: r.id,
+          studentName: stu?.name ?? `Student ${r.student_id?.slice(0, 8) ?? 'Unknown'}`,
+          className:   stu?.classId ? (classMap.get(stu.classId) ?? '—') : '—',
+          overallRating: r.rating ?? 0,
+          teacherRating: r.teacher_rating ?? 0,
+          hardestSubject:   r.hardest_subject_id ? (subjectMap.get(r.hardest_subject_id) ?? r.hardest_subject_id) : null,
+          favouriteSubject: r.favourite_subject_id ? (subjectMap.get(r.favourite_subject_id) ?? r.favourite_subject_id) : null,
+          suggestions: r.suggestions ?? null,
+          submittedAt: r.submitted_at,
+        }
+      })
       const total      = responses.length
       const avgOverall = total > 0 ? Math.round((responses.reduce((s, r) => s + r.overallRating, 0) / total) * 10) / 10 : 0
       const avgTeacher = total > 0 ? Math.round((responses.reduce((s, r) => s + r.teacherRating, 0) / total) * 10) / 10 : 0

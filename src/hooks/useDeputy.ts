@@ -403,6 +403,7 @@ export function useTimetable(classId?: string | null) {
         id:           r.id,
         schoolId:     r.school_id,
         classId:      r.class_id,
+        streamId:     r.stream_id,
         subjectId:    r.subject_id,
         teacherId:    r.teacher_id,
         dayOfWeek:    r.day_of_week as 1 | 2 | 3 | 4 | 5,
@@ -411,6 +412,7 @@ export function useTimetable(classId?: string | null) {
         endTime:      r.end_time,
         term:         r.term,
         year:         r.year,
+        isPublished:  r.is_published as boolean,
       }))
     },
     staleTime: 10 * 60_000,

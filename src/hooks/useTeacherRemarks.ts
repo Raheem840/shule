@@ -140,7 +140,7 @@ export function useSaveRemarks() {
         const { error } = await supabase
           .from('teacher_remarks')
           .upsert(records.slice(i, i + BATCH), {
-            onConflict: 'school_id,student_id,term,year',
+            onConflict: 'school_id,student_id,teacher_id,term,year',
           })
         if (error) throw error
       }

@@ -41,7 +41,7 @@ export function useSmsStudents(filters: SmsFilters) {
     queryKey: ['sms-students', user?.schoolId, filters],
     enabled:  !!user?.schoolId,
     queryFn: async () => {
-      const [studentsRes, guardiansRes, paymentsRes, classesRes, streamsRes] = await Promise.all([
+      const [studentsRes, guardiansRes, paymentsRes, classesRes, streamsRes, activeYearsRes] = await Promise.all([
         supabase
           .from('students')
           .select('id, first_name, last_name, admission_number, class_id, stream_id')
@@ -54,7 +54,7 @@ export function useSmsStudents(filters: SmsFilters) {
           .eq('do_not_contact', false),
         supabase
           .from('fee_payments')
-          .select('student_id, amount_due, amount_paid, balance')
+          .select('student_id, amount_due, amount_paid, balance, academic_year_id')
           .eq('school_id', user!.schoolId)
           .eq('term', filters.term),
         supabase
@@ -65,6 +65,11 @@ export function useSmsStudents(filters: SmsFilters) {
           .from('streams')
           .select('id, name')
           .eq('school_id', user!.schoolId),
+        supabase
+          .from('academic_years')
+          .select('id')
+          .eq('school_id', user!.schoolId)
+          .eq('is_active', true),
       ])
 
       if (studentsRes.error)  throw studentsRes.error
@@ -72,6 +77,9 @@ export function useSmsStudents(filters: SmsFilters) {
       if (paymentsRes.error)  throw paymentsRes.error
       if (classesRes.error)   throw classesRes.error
       if (streamsRes.error)   throw streamsRes.error
+
+      // Limit to the active academic year to avoid cross-year fee data
+      const activeYearIds = new Set((activeYearsRes.data ?? []).map((y: any) => y.id as string))
 
       // Build guardian map — prefer primary guardian
       const anyGuardian     = new Map<string, { name: string; phone: string }>()
@@ -91,9 +99,12 @@ export function useSmsStudents(filters: SmsFilters) {
       const streamMap = new Map<string, string>()
       for (const s of streamsRes.data ?? []) streamMap.set(s.id as string, s.name as string)
 
-      // Aggregate fee balances per student (a student can have multiple fee rows)
+      // Aggregate fee balances per student (active year only)
       const feeMap = new Map<string, { amountDue: number; amountPaid: number; balance: number }>()
       for (const p of paymentsRes.data ?? []) {
+        // Skip payments from other academic years when we have active year info
+        const pyid = (p as any).academic_year_id as string | null
+        if (activeYearIds.size > 0 && pyid && !activeYearIds.has(pyid)) continue
         const sid  = p.student_id as string
         const curr = feeMap.get(sid) ?? { amountDue: 0, amountPaid: 0, balance: 0 }
         curr.amountDue  += Number(p.amount_due)  || 0

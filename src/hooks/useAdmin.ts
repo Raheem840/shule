@@ -684,6 +684,7 @@ export function useToggleSurvey() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['academic-years', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['academic-years-full', user?.schoolId] })
     },
   })
 }
