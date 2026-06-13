@@ -475,7 +475,7 @@ export function useGenerateReportCards() {
               className,
               streamName,
             },
-            term,
+            term:              Number(term),
             year,
             termStartDate,
             termEndDate,

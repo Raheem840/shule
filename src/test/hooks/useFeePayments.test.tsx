@@ -180,7 +180,7 @@ describe('useAddPayment', () => {
         studentId: 'stu-1', feeStructureId: null, academicYearId: null,
         amountDue: 400_000, amountPaid: 200_000,
         paymentDate: '2025-06-01', receiptNumber: 'RCP-001',
-        notes: null, term: 1, year: 2025,
+        notes: null, term: 1,
       })
     })
 
@@ -198,7 +198,7 @@ describe('useAddPayment', () => {
         studentId: 'stu-1', feeStructureId: null, academicYearId: null,
         amountDue: 500_000, amountPaid: 150_000,
         paymentDate: '2025-06-01', receiptNumber: null,
-        notes: null, term: 1, year: 2025,
+        notes: null, term: 1,
       })
     })
 

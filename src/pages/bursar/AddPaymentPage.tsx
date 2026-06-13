@@ -511,7 +511,6 @@ function ApplyPaymentForm({
 function NewFeeRowForm({
   studentId,
   term,
-  year,
   academicYearId,
   existingRows,
   onDone,
