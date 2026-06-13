@@ -101,8 +101,11 @@ export function useTopClasses() {
         supabase.from('classes').select('id, name').eq('school_id', sid),
         supabase.from('students').select('id, class_id').eq('school_id', sid).eq('status', 'active'),
         supabase.from('exam_results').select('student_id, score, exam_journal_id').eq('school_id', sid).eq('year', currentYear).limit(50000),
-        supabase.from('exam_journal').select('id, pass_mark, class_id').eq('school_id', sid).eq('year', currentYear),
+        supabase.from('exam_journal').select('id, pass_mark, class_id').eq('school_id', sid).eq('year', currentYear).limit(50000),
       ])
+      if (classesRes.error) throw classesRes.error
+      if (resultsRes.error) throw resultsRes.error
+      if (journalsRes.error) throw journalsRes.error
 
       const classes   = classesRes.data ?? []
       const students  = studentsRes.data ?? []
@@ -454,9 +457,12 @@ export function useAllClassPerformance() {
       const [classesRes, studentsRes, resultsRes, journalsRes] = await Promise.all([
         supabase.from('classes').select('id, name').eq('school_id', sid),
         supabase.from('students').select('id, class_id').eq('school_id', sid).eq('status', 'active'),
-        supabase.from('exam_results').select('student_id, score, exam_journal_id').eq('school_id', sid),
-        supabase.from('exam_journal').select('id, pass_mark').eq('school_id', sid),
+        supabase.from('exam_results').select('student_id, score, exam_journal_id').eq('school_id', sid).limit(50000),
+        supabase.from('exam_journal').select('id, pass_mark').eq('school_id', sid).limit(50000),
       ])
+      if (classesRes.error) throw classesRes.error
+      if (resultsRes.error) throw resultsRes.error
+      if (journalsRes.error) throw journalsRes.error
 
       const classes  = classesRes.data  ?? []
       const students = studentsRes.data ?? []

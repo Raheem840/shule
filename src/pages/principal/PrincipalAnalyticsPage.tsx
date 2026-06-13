@@ -203,7 +203,7 @@ export function PrincipalAnalyticsPage() {
           {kpisLoading
             ? <Loading />
             : kpisError
-              ? <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>Could not load KPIs — refresh to try again.</p>
+              ? <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0, width: '100%' }}>Could not load KPIs — refresh to try again.</p>
               : kpis && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
                   <KpiTile label="Overall Pass Rate"    value={kpis.overallPassRate != null ? `${kpis.overallPassRate}%` : 'N/A'}  color={C.brand}   />

@@ -289,7 +289,7 @@ export function PrincipalDashboard() {
             </div>
           ))
         ) : kpisError ? (
-          <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>Could not load KPIs — refresh to try again.</p>
+          <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0, width: '100%' }}>Could not load KPIs — refresh to try again.</p>
         ) : kpis ? (
           <>
             <KpiCard label="Total Students" value={kpis.totalStudents}
