@@ -65,6 +65,7 @@ function useSetActiveYear() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['academic-years-full', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['academic-years', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['principal-kpis', user?.schoolId] })
     },
   })
 }
@@ -168,7 +169,7 @@ function usePromoteAllStudents() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
-      void qc.invalidateQueries({ queryKey: ['principal-kpis'] })
+      void qc.invalidateQueries({ queryKey: ['principal-kpis', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['academic-years-full', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['academic-years', user?.schoolId] })
     },

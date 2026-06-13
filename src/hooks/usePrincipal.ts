@@ -19,17 +19,25 @@ export function usePrincipalKpis() {
       weekStart.setDate(weekStart.getDate() - weekStart.getDay())
       const weekStartStr = weekStart.toISOString().slice(0, 10)
 
+      // Fetch active year first so fee_payments can be filtered server-side (avoids 1000-row cap)
+      const activeYearRes = await supabase
+        .from('academic_years').select('id').eq('school_id', sid).eq('is_active', true).maybeSingle()
+      if (activeYearRes.error) throw activeYearRes.error
+      const activeYearId = activeYearRes.data?.id ?? null
+
+      let feeQ = supabase.from('fee_payments').select('amount_paid, amount_due').eq('school_id', sid)
+      if (activeYearId) feeQ = feeQ.eq('academic_year_id', activeYearId)
+
       const [studentsRes, staffRes, resultsRes, journalsRes, paymentsRes,
-             attendanceRes, reportCardsRes, activeYearRes] = await Promise.all([
+             attendanceRes, reportCardsRes] = await Promise.all([
         supabase.from('students').select('id').eq('school_id', sid).eq('status', 'active'),
         supabase.from('staff').select('id').eq('school_id', sid).eq('is_active', true),
         supabase.from('exam_results').select('score, exam_journal_id').eq('school_id', sid),
         supabase.from('exam_journal').select('id, pass_mark').eq('school_id', sid),
-        supabase.from('fee_payments').select('amount_paid, amount_due, academic_year_id').eq('school_id', sid),
+        activeYearId ? feeQ : Promise.resolve({ data: [] as any[], error: null }),
         supabase.from('attendance').select('status, date').eq('school_id', sid)
           .gte('date', weekStartStr).lte('date', today),
         supabase.from('report_cards').select('id').eq('school_id', sid).eq('status', 'ready'),
-        supabase.from('academic_years').select('id').eq('school_id', sid).eq('is_active', true).maybeSingle(),
       ])
 
       // Pass rate
@@ -41,13 +49,9 @@ export function usePrincipalKpis() {
       const overallPassRate = graded.length > 0
         ? Math.round((passed.length / graded.length) * 100) : 0
 
-      // Fee collection rate — scoped to active academic year only
-      const activeYearId = activeYearRes.data?.id ?? null
-      const activePayments = activeYearId
-        ? (paymentsRes.data ?? []).filter((r: any) => r.academic_year_id === activeYearId)
-        : (paymentsRes.data ?? [])
-      const totalExpected  = activePayments.reduce((s: number, r: any) => s + (r.amount_due  ?? 0), 0)
-      const totalCollected = activePayments.reduce((s: number, r: any) => s + (r.amount_paid ?? 0), 0)
+      // Fee collection rate — server-side filtered to active year; empty when no active year
+      const totalExpected  = (paymentsRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_due  ?? 0), 0)
+      const totalCollected = (paymentsRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_paid ?? 0), 0)
       const feeCollectionRate = totalExpected > 0
         ? Math.round((totalCollected / totalExpected) * 100) : 0
 

@@ -19,6 +19,7 @@ import {
   ugx, calcFeeStatus,
   type LedgerRow, type FeeFilters,
 } from '../../hooks/useFeePayments'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
 import type { FeeStatus } from '../../types/app'
 import type { ParsedRow, ConflictStrategy, ImportResult } from '../../components/shared/ImportWizard'
 
@@ -44,9 +45,9 @@ type AddPaymentForm = z.infer<typeof AddPaymentSchema>
 
 // ── Add Payment modal ─────────────────────────────────────────
 function AddPaymentModal({
-  term, year, onClose,
+  term, year, academicYearId, onClose,
 }: {
-  term: number; year: number; onClose: () => void
+  term: number; year: number; academicYearId: string | null; onClose: () => void
 }) {
   const { data: students } = useStudents()
   const addPayment = useAddPayment()
@@ -77,7 +78,7 @@ function AddPaymentModal({
     await addPayment.mutateAsync({
       studentId:     values.studentId,
       feeStructureId: null,
-      academicYearId: null,
+      academicYearId,
       amountDue:     values.amountDue,
       amountPaid:    values.amountPaid,
       paymentDate:   values.paymentDate,
@@ -268,6 +269,8 @@ export function FeeLedgerPage() {
   const { data: streams } = useStreams(filters.classId ?? null)
   const { data: rows, isLoading, error } = useFeePayments(filters)
   const updatePayment = useUpdatePayment()
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeAcademicYearId = academicYears.find(y => y.isActive)?.id ?? null
 
   const allRows = useMemo(() => {
     const r = rows ?? []
@@ -765,6 +768,7 @@ export function FeeLedgerPage() {
         <AddPaymentModal
           term={filters.term ?? 1}
           year={filters.year ?? CURRENT_YEAR}
+          academicYearId={activeAcademicYearId}
           onClose={() => setShowAdd(false)}
         />
       )}
