@@ -70,17 +70,19 @@ function useSetActiveYear() {
   })
 }
 
+type YearFormVals = {
+  name: string
+  startDate: string; endDate: string
+  term1Start: string; term1End: string
+  term2Start: string; term2End: string
+  term3Start: string; term3End: string
+}
+
 function useCreateAcademicYear() {
   const { user } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (vals: {
-      name: string
-      startDate: string; endDate: string
-      term1Start: string; term1End: string
-      term2Start: string; term2End: string
-      term3Start: string; term3End: string
-    }) => {
+    mutationFn: async (vals: YearFormVals) => {
       if (!user) throw new Error('Not authenticated')
       const { error } = await supabase.from('academic_years').insert({
         school_id:   user.schoolId,
@@ -98,6 +100,30 @@ function useCreateAcademicYear() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['academic-years-full', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['academic-years', user?.schoolId] })
+    },
+  })
+}
+
+function useUpdateAcademicYear() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (vals: YearFormVals & { id: string }) => {
+      if (!user) throw new Error('Not authenticated')
+      const { error } = await supabase.from('academic_years').update({
+        label:       vals.name,
+        start_date:  vals.startDate,
+        end_date:    vals.endDate,
+        term1_start: vals.term1Start, term1_end: vals.term1End,
+        term2_start: vals.term2Start, term2_end: vals.term2End,
+        term3_start: vals.term3Start, term3_end: vals.term3End,
+      }).eq('id', vals.id).eq('school_id', user.schoolId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['academic-years-full', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['academic-years', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['principal-kpis', user?.schoolId] })
     },
   })
 }
@@ -181,27 +207,105 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString('en-UG', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+// ── Shared future-date warning banner ─────────────────────────────────────
+function FutureDateWarning({ startDate, confirmed, onConfirm }: {
+  startDate: string
+  confirmed: boolean
+  onConfirm: (v: boolean) => void
+}) {
+  const today = new Date().toISOString().split('T')[0]
+  if (startDate <= today) return null
+  const days = Math.round((new Date(startDate).getTime() - Date.now()) / 86_400_000)
+  return (
+    <div style={{
+      padding: '12px 14px', borderRadius: 10, marginTop: 4,
+      background: 'rgba(245,158,11,.09)', border: '1px solid rgba(245,158,11,.35)',
+      display: 'flex', gap: 10, alignItems: 'flex-start',
+    }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <div>
+        <div style={{ fontWeight: 700, fontSize: 12.5, color: 'var(--warning)', fontFamily: 'var(--font2)' }}>
+          Future academic year — starts in {days} day{days !== 1 ? 's' : ''}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 3, lineHeight: 1.5 }}>
+          This year hasn't begun yet. Do <strong>not</strong> set it as Active until the year starts.
+        </div>
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={confirmed}
+            onChange={e => onConfirm(e.target.checked)}
+            style={{ accentColor: 'var(--warning)', width: 14, height: 14 }}
+          />
+          <span style={{ fontSize: 12, color: 'var(--txt2)' }}>I understand — this is a planning year for the future</span>
+        </label>
+      </div>
+    </div>
+  )
+}
+
+// ── Shared year form fields ────────────────────────────────────────────────
+function YearFormFields({ vals, set }: {
+  vals: YearFormVals
+  set: (key: keyof YearFormVals) => (e: React.ChangeEvent<HTMLInputElement>) => void
+}) {
+  return (
+    <>
+      <FieldRow label="Year Name">
+        <input className="sui-input" value={vals.name} onChange={set('name')} placeholder="e.g. 2027" />
+      </FieldRow>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <FieldRow label="Start Date">
+          <input type="date" className="sui-input" value={vals.startDate} onChange={set('startDate')} />
+        </FieldRow>
+        <FieldRow label="End Date">
+          <input type="date" className="sui-input" value={vals.endDate} onChange={set('endDate')} />
+        </FieldRow>
+      </div>
+      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt2)', marginTop: 4 }}>Term Dates</div>
+      {(['term1', 'term2', 'term3'] as const).map((t, i) => (
+        <div key={t} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <FieldRow label={`Term ${i + 1} Start`}>
+            <input type="date" className="sui-input" value={vals[`${t}Start`]} onChange={set(`${t}Start`)} />
+          </FieldRow>
+          <FieldRow label={`Term ${i + 1} End`}>
+            <input type="date" className="sui-input" value={vals[`${t}End`]} onChange={set(`${t}End`)} />
+          </FieldRow>
+        </div>
+      ))}
+    </>
+  )
+}
+
 // ── Create Year Modal ──────────────────────────────────────────────────────
 function CreateYearModal({ onClose }: { onClose: () => void }) {
   const { success: ok, error: err } = useToast()
   const create = useCreateAcademicYear()
-  const year = new Date().getFullYear() + 1
+  const nextYear = new Date().getFullYear() + 1
+  const [futureConfirmed, setFutureConfirmed] = useState(false)
 
-  const [vals, setVals] = useState({
-    name:       String(year),
-    startDate:  `${year}-01-01`,
-    endDate:    `${year}-12-31`,
-    term1Start: `${year}-01-20`,
-    term1End:   `${year}-04-20`,
-    term2Start: `${year}-05-06`,
-    term2End:   `${year}-08-10`,
-    term3Start: `${year}-09-01`,
-    term3End:   `${year}-12-05`,
+  const [vals, setVals] = useState<YearFormVals>({
+    name:       String(nextYear),
+    startDate:  `${nextYear}-01-01`,
+    endDate:    `${nextYear}-12-31`,
+    term1Start: `${nextYear}-01-20`,
+    term1End:   `${nextYear}-04-20`,
+    term2Start: `${nextYear}-05-06`,
+    term2End:   `${nextYear}-08-10`,
+    term3Start: `${nextYear}-09-01`,
+    term3End:   `${nextYear}-12-05`,
   })
 
-  function set(key: keyof typeof vals) {
+  function set(key: keyof YearFormVals) {
     return (e: React.ChangeEvent<HTMLInputElement>) => setVals(v => ({ ...v, [key]: e.target.value }))
   }
+
+  const today = new Date().toISOString().split('T')[0]
+  const isFuture = vals.startDate > today
+  const canSubmit = !create.isPending && !!vals.name.trim() && (!isFuture || futureConfirmed)
 
   async function handleCreate() {
     try {
@@ -225,34 +329,77 @@ function CreateYearModal({ onClose }: { onClose: () => void }) {
         </h3>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <FieldRow label="Year Name">
-            <input className="sui-input" value={vals.name} onChange={set('name')} placeholder="e.g. 2027" />
-          </FieldRow>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <FieldRow label="Start Date">
-              <input type="date" className="sui-input" value={vals.startDate} onChange={set('startDate')} />
-            </FieldRow>
-            <FieldRow label="End Date">
-              <input type="date" className="sui-input" value={vals.endDate} onChange={set('endDate')} />
-            </FieldRow>
-          </div>
-          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt2)', marginTop: 4 }}>Term Dates</div>
-          {(['term1', 'term2', 'term3'] as const).map((t, i) => (
-            <div key={t} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <FieldRow label={`Term ${i + 1} Start`}>
-                <input type="date" className="sui-input" value={vals[`${t}Start`]} onChange={set(`${t}Start`)} />
-              </FieldRow>
-              <FieldRow label={`Term ${i + 1} End`}>
-                <input type="date" className="sui-input" value={vals[`${t}End`]} onChange={set(`${t}End`)} />
-              </FieldRow>
-            </div>
-          ))}
+          <YearFormFields vals={vals} set={set} />
+          <FutureDateWarning startDate={vals.startDate} confirmed={futureConfirmed} onConfirm={setFutureConfirmed} />
         </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
           <button onClick={onClose} className="sui-btn-outline">Cancel</button>
-          <button onClick={handleCreate} className="sui-btn-primary" disabled={create.isPending || !vals.name.trim()}>
+          <button onClick={handleCreate} className="sui-btn-primary" disabled={!canSubmit}>
             {create.isPending ? 'Creating…' : 'Create Year'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Edit Year Modal ────────────────────────────────────────────────────────
+function EditYearModal({ year, onClose }: { year: AcademicYearRow; onClose: () => void }) {
+  const { success: ok, error: err } = useToast()
+  const update = useUpdateAcademicYear()
+  const [futureConfirmed, setFutureConfirmed] = useState(false)
+
+  const [vals, setVals] = useState<YearFormVals>({
+    name:       year.name,
+    startDate:  year.startDate,
+    endDate:    year.endDate,
+    term1Start: year.term1Start ?? '',
+    term1End:   year.term1End   ?? '',
+    term2Start: year.term2Start ?? '',
+    term2End:   year.term2End   ?? '',
+    term3Start: year.term3Start ?? '',
+    term3End:   year.term3End   ?? '',
+  })
+
+  function set(key: keyof YearFormVals) {
+    return (e: React.ChangeEvent<HTMLInputElement>) => setVals(v => ({ ...v, [key]: e.target.value }))
+  }
+
+  const today = new Date().toISOString().split('T')[0]
+  const isFuture = vals.startDate > today
+  const canSubmit = !update.isPending && !!vals.name.trim() && (!isFuture || futureConfirmed)
+
+  async function handleSave() {
+    try {
+      await update.mutateAsync({ id: year.id, ...vals })
+      ok('Academic year updated.')
+      onClose()
+    } catch (e: any) { err(e.message) }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+    }}>
+      <div style={{
+        background: 'var(--surface)', borderRadius: 20, padding: 28,
+        width: 520, maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto',
+      }}>
+        <h3 style={{ fontFamily: 'var(--font2)', fontWeight: 800, margin: '0 0 20px', color: 'var(--txt)' }}>
+          Edit Academic Year
+        </h3>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <YearFormFields vals={vals} set={set} />
+          <FutureDateWarning startDate={vals.startDate} confirmed={futureConfirmed} onConfirm={setFutureConfirmed} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+          <button onClick={onClose} className="sui-btn-outline">Cancel</button>
+          <button onClick={handleSave} className="sui-btn-primary" disabled={!canSubmit}>
+            {update.isPending ? 'Saving…' : 'Save Changes'}
           </button>
         </div>
       </div>
@@ -670,7 +817,10 @@ function AcademicTimeline({ year }: { year: AcademicYearRow }) {
 // ── Main Page ──────────────────────────────────────────────────────────────
 export function AcademicYearPage() {
   const { user } = useAuth()
-  const isPrincipal = user?.role === 'principal'
+  const isPrincipal   = user?.role === 'principal'
+  const isSecretary   = user?.role === 'secretary'
+  const canManageYear = isPrincipal || isSecretary
+
   const { data = [], isLoading } = useAcademicYearsFull()
   const { success: ok, error: err } = useToast()
   const setActive    = useSetActiveYear()
@@ -678,13 +828,29 @@ export function AcademicYearPage() {
   const [expanded,     setExpanded]     = useState<string | null>(null)
   const [showCreate,   setShowCreate]   = useState(false)
   const [showPromote,  setShowPromote]  = useState(false)
+  const [editingYear,  setEditingYear]  = useState<AcademicYearRow | null>(null)
+  const [futureActiveYear, setFutureActiveYear] = useState<AcademicYearRow | null>(null)
 
   const activeYear  = data.find(y => y.isActive) ?? null
   const term3Done   = activeYear?.term3End ? Date.now() > new Date(activeYear.term3End).getTime() : false
+  const today       = new Date().toISOString().split('T')[0]
 
-  async function handleSetActive(yearId: string) {
+  async function handleSetActive(year: AcademicYearRow) {
+    // Warn if the year hasn't started yet — principal must acknowledge
+    if (year.startDate > today) {
+      setFutureActiveYear(year)
+      return
+    }
     try {
-      await setActive.mutateAsync(yearId)
+      await setActive.mutateAsync(year.id)
+      ok('Active year updated.')
+    } catch (e: any) { err(e.message) }
+  }
+
+  async function confirmSetActive(year: AcademicYearRow) {
+    setFutureActiveYear(null)
+    try {
+      await setActive.mutateAsync(year.id)
       ok('Active year updated.')
     } catch (e: any) { err(e.message) }
   }
@@ -709,8 +875,8 @@ export function AcademicYearPage() {
           <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>Manage terms, academic periods and surveys</p>
         </div>
       </div>
-        {isPrincipal && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {isPrincipal && (
             <button
               onClick={() => setShowPromote(true)}
               title={term3Done ? 'Promote students to next class' : 'Available after Term 3 ends'}
@@ -734,11 +900,13 @@ export function AcademicYearPage() {
               Promote All Students
               {!term3Done && <span style={{ fontSize: 10, opacity: .7 }}>(Term 3 pending)</span>}
             </button>
+          )}
+          {canManageYear && (
             <button className="sui-btn-primary" style={{ fontSize: 13 }} onClick={() => setShowCreate(true)}>
               + New Year
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {isLoading && (
@@ -774,12 +942,27 @@ export function AcademicYearPage() {
                   >
                     {expanded === year.id ? 'Collapse' : 'View Terms'}
                   </button>
+                  {canManageYear && (
+                    <button
+                      className="sui-btn-ghost"
+                      style={{ fontSize: 12 }}
+                      onClick={() => setEditingYear(year)}
+                    >
+                      Edit
+                    </button>
+                  )}
                   {isPrincipal && !year.isActive && (
                     <button
                       className="sui-btn-primary"
-                      style={{ fontSize: 12, padding: '6px 14px' }}
+                      style={{
+                        fontSize: 12, padding: '6px 14px',
+                        background: year.startDate > today
+                          ? 'linear-gradient(135deg,var(--warning),#d97706)'
+                          : undefined,
+                      }}
                       disabled={setActive.isPending}
-                      onClick={() => handleSetActive(year.id)}
+                      onClick={() => handleSetActive(year)}
+                      title={year.startDate > today ? 'This year starts in the future — you will be asked to confirm' : undefined}
                     >
                       Set Active
                     </button>
@@ -816,6 +999,57 @@ export function AcademicYearPage() {
 
       {showCreate  && <CreateYearModal onClose={() => setShowCreate(false)} />}
       {showPromote && <PromoteModal years={data} activeYear={activeYear} onClose={() => setShowPromote(false)} />}
+      {editingYear && <EditYearModal year={editingYear} onClose={() => setEditingYear(null)} />}
+
+      {/* Future active-year confirmation dialog */}
+      {futureActiveYear && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 250,
+        }}>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 18, padding: 28,
+            width: 440, maxWidth: '92vw', boxShadow: '0 20px 60px rgba(0,0,0,.25)',
+          }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
+              <div style={{
+                width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+                background: 'rgba(245,158,11,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, color: 'var(--txt)' }}>
+                  Activate a future year?
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--txt3)', marginTop: 4, lineHeight: 1.6 }}>
+                  <strong>{futureActiveYear.name}</strong> starts on {formatDate(futureActiveYear.startDate)}, which is in the future.
+                  Setting it as active now means the current year will be deactivated immediately.
+                  This is unusual — are you sure?
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="sui-btn-outline" onClick={() => setFutureActiveYear(null)}>Cancel</button>
+              <button
+                onClick={() => confirmSetActive(futureActiveYear)}
+                disabled={setActive.isPending}
+                style={{
+                  padding: '9px 20px', borderRadius: 10, border: 'none', fontWeight: 800,
+                  fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font2)',
+                  background: 'linear-gradient(135deg,var(--warning),#d97706)',
+                  color: '#fff', boxShadow: '0 4px 14px rgba(245,158,11,.35)',
+                }}
+              >
+                Yes, Set Active
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
