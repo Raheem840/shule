@@ -160,7 +160,7 @@ export function PrincipalAnalyticsPage() {
   const [tab, setTab] = useState<'academic' | 'attendance' | 'finance'>('academic')
   const currentYear = new Date().getFullYear()
 
-  const { data: kpis,       isLoading: kpisLoading       } = usePrincipalKpis()
+  const { data: kpis, isLoading: kpisLoading, isError: kpisError } = usePrincipalKpis()
   const { data: dos,        isLoading: dosLoading         } = useDosOverview()
   const { data: classPerf,  isLoading: classPerfLoading   } = useAllClassPerformance()
   const { data: attByClass, isLoading: attLoading         } = useAttendanceByClass()
@@ -202,14 +202,16 @@ export function PrincipalAnalyticsPage() {
           {/* KPI row */}
           {kpisLoading
             ? <Loading />
-            : kpis && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-                <KpiTile label="Overall Pass Rate"    value={kpis.overallPassRate != null ? `${kpis.overallPassRate}%` : 'N/A'}  color={C.brand}   />
-                <KpiTile label="Active Students"      value={kpis.totalStudents}                 color="var(--txt)"/>
-                <KpiTile label="Active Staff"         value={kpis.totalStaff}                    color={C.info}    />
-                <KpiTile label="Report Cards Pending" value={kpis.pendingReportCards}            color={C.warning} />
-              </div>
-            )
+            : kpisError
+              ? <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>Could not load KPIs — refresh to try again.</p>
+              : kpis && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+                  <KpiTile label="Overall Pass Rate"    value={kpis.overallPassRate != null ? `${kpis.overallPassRate}%` : 'N/A'}  color={C.brand}   />
+                  <KpiTile label="Active Students"      value={kpis.totalStudents}                 color="var(--txt)"/>
+                  <KpiTile label="Active Staff"         value={kpis.totalStaff}                    color={C.info}    />
+                  <KpiTile label="Report Cards Pending" value={kpis.pendingReportCards}            color={C.warning} />
+                </div>
+              )
           }
 
           {/* Class performance heatmap */}

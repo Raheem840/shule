@@ -517,7 +517,6 @@ function NewFeeRowForm({
 }: {
   studentId:      string
   term:           number
-  year:           number
   academicYearId: string | null
   existingRows:   StudentFeeRow[]
   onDone:         () => void
@@ -908,7 +907,6 @@ export function AddPaymentPage() {
             <NewFeeRowForm
               studentId={selectedStudent.id}
               term={term}
-              year={year}
               academicYearId={academicYearId}
               existingRows={feeRows}
               onDone={() => setActiveRowId(null)}

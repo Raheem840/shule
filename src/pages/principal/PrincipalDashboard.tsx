@@ -252,7 +252,7 @@ function RecentActivity() {
 // ═══════════════════════════════════════════════════════════════════════════
 export function PrincipalDashboard() {
   const navigate = useNavigate()
-  const { data: kpis, isLoading: kpisLoading } = usePrincipalKpis()
+  const { data: kpis, isLoading: kpisLoading, isError: kpisError } = usePrincipalKpis()
 
   return (
     <div className="stagger-sections" style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -288,6 +288,8 @@ export function PrincipalDashboard() {
               <div className="shule-skeleton" style={{ height: 28, width: 60, borderRadius: 4 }} />
             </div>
           ))
+        ) : kpisError ? (
+          <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>Could not load KPIs — refresh to try again.</p>
         ) : kpis ? (
           <>
             <KpiCard label="Total Students" value={kpis.totalStudents}
