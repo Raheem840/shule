@@ -204,7 +204,7 @@ export function PrincipalAnalyticsPage() {
             ? <Loading />
             : kpis && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-                <KpiTile label="Overall Pass Rate"    value={`${kpis.overallPassRate}%`}        color={C.brand}   />
+                <KpiTile label="Overall Pass Rate"    value={kpis.overallPassRate != null ? `${kpis.overallPassRate}%` : 'N/A'}  color={C.brand}   />
                 <KpiTile label="Active Students"      value={kpis.totalStudents}                 color="var(--txt)"/>
                 <KpiTile label="Active Staff"         value={kpis.totalStaff}                    color={C.info}    />
                 <KpiTile label="Report Cards Pending" value={kpis.pendingReportCards}            color={C.warning} />

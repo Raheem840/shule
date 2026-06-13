@@ -72,7 +72,7 @@ describe('usePrincipalKpis', () => {
     const kpis = result.current.data!
     expect(kpis.totalStudents).toBe(0)
     expect(kpis.totalStaff).toBe(0)
-    expect(kpis.overallPassRate).toBe(0)
+    expect(kpis.overallPassRate).toBe(null)
     expect(kpis.feeCollectionRate).toBe(0)
     expect(kpis.pendingReportCards).toBe(0)
   })

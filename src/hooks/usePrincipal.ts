@@ -53,7 +53,8 @@ export function usePrincipalKpis() {
       if (journalIds.length > 0) {
         const resultsRes = await supabase
           .from('exam_results').select('score, exam_journal_id').eq('school_id', sid)
-          .in('exam_journal_id', journalIds)
+          .in('exam_journal_id', journalIds).limit(50000)
+        if (resultsRes.error) throw resultsRes.error
         const graded = (resultsRes.data ?? []).filter((r: any) => r.score != null)
         const passed = graded.filter((r: any) => r.score >= (passMarkMap.get(r.exam_journal_id) ?? 50))
         if (graded.length > 0) overallPassRate = Math.round((passed.length / graded.length) * 100)
