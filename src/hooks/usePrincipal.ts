@@ -95,25 +95,43 @@ export function useTopClasses() {
     enabled: !!user,
     queryFn: async (): Promise<TopClass[]> => {
       const sid = user!.schoolId
-      const currentYear = new Date().getFullYear()
 
-      const [classesRes, studentsRes, resultsRes, journalsRes] = await Promise.all([
+      // Use academic_year_id (same pattern as usePrincipalKpis) — calendar year
+      // is unreliable across term/year boundaries (e.g. Term 1 exams stored in
+      // year=2025 are missed if getFullYear() returns 2026 in January).
+      const activeYearRes = await supabase
+        .from('academic_years').select('id').eq('school_id', sid).eq('is_active', true).maybeSingle()
+      if (activeYearRes.error) throw activeYearRes.error
+      const activeYearId = activeYearRes.data?.id ?? null
+
+      const journalQ = activeYearId
+        ? supabase.from('exam_journal').select('id, pass_mark, class_id').eq('school_id', sid).eq('academic_year_id', activeYearId)
+        : Promise.resolve({ data: [] as any[], error: null })
+
+      const [classesRes, studentsRes, journalsRes] = await Promise.all([
         supabase.from('classes').select('id, name').eq('school_id', sid),
-        supabase.from('students').select('id, class_id').eq('school_id', sid).eq('status', 'active'),
-        supabase.from('exam_results').select('student_id, score, exam_journal_id').eq('school_id', sid).eq('year', currentYear).limit(50000),
-        supabase.from('exam_journal').select('id, pass_mark, class_id').eq('school_id', sid).eq('year', currentYear).limit(50000),
+        supabase.from('students').select('id, class_id').eq('school_id', sid).eq('status', 'active').limit(50000),
+        journalQ,
       ])
       if (classesRes.error) throw classesRes.error
       if (studentsRes.error) throw studentsRes.error
-      if (resultsRes.error) throw resultsRes.error
       if (journalsRes.error) throw journalsRes.error
 
-      const classes   = classesRes.data ?? []
+      const classes   = classesRes.data  ?? []
       const students  = studentsRes.data ?? []
-      const results   = resultsRes.data ?? []
       const journals  = journalsRes.data ?? []
 
-      const passMarkMap = new Map<string, number>(journals.map((j: any) => [j.id, j.pass_mark]))
+      const passMarkMap = new Map<string, number>(journals.map((j: any) => [j.id, j.pass_mark ?? 50]))
+      const journalIds  = journals.map((j: any) => j.id as string)
+
+      let results: any[] = []
+      if (journalIds.length > 0) {
+        const resultsRes = await supabase
+          .from('exam_results').select('student_id, score, exam_journal_id')
+          .eq('school_id', sid).in('exam_journal_id', journalIds).limit(50000)
+        if (resultsRes.error) throw resultsRes.error
+        results = resultsRes.data ?? []
+      }
 
       return classes.map((cls: any) => {
         const classStudentIds = new Set(
@@ -448,6 +466,7 @@ export function useSuspendStaff() {
 
 // ── useAllClassPerformance ─────────────────────────────────────────────────
 // All classes with pass rate, avg score, student count — sorted alphabetically.
+// Scoped to the active academic year (same pattern as usePrincipalKpis).
 export function useAllClassPerformance() {
   const { user } = useAuth()
   return useQuery({
@@ -455,23 +474,40 @@ export function useAllClassPerformance() {
     enabled:  !!user,
     queryFn: async () => {
       const sid = user!.schoolId
-      const [classesRes, studentsRes, resultsRes, journalsRes] = await Promise.all([
+
+      const activeYearRes = await supabase
+        .from('academic_years').select('id').eq('school_id', sid).eq('is_active', true).maybeSingle()
+      if (activeYearRes.error) throw activeYearRes.error
+      const activeYearId = activeYearRes.data?.id ?? null
+
+      const journalQ = activeYearId
+        ? supabase.from('exam_journal').select('id, pass_mark').eq('school_id', sid).eq('academic_year_id', activeYearId)
+        : Promise.resolve({ data: [] as any[], error: null })
+
+      const [classesRes, studentsRes, journalsRes] = await Promise.all([
         supabase.from('classes').select('id, name').eq('school_id', sid),
-        supabase.from('students').select('id, class_id').eq('school_id', sid).eq('status', 'active'),
-        supabase.from('exam_results').select('student_id, score, exam_journal_id').eq('school_id', sid).eq('year', new Date().getFullYear()).limit(50000),
-        supabase.from('exam_journal').select('id, pass_mark').eq('school_id', sid).eq('year', new Date().getFullYear()).limit(50000),
+        supabase.from('students').select('id, class_id').eq('school_id', sid).eq('status', 'active').limit(50000),
+        journalQ,
       ])
       if (classesRes.error) throw classesRes.error
       if (studentsRes.error) throw studentsRes.error
-      if (resultsRes.error) throw resultsRes.error
       if (journalsRes.error) throw journalsRes.error
 
       const classes  = classesRes.data  ?? []
       const students = studentsRes.data ?? []
-      const results  = resultsRes.data  ?? []
       const journals = journalsRes.data ?? []
 
       const passMarkMap = new Map<string, number>(journals.map((j: any) => [j.id, j.pass_mark ?? 50]))
+      const journalIds  = journals.map((j: any) => j.id as string)
+
+      let results: any[] = []
+      if (journalIds.length > 0) {
+        const resultsRes = await supabase
+          .from('exam_results').select('student_id, score, exam_journal_id')
+          .eq('school_id', sid).in('exam_journal_id', journalIds).limit(50000)
+        if (resultsRes.error) throw resultsRes.error
+        results = resultsRes.data ?? []
+      }
 
       return classes.map((cls: any) => {
         const classStudentIds = new Set(

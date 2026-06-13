@@ -233,7 +233,7 @@ export function PrincipalAnalyticsPage() {
                 ) : (
                   <>
                     <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 16 }}>
-                      Each tile shows the pass rate across all recorded exams for that class.
+                      Each tile shows the pass rate across all recorded exams for that class this academic year.
                     </div>
                     <ClassHeatmap classes={classPerf} />
                   </>
