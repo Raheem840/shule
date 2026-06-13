@@ -7,8 +7,7 @@ function isChunkError(error: Error): boolean {
     error.name === 'ChunkLoadError' ||
     error.message?.includes('Failed to fetch dynamically imported module') ||
     error.message?.includes('Importing a module script failed') ||
-    error.message?.includes('Unable to preload CSS') ||
-    error.message?.includes('dynamically imported module')
+    error.message?.includes('Unable to preload CSS')
   )
 }
 
@@ -25,20 +24,21 @@ export class ChunkErrorBoundary extends Component<Props, State> {
     return { hasError: isChunkError(error) }
   }
 
+  componentDidMount() {
+    // Clear the reload flag once the app has successfully mounted
+    sessionStorage.removeItem(RELOAD_KEY)
+  }
+
   componentDidUpdate(_: Props, prev: State) {
     if (this.state.hasError && !prev.hasError && !this.state.alreadyReloaded) {
-      // Mark that we've attempted a reload so we don't loop forever
       sessionStorage.setItem(RELOAD_KEY, '1')
+      this.setState({ alreadyReloaded: true })
       window.location.reload()
     }
   }
 
   render() {
     if (!this.state.hasError) {
-      // Clear the reload flag once the app is rendering successfully
-      if (sessionStorage.getItem(RELOAD_KEY) === '1') {
-        sessionStorage.removeItem(RELOAD_KEY)
-      }
       return this.props.children
     }
 

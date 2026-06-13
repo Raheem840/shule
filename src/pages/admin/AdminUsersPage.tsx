@@ -988,7 +988,7 @@ function StudentActiveCard({ student, className, schoolShortName, onReset, onTog
   async function handleReset() {
     if (!student.auth_user_id) return
     try {
-      const admSlug = student.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '')
+      const admSlug = student.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '') || 'student'
       const r = await reset.mutateAsync({
         studentId:       student.id,
         authUserId:      student.auth_user_id,
@@ -1358,7 +1358,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
         const { data: fnData, error: fnErr } = await supabase.functions.invoke('create-staff-auth-user', {
           body: { staffId: orphanId, email, schoolId, password },
         })
-        if (fnErr || (fnData !== null && !(fnData as any)?.success)) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
+        if (fnErr || fnData == null || !(fnData as any)?.success) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
         orphanTable = null
         void qc.invalidateQueries({ queryKey: ['staff', schoolId] })
         setResult({ email, password, name: `${firstName.trim()} ${lastName.trim()}` })
@@ -1378,7 +1378,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
         const { data: fnData, error: fnErr } = await supabase.functions.invoke('create-student-auth-user', {
           body: { studentId: orphanId, email, schoolId, password },
         })
-        if (fnErr || (fnData !== null && !(fnData as any)?.success)) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
+        if (fnErr || fnData == null || !(fnData as any)?.success) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
         orphanTable = null
         void qc.invalidateQueries({ queryKey: ['students', schoolId] })
         void qc.invalidateQueries({ queryKey: ['students-pending-login', schoolId] })
@@ -1396,7 +1396,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
         const { data: fnData, error: fnErr } = await supabase.functions.invoke('create-parent-auth-user', {
           body: { parentAccountId: orphanId, email, schoolId, password },
         })
-        if (fnErr || (fnData !== null && !(fnData as any)?.success)) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
+        if (fnErr || fnData == null || !(fnData as any)?.success) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
         orphanTable = null
         void qc.invalidateQueries({ queryKey: ['parents-pending-login', schoolId] })
         void qc.invalidateQueries({ queryKey: ['parents-active-login', schoolId] })

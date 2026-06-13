@@ -14,18 +14,18 @@ import './index.css'
 
 startSyncListener()
 
-// When the service worker activates a new version it posts SW_UPDATED.
-// Reload the page so users get fresh chunk hashes instead of hitting 404s
-// on chunks from the previous deployment.
-if ('serviceWorker' in navigator) {
+// When a new SW version takes over, reload so old chunk hashes don't 404.
+// Guard: only fire when there was already a controller (i.e. a real SW swap,
+// not the very first install where controller goes null → SW).
+if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     window.location.reload()
-  })
+  }, { once: true })
 }
 
 async function bootstrap() {
   // Restore previous query cache from IndexedDB so the UI feels instant on reload
-  await restoreQueryCache(queryClient)
+  try { await restoreQueryCache(queryClient) } catch { /* IndexedDB unavailable — render cold */ }
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
