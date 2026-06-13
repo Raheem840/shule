@@ -14,6 +14,15 @@ import './index.css'
 
 startSyncListener()
 
+// When the service worker activates a new version it posts SW_UPDATED.
+// Reload the page so users get fresh chunk hashes instead of hitting 404s
+// on chunks from the previous deployment.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload()
+  })
+}
+
 async function bootstrap() {
   // Restore previous query cache from IndexedDB so the UI feels instant on reload
   await restoreQueryCache(queryClient)

@@ -778,6 +778,7 @@ type StudentLoginRow = {
   admission_number: string
   class_id:         string | null
   auth_user_id:     string | null
+  auth_email:       string | null
   status:           'active' | 'suspended' | 'expelled'
 }
 
@@ -987,10 +988,11 @@ function StudentActiveCard({ student, className, schoolShortName, onReset, onTog
   async function handleReset() {
     if (!student.auth_user_id) return
     try {
+      const admSlug = student.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '')
       const r = await reset.mutateAsync({
         studentId:       student.id,
         authUserId:      student.auth_user_id,
-        email:           `${student.admission_number.toLowerCase().replace(/\//g, '-')}@${schoolShortName || 'school'}.ug`,
+        email:           student.auth_email ?? `${admSlug}@${schoolShortName || 'school'}.ug`,
         name,
         admissionNumber: student.admission_number,
       })
@@ -1266,6 +1268,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
   const { data: streams = [] } = useQuery({
     queryKey: ['streams-wizard', schoolId, classId],
     enabled:  !!classId && !!schoolId,
+    staleTime: 5 * 60_000,
     queryFn:  async () => {
       const { data } = await supabase
         .from('streams')
@@ -1355,7 +1358,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
         const { data: fnData, error: fnErr } = await supabase.functions.invoke('create-staff-auth-user', {
           body: { staffId: orphanId, email, schoolId, password },
         })
-        if (fnErr || !(fnData as any)?.success) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
+        if (fnErr || (fnData !== null && !(fnData as any)?.success)) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
         orphanTable = null
         void qc.invalidateQueries({ queryKey: ['staff', schoolId] })
         setResult({ email, password, name: `${firstName.trim()} ${lastName.trim()}` })
@@ -1375,7 +1378,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
         const { data: fnData, error: fnErr } = await supabase.functions.invoke('create-student-auth-user', {
           body: { studentId: orphanId, email, schoolId, password },
         })
-        if (fnErr || !(fnData as any)?.success) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
+        if (fnErr || (fnData !== null && !(fnData as any)?.success)) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
         orphanTable = null
         void qc.invalidateQueries({ queryKey: ['students', schoolId] })
         void qc.invalidateQueries({ queryKey: ['students-pending-login', schoolId] })
@@ -1393,7 +1396,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
         const { data: fnData, error: fnErr } = await supabase.functions.invoke('create-parent-auth-user', {
           body: { parentAccountId: orphanId, email, schoolId, password },
         })
-        if (fnErr || !(fnData as any)?.success) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
+        if (fnErr || (fnData !== null && !(fnData as any)?.success)) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
         orphanTable = null
         void qc.invalidateQueries({ queryKey: ['parents-pending-login', schoolId] })
         void qc.invalidateQueries({ queryKey: ['parents-active-login', schoolId] })
@@ -1769,7 +1772,7 @@ export function AdminUsersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
-        .select('id, school_id, first_name, last_name, admission_number, class_id, auth_user_id, status')
+        .select('id, school_id, first_name, last_name, admission_number, class_id, auth_user_id, auth_email, status')
         .eq('school_id', schoolId)
         .is('auth_user_id', null)
         .order('last_name', { ascending: true })
@@ -1784,7 +1787,7 @@ export function AdminUsersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
-        .select('id, school_id, first_name, last_name, admission_number, class_id, auth_user_id, status')
+        .select('id, school_id, first_name, last_name, admission_number, class_id, auth_user_id, auth_email, status')
         .eq('school_id', schoolId)
         .not('auth_user_id', 'is', null)
         .order('last_name', { ascending: true })
@@ -2224,11 +2227,11 @@ export function AdminUsersPage() {
 
       {linkModal && <LinkAuthModal staffId={linkModal.staffId} staffName={linkModal.staffName} onClose={() => setLinkModal(null)} />}
 
-      {wizardOpen && (
+      {wizardOpen && !!school && (
         <CreateUserWizard
           onClose={closeWizard}
           schoolId={schoolId}
-          schoolShortName={(school?.shortName ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')}
+          schoolShortName={(school.shortName ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')}
           schoolName={schoolName}
           classes={classes.map(c => ({ id: c.id, name: c.name, academicYearId: c.academicYearId ?? null }))}
         />
