@@ -309,7 +309,7 @@ function RCTable({
 type PrincipalTab = 'awaiting' | 'approved' | 'released'
 
 export function PrincipalReportCardsPage() {
-  const [term,     setTerm]     = useState<string>('')
+  const [term,     setTerm]     = useState<string>('1')
   const [year,     setYear]     = useState<string>(String(new Date().getFullYear()))
   const [classId,  setClassId]  = useState<string>('')
   const [streamId, setStreamId] = useState<string>('')
@@ -465,7 +465,7 @@ export function PrincipalReportCardsPage() {
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         <Select value={year} onChange={e => setYear(e.target.value)} options={yearOptions} style={{ minWidth: 110 }} />
         <div style={{ flex: '1 1 220px' }}>
-          <TermPicker value={term} onChange={setTerm} allowAll allLabel="All Terms" />
+          <TermPicker value={term} onChange={setTerm} />
         </div>
         <Select value={classId} onChange={e => { setClassId(e.target.value); setStreamId('') }}
           options={[{ value: '', label: 'Select class' }, ...classes.map(c => ({ value: c.id, label: c.name }))]}

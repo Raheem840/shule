@@ -58,7 +58,7 @@ export function TeacherRemarksPage() {
 
   const classes                = useMyAssignedClasses()
   const { data: streams = [] } = useStreams(classId || null)
-  const { data: students = [], isLoading: studentsLoading } = useStudents({ classId: classId || undefined, streamId: streamId || undefined, status: 'active' })
+  const { data: students = [], isLoading: studentsLoading } = useStudents({ classId: classId || undefined, streamId: streamId || undefined, status: 'active' }, !!classId)
   const { data: savedRemarks, isLoading: remarksLoading } = useTeacherRemarks({ term: term || null, classId: classId || null, streamId: streamId || null, year: CURRENT_YEAR })
   const saveRemarks = useSaveRemarks()
 
@@ -89,7 +89,7 @@ export function TeacherRemarksPage() {
   const savedSet      = new Set<string>(savedRemarks?.keys() ?? [])
   const withRemarks   = students.filter(s => (remarks.get(s.id) ?? '').trim().length > 0).length
   const withoutRemarks = students.length - withRemarks
-  const ready         = !!term && !!classId && students.length > 0
+  const ready         = !!classId && students.length > 0
   const isLoading     = studentsLoading || remarksLoading
 
   const parentRef = useRef<HTMLDivElement>(null)

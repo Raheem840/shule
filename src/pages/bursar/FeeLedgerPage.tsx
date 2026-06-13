@@ -45,9 +45,9 @@ type AddPaymentForm = z.infer<typeof AddPaymentSchema>
 
 // ── Add Payment modal ─────────────────────────────────────────
 function AddPaymentModal({
-  term, year, academicYearId, onClose,
+  term, academicYearId, onClose,
 }: {
-  term: number; year: number; academicYearId: string | null; onClose: () => void
+  term: number; academicYearId: string | null; onClose: () => void
 }) {
   const { data: students } = useStudents()
   const addPayment = useAddPayment()
@@ -767,7 +767,6 @@ export function FeeLedgerPage() {
       {showAdd && (
         <AddPaymentModal
           term={filters.term ?? 1}
-          year={filters.year ?? CURRENT_YEAR}
           academicYearId={activeAcademicYearId}
           onClose={() => setShowAdd(false)}
         />

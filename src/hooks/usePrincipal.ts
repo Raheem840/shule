@@ -21,9 +21,12 @@ export function usePrincipalKpis() {
 
       // Fetch active year first so fee_payments can be filtered server-side (avoids 1000-row cap)
       const activeYearRes = await supabase
-        .from('academic_years').select('id').eq('school_id', sid).eq('is_active', true).maybeSingle()
+        .from('academic_years').select('id, start_date').eq('school_id', sid).eq('is_active', true).maybeSingle()
       if (activeYearRes.error) throw activeYearRes.error
       const activeYearId = activeYearRes.data?.id ?? null
+      const activeYear   = activeYearRes.data?.start_date
+        ? new Date(activeYearRes.data.start_date).getFullYear()
+        : new Date().getFullYear()
 
       let feeQ = supabase.from('fee_payments').select('amount_paid, amount_due').eq('school_id', sid)
       if (activeYearId) feeQ = feeQ.eq('academic_year_id', activeYearId)
@@ -32,8 +35,8 @@ export function usePrincipalKpis() {
              attendanceRes, reportCardsRes] = await Promise.all([
         supabase.from('students').select('id').eq('school_id', sid).eq('status', 'active'),
         supabase.from('staff').select('id').eq('school_id', sid).eq('is_active', true),
-        supabase.from('exam_results').select('score, exam_journal_id').eq('school_id', sid),
-        supabase.from('exam_journal').select('id, pass_mark').eq('school_id', sid),
+        supabase.from('exam_results').select('score, exam_journal_id').eq('school_id', sid).eq('year', activeYear),
+        supabase.from('exam_journal').select('id, pass_mark').eq('school_id', sid).eq('year', activeYear),
         activeYearId ? feeQ : Promise.resolve({ data: [] as any[], error: null }),
         supabase.from('attendance').select('status, date').eq('school_id', sid)
           .gte('date', weekStartStr).lte('date', today),
@@ -84,12 +87,13 @@ export function useTopClasses() {
     enabled: !!user,
     queryFn: async (): Promise<TopClass[]> => {
       const sid = user!.schoolId
+      const currentYear = new Date().getFullYear()
 
       const [classesRes, studentsRes, resultsRes, journalsRes] = await Promise.all([
         supabase.from('classes').select('id, name').eq('school_id', sid),
         supabase.from('students').select('id, class_id').eq('school_id', sid).eq('status', 'active'),
-        supabase.from('exam_results').select('student_id, score, exam_journal_id').eq('school_id', sid),
-        supabase.from('exam_journal').select('id, pass_mark, class_id').eq('school_id', sid),
+        supabase.from('exam_results').select('student_id, score, exam_journal_id').eq('school_id', sid).eq('year', currentYear),
+        supabase.from('exam_journal').select('id, pass_mark, class_id').eq('school_id', sid).eq('year', currentYear),
       ])
 
       const classes   = classesRes.data ?? []

@@ -439,7 +439,7 @@ export function ReportCardsPage() {
     const url     = URL.createObjectURL(zipBlob)
     const a       = document.createElement('a')
     a.href        = url
-    a.download    = `report_cards_term${term}_${year}.zip`
+    a.download    = `report_cards_term${term || 'all'}_${year}.zip`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -463,7 +463,7 @@ export function ReportCardsPage() {
     const url     = URL.createObjectURL(zipBlob)
     const a       = document.createElement('a')
     a.href        = url
-    a.download    = `selected_report_cards_term${term}_${year}.zip`
+    a.download    = `selected_report_cards_term${term || 'all'}_${year}.zip`
     a.click()
     URL.revokeObjectURL(url)
   }
