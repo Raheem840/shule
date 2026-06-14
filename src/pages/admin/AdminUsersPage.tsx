@@ -1404,7 +1404,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
       // Roll back the DB row if the edge function failed after a successful INSERT.
       // parent_accounts requires a DELETE RLS policy (see migration 20260612_000003).
       if (orphanTable && orphanId) {
-        const { error: rbErr } = await supabase.from(orphanTable!).delete().eq('id', orphanId)
+        const { error: rbErr } = await supabase.from(orphanTable!).delete().eq('id', orphanId).eq('school_id', schoolId)
         if (rbErr) console.error('Orphan cleanup failed:', orphanTable, orphanId, rbErr.message)
       }
       setError(e instanceof Error ? e.message : 'Failed to create user')
