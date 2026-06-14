@@ -32,6 +32,9 @@ export type SmsFilters = {
   year:        number
 }
 
+const SMS_ROLES = ['bursar', 'principal'] as const
+const isSmsRole = (role?: string) => SMS_ROLES.includes(role as typeof SMS_ROLES[number])
+
 // ── useSmsStudents ────────────────────────────────────────────
 // Returns active students with a contactable guardian and outstanding balance.
 export function useSmsStudents(filters: SmsFilters) {
@@ -39,7 +42,7 @@ export function useSmsStudents(filters: SmsFilters) {
 
   return useQuery({
     queryKey: ['sms-students', user?.schoolId, filters],
-    enabled:  !!user?.schoolId,
+    enabled:  !!user?.schoolId && isSmsRole(user?.role),
     queryFn: async () => {
       const [studentsRes, guardiansRes, paymentsRes, classesRes, streamsRes, activeYearsRes] = await Promise.all([
         supabase
@@ -173,7 +176,7 @@ export function useSmsReminderLog() {
 
   return useQuery({
     queryKey: ['sms-log', user?.schoolId],
-    enabled:  !!user?.schoolId,
+    enabled:  !!user?.schoolId && isSmsRole(user?.role),
     queryFn: async () => {
       const remindersRes = await supabase
         .from('sms_reminders')
@@ -234,6 +237,7 @@ export function useSendReminders() {
 
   return useMutation({
     mutationFn: async (reminders: SendReminderInput[]) => {
+      if (!isSmsRole(user?.role)) throw new Error('Forbidden')
       const reminderRows = reminders.map(r => ({
         school_id:     user!.schoolId,
         student_id:    r.studentId,
