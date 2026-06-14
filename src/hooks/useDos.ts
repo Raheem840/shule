@@ -458,12 +458,14 @@ export function useAssignClassTeacher() {
       if (!user) throw new Error('Not authenticated')
 
       // Enforce: one class teacher per class
-      const { data: siblings } = await supabase
+      const { data: siblings, error: siblingsErr } = await supabase
         .from('streams')
         .select('id, class_teacher_id')
         .eq('class_id', _classId)
         .eq('school_id', user.schoolId)
         .neq('id', streamId)
+
+      if (siblingsErr) throw new Error(siblingsErr.message)
 
       const conflict = (siblings ?? []).find(
         (s: any) => s.class_teacher_id && s.class_teacher_id !== teacherId

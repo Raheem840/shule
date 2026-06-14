@@ -83,7 +83,22 @@ export function useActivateStaffLogin() {
       })
 
       if (fnError) {
-        // Edge function not deployed — fall back to manual credential setup
+        // Edge function not deployed — persist credentials for manual setup
+        const staffRec = staff as any
+        await supabase
+          .from('staff')
+          .update({ temp_password: tempPassword })
+          .eq('id', staffId)
+          .eq('school_id', user.schoolId)
+        const pending = getPendingActivations()
+        pending[staffId] = {
+          staffId,
+          email,
+          tempPassword,
+          name: `${staffRec.first_name as string} ${staffRec.last_name as string}`,
+          storedAt: new Date().toISOString(),
+        }
+        localStorage.setItem(ACTIVATION_KEY, JSON.stringify(pending))
         return { email, tempPassword, manual: true as const }
       }
 

@@ -54,7 +54,7 @@ type ParentRow = {
   created_at: string
 }
 
-type PasswordResult = { id: string; name: string; email: string; password: string; type: TabId }
+type PasswordResult = { id: string; name: string; email: string; password: string; type: TabId; manual?: boolean }
 
 type BulkSelection = Set<string>
 
@@ -132,7 +132,7 @@ function PasswordCard({ result, onDismiss }: { result: PasswordResult; onDismiss
           </div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--success)', fontFamily: 'var(--font2)' }}>Password Reset — {result.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--txt3)' }}>Share these credentials securely</div>
+            <div style={{ fontSize: 11, color: 'var(--txt3)' }}>{result.manual ? 'Manual mode — create auth account in Supabase Dashboard first, then share credentials' : 'Share these credentials securely'}</div>
           </div>
         </div>
         <button onClick={onDismiss} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', padding: 4, display: 'flex' }}>
@@ -370,7 +370,7 @@ function StaffPanel({
       const r = await activate.mutateAsync({ staffId })
       const staff = allStaff.find(s => s.id === staffId)
       const name  = staff ? `${staff.firstName} ${staff.lastName}` : 'Staff'
-      onPasswordResult({ id: staffId, name, email: r.email, password: r.tempPassword, type: 'staff' })
+      onPasswordResult({ id: staffId, name, email: r.email, password: r.tempPassword, type: 'staff', manual: r.manual })
       ok('Login activated')
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Activation failed'
