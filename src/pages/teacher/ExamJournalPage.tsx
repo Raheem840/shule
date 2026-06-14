@@ -684,8 +684,8 @@ function MyAnalyticsPanel({
       return baseResults.filter(r => topIds.has(r.studentId))
     }
     return baseResults.filter(r => {
-      if (r.score == null) return false
-      const g = calculateCBCGrade(r.score)
+      if (!r.grade) return false
+      const g = r.grade
       if (bandFilter === 'proficient')  return g === 'A' || g === 'B'
       if (bandFilter === 'can_improve') return g === 'C' || g === 'D'
       if (bandFilter === 'needs_help')  return g === 'E'
@@ -697,8 +697,8 @@ function MyAnalyticsPanel({
   const gradeData = useMemo(() => {
     const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 }
     for (const r of filteredResults) {
-      if (r.isAbsent || r.score == null) continue
-      counts[calculateCBCGrade(r.score)]++
+      if (r.isAbsent || !r.grade) continue
+      counts[r.grade]++
     }
     return Object.entries(counts).map(([grade, count]) => ({ grade, count, fill: GRADE_COLOR_MAP[grade] }))
   }, [filteredResults])
