@@ -2,12 +2,12 @@ import { supabase } from './supabase'
 
 // ── Bucket registry ───────────────────────────────────────────────────────────
 export const BUCKETS = {
-  STAFF_PHOTOS:      'staff-photos',      // private — signed URLs only (changed from public)
+  STAFF_PHOTOS:      'staff-photos',      // public — full public URL stored in staff.photo_url
   STUDENT_PHOTOS:    'student-photos',    // private — signed URLs only
   DOCUMENTS:         'documents',         // private — signed URLs only
   REPORT_CARDS:      'report-cards',      // public
   TEMPLATES:         'templates',         // private — signed URLs only
-  STAFF_ATTACHMENTS: 'staff-attachments', // public
+  STAFF_ATTACHMENTS: 'staff-attachments', // public — message file attachments
 } as const
 
 // ── Upload helpers ────────────────────────────────────────────────────────────
@@ -73,9 +73,21 @@ export async function uploadTemplate(schoolId: string, file: File): Promise<stri
 export async function uploadSchoolLogo(schoolId: string, file: File): Promise<string> {
   const compressed = await compressImage(file, 400, 0.9)
   const path = `school-logos/${schoolId}/badge.jpg`
-  await uploadFile(BUCKETS.STAFF_ATTACHMENTS, path, compressed, { upsert: true, contentType: 'image/jpeg' })
-  const { data } = supabase.storage.from(BUCKETS.STAFF_ATTACHMENTS).getPublicUrl(path)
+  await uploadFile(BUCKETS.STAFF_PHOTOS, path, compressed, { upsert: true, contentType: 'image/jpeg' })
+  const { data } = supabase.storage.from(BUCKETS.STAFF_PHOTOS).getPublicUrl(path)
   return data.publicUrl
+}
+
+export async function uploadStaffAttachment(
+  schoolId: string,
+  staffId: string,
+  file: File
+): Promise<{ path: string; publicUrl: string }> {
+  const ext  = file.name.split('.').pop() ?? 'bin'
+  const path = `${schoolId}/${staffId}/${Date.now()}.${ext}`
+  await uploadFile(BUCKETS.STAFF_ATTACHMENTS, path, file)
+  const { data } = supabase.storage.from(BUCKETS.STAFF_ATTACHMENTS).getPublicUrl(path)
+  return { path, publicUrl: data.publicUrl }
 }
 
 // ── URL helpers ───────────────────────────────────────────────────────────────

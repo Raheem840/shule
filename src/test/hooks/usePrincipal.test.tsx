@@ -100,14 +100,14 @@ describe('usePrincipalKpis', () => {
   })
 
   it('counts pending report cards (status=ready)', async () => {
-    setResponse('students',      { data: [], error: null })
-    setResponse('staff',         { data: [], error: null })
+    setResponse('students',      { count: 0, data: null, error: null })
+    setResponse('staff',         { count: 0, data: null, error: null })
     setResponse('exam_results',  { data: [], error: null })
     setResponse('exam_journal',  { data: [], error: null })
     setResponse('fee_payments',  { data: [], error: null })
     setResponse('fee_structure', { data: [], error: null })
     setResponse('attendance',    { data: [], error: null })
-    setResponse('report_cards',  { data: [{ id: 'rc-1' }, { id: 'rc-2' }, { id: 'rc-3' }], error: null })
+    setResponse('report_cards',  { count: 3, data: null, error: null })
 
     const { result } = renderHook(() => usePrincipalKpis(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))

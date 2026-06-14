@@ -36,13 +36,13 @@ export function usePrincipalKpis() {
 
       const [studentsRes, staffRes, journalsRes, paymentsRes,
              attendanceRes, reportCardsRes] = await Promise.all([
-        supabase.from('students').select('id').eq('school_id', sid).eq('status', 'active'),
-        supabase.from('staff').select('id').eq('school_id', sid).eq('is_active', true),
+        supabase.from('students').select('id', { count: 'exact', head: true }).eq('school_id', sid).eq('status', 'active'),
+        supabase.from('staff').select('id', { count: 'exact', head: true }).eq('school_id', sid).eq('is_active', true),
         journalQ,
         activeYearId ? feeQ : Promise.resolve({ data: [] as any[], error: null }),
         supabase.from('attendance').select('status, date').eq('school_id', sid)
           .gte('date', weekStartStr).lte('date', today),
-        supabase.from('report_cards').select('id').eq('school_id', sid).eq('status', 'ready'),
+        supabase.from('report_cards').select('id', { count: 'exact', head: true }).eq('school_id', sid).eq('status', 'ready'),
       ])
       if (studentsRes.error)    throw studentsRes.error
       if (staffRes.error)       throw staffRes.error
@@ -80,12 +80,12 @@ export function usePrincipalKpis() {
         ? Math.round((attPresent / attTotal) * 100) : 0
 
       return {
-        totalStudents:           (studentsRes.data ?? []).length,
-        totalStaff:              (staffRes.data ?? []).length,
+        totalStudents:           studentsRes.count ?? 0,
+        totalStaff:              staffRes.count ?? 0,
         overallPassRate,
         feeCollectionRate,
         attendanceRateThisWeek,
-        pendingReportCards:      (reportCardsRes.data ?? []).length,
+        pendingReportCards:      reportCardsRes.count ?? 0,
       }
     },
     staleTime: 5 * 60_000,
@@ -173,11 +173,16 @@ export function useSchoolFeeSummary() {
     queryFn: async (): Promise<FeeSummary> => {
       const sid = user!.schoolId
 
-      const { data: payments } = await supabase
+      const { data: activeYear } = await supabase
+        .from('academic_years').select('id').eq('school_id', sid).eq('is_active', true).maybeSingle()
+
+      let feeQ = supabase
         .from('fee_payments')
         .select('amount_paid, amount_due, balance')
         .eq('school_id', sid)
+      if (activeYear?.id) feeQ = feeQ.eq('academic_year_id', activeYear.id)
 
+      const { data: payments } = await feeQ
       const rows = payments ?? []
       const totalCollected = rows.reduce((s: number, r: any) => s + (r.amount_paid ?? 0), 0)
       const totalExpected  = rows.reduce((s: number, r: any) => s + (r.amount_due  ?? 0), 0)
