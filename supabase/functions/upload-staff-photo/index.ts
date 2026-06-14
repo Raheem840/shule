@@ -78,7 +78,21 @@ serve(async (req) => {
       return json({ error: 'Upload failed', detail: uploadError.message }, 500)
     }
 
-    // ── 5. Return storage path only — never a signed URL ──────────────────
+    // ── 5. Update staff.photo_url via service role so all roles can update their own photo ─
+    // (staff UPDATE RLS only allows secretary/principal/it_admin; service role bypasses this)
+    const { error: dbError } = await serviceClient
+      .from('staff')
+      .update({ photo_url: filePath })
+      .eq('id', staffId)
+
+    if (dbError) {
+      console.error('DB update error:', dbError)
+      // Clean up the uploaded file to avoid orphaned storage objects
+      await serviceClient.storage.from('staff-photos').remove([filePath])
+      return json({ error: 'Failed to update photo in database', detail: dbError.message }, 500)
+    }
+
+    // ── 6. Return storage path only — never a signed URL ──────────────────
     return json({ path: filePath })
 
   } catch (err) {

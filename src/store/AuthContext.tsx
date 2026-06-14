@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const cached = await db.auth_session.get('current')
           if (cached?.user) {
             const ageHours = (Date.now() - new Date(cached.savedAt).getTime()) / 3600000
-            if (ageHours < 720) { // cache valid up to 30 days
+            if (ageHours < 72) { // cache valid up to 3 days
               setUser(cached.user as AuthUser)
               setIsOfflineMode(!navigator.onLine)
               // If online, try a background token refresh — if it succeeds, upgrade to real session

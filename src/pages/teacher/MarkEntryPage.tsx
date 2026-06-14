@@ -847,7 +847,7 @@ export function MarkEntryPage() {
 
     result.imported = validRows.length
     // Invalidate so the grid refreshes
-    qc.invalidateQueries({ queryKey: ['exam-results', journal.id] })
+    qc.invalidateQueries({ queryKey: ['exam-results', user?.schoolId, journal.id] })
     return result
   }
 
@@ -919,7 +919,7 @@ export function MarkEntryPage() {
             {saveMarks.isPending ? 'Saving…' : saved ? '✓ Saved' : 'Save All'}
           </button>
           {journal.status === 'draft' && (
-            <button onClick={() => void handlePublish()} disabled={publish.isPending}
+            <button onClick={() => void handlePublish()} disabled={publish.isPending || saveMarks.isPending}
               style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 3px 12px rgba(13,148,136,.35)' }}>
               {publish.isPending ? 'Publishing…' : 'Publish'}
             </button>

@@ -180,16 +180,20 @@ export function useSendMessage() {
       toUserId: string
       body: string
       attachmentUrl?: string | null
+      attachmentName?: string | null
+      attachmentType?: string | null
     }) => {
       if (!user) throw new Error('Not authenticated')
 
       const row = {
-        school_id:      user.schoolId,
-        from_user_id:   user.id,
-        to_user_id:     input.toUserId,
-        body:           input.body,
-        attachment_url: input.attachmentUrl ?? null,
-        sent_at:        new Date().toISOString(),
+        school_id:       user.schoolId,
+        from_user_id:    user.id,
+        to_user_id:      input.toUserId,
+        body:            input.body,
+        attachment_url:  input.attachmentUrl  ?? null,
+        attachment_name: input.attachmentName ?? null,
+        attachment_type: input.attachmentType ?? null,
+        sent_at:         new Date().toISOString(),
       }
 
       if (!navigator.onLine) {
@@ -513,7 +517,7 @@ export function useConversationWithParent(parentAuthUserId: string | null) {
 
       const { data, error } = await supabase
         .from('messages')
-        .select('id, school_id, from_user_id, to_user_id, body, attachment_url, attachment_name, sent_at, read_at')
+        .select('id, school_id, from_user_id, to_user_id, body, attachment_url, attachment_name, attachment_type, sent_at, read_at')
         .eq('school_id', user!.schoolId)
         .eq('is_announcement', false)
         .or(
@@ -534,7 +538,7 @@ export function useConversationWithParent(parentAuthUserId: string | null) {
         body:           r.body ?? null,
         attachmentUrl:  r.attachment_url ?? null,
         attachmentName: r.attachment_name ?? null,
-        attachmentType: null,
+        attachmentType: r.attachment_type ?? null,
         sentAt:         r.sent_at,
         readAt:         r.read_at ?? null,
       } satisfies Message))
@@ -566,7 +570,7 @@ export function useConversationWithParent(parentAuthUserId: string | null) {
             body:           (msg['body'] as string) ?? null,
             attachmentUrl:  (msg['attachment_url'] as string) ?? null,
             attachmentName: (msg['attachment_name'] as string) ?? null,
-            attachmentType: null,
+            attachmentType: (msg['attachment_type'] as string) ?? null,
             sentAt:         msg['sent_at'] as string,
             readAt:         null,
           }
@@ -595,7 +599,13 @@ export function useSendMessageToParent() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async (input: { toUserId: string; body: string; attachmentUrl?: string | null }) => {
+    mutationFn: async (input: {
+      toUserId: string
+      body: string
+      attachmentUrl?: string | null
+      attachmentName?: string | null
+      attachmentType?: string | null
+    }) => {
       if (!user) throw new Error('Not authenticated')
 
       const row = {
@@ -603,7 +613,9 @@ export function useSendMessageToParent() {
         from_user_id:    user.id,
         to_user_id:      input.toUserId,
         body:            input.body,
-        attachment_url:  input.attachmentUrl ?? null,
+        attachment_url:  input.attachmentUrl  ?? null,
+        attachment_name: input.attachmentName ?? null,
+        attachment_type: input.attachmentType ?? null,
         is_announcement: false,
         sent_at:         new Date().toISOString(),
       }

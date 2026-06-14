@@ -284,16 +284,9 @@ export function useUpdateProfilePhoto() {
         if (blob) uploadFile = new File([blob], 'photo.jpg', { type: 'image/jpeg' })
       }
 
-      // Upload via Edge Function — never call storage directly for private buckets
+      // Upload via Edge Function — it also updates staff.photo_url via service role
+      // so all roles can update their own photo regardless of staff UPDATE RLS policy
       const path = await uploadStaffPhoto(uploadFile, staffRow.id)
-
-      const { error: dbErr } = await supabase
-        .from('staff')
-        .update({ photo_url: path })
-        .eq('id', staffRow.id)
-        .eq('school_id', user.schoolId)
-
-      if (dbErr) throw new Error(dbErr.message)
       return path
     },
     onSuccess: () => {

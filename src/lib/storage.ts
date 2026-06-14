@@ -130,7 +130,8 @@ export async function getSignedUrl(
 }
 
 export async function deleteFile(bucket: string, path: string): Promise<void> {
-  await supabase.storage.from(bucket).remove([path])
+  const { error } = await supabase.storage.from(bucket).remove([path])
+  if (error) throw new Error(`Delete failed: ${error.message}`)
 }
 
 export async function downloadFile(bucket: string, path: string): Promise<Blob> {

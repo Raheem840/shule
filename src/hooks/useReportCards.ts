@@ -286,10 +286,11 @@ export function useGenerateReportCards() {
         .maybeSingle()
 
       const ay = activeYear as Record<string,string|null> | null
-      const termKey = term === 1 ? ['term1_start','term1_end'] : term === 2 ? ['term2_start','term2_end'] : ['term3_start','term3_end']
+      const termNum = Number(term)
+      const termKey = termNum === 1 ? ['term1_start','term1_end'] : termNum === 2 ? ['term2_start','term2_end'] : ['term3_start','term3_end']
       const termStartDate     = ay?.[termKey[0]] ?? null
       const termEndDate       = ay?.[termKey[1]] ?? null
-      const nextTermStartDate = term === 1 ? (ay?.term2_start ?? null) : term === 2 ? (ay?.term3_start ?? null) : null
+      const nextTermStartDate = termNum === 1 ? (ay?.term2_start ?? null) : termNum === 2 ? (ay?.term3_start ?? null) : null
 
       // ── Fetch subject names ────────────────────────────────
       const { data: subjects } = await supabase
@@ -366,12 +367,15 @@ export function useGenerateReportCards() {
 
       // ── Fetch attendance for this class/term ───────────────
       // Sum per student: present=1, absent=1 (excused also counts absent for report)
-      const { data: attRows } = await supabase
+      let attQ = supabase
         .from('attendance')
         .select('student_id, status')
         .eq('school_id', schoolId)
         .eq('class_id', classId)
         .in('student_id', studentIds)
+      if (termStartDate) attQ = attQ.gte('date', termStartDate)
+      if (termEndDate)   attQ = attQ.lte('date', termEndDate)
+      const { data: attRows } = await attQ
 
       const attendanceMap = new Map<string, { present: number; absent: number }>()
       for (const a of (attRows ?? [])) {
@@ -395,18 +399,21 @@ export function useGenerateReportCards() {
         studentMap.set(s.id as string, s as StudentRow)
       }
 
-      // ── Fetch existing report cards (to check for principal remarks) ─
+      // ── Fetch existing report cards (to check for principal remarks + preserve status) ─
       const { data: existingCards } = await supabase
         .from('report_cards')
-        .select('student_id, principal_remarks')
+        .select('student_id, principal_remarks, status')
         .eq('school_id', schoolId)
         .in('student_id', studentIds)
         .eq('term', String(term))
         .eq('year', year)
 
       const principalRemarksMap = new Map<string, string | null>()
+      const existingStatusMap   = new Map<string, string>()
       for (const c of (existingCards ?? [])) {
-        principalRemarksMap.set(c.student_id as string, (c.principal_remarks as string) ?? null)
+        const sid = c.student_id as string
+        principalRemarksMap.set(sid, (c.principal_remarks as string) ?? null)
+        if (c.status) existingStatusMap.set(sid, c.status as string)
       }
 
       // ── Group raw results by student ───────────────────────
@@ -499,7 +506,12 @@ export function useGenerateReportCards() {
 
           const pdfUrl = getPublicUrl('report-cards', path) ?? ''
 
-          // Upsert report_cards row
+          // Upsert report_cards row — preserve status if already approved/released
+          const existingStatus = existingStatusMap.get(studentId)
+          const upsertStatus = (existingStatus === 'approved' || existingStatus === 'released')
+            ? existingStatus
+            : 'ready'
+
           const { error: rcErr } = await supabase
             .from('report_cards')
             .upsert({
@@ -507,7 +519,7 @@ export function useGenerateReportCards() {
               student_id:   studentId,
               term:         String(term),
               year,
-              status:       'ready',
+              status:       upsertStatus,
               pdf_url:      pdfUrl,
               generated_at: new Date().toISOString(),
             }, {
@@ -550,6 +562,17 @@ function useUpdateStatus(action: 'approve' | 'release' | 'unlock') {
       const now   = new Date().toISOString()
       const patch: AnyRow = {}
 
+      let currentUnlockCount = 0
+      if (action === 'unlock') {
+        const { data: existing } = await supabase
+          .from('report_cards')
+          .select('unlock_count')
+          .eq('id', reportCardId)
+          .eq('school_id', user!.schoolId)
+          .single()
+        currentUnlockCount = ((existing as Record<string, unknown> | null)?.unlock_count as number) ?? 0
+      }
+
       if (action === 'approve') {
         patch.status          = 'approved'
         patch.approved_at     = now
@@ -566,6 +589,7 @@ function useUpdateStatus(action: 'approve' | 'release' | 'unlock') {
         patch.released_at   = null
         patch.released_by   = null
         patch.unlock_reason = _unlockReason ?? null
+        patch.unlock_count  = currentUnlockCount + 1
       }
 
       const { error } = await supabase
