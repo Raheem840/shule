@@ -84,7 +84,7 @@ export function useSmsCount() {
 
   return useQuery({
     queryKey: ['sms-count', user?.schoolId],
-    enabled:  !!user?.schoolId,
+    enabled:  !!user?.schoolId && isFinanceRole(user?.role),
     queryFn: async () => {
       const { count, error } = await supabase
         .from('sms_reminders')
@@ -531,7 +531,7 @@ export function useUpdatePayment() {
   return useMutation({
     mutationFn: async (input: UpdatePaymentInput) => {
       if (!isFinanceRole(user?.role)) throw new Error('Forbidden')
-      const newBalance = input.amountDue - input.amountPaid
+      const newBalance = Math.max(0, input.amountDue - input.amountPaid)
       const oldBalance = input.amountDue - input.oldAmountPaid
 
       const { error: updErr } = await supabase
@@ -616,7 +616,7 @@ export function useStudentFeeRows(studentId: string | null, term: number) {
       return (paymentsRes.data ?? []).map(r => {
         const due  = Number(r.amount_due)  || 0
         const paid = Number(r.amount_paid) || 0
-        const bal  = Number(r.balance) ?? (due - paid)
+        const bal  = Number(r.balance) || (due - paid)
         const fsId = (r.fee_structure_id as string) ?? null
         return {
           id:             r.id as string,

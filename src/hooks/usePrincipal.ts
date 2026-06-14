@@ -11,7 +11,7 @@ export function usePrincipalKpis() {
 
   return useQuery({
     queryKey: ['principal-kpis', user?.schoolId],
-    enabled: !!user,
+    enabled: !!user && user?.role === 'principal',
     queryFn: async (): Promise<PrincipalKpis> => {
       const sid = user!.schoolId
       const today = new Date().toISOString().slice(0, 10)
@@ -169,7 +169,7 @@ export function useSchoolFeeSummary() {
 
   return useQuery({
     queryKey: ['fee-summary', user?.schoolId],
-    enabled: !!user,
+    enabled: !!user && ['bursar', 'principal'].includes(user?.role ?? ''),
     queryFn: async (): Promise<FeeSummary> => {
       const sid = user!.schoolId
 
