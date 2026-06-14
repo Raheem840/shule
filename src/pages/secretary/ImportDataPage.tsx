@@ -143,14 +143,9 @@ export function ImportDataPage() {
   const [importedStudents, setImportedStudents]   = useState<ImportedStudent[]>([])
   const [importSuccess, setImportSuccess]         = useState<{ count: number; type: 'students' | 'staff' } | null>(null)
 
-  // Year-mismatch warning dialog — uses a Promise callback so handleStudentImport
-  // can await the secretary's decision before proceeding.
-  type YearWarning = {
-    issues: Array<{ className: string; level: number; selectedYear: number; expectedYear: number }>
-    onConfirm: () => void
-    onCancel:  () => void
-  }
-  const [yearWarning, setYearWarning] = useState<YearWarning | null>(null)
+  // Non-blocking year mismatch notice — shown after import, import proceeds regardless.
+  type YearMismatchIssue = { className: string; level: number; selectedYear: number; expectedYear: number }
+  const [yearMismatchNotice, setYearMismatchNotice] = useState<YearMismatchIssue[]>([])
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const normCls = (s: string) => s.toLowerCase().replace(/\s+/g,'').replace(/\./g,'').replace(/-/g,'').replace(/^senior/,'s').replace(/^form/,'s')
@@ -188,11 +183,8 @@ export function ImportDataPage() {
     }
 
     if (mismatchIssues.length > 0) {
-      const confirmed = await new Promise<boolean>(resolve => {
-        setYearWarning({ issues: mismatchIssues, onConfirm: () => resolve(true), onCancel: () => resolve(false) })
-      })
-      setYearWarning(null)
-      if (!confirmed) return { imported: 0, updated: 0, skipped: 0, failed: [] }
+      // Non-blocking — record the warning and continue importing
+      setYearMismatchNotice(mismatchIssues)
     }
 
     // ── Pre-fetch everything needed in parallel ─────────────────────────────
@@ -466,67 +458,12 @@ export function ImportDataPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* Year-mismatch warning modal */}
-      {yearWarning && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ width: '100%', maxWidth: 520, background: 'var(--surface)', borderRadius: 22, overflow: 'hidden', boxShadow: '0 24px 80px rgba(0,0,0,.3)' }}>
-            {/* Header */}
-            <div style={{ padding: '22px 24px 16px', background: 'linear-gradient(135deg,rgba(245,158,11,.1),transparent)', borderBottom: '.5px solid var(--border)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(245,158,11,.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                </div>
-                <div>
-                  <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 17, color: 'var(--txt)', letterSpacing: -.3 }}>Year Mismatch Detected</div>
-                  <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>Import year {importYear} doesn't match what's expected for some classes</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Issues list */}
-            <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {yearWarning.issues.map(iss => (
-                <div key={iss.className} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(245,158,11,.06)', border: '.5px solid rgba(245,158,11,.25)' }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--txt)' }}>
-                      {iss.className} (S.{iss.level})
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--txt2)', marginTop: 3, lineHeight: 1.5 }}>
-                      {iss.selectedYear < iss.expectedYear
-                        ? <>Selected year <strong>{iss.selectedYear}</strong> is <strong>{iss.expectedYear - iss.selectedYear} year{iss.expectedYear - iss.selectedYear > 1 ? 's' : ''} earlier</strong> than expected. S.{iss.level} students in {currentCalYear} would normally have enrolled in <strong>{iss.expectedYear}</strong>. This may mean they repeated years or transferred late.</>
-                        : <>Selected year <strong>{iss.selectedYear}</strong> is <strong>{iss.selectedYear - iss.expectedYear} year{iss.selectedYear - iss.expectedYear > 1 ? 's' : ''} later</strong> than expected. S.{iss.level} students in {currentCalYear} would normally have enrolled in <strong>{iss.expectedYear}</strong>.</>
-                      }
-                    </div>
-                  </div>
-                  <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: .5 }}>Expected</span>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--warning)', fontFamily: 'var(--font2)', lineHeight: 1 }}>{iss.expectedYear}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Footer */}
-            <div style={{ padding: '12px 24px 22px', borderTop: '.5px solid var(--border)', display: 'flex', gap: 10 }}>
-              <button onClick={() => yearWarning.onCancel()}
-                style={{ flex: 1, height: 44, borderRadius: 12, background: 'var(--surface2)', border: '.5px solid var(--border)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer', color: 'var(--txt2)' }}>
-                Cancel — Change Year
-              </button>
-              <button onClick={() => yearWarning.onConfirm()}
-                style={{ flex: 2, height: 44, borderRadius: 12, border: 'none', background: 'linear-gradient(145deg,var(--warning),#d97706)', color: '#fff', fontWeight: 800, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(245,158,11,.4)' }}>
-                Yes, Import with {importYear}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <PageHeader />
 
       {/* Mode toggle */}
       <div style={{ display: 'flex', gap: 8 }}>
         {(['students', 'staff'] as const).map(m => (
-          <button key={m} onClick={() => { setMode(m); setImportSuccess(null); setImportedStudents([]) }}
+          <button key={m} onClick={() => { setMode(m); setImportSuccess(null); setImportedStudents([]); setYearMismatchNotice([]) }}
             style={{ padding: '9px 18px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', textTransform: 'capitalize', border: 'none', background: mode === m ? 'linear-gradient(145deg,var(--brand),var(--brand-dark))' : 'var(--surface2)', color: mode === m ? '#fff' : 'var(--txt2)', boxShadow: mode === m ? '0 3px 12px rgba(13,148,136,.3)' : 'none' }}>
             Import {m}
           </button>
@@ -575,6 +512,30 @@ export function ImportDataPage() {
         onComplete={mode === 'students' ? handleStudentImport : handleStaffImport}
         validateRow={mode === 'students' ? validateStudentRow : validateStaffRow}
       />
+
+      {/* Year-mismatch inline notice (non-blocking) */}
+      {yearMismatchNotice.length > 0 && (
+        <div style={{ padding: '14px 18px', background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2.2" style={{ flexShrink: 0 }}>
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--warning)' }}>Year Mismatch Notice</div>
+            <button onClick={() => setYearMismatchNotice([])} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', padding: 0 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {yearMismatchNotice.map(iss => (
+              <div key={iss.className} style={{ fontSize: 12.5, color: 'var(--txt2)', lineHeight: 1.55 }}>
+                <strong>{iss.className}</strong> — enrolled year {iss.selectedYear} but S.{iss.level} students in {currentCalYear} would normally enroll in{' '}
+                <strong>{iss.expectedYear}</strong>. Import succeeded; double-check if this is intentional.
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Post-import: student activation notice + assigned numbers */}
       {importSuccess?.type === 'students' && importSuccess.count > 0 && (

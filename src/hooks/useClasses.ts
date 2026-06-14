@@ -255,6 +255,43 @@ export function useArchiveDepartment() {
   })
 }
 
+// ── useCreateClass ─────────────────────────────────────────────
+// Secretary and DoS can create classes. Fetches the active academic year internally.
+export function useCreateClass() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { name: string; level?: string | null }) => {
+      const { data: ayData } = await supabase
+        .from('academic_years')
+        .select('id')
+        .eq('school_id', user!.schoolId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (!ayData?.id) {
+        throw new Error('No active academic year found. Please set an active year before creating classes.')
+      }
+
+      const { data, error } = await supabase
+        .from('classes')
+        .insert({
+          school_id:        user!.schoolId,
+          name:             input.name.trim(),
+          level:            input.level ?? null,
+          academic_year_id: ayData.id,
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+      return data.id as string
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['classes', user?.schoolId] })
+    },
+  })
+}
+
 // ── useCreateStream ────────────────────────────────────────────
 export function useCreateStream() {
   const { user } = useAuth()

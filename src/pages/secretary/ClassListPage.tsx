@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useClasses, useStreams, useCreateStream, useMoveStudent } from '../../hooks/useClasses'
+import { useClasses, useStreams, useCreateStream, useMoveStudent, useCreateClass } from '../../hooks/useClasses'
 import { useStaff } from '../../hooks/useStaff'
 import { useStudents } from '../../hooks/useStudents'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
@@ -52,6 +52,80 @@ const LEVEL_COLORS = [
   { bg: '#fefce8', border: '#fef08a', text: '#a16207' },
   { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534' },
 ]
+
+// ── Add Class Modal ───────────────────────────────────────────
+const LEVELS = [
+  { value: '1', label: 'S.1 — Senior 1 (O-Level)' },
+  { value: '2', label: 'S.2 — Senior 2 (O-Level)' },
+  { value: '3', label: 'S.3 — Senior 3 (O-Level)' },
+  { value: '4', label: 'S.4 — Senior 4 (O-Level)' },
+  { value: '5', label: 'S.5 — Senior 5 (A-Level)' },
+  { value: '6', label: 'S.6 — Senior 6 (A-Level)' },
+]
+
+function AddClassModal({ onClose }: { onClose: () => void }) {
+  const [name, setName]   = useState('')
+  const [level, setLevel] = useState('')
+  const { success: ok, error: err } = useToast()
+  const createClass = useCreateClass()
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const trimmed = name.trim()
+    if (!trimmed) return
+    createClass.mutate({ name: trimmed, level: level || null }, {
+      onSuccess: () => { ok(`Class "${trimmed}" created`); onClose() },
+      onError:   (e: Error) => err(e.message),
+    })
+  }
+
+  return (
+    <ModalShell title="Add New Class" onClose={onClose}>
+      <form onSubmit={handleSubmit}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+          {/* Class name */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font2)' }}>
+              Class Name <span style={{ color: 'var(--danger)' }}>*</span>
+            </label>
+            <input
+              autoFocus
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. S.1, Senior 1, Form 1…"
+              className="sui-input"
+              style={{ width: '100%', padding: '0.65rem 0.9rem', background: 'var(--surface2)', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 13.5, fontFamily: 'var(--font1)', color: 'var(--txt)', outline: 'none' }}
+            />
+            <span style={{ fontSize: 11, color: 'var(--txt3)' }}>Use the short form your school uses (S.1, S2, Form 1…)</span>
+          </div>
+
+          {/* Level */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font2)' }}>
+              Level (Optional)
+            </label>
+            <select
+              value={level}
+              onChange={e => setLevel(e.target.value)}
+              className="sui-input"
+              style={{ width: '100%', padding: '0.65rem 0.9rem', background: 'var(--surface2)', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 13.5, color: 'var(--txt)' }}
+            >
+              <option value="">— Select level —</option>
+              {LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+            </select>
+            <span style={{ fontSize: 11, color: 'var(--txt3)' }}>Used for sorting and curriculum tracking</span>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', paddingTop: 4 }}>
+            <PBtn type="button" onClick={onClose}>Cancel</PBtn>
+            <PBtn primary type="submit" loading={createClass.isPending} disabled={!name.trim()}>Create Class</PBtn>
+          </div>
+        </div>
+      </form>
+    </ModalShell>
+  )
+}
 
 // ── Add Stream Modal ──────────────────────────────────────────
 function AddStreamModal({
@@ -534,6 +608,7 @@ function printClassList(elementId: string) {
 export function ClassListPage() {
   const { data: classes = [], isLoading } = useClasses()
   const { data: staffList = [] }          = useStaff({ isActive: true })
+  const [addClassOpen, setAddClassOpen]   = useState(false)
 
   const sortedClasses = [...classes].sort((a, b) => {
     const la = parseInt(a.level ?? '0', 10)
@@ -543,6 +618,8 @@ export function ClassListPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+      {addClassOpen && <AddClassModal onClose={() => setAddClassOpen(false)} />}
+
       <div style={{ position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle,rgba(14,165,233,.18),transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, position: 'relative', flexWrap: 'wrap' }}>
@@ -555,17 +632,26 @@ export function ClassListPage() {
               <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>{classes.length} class{classes.length !== 1 ? 'es' : ''} · {new Date().getFullYear()}</p>
             </div>
           </div>
-          {!isLoading && classes.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
             <button
-              onClick={() => printClassList('class-list-printable')}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: '.5px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', flexShrink: 0 }}
+              onClick={() => setAddClassOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,var(--brand),var(--brand-dark))', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', boxShadow: '0 3px 12px rgba(13,148,136,.3)' }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
-              </svg>
-              Print Class List
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+              Add Class
             </button>
-          )}
+            {!isLoading && classes.length > 0 && (
+              <button
+                onClick={() => printClassList('class-list-printable')}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: '.5px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+                </svg>
+                Print Class List
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -585,7 +671,7 @@ export function ClassListPage() {
             No classes yet
           </div>
           <div style={{ fontSize: 13, color: 'var(--txt3)' }}>
-            Classes are managed by the Director of Studies or Principal.
+            Click "Add Class" above to create your first class.
           </div>
         </div>
       ) : (

@@ -1,11 +1,91 @@
 import { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useClasses, useStreams } from '../../hooks/useClasses'
+import { useClasses, useStreams, useCreateClass } from '../../hooks/useClasses'
 import { useStudents } from '../../hooks/useStudents'
 import { useAssignClassTeacher } from '../../hooks/useDos'
 import { useStaff } from '../../hooks/useStaff'
 import { useToast } from '../../components/ui/Toast'
 import type { Stream, Class } from '../../types/app'
+
+// ── Add Class Modal ────────────────────────────────────────────────────────────
+const DOS_LEVELS = [
+  { value: '1', label: 'S.1 — Senior 1 (O-Level)' },
+  { value: '2', label: 'S.2 — Senior 2 (O-Level)' },
+  { value: '3', label: 'S.3 — Senior 3 (O-Level)' },
+  { value: '4', label: 'S.4 — Senior 4 (O-Level)' },
+  { value: '5', label: 'S.5 — Senior 5 (A-Level)' },
+  { value: '6', label: 'S.6 — Senior 6 (A-Level)' },
+]
+
+function AddClassModal({ onClose }: { onClose: () => void }) {
+  const [name, setName]   = useState('')
+  const [level, setLevel] = useState('')
+  const { success: ok, error: err } = useToast()
+  const createClass = useCreateClass()
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const trimmed = name.trim()
+    if (!trimmed) return
+    createClass.mutate({ name: trimmed, level: level || null }, {
+      onSuccess: () => { ok(`Class "${trimmed}" created`); onClose() },
+      onError:   (e: Error) => err(e.message),
+    })
+  }
+
+  const portal = document.querySelector('.ar') as HTMLElement ?? document.body
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.52)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', borderRadius: 22, boxShadow: '0 24px 80px rgba(0,0,0,.28)', overflow: 'hidden' }}>
+        <div style={{ padding: '20px 24px 18px', background: 'linear-gradient(150deg,rgba(13,148,136,.1),transparent)', borderBottom: '.5px solid rgba(13,148,136,.15)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 13, background: 'linear-gradient(145deg,var(--brand),var(--brand-dark))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(13,148,136,.4)', flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><line x1="14" y1="17.5" x2="20" y2="17.5"/><line x1="17" y1="14.5" x2="17" y2="20.5"/></svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 16, color: 'var(--txt)', letterSpacing: -.2 }}>Add New Class</div>
+              <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 1 }}>Create a class for the active academic year</div>
+            </div>
+            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 9, border: 'none', background: 'var(--surface2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+        <form onSubmit={handleSubmit} style={{ padding: '18px 24px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>
+              Class Name <span style={{ color: 'var(--danger)' }}>*</span>
+            </div>
+            <input
+              autoFocus
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. S.1, Senior 1, Form 1…"
+              className="sui-input"
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Level (optional)</div>
+            <select value={level} onChange={e => setLevel(e.target.value)} className="sui-input" style={{ width: '100%' }}>
+              <option value="">— Select level —</option>
+              {DOS_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+            <button type="button" onClick={onClose} style={{ flex: 1, padding: '10px 0', background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 11, fontWeight: 600, fontSize: 13, cursor: 'pointer', color: 'var(--txt2)' }}>Cancel</button>
+            <button type="submit" disabled={!name.trim() || createClass.isPending}
+              style={{ flex: 2, padding: '10px 0', background: name.trim() ? 'linear-gradient(145deg,var(--brand),var(--brand-dark))' : 'var(--border)', color: name.trim() ? '#fff' : 'var(--txt3)', border: 'none', borderRadius: 11, fontWeight: 700, fontSize: 13, cursor: name.trim() ? 'pointer' : 'default', boxShadow: name.trim() ? '0 4px 14px rgba(13,148,136,.4)' : 'none', transition: 'all .18s' }}>
+              {createClass.isPending ? 'Creating…' : 'Create Class'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    portal
+  )
+}
 
 // ─── Assign Teacher Modal ─────────────────────────────────────────────────────
 function AssignTeacherModal({ stream, onClose }: { stream: Stream; onClose: () => void }) {
@@ -336,7 +416,8 @@ function ClassCard({
 // ═══════════════════════════════════════════════════════════════════════════════
 export function DosClassesPage() {
   const { data: classes = [], isLoading } = useClasses()
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId,    setSelectedId]    = useState<string | null>(null)
+  const [addClassOpen,  setAddClassOpen]  = useState(false)
 
   const selectedClass = classes.find(c => c.id === selectedId) ?? null
 
@@ -349,6 +430,7 @@ export function DosClassesPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+      {addClassOpen && <AddClassModal onClose={() => setAddClassOpen(false)} />}
 
       {/* ── Hero Band ──────────────────────────────────────────────────────── */}
       <div style={{
@@ -379,9 +461,19 @@ export function DosClassesPage() {
               Classes &amp; Streams
             </h1>
           </div>
-          <p style={{ color: 'rgba(255,255,255,.75)', fontSize: 13, margin: '0 0 22px', fontWeight: 500 }}>
+          <p style={{ color: 'rgba(255,255,255,.75)', fontSize: 13, margin: '0 0 14px', fontWeight: 500 }}>
             Select a class to view its streams, student counts, and assign class teachers.
           </p>
+
+          <button
+            onClick={() => setAddClassOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 11, border: 'none', background: 'rgba(255,255,255,.22)', backdropFilter: 'blur(8px)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 14, transition: 'background .15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,.32)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,.22)' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Add Class
+          </button>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {[
@@ -433,8 +525,15 @@ export function DosClassesPage() {
               <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
             </svg>
           </div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--txt)', marginBottom: 6 }}>No classes found</div>
-          <div style={{ fontSize: 13, color: 'var(--txt3)' }}>Classes appear here after students are registered by the Secretary.</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--txt)', marginBottom: 6 }}>No classes yet</div>
+          <div style={{ fontSize: 13, color: 'var(--txt3)', marginBottom: 14 }}>Click "Add Class" above to create your first class.</div>
+          <button
+            onClick={() => setAddClassOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,var(--brand),var(--brand-dark))', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 3px 12px rgba(13,148,136,.3)' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Add First Class
+          </button>
         </div>
       )}
 
