@@ -1102,9 +1102,7 @@ function ParentAccountCard({ parent, schoolId, onActivated }: {
   async function handleActivate() {
     setBusy(true)
     try {
-      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$'
-      const arr = new Uint8Array(12); crypto.getRandomValues(arr)
-      const password = Array.from(arr, b => chars[b % chars.length]).join('')
+      const password = generateTempPassword()
       const { error } = await supabase.functions.invoke('create-parent-auth-user', {
         body: { parentAccountId: parent.id, email: parent.email, schoolId, password },
       })

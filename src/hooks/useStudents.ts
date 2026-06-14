@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
+import { generateTempPassword } from '../lib/passwords'
 import type { Student, StudentGuardian } from '../types/app'
 
 // ── Column lists ───────────────────────────────────────────────
@@ -433,13 +434,6 @@ export function clearPendingStudentActivation(studentId: string): void {
   localStorage.setItem(STUDENT_ACTIVATION_KEY, JSON.stringify(existing))
 }
 
-// ── generateStudentTempPassword ─────────────────────────────────
-function generateStudentTempPassword(): string {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-  const arr = new Uint8Array(10)
-  crypto.getRandomValues(arr)
-  return Array.from(arr, b => chars[b % chars.length]).join('')
-}
 
 // ── useCreateStudentLogin ───────────────────────────────────────
 export function useCreateStudentLogin() {
@@ -490,7 +484,7 @@ export function useCreateStudentLogin() {
         email = `${admEmail}@${shortName}.ug`
       }
 
-      const tempPassword = generateStudentTempPassword()
+      const tempPassword = generateTempPassword()
 
       // 3. Call edge function — throws on any failure so no fake credentials are ever shown
       const { data: fnData, error: fnError } = await supabase.functions.invoke('create-student-auth-user', {
@@ -529,7 +523,7 @@ export function useResetStudentPassword() {
     }): Promise<{ email: string; tempPassword: string; manual: boolean }> => {
       if (!user) throw new Error('Not authenticated')
 
-      const tempPassword = generateStudentTempPassword()
+      const tempPassword = generateTempPassword()
 
       const { data: fnData, error: fnError } = await supabase.functions.invoke('reset-student-password', {
         body: { userId: authUserId, newPassword: tempPassword, schoolId: user.schoolId, studentId },

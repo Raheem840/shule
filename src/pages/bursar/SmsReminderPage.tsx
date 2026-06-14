@@ -300,6 +300,12 @@ export function SmsReminderPage() {
               <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
                 <LoadingSpinner size="md" />
               </div>
+            ) : studentsError ? (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--danger)', fontSize: 13 }}>
+                {studentsErrorObj instanceof Error && studentsErrorObj.message
+                  ? studentsErrorObj.message
+                  : 'Could not load students. Check your connection.'}
+              </div>
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
@@ -320,11 +326,7 @@ export function SmsReminderPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {studentsError ? (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--danger)', fontSize: 13 }}>
-                      {(studentsErrorObj as Error)?.message ?? 'Could not load students. Check your connection.'}
-                    </td></tr>
-                  ) : (students ?? []).length === 0 ? (
+                  {(students ?? []).length === 0 ? (
                     <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--txt3)', fontSize: 13 }}>
                       No students match the filters.
                     </td></tr>
@@ -343,7 +345,7 @@ export function SmsReminderPage() {
             )}
           </div>
 
-          {selectedIds.size > 0 && (
+          {selectedIds.size > 0 && !studentsError && (
             <div style={{ marginTop: 8, fontSize: 12, color: 'var(--txt3)' }}>
               {selectedIds.size} student{selectedIds.size !== 1 ? 's' : ''} selected
             </div>
@@ -451,7 +453,7 @@ export function SmsReminderPage() {
               variant="primary"
               size="md"
               onClick={handleSend}
-              disabled={selectedIds.size === 0 || !message.trim() || sendReminders.isPending}
+              disabled={selectedIds.size === 0 || !message.trim() || sendReminders.isPending || !!studentsError}
             >
               {sendReminders.isPending
                 ? 'Sending…'
