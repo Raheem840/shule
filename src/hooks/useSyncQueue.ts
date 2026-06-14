@@ -34,6 +34,13 @@ export function useSyncQueue(): SyncQueueState {
   const wasVerified = useRef(false)
   const isFlushing  = useRef(false)
 
+  // Tables that offline writes may target — finance tables excluded intentionally.
+  const SYNC_ALLOWED_TABLES = new Set([
+    'attendance', 'curriculum_plan', 'discipline_records',
+    'exam_results', 'exam_journal', 'messages', 'notifications', 'sms_reminders',
+    'student_surveys', 'teacher_remarks', 'school_events',
+  ])
+
   /** Flush up to 50 pending items one at a time to Supabase. */
   async function flush() {
     if (isFlushing.current) return
@@ -58,6 +65,12 @@ export function useSyncQueue(): SyncQueueState {
 
           let error: { code?: string; message: string } | null = null
 
+          if (!SYNC_ALLOWED_TABLES.has(table)) {
+            await markFailed(item.id!, `table '${table}' not in sync allowlist`)
+            failed++
+            continue
+          }
+
           if (actionType === 'delete') {
             const recordId = payload.id        as string
             const schoolId = payload.school_id as string | undefined
@@ -74,7 +87,12 @@ export function useSyncQueue(): SyncQueueState {
             if (patch.school_id) q = q.eq('school_id', patch.school_id as string)
             ;({ error } = await q)
           } else {
-            // Default: upsert
+            // Default: upsert — require school_id in payload (defense-in-depth)
+            if (!payload.school_id) {
+              await markFailed(item.id!, 'upsert payload missing school_id')
+              failed++
+              continue
+            }
             ;({ error } = await supabase.from(table).upsert(payload, { onConflict: 'id' }))
           }
 

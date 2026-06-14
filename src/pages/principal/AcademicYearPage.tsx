@@ -257,7 +257,7 @@ function YearFormFields({ vals, set }: {
       <FieldRow label="Year Name">
         <input className="sui-input" value={vals.name} onChange={set('name')} placeholder="e.g. 2027" />
       </FieldRow>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <FieldRow label="Start Date">
           <input type="date" className="sui-input" value={vals.startDate} onChange={set('startDate')} />
         </FieldRow>
@@ -267,7 +267,7 @@ function YearFormFields({ vals, set }: {
       </div>
       <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt2)', marginTop: 4 }}>Term Dates</div>
       {(['term1', 'term2', 'term3'] as const).map((t, i) => (
-        <div key={t} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div key={t} className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <FieldRow label={`Term ${i + 1} Start`}>
             <input type="date" className="sui-input" value={vals[`${t}Start`]} onChange={set(`${t}Start`)} />
           </FieldRow>
@@ -875,7 +875,7 @@ export function AcademicYearPage() {
           <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>Manage terms, academic periods and surveys</p>
         </div>
       </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {isPrincipal && (
             <button
               onClick={() => setShowPromote(true)}

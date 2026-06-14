@@ -58,7 +58,7 @@ export function useUserManagement() {
 
   return useQuery({
     queryKey: ['user-management', user?.schoolId],
-    enabled: !!user,
+    enabled: user?.role === 'it_admin',
     queryFn: async (): Promise<UserRow[]> => {
       const { data, error } = await supabase
         .from('staff')

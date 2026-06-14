@@ -212,6 +212,9 @@ export function useStudentFeeBalance(studentId: string | null) {
     queryKey: ['parent-fee-balance', user?.schoolId, studentId],
     enabled:  !!studentId && !!user?.schoolId,
     queryFn: async () => {
+      if (studentId && user?.studentIds && !user.studentIds.includes(studentId)) {
+        throw new Error('Forbidden')
+      }
       const [paymentsRes, fsRes] = await Promise.all([
         supabase
           .from('fee_payments')

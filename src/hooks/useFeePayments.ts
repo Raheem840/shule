@@ -31,12 +31,15 @@ export type BursarKpis = {
   unpaidCount: number
 }
 
+const FIN_ROLES = ['bursar', 'principal'] as const
+const isFinanceRole = (role?: string) => FIN_ROLES.includes(role as typeof FIN_ROLES[number])
+
 export function useBursarKpis(term: number, academicYearId: string | null) {
   const { user } = useAuth()
 
   return useQuery({
     queryKey: ['bursar-kpis', user?.schoolId, term, academicYearId],
-    enabled:  !!user?.schoolId,
+    enabled:  !!user?.schoolId && isFinanceRole(user?.role),
     queryFn: async () => {
       let q = supabase
         .from('fee_payments')
@@ -106,7 +109,7 @@ export function useFeeCollectionByClass(term: number, academicYearId: string | n
 
   return useQuery({
     queryKey: ['fee-by-class', user?.schoolId, term, academicYearId],
-    enabled:  !!user?.schoolId,
+    enabled:  !!user?.schoolId && isFinanceRole(user?.role),
     queryFn: async () => {
       let feeQ = supabase
         .from('fee_payments')
@@ -175,7 +178,7 @@ export function useRecentPayments(limit = 10) {
 
   return useQuery({
     queryKey: ['recent-payments', user?.schoolId, limit],
-    enabled:  !!user?.schoolId,
+    enabled:  !!user?.schoolId && isFinanceRole(user?.role),
     queryFn: async () => {
       const [paymentsRes, studentsRes, classesRes] = await Promise.all([
         supabase
@@ -236,7 +239,7 @@ export function useFeeCollectionOverTime(term: number, academicYearId: string | 
 
   return useQuery({
     queryKey: ['fee-over-time', user?.schoolId, term, academicYearId],
-    enabled:  !!user?.schoolId,
+    enabled:  !!user?.schoolId && isFinanceRole(user?.role),
     staleTime: 60_000,
     queryFn: async () => {
       let payQ = supabase
@@ -336,7 +339,7 @@ export function useFeePayments(filters: FeeFilters = {}) {
 
   return useQuery({
     queryKey: ['fee-payments', user?.schoolId, filters],
-    enabled:  !!user?.schoolId,
+    enabled:  !!user?.schoolId && isFinanceRole(user?.role),
     queryFn: async () => {
       // Resolve active academic year to scope data (fee_payments has no 'year' int column)
       const { data: activeYearData } = await supabase
@@ -478,6 +481,7 @@ export function useAddPayment() {
 
   return useMutation({
     mutationFn: async (input: AddPaymentInput) => {
+      if (!isFinanceRole(user?.role)) throw new Error('Forbidden')
       const { data, error } = await supabase
         .from('fee_payments')
         .insert({
@@ -526,6 +530,7 @@ export function useUpdatePayment() {
 
   return useMutation({
     mutationFn: async (input: UpdatePaymentInput) => {
+      if (!isFinanceRole(user?.role)) throw new Error('Forbidden')
       const newBalance = input.amountDue - input.amountPaid
       const oldBalance = input.amountDue - input.oldAmountPaid
 
@@ -585,7 +590,7 @@ export function useStudentFeeRows(studentId: string | null, term: number) {
 
   return useQuery({
     queryKey: ['student-fee-rows', user?.schoolId, studentId, term],
-    enabled:  !!user?.schoolId && !!studentId,
+    enabled:  !!user?.schoolId && !!studentId && isFinanceRole(user?.role),
     queryFn: async () => {
       const [paymentsRes, feeStructureRes] = await Promise.all([
         supabase
@@ -648,6 +653,7 @@ export function useApplyPayment() {
 
   return useMutation({
     mutationFn: async (input: ApplyPaymentInput) => {
+      if (!isFinanceRole(user?.role)) throw new Error('Forbidden')
       const { error } = await supabase
         .from('fee_payments')
         .update({

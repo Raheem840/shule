@@ -305,7 +305,7 @@ export function TeacherMyClassesPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 360px) 1fr', gap: 16, alignItems: 'start' }}>
+      <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 360px) 1fr', gap: 16, alignItems: 'start' }}>
         {/* Left: class list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {classes.map(c => (

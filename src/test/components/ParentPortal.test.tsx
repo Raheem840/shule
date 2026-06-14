@@ -128,13 +128,12 @@ describe('parent data isolation', () => {
     expect(mockFrom).toHaveBeenCalledWith('fee_payments')
   })
 
-  it('useStudentFeeBalance returns empty when DB returns no rows (simulating RLS block)', async () => {
-    // Simulates: parent queries for a student outside their student_ids —
-    // RLS at DB level returns 0 rows.
+  it('useStudentFeeBalance throws Forbidden when studentId is not in parent studentIds', async () => {
+    // Hook-level ownership check — rejects before hitting DB.
     setResponse('fee_payments', { data: [], error: null })
     const { result } = renderHook(() => useStudentFeeBalance('stu-99'), { wrapper: createWrapper() })
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toEqual([])
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect((result.current.error as Error)?.message).toBe('Forbidden')
   })
 
   it('useStudentExamSummary queries exam_results by school_id + student_id (RLS boundary)', async () => {

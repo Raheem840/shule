@@ -1127,7 +1127,7 @@ export function ParentCredentialsPage() {
       </div>
 
       {/* ── Two-Panel Layout ── */}
-      <div style={{
+      <div className="mob-stack" style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(280px, 360px) 1fr',
         gap: 16,

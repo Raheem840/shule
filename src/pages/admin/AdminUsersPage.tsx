@@ -437,7 +437,7 @@ function ActiveCard({ staff, deptName, onReset, onLink, onDeactivated }: { staff
             {deptName && <span style={{ fontSize: 11.5, color: 'var(--txt3)' }}>{deptName}</span>}
             <span style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>{staff.staffNumber}</span>
           </div>
-          <div style={{ display: 'flex', gap: 7 }}>
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
             {isActive ? (
               <>
                 <button onClick={() => void handleReset()} disabled={!staff.authUserId || !staff.email || reset.isPending}

@@ -6,12 +6,15 @@ import type { AttendanceSummary } from '../types/app'
 
 // ── useDeputyOverview ──────────────────────────────────────────────────────
 // Returns per-class attendance summaries. Flags any class below 80%.
+const DEPUTY_ROLES = ['deputy', 'principal'] as const
+const isDeputyRole = (role?: string) => DEPUTY_ROLES.includes(role as typeof DEPUTY_ROLES[number])
+
 export function useDeputyOverview() {
   const { user } = useAuth()
 
   return useQuery({
     queryKey: ['deputy-overview', user?.schoolId],
-    enabled: !!user,
+    enabled: !!user && isDeputyRole(user?.role),
     queryFn: async () => {
       const sid = user!.schoolId
 
@@ -61,7 +64,7 @@ export function useDeputyKpis() {
 
   return useQuery({
     queryKey: ['deputy-kpis', user?.schoolId],
-    enabled: !!user,
+    enabled: !!user && isDeputyRole(user?.role),
     queryFn: async () => {
       const sid = user!.schoolId
 
@@ -239,6 +242,7 @@ export function useAddDisciplineRecord() {
       notes: string | null
     }) => {
       if (!user) throw new Error('Not authenticated')
+      if (!isDeputyRole(user.role)) throw new Error('Forbidden')
 
       let staffId = user.staffId
       if (!staffId) {
@@ -357,6 +361,7 @@ export function useDeleteDisciplineRecord() {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('Not authenticated')
+      if (!isDeputyRole(user.role)) throw new Error('Forbidden')
 
       const { error } = await supabase
         .from('discipline_records')

@@ -481,8 +481,9 @@ export function SmsReminderPage() {
           background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: 'var(--r-lg)', overflow: 'hidden',
         }}>
-          {/* Header */}
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          {/* Scroll wrapper for both header + rows so they stay aligned on mobile */}
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 {['Student', 'Phone', 'Channel', 'Message', 'Status', 'Sent At', ''].map(h => (
@@ -510,7 +511,7 @@ export function SmsReminderPage() {
               </div>
             ) : (
               <div style={{ height: logVirtualizer.getTotalSize(), position: 'relative' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse' }}>
                   <tbody>
                     {logVirtualizer.getVirtualItems().map(vr => {
                       const r: ReminderLogRow = (logData ?? [])[vr.index]
@@ -559,6 +560,7 @@ export function SmsReminderPage() {
               </div>
             )}
           </div>
+          </div>{/* /overflowX scroll wrapper */}
         </div>
       </div>
     </div>
