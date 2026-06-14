@@ -273,7 +273,7 @@ export function BursarDashboard() {
         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5, marginRight: 4 }}>Term</span>
         {([1, 2, 3] as const).map(t => (
           <button key={t} onClick={() => setTerm(t)} style={{
-            padding: '5px 16px', border: 'none', borderRadius: 20,
+            padding: '10px 16px', minHeight: 36, border: 'none', borderRadius: 20,
             background: term === t ? 'var(--brand)' : 'var(--surface2)',
             color: term === t ? '#fff' : 'var(--txt2)',
             fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 12.5, cursor: 'pointer',

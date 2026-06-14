@@ -681,7 +681,7 @@ function PreviewRow({ m, onToggleSkip, onConfirm }: PreviewRowProps) {
             value={m.chosenId ?? ''}
             onChange={e => { if (e.target.value) onConfirm(m.rowIndex, e.target.value) }}
             style={{
-              padding: '4px 8px', fontSize: 12, borderRadius: 8,
+              padding: '8px 10px', minHeight: 36, fontSize: 12, borderRadius: 8,
               border: '1.5px solid var(--warning)', background: 'var(--surface)',
               color: 'var(--txt)', cursor: 'pointer', maxWidth: 200,
             }}
@@ -698,7 +698,7 @@ function PreviewRow({ m, onToggleSkip, onConfirm }: PreviewRowProps) {
       <button
         onClick={() => onToggleSkip(m.rowIndex)}
         style={{
-          fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 7,
+          fontSize: 11.5, fontWeight: 700, padding: '8px 12px', minHeight: 36, borderRadius: 7,
           border: '1px solid var(--border)', background: 'var(--surface2)',
           color: m.skipped ? 'var(--brand)' : 'var(--txt3)', cursor: 'pointer',
           whiteSpace: 'nowrap',

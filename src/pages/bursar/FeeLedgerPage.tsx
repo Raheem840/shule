@@ -523,7 +523,7 @@ export function FeeLedgerPage() {
             <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
               <button
                 onClick={() => setShowImport(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: '.5px solid rgba(255,255,255,.35)', background: 'rgba(255,255,255,.16)', backdropFilter: 'blur(8px)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', transition: 'background .15s' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '11px 16px', minHeight: 44, borderRadius: 10, border: '.5px solid rgba(255,255,255,.35)', background: 'rgba(255,255,255,.16)', backdropFilter: 'blur(8px)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', transition: 'background .15s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.26)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,.16)')}
               >
@@ -533,7 +533,7 @@ export function FeeLedgerPage() {
               <button
                 onClick={handleExport}
                 disabled={!allRows.length}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: '.5px solid rgba(255,255,255,.35)', background: 'rgba(255,255,255,.16)', backdropFilter: 'blur(8px)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: allRows.length ? 'pointer' : 'default', opacity: allRows.length ? 1 : .5, transition: 'background .15s' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '11px 16px', minHeight: 44, borderRadius: 10, border: '.5px solid rgba(255,255,255,.35)', background: 'rgba(255,255,255,.16)', backdropFilter: 'blur(8px)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: allRows.length ? 'pointer' : 'default', opacity: allRows.length ? 1 : .5, transition: 'background .15s' }}
                 onMouseEnter={e => { if (allRows.length) e.currentTarget.style.background = 'rgba(255,255,255,.26)' }}
                 onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,.16)')}
               >
@@ -542,7 +542,7 @@ export function FeeLedgerPage() {
               </button>
               <button
                 onClick={() => setShowAdd(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: 'none', background: '#fff', color: '#be123c', fontWeight: 800, fontSize: 12.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,.18)', transition: 'box-shadow .15s, transform .15s' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '11px 16px', minHeight: 44, borderRadius: 10, border: 'none', background: '#fff', color: '#be123c', fontWeight: 800, fontSize: 12.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,.18)', transition: 'box-shadow .15s, transform .15s' }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,.22)' }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,.18)' }}
               >
