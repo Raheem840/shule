@@ -649,45 +649,55 @@ function AddFeeModal({ onClose }: { onClose: () => void }) {
 
   // Multi-class selection: empty = all classes, otherwise one fee row per selected class
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
+  // "Apply to all terms" — creates 3 fee items (T1, T2, T3) in one submit
+  const [allTerms, setAllTerms] = useState(false)
 
   function toggleClass(id: string) {
     setSelectedClassIds(prev =>
       prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
     )
   }
+  function selectAllClasses()  { setSelectedClassIds(classes.map(c => c.id)) }
+  function clearClassSelection() { setSelectedClassIds([]) }
 
   const onSubmit: SubmitHandler<AddFeeForm> = async data => {
     try {
       const classTargets = selectedClassIds.length > 0 ? selectedClassIds : [null]
+      const termTargets  = allTerms ? ([1, 2, 3] as const) : [data.term as 1|2|3]
+      let totalItems   = 0
       let totalCharged = 0
 
-      for (const cid of classTargets) {
-        const input: AddFeeTypeInput = {
-          name: data.name.trim(), amount: data.amount,
-          appliesTo: data.appliesTo, term: data.term as 1|2|3,
-          academicYearId: data.academicYearId,
-          classId: cid,
-          isCompulsory: data.isCompulsory,
-        }
-        const newId = await addMut.mutateAsync(input)
-
-        if (data.autoCharge && newId) {
-          const year = years.find(y => y.id === data.academicYearId)
-          const chargeYear = year ? new Date(year.startDate).getFullYear() : new Date().getFullYear()
-          const result = await chargeMut.mutateAsync({
-            feeStructureId: newId, classId: cid,
-            appliesTo: data.appliesTo, term: data.term,
-            year: chargeYear, amount: data.amount,
+      for (const term of termTargets) {
+        for (const cid of classTargets) {
+          const input: AddFeeTypeInput = {
+            name: allTerms ? `${data.name.trim()} (T${term})` : data.name.trim(),
+            amount: data.amount,
+            appliesTo: data.appliesTo, term,
             academicYearId: data.academicYearId,
-          })
-          totalCharged += result.charged
+            classId: cid,
+            isCompulsory: data.isCompulsory,
+          }
+          const newId = await addMut.mutateAsync(input)
+          totalItems++
+
+          if (data.autoCharge && newId) {
+            const year = years.find(y => y.id === data.academicYearId)
+            const chargeYear = year ? new Date(year.startDate).getFullYear() : new Date().getFullYear()
+            const result = await chargeMut.mutateAsync({
+              feeStructureId: newId, classId: cid,
+              appliesTo: data.appliesTo, term,
+              year: chargeYear, amount: data.amount,
+              academicYearId: data.academicYearId,
+            })
+            totalCharged += result.charged
+          }
         }
       }
 
       if (data.autoCharge) {
-        ok(`${classTargets.length} fee item(s) created · ${totalCharged} student(s) auto-charged`)
+        ok(`${totalItems} fee item(s) created · ${totalCharged} student(s) auto-charged`)
       } else {
-        ok(`${classTargets.length} fee item(s) added`)
+        ok(`${totalItems} fee item(s) added`)
       }
       onClose()
     } catch (e: any) { err(e.message ?? 'Failed to add fee') }
@@ -724,16 +734,33 @@ function AddFeeModal({ onClose }: { onClose: () => void }) {
               {errors.amount && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 3 }}>{errors.amount.message}</div>}
             </div>
 
-            {/* Term */}
+            {/* Term + All-Terms toggle */}
             <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, display: 'block', marginBottom: 5 }}>Term *</label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6 }}>Term *</label>
+                <button
+                  type="button"
+                  onClick={() => setAllTerms(p => !p)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '2px 9px', borderRadius: 99, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: `1px solid ${allTerms ? 'var(--brand)' : 'var(--border)'}`, background: allTerms ? 'var(--brand-light)' : 'var(--surface2)', color: allTerms ? 'var(--brand)' : 'var(--txt3)', transition: 'all .14s' }}
+                >
+                  <div style={{ width: 26, height: 14, borderRadius: 99, background: allTerms ? 'var(--brand)' : 'var(--border)', position: 'relative', transition: 'background .14s', flexShrink: 0 }}>
+                    <div style={{ position: 'absolute', top: 2, left: allTerms ? 13 : 2, width: 10, height: 10, borderRadius: '50%', background: '#fff', transition: 'left .14s' }} />
+                  </div>
+                  All Terms
+                </button>
+              </div>
               <Controller name="term" control={control} render={({ field }) => (
-                <select className="sui-input" {...field} style={{ width: '100%' }}>
+                <select className="sui-input" {...field} disabled={allTerms} style={{ width: '100%', opacity: allTerms ? .5 : 1 }}>
                   <option value={1}>Term 1</option>
                   <option value={2}>Term 2</option>
                   <option value={3}>Term 3</option>
                 </select>
               )} />
+              {allTerms && (
+                <div style={{ fontSize: 11, color: 'var(--brand)', marginTop: 4 }}>
+                  Creates 3 fee items: one per term (names auto-suffixed with T1/T2/T3)
+                </div>
+              )}
             </div>
 
             {/* Academic year */}
@@ -750,9 +777,23 @@ function AddFeeModal({ onClose }: { onClose: () => void }) {
 
             {/* Class — multi-select checkboxes */}
             <div style={{ gridColumn: '1/-1' }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, display: 'block', marginBottom: 5 }}>
-                Classes{selectedClassIds.length > 0 ? ` (${selectedClassIds.length} selected)` : ' — leave blank for all'}
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6 }}>
+                  Classes{selectedClassIds.length > 0 ? ` (${selectedClassIds.length} selected)` : ' — leave blank for all'}
+                </label>
+                <div style={{ display: 'flex', gap: 5 }}>
+                  <button type="button" onClick={selectAllClasses}
+                    style={{ fontSize: 10.5, fontWeight: 700, cursor: 'pointer', padding: '2px 8px', borderRadius: 6, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)' }}>
+                    All
+                  </button>
+                  {selectedClassIds.length > 0 && (
+                    <button type="button" onClick={clearClassSelection}
+                      style={{ fontSize: 10.5, fontWeight: 700, cursor: 'pointer', padding: '2px 8px', borderRadius: 6, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)' }}>
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {classes.map(c => {
                   const checked = selectedClassIds.includes(c.id)
