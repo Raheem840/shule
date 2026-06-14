@@ -138,6 +138,7 @@ function UserManagementSection() {
   const [deleteTyped,  setDeleteTyped]  = useState('')
   const [deleteError,  setDeleteError]  = useState('')
   const [resetDone,    setResetDone]    = useState(false)
+  const [resetPassword, setResetPassword] = useState('')
   const [resetError,   setResetError]   = useState('')
   const [search,       setSearch]       = useState('')
   const listRef = useRef<HTMLDivElement>(null)
@@ -160,7 +161,8 @@ function UserManagementSection() {
     if (!resetTarget?.authUserId) return
     setResetError('')
     try {
-      await resetPwd(resetTarget.authUserId)
+      const { newPassword } = await resetPwd(resetTarget.authUserId)
+      setResetPassword(newPassword)
       setResetDone(true)
     } catch (err: any) {
       setResetError(err.message ?? 'Reset failed')
@@ -305,7 +307,7 @@ function UserManagementSection() {
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                     {u.authUserId && (
                       <button
-                        onClick={() => { setResetTarget(u); setResetDone(false); setResetError('') }}
+                        onClick={() => { setResetTarget(u); setResetDone(false); setResetPassword(''); setResetError('') }}
                         style={{
                           padding: '4px 10px', borderRadius: 7, fontSize: 10, fontWeight: 700,
                           border: '1px solid var(--border)', background: 'transparent',
@@ -450,18 +452,18 @@ function UserManagementSection() {
                   background: 'var(--success-bg)', color: 'var(--success)',
                   padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 16,
                 }}>
-                  Password reset to <strong>Shule@2025</strong>. The staff member must change it on next login.
+                  Password reset. New temporary password:{' '}
+                  <code style={{ fontFamily: 'var(--font3)', background: 'rgba(0,0,0,0.12)', padding: '1px 5px', borderRadius: 4 }}>
+                    {resetPassword}
+                  </code>
+                  . Share securely — the staff member must change it on next login.
                 </div>
-                <button onClick={() => setResetTarget(null)} className="sui-btn-primary">Done</button>
+                <button onClick={() => { setResetTarget(null); setResetDone(false); setResetPassword('') }} className="sui-btn-primary">Done</button>
               </>
             ) : (
               <>
                 <p style={{ color: 'var(--txt2)', fontSize: 13 }}>
-                  Reset password for <strong>{resetTarget.name}</strong> to the temporary password{' '}
-                  <code style={{ fontFamily: 'var(--font3)', background: 'var(--surface2)', padding: '1px 4px', borderRadius: 4 }}>
-                    Shule@2025
-                  </code>
-                  ?
+                  Reset password for <strong>{resetTarget.name}</strong>? A random temporary password will be generated.
                 </p>
                 {resetError && (
                   <div style={{ background: 'var(--danger-bg)', color: 'var(--danger)',

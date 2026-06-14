@@ -80,24 +80,31 @@ export function useUserManagement() {
   })
 }
 
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+  const arr = new Uint8Array(12)
+  crypto.getRandomValues(arr)
+  return Array.from(arr, b => chars[b % chars.length]).join('')
+}
+
 // ── useResetPassword ───────────────────────────────────────────────────────
 // Calls a Supabase Edge Function to reset a staff member's password.
 // The Edge Function runs with service_role key — never expose it to the client.
-// Generates temp password 'Shule@2025'.
 export function useResetPassword() {
   const { user } = useAuth()
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async (authUserId: string) => {
+    mutationFn: async (authUserId: string): Promise<{ newPassword: string }> => {
       if (!user) throw new Error('Not authenticated')
 
-      const { data, error } = await supabase.functions.invoke('reset-staff-password', {
-        body: { userId: authUserId, newPassword: 'Shule@2025' },
+      const newPassword = generateTempPassword()
+      const { error } = await supabase.functions.invoke('reset-staff-password', {
+        body: { userId: authUserId, newPassword },
       })
 
       if (error) throw new Error(error.message)
-      return data
+      return { newPassword }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })

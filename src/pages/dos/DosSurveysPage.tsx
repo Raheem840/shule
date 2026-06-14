@@ -21,7 +21,7 @@ function useSurveyResponses(term: string, year: number) {
   const { user } = useAuth()
   return useQuery({
     queryKey: ['survey-responses', user?.schoolId, term, year],
-    enabled: !!user,
+    enabled: !!user?.schoolId,
     queryFn: async (): Promise<{ responses: SurveyResponse[]; summary: SurveySummary }> => {
       const { data, error } = await supabase.from('student_surveys').select('id, rating, teacher_rating, hardest_subject_id, favourite_subject_id, suggestions, submitted_at, term, year, student_id').eq('school_id', user!.schoolId).eq('term', term).eq('year', year).order('submitted_at', { ascending: false })
       if (error?.code === '42P01') return { responses: [], summary: { total: 0, avgOverall: 0, avgTeacher: 0, hardestSubjects: [], favouriteSubjects: [] } }

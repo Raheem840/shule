@@ -166,7 +166,7 @@ function usePromoteAllStudents() {
 
       if (toGraduate.length > 0) {
         const { error } = await supabase
-          .from('students').update({ academic_year_id: newYearId })
+          .from('students').update({ academic_year_id: newYearId, status: 'completed', class_id: null, stream_id: null })
           .in('id', toGraduate).eq('school_id', sid)
         if (error) throw new Error(error.message)
       }

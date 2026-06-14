@@ -126,16 +126,22 @@ describe('useUserManagement', () => {
 
 // ── useResetPassword ───────────────────────────────────────────────────────
 describe('useResetPassword', () => {
-  it('calls supabase.functions.invoke with reset-staff-password', async () => {
+  it('calls supabase.functions.invoke with reset-staff-password and a generated password', async () => {
     const { result } = renderHook(() => useResetPassword(), { wrapper: createWrapper() })
+    let returned: { newPassword: string } | undefined
     await act(async () => {
-      await result.current.mutateAsync('auth-user-123')
+      returned = await result.current.mutateAsync('auth-user-123')
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(mockFunctions.invoke).toHaveBeenCalledWith('reset-staff-password', {
-      body: { userId: 'auth-user-123', newPassword: 'Shule@2025' },
+      body: expect.objectContaining({ userId: 'auth-user-123', newPassword: expect.any(String) }),
     })
+    // The returned password should match what was sent to the edge function
+    const sentBody = (mockFunctions.invoke.mock.calls.at(-1) as any)[1].body
+    expect(returned?.newPassword).toBe(sentBody.newPassword)
+    // Password must be a non-trivial string (not hardcoded)
+    expect(returned?.newPassword.length).toBeGreaterThan(0)
   })
 
   it('throws when the Edge Function returns an error', async () => {

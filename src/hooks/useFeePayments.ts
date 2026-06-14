@@ -50,7 +50,7 @@ export function useBursarKpis(term: number, academicYearId: string | null) {
 
       const { data, error } = await q
 
-      if (error) return { expected: 0, collected: 0, outstanding: 0, unpaidCount: 0 }
+      if (error) throw error
 
       const rows = (data ?? []) as AnyRow[]
       let expected = 0, collected = 0, outstanding = 0

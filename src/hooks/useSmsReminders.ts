@@ -79,7 +79,8 @@ export function useSmsStudents(filters: SmsFilters) {
       if (streamsRes.error)    throw streamsRes.error
       if (activeYearsRes.error) throw activeYearsRes.error
 
-      // Limit to the active academic year to avoid cross-year fee data
+      // Limit to the active academic year to avoid cross-year fee data.
+      // If no active year is found, treat as empty set — no payments match and no cross-year data leaks.
       const activeYearIds = new Set((activeYearsRes.data ?? []).map((y: any) => y.id as string))
 
       // Build guardian map — prefer primary guardian
@@ -103,9 +104,9 @@ export function useSmsStudents(filters: SmsFilters) {
       // Aggregate fee balances per student (active year only)
       const feeMap = new Map<string, { amountDue: number; amountPaid: number; balance: number }>()
       for (const p of paymentsRes.data ?? []) {
-        // Skip payments from other academic years when we have active year info
+        // Skip payments not in the active academic year (always enforced — empty set → no payments)
         const pyid = (p as any).academic_year_id as string | null
-        if (activeYearIds.size > 0 && (!pyid || !activeYearIds.has(pyid))) continue
+        if (!pyid || !activeYearIds.has(pyid)) continue
         const sid  = p.student_id as string
         const curr = feeMap.get(sid) ?? { amountDue: 0, amountPaid: 0, balance: 0 }
         curr.amountDue  += Number(p.amount_due)  || 0
