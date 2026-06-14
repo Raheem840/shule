@@ -302,9 +302,7 @@ export function SmsReminderPage() {
               </div>
             ) : studentsError ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--danger)', fontSize: 13 }}>
-                {studentsErrorObj instanceof Error && studentsErrorObj.message
-                  ? studentsErrorObj.message
-                  : 'Could not load students. Check your connection.'}
+                {(studentsErrorObj as Error | null)?.message ?? 'Could not load students. Check your connection.'}
               </div>
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -453,14 +451,14 @@ export function SmsReminderPage() {
               variant="primary"
               size="md"
               onClick={handleSend}
-              disabled={selectedIds.size === 0 || !message.trim() || sendReminders.isPending || !!studentsError}
+              disabled={selectedIds.size === 0 || !message.trim() || sendReminders.isPending || studentsError}
             >
               {sendReminders.isPending
                 ? 'Sending…'
                 : `Send to ${selectedIds.size} parent${selectedIds.size !== 1 ? 's' : ''}`}
             </Button>
 
-            {sendReminders.isSuccess && (
+            {sendReminders.isSuccess && !studentsError && (
               <div style={{ padding: '0.6rem 0.85rem', background: 'var(--success-bg)', borderRadius: 'var(--r)', fontSize: 12.5, color: 'var(--success)', fontWeight: 600 }}>
                 Reminders queued successfully. They will be sent when the SMS worker runs.
               </div>

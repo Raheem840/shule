@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { calcFeeStatus } from './useFeePayments'
+import { generateTempPassword } from '../lib/passwords'
 import type { Student } from '../types/app'
 
 type AnyRow = Record<string, unknown>
@@ -638,14 +639,7 @@ export function useGenerateParentAccess() {
       const shortName = ((school?.short_name as string) ?? 'school')
         .toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')
 
-      // Generate a real random password so the IT admin credentials page shows a working one
-      function generateParentPassword(): string {
-        const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$'
-        const arr = new Uint8Array(12)
-        crypto.getRandomValues(arr)
-        return Array.from(arr, b => chars[b % chars.length]).join('')
-      }
-      const TEMP_PASSWORD = generateParentPassword()
+      const TEMP_PASSWORD = generateTempPassword()
 
       // ── 2. Fetch student's guardians ─────────────────────────
       const { data: guardianRows } = await supabase

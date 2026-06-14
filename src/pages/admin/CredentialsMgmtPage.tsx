@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
+import { generateTempPassword } from '../../lib/passwords'
 import { useToast } from '../../components/ui/Toast'
 import { useClasses } from '../../hooks/useClasses'
 import { useStaff } from '../../hooks/useStaff'
@@ -18,13 +19,6 @@ import {
 } from '../../hooks/useStudents'
 import { useSchoolSettings } from '../../hooks/useAdmin'
 
-// ── Random password generator ──────────────────────────────────────────────────
-function generateRandomPassword(): string {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$'
-  const arr = new Uint8Array(12)
-  crypto.getRandomValues(arr)
-  return Array.from(arr, b => chars[b % chars.length]).join('')
-}
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type TabId = 'staff' | 'students' | 'parents'
@@ -896,7 +890,7 @@ function ParentsPanel({
   async function handleResetParentPassword(p: ParentRow) {
     setBusy(p.id, true)
     try {
-      const newPw = generateRandomPassword()
+      const newPw = generateTempPassword()
       if (!p.auth_user_id) throw new Error('Parent has no active login to reset')
       // Use reset-parent-password which sets app_metadata correctly for parent role
       const { error: fnError } = await supabase.functions.invoke('reset-parent-password', {
