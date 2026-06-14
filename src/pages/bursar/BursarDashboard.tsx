@@ -234,6 +234,7 @@ export function BursarDashboard() {
   const smsCount  = useSmsCount()
 
   const K = kpis.data
+  const kpisError = kpis.isError
   const { points = [], classes: classNames = [] } = overTime.data ?? {}
 
   // Compute total collected from byClass for the chart sub-header
@@ -292,6 +293,11 @@ export function BursarDashboard() {
       </div>
 
       {/* ── KPI grid ──────────────────────────────────────────── */}
+      {kpisError && (
+        <div style={{ background: 'var(--danger-bg)', color: 'var(--danger)', padding: '10px 14px', borderRadius: 10, fontSize: 13 }}>
+          Could not load fee totals. Check your connection and try again.
+        </div>
+      )}
       <div className="stagger-cards mob-kpi-2col mob-kpi-grid" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <KpiCard label="Total Expected"  value={K ? ugxCompact(K.expected)    : '—'} sub={K && K.expected >= 1000 ? ugx(K.expected) : `Term ${term}`} accent="brand" />
         <KpiCard label="Total Collected" value={K ? ugxCompact(K.collected)   : '—'} sub={K && K.collected >= 1000 ? ugx(K.collected) : undefined} accent="success" />

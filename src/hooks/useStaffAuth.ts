@@ -1,14 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
-
-// ── generateTempPassword ───────────────────────────────────────────────────
-function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-  const arr = new Uint8Array(12)
-  crypto.getRandomValues(arr)
-  return Array.from(arr, b => chars[b % chars.length]).join('')
-}
+import { generateTempPassword } from '../lib/passwords'
 
 // ── ACTIVATION_KEY ─────────────────────────────────────────────────────────
 const ACTIVATION_KEY = 'shule_pending_staff_activations'

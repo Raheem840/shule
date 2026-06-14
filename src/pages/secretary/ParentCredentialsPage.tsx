@@ -8,20 +8,11 @@ import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { Avatar } from '../../components/shared/Avatar'
 import { useToast } from '../../components/ui/Toast'
+import { generateTempPassword } from '../../lib/passwords'
 import type { ParentAccount, Student } from '../../types/app'
 
 // suppress unused ref warning — useRef used for timer cleanup
 void useRef
-
-// ── Temp password generator ───────────────────────────────────
-function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-  let pw = ''
-  const arr = new Uint8Array(10)
-  crypto.getRandomValues(arr)
-  for (let i = 0; i < 10; i++) pw += chars[arr[i] % chars.length]
-  return pw
-}
 
 // ── useParentAccounts ─────────────────────────────────────────
 function useParentAccounts() {

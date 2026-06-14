@@ -80,8 +80,10 @@ export function useSmsStudents(filters: SmsFilters) {
       if (activeYearsRes.error) throw activeYearsRes.error
 
       // Limit to the active academic year to avoid cross-year fee data.
-      // If no active year is found, treat as empty set — no payments match and no cross-year data leaks.
+      // If no active year is found, return early — showing all students with 0 balance
+      // would let the bursar accidentally send "UGX 0 outstanding" reminders to everyone.
       const activeYearIds = new Set((activeYearsRes.data ?? []).map((y: any) => y.id as string))
+      if (activeYearIds.size === 0) return []
 
       // Build guardian map — prefer primary guardian
       const anyGuardian     = new Map<string, { name: string; phone: string }>()

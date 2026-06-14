@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { db } from '../lib/db'
 import { listFiles } from '../lib/storage'
+import { generateTempPassword } from '../lib/passwords'
 import type { SystemKpis, UserRow, SchoolSettings, ApiConfig } from '../types/week9'
 
 // ── useSystemKpis ──────────────────────────────────────────────────────────
@@ -78,13 +79,6 @@ export function useUserManagement() {
     },
     staleTime: 60_000,
   })
-}
-
-function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-  const arr = new Uint8Array(12)
-  crypto.getRandomValues(arr)
-  return Array.from(arr, b => chars[b % chars.length]).join('')
 }
 
 // ── useResetPassword ───────────────────────────────────────────────────────

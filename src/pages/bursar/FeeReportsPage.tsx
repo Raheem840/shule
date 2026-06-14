@@ -32,7 +32,7 @@ export function FeeReportsPage() {
   }, [academicYearId, academicYears])
 
   const { data: classes = [], isLoading: classLoading } = useFeeCollectionByClass(term, resolvedYearId)
-  const { data: kpis, isLoading: kpisLoading } = useBursarKpis(term, resolvedYearId)
+  const { data: kpis, isLoading: kpisLoading, isError: kpisError } = useBursarKpis(term, resolvedYearId)
 
   const isLoading = classLoading || kpisLoading
 
@@ -110,6 +110,11 @@ export function FeeReportsPage() {
       {!isLoading && (
         <>
           {/* KPI summary */}
+          {kpisError && (
+            <div style={{ background: 'var(--danger-bg)', color: 'var(--danger)', padding: '10px 14px', borderRadius: 10, fontSize: 13 }}>
+              Could not load fee totals. Check your connection and try again.
+            </div>
+          )}
           {kpis && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
               {[
