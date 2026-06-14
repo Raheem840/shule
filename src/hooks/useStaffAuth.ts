@@ -30,9 +30,13 @@ export function getPendingActivations(): Record<string, PendingActivation> {
 }
 
 export function clearPendingActivation(staffId: string): void {
-  const existing = getPendingActivations()
-  delete existing[staffId]
-  localStorage.setItem(ACTIVATION_KEY, JSON.stringify(existing))
+  try {
+    const existing = getPendingActivations()
+    delete existing[staffId]
+    localStorage.setItem(ACTIVATION_KEY, JSON.stringify(existing))
+  } catch {
+    // localStorage unavailable (Safari private mode) — stale entry; harmless
+  }
 }
 
 // ── useActivateStaffLogin ──────────────────────────────────────────────────
@@ -146,8 +150,9 @@ export function useLinkAuthUser() {
       if (error) throw new Error(error.message)
       clearPendingActivation(staffId)
     },
-    onSuccess: () => {
+    onSuccess: (_data, { staffId }) => {
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['staff-member', user?.schoolId, staffId] })
       void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })
     },
   })
