@@ -112,12 +112,12 @@ function ClassCard({
           </div>
           <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
             {level && (
-              <span style={{ fontSize: 10.5, fontWeight: 700, color: '#0ea5e9', background: 'rgba(14,165,233,.1)', padding: '2px 8px', borderRadius: 99 }}>
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--info)', background: 'var(--info-bg)', padding: '2px 8px', borderRadius: 99 }}>
                 Level {level}
               </span>
             )}
             {isClassTeacherClass && (
-              <span style={{ fontSize: 10.5, fontWeight: 800, color: '#10b981', background: 'rgba(16,185,129,.1)', padding: '2px 8px', borderRadius: 99, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--success)', background: 'var(--success-bg)', padding: '2px 8px', borderRadius: 99, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
                 My Homeroom Class
               </span>
@@ -226,6 +226,8 @@ function ClassDetailPanel({ classId, className, isMyHomeroom, navigate }: {
           { label: 'Curriculum',    path: '/teacher/curriculum',   color: '#10b981' },
         ].map(a => (
           <button key={a.label} onClick={() => navigate(a.path)}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${a.color}28` }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = `${a.color}15` }}
             style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: `${a.color}15`, color: a.color, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', transition: 'background .13s' }}
           >
             {a.label}

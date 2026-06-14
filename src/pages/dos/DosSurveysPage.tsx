@@ -304,7 +304,11 @@ export function DosSurveysPage() {
           {/* Responses list */}
           {responses.length === 0 ? (
             <div style={{ padding: '52px 24px', textAlign: 'center', background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)' }}>
-              <div style={{ fontSize: 32, marginBottom: 16 }}>📊</div>
+              <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5" strokeLinecap="round">
+                  <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>
+                </svg>
+              </div>
               <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--txt)', marginBottom: 8 }}>No survey responses yet</div>
               <div style={{ fontSize: 13, color: 'var(--txt3)', maxWidth: 360, margin: '0 auto' }}>Enable the survey in Academic Year settings so students can submit responses for Term {term} {year}.</div>
             </div>

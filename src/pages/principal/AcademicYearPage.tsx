@@ -316,11 +316,11 @@ function CreateYearModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div style={{
+    <div className="sui-overlay" style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
     }}>
-      <div style={{
+      <div className="sui-modal-dialog" style={{
         background: 'var(--surface)', borderRadius: 20, padding: 28,
         width: 520, maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto',
       }}>
@@ -379,11 +379,11 @@ function EditYearModal({ year, onClose }: { year: AcademicYearRow; onClose: () =
   }
 
   return (
-    <div style={{
+    <div className="sui-overlay" style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
     }}>
-      <div style={{
+      <div className="sui-modal-dialog" style={{
         background: 'var(--surface)', borderRadius: 20, padding: 28,
         width: 520, maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto',
       }}>
@@ -444,11 +444,11 @@ function PromoteModal({ years, activeYear, onClose }: {
   }
 
   return (
-    <div style={{
+    <div className="sui-overlay" style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem',
     }}>
-      <div style={{
+      <div className="sui-modal-dialog" style={{
         background: 'var(--surface)', borderRadius: 20, overflow: 'hidden',
         width: 480, maxWidth: '95vw', boxShadow: '0 24px 64px rgba(0,0,0,.25)',
       }}>
@@ -596,9 +596,9 @@ function PromoteModal({ years, activeYear, onClose }: {
 
 // ── Accord-style vertical timeline ────────────────────────────────────────
 const TERM_META = [
-  { num: 1, color: '#0d9488', grad: 'linear-gradient(135deg,#0d9488,#0f766e)', bg: 'rgba(13,148,136,0.09)' },
-  { num: 2, color: '#8b5cf6', grad: 'linear-gradient(135deg,#8b5cf6,#7c3aed)', bg: 'rgba(139,92,246,0.09)' },
-  { num: 3, color: '#f59e0b', grad: 'linear-gradient(135deg,#f59e0b,#d97706)', bg: 'rgba(245,158,11,0.09)' },
+  { num: 1, color: 'var(--brand)',   grad: 'linear-gradient(135deg,#0d9488,#0f766e)', bg: 'rgba(13,148,136,0.09)' },
+  { num: 2, color: 'var(--violet)',  grad: 'linear-gradient(135deg,#8b5cf6,#7c3aed)', bg: 'rgba(139,92,246,0.09)' },
+  { num: 3, color: 'var(--warning)', grad: 'linear-gradient(135deg,#f59e0b,#d97706)', bg: 'rgba(245,158,11,0.09)' },
 ]
 
 function termStatus(start: string | null, end: string | null) {
@@ -1003,11 +1003,11 @@ export function AcademicYearPage() {
 
       {/* Future active-year confirmation dialog */}
       {futureActiveYear && (
-        <div style={{
+        <div className="sui-overlay" style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 250,
         }}>
-          <div style={{
+          <div className="sui-modal-dialog" style={{
             background: 'var(--surface)', borderRadius: 18, padding: 28,
             width: 440, maxWidth: '92vw', boxShadow: '0 20px 60px rgba(0,0,0,.25)',
           }}>
