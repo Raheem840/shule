@@ -70,7 +70,7 @@ export function FeeReportsPage() {
               type="button"
               onClick={() => setTerm(t.value)}
               style={{
-                padding: '6px 18px',
+                padding: '10px 18px',
                 borderRadius: 99,
                 border: 'none',
                 cursor: 'pointer',
@@ -132,7 +132,7 @@ export function FeeReportsPage() {
           )}
 
           {/* Overview pie + bar chart */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 12 }}>Collection Overview</div>
               <ResponsiveContainer width="100%" height={220}>

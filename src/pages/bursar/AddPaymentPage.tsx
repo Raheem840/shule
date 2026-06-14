@@ -12,7 +12,7 @@ import {
   ugx,
   calcFeeStatus,
 } from '../../hooks/useFeePayments'
-import { useFeeStructure } from '../../hooks/useFeeStructure'
+import { useFeeStructure, useAcademicYears } from '../../hooks/useFeeStructure'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/Toast'
@@ -719,8 +719,10 @@ export function AddPaymentPage() {
     term,
   )
 
-  // Derive academic year id from the first fee row that has one
-  const academicYearId = feeRows.find(r => r.academicYearId)?.academicYearId ?? null
+  // Resolve academic year: prefer from an existing row, fall back to the active year
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeAcademicYearId = academicYears.find(y => y.isActive)?.id ?? null
+  const academicYearId = feeRows.find(r => r.academicYearId)?.academicYearId ?? activeAcademicYearId
 
   const handleTermChange = useCallback((t: 1 | 2 | 3) => {
     setTerm(t)

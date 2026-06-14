@@ -285,6 +285,8 @@ export function useRetryReminder() {
 
   return useMutation({
     mutationFn: async (reminderId: string) => {
+      if (!user) throw new Error('Not authenticated')
+      if (!isSmsRole(user.role)) throw new Error('Forbidden')
       const { error } = await supabase
         .from('sms_reminders')
         .update({ status: 'pending' })

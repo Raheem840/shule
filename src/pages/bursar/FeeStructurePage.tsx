@@ -267,7 +267,7 @@ function ImportFeeStructureModal({ onClose }: { onClose: () => void }) {
                 )}
               </div>
 
-              <div style={{ maxHeight: 320, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ maxHeight: 320, overflowX: 'auto', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr>
@@ -590,7 +590,7 @@ function FeeCard({ fee, className, classBadges, onDelete, onAutoCharge, onEnable
               onClick={() => void handleCharge()}
               disabled={charging}
               title="Bill all uncharged matching students"
-              style={{ padding: '4px 10px', borderRadius: 8, border: 'none', background: charging ? 'rgba(13,148,136,.06)' : unchargedCount ? 'rgba(244,63,94,.1)' : 'rgba(13,148,136,.1)', color: charging ? 'var(--brand)' : unchargedCount ? 'var(--danger)' : 'var(--brand)', fontWeight: 700, fontSize: 10.5, cursor: charging ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 4, opacity: charging ? 0.7 : 1 }}>
+              style={{ padding: '8px 12px', minHeight: 36, borderRadius: 8, border: 'none', background: charging ? 'rgba(13,148,136,.06)' : unchargedCount ? 'rgba(244,63,94,.1)' : 'rgba(13,148,136,.1)', color: charging ? 'var(--brand)' : unchargedCount ? 'var(--danger)' : 'var(--brand)', fontWeight: 700, fontSize: 11, cursor: charging ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 4, opacity: charging ? 0.7 : 1 }}>
               {charging
                 ? 'Billing…'
                 : unchargedCount != null && unchargedCount > 0
@@ -600,7 +600,7 @@ function FeeCard({ fee, className, classBadges, onDelete, onAutoCharge, onEnable
             {/* Edit button */}
             <button onClick={() => setEditing(true)}
               title="Edit fee item"
-              style={{ padding: '4px 8px', borderRadius: 8, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .14s' }}
+              style={{ padding: '8px', minHeight: 36, minWidth: 36, borderRadius: 8, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .14s' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)' }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--txt3)' }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -611,11 +611,11 @@ function FeeCard({ fee, className, classBadges, onDelete, onAutoCharge, onEnable
                 await toggle.mutateAsync({ id: fee.id, isActive: enabling })
                 if (enabling) onEnable()
               }}
-              style={{ padding: '4px 10px', borderRadius: 8, border: `.5px solid var(--border)`, background: 'var(--surface2)', color: 'var(--txt3)', fontWeight: 700, fontSize: 10.5, cursor: 'pointer' }}>
+              style={{ padding: '8px 12px', minHeight: 36, borderRadius: 8, border: `.5px solid var(--border)`, background: 'var(--surface2)', color: 'var(--txt3)', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>
               {fee.isActive ? 'Disable' : 'Enable'}
             </button>
             <button onClick={onDelete}
-              style={{ padding: '4px 8px', borderRadius: 8, border: 'none', background: 'rgba(244,63,94,.08)', color: 'var(--danger)', cursor: 'pointer' }}>
+              style={{ padding: '8px', minHeight: 36, minWidth: 36, borderRadius: 8, border: 'none', background: 'rgba(244,63,94,.08)', color: 'var(--danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
             </button>
           </div>
@@ -1121,7 +1121,7 @@ export function FeeStructurePage() {
                   <div style={{ height: 1, flex: 1, background: 'var(--border)' }} />
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>{ugx(termTotal)} total</div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))', gap: 10 }}>
                   {groups.map(group => {
                     const rep = group.rows[0]
                     const groupUncharged = group.rows.reduce((s, r) => s + (unchargedMap[r.id] ?? 0), 0)

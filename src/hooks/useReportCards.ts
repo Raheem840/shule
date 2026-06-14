@@ -226,6 +226,8 @@ export function useGenerateReportCards() {
 
   return useMutation({
     mutationFn: async (input: GenerateInput) => {
+      if (!user) throw new Error('Not authenticated')
+      if (!['principal', 'dos', 'secretary'].includes(user.role ?? '')) throw new Error('Forbidden')
       const { studentIds, term, year, classId, streamId, onProgress } = input
       const schoolId = user!.schoolId
 
@@ -559,6 +561,7 @@ function useUpdateStatus(action: 'approve' | 'release' | 'unlock') {
       principalRemarks?: string | null
       unlockReason?:     string
     }) => {
+      if (!user) throw new Error('Not authenticated')
       const now   = new Date().toISOString()
       const patch: AnyRow = {}
 
@@ -622,6 +625,7 @@ export function useNotifyPrincipal() {
 
   return useMutation({
     mutationFn: async ({ term, year, count }: { term: number; year: number; count: number }) => {
+      if (!user) throw new Error('Not authenticated')
       // Fetch all principals so each gets a notification row (user_id is required for the bell query)
       const { data: principals } = await supabase
         .from('staff')

@@ -55,13 +55,15 @@ function PreviewRow({
   return (
     <tr className="sui-tr" style={{ background: selected ? 'var(--brand-light)' : undefined }}>
       <td style={{ padding: '0.5rem 0.75rem', width: 36 }}>
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggle}
-          aria-label={`Select ${row.firstName} ${row.lastName}`}
-          style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--brand)' }}
-        />
+        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            aria-label={`Select ${row.firstName} ${row.lastName}`}
+            style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--brand)' }}
+          />
+        </label>
       </td>
       <td style={{ padding: '0.5rem 0.75rem' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>{row.firstName} {row.lastName}</div>
@@ -159,7 +161,12 @@ export function SmsReminderPage() {
       message:       renderMessage(message, s, smsFilters.term, schoolName),
     }))
 
-    await sendReminders.mutateAsync(reminders)
+    try {
+      await sendReminders.mutateAsync(reminders)
+    } catch (e) {
+      console.error('Failed to queue reminders:', e)
+      return
+    }
     setSelectedIds(new Set())
 
     // Fire-and-forget: real-time dispatch via Edge Functions.
@@ -308,15 +315,17 @@ export function SmsReminderPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th style={{ ...thStyle, width: 36 }}>
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        ref={el => { if (el) el.indeterminate = someSelected }}
-                        onChange={toggleAll}
-                        aria-label="Select all students"
-                        style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--brand)' }}
-                      />
+                    <th style={{ ...thStyle, width: 44 }}>
+                      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, minHeight: 36, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          ref={el => { if (el) el.indeterminate = someSelected }}
+                          onChange={toggleAll}
+                          aria-label="Select all students"
+                          style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--brand)' }}
+                        />
+                      </label>
                     </th>
                     {['Student', 'Parent', 'Phone', 'Status', 'Balance'].map(h => (
                       <th key={h} style={thStyle}>{h}</th>
@@ -391,7 +400,7 @@ export function SmsReminderPage() {
                     key={v.key}
                     onClick={() => insertVar(v.key)}
                     style={{
-                      padding: '3px 10px', border: `1px solid ${v.color}`,
+                      padding: '8px 12px', minHeight: 36, border: `1px solid ${v.color}`,
                       borderRadius: 20, background: 'transparent',
                       color: v.color, fontSize: 11, fontWeight: 700,
                       cursor: 'pointer', fontFamily: 'var(--font3)',

@@ -271,6 +271,8 @@ function useRecordPayment() {
       receiptNumber:   string | null
       notes:           string | null
     }) => {
+      if (!user) throw new Error('Not authenticated')
+      if (!['bursar', 'principal'].includes(user.role ?? '')) throw new Error('Forbidden')
       // Check for existing record this student/term/academic_year
       let existQ = supabase
         .from('fee_payments')
@@ -294,6 +296,7 @@ function useRecordPayment() {
             notes:          input.notes,
           })
           .eq('id', ex.id)
+          .eq('school_id', user!.schoolId)
         if (error) throw error
       } else {
         const { error } = await supabase.from('fee_payments').insert({
@@ -331,6 +334,8 @@ function useUpdatePaymentAmount() {
       amountDue: number
       newPaid:   number
     }) => {
+      if (!user) throw new Error('Not authenticated')
+      if (!['bursar', 'principal'].includes(user.role ?? '')) throw new Error('Forbidden')
       const { error } = await supabase.from('fee_payments')
         .update({ amount_paid: input.newPaid, balance: Math.max(0, input.amountDue - input.newPaid) })
         .eq('id', input.id)
@@ -955,7 +960,7 @@ function ActionBtn({
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 5,
-        padding: '5px 12px', borderRadius: 8,
+        padding: '9px 14px', minHeight: 36, borderRadius: 8,
         fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 11.5,
         cursor: 'pointer', transition: 'all .15s',
         background: primary

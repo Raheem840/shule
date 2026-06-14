@@ -420,6 +420,7 @@ export function useSuspendStudent() {
   return useMutation({
     mutationFn: async ({ studentId, status }: { studentId: string; status: 'active' | 'suspended' | 'expelled' }) => {
       if (!user) throw new Error('Not authenticated')
+      if (user.role !== 'principal') throw new Error('Forbidden')
 
       // Fetch auth_user_id before updating status
       const { data: stu } = await supabase
@@ -460,6 +461,7 @@ export function useSuspendStaff() {
   return useMutation({
     mutationFn: async ({ staffId, isActive }: { staffId: string; isActive: boolean }) => {
       if (!user) throw new Error('Not authenticated')
+      if (user.role !== 'principal') throw new Error('Forbidden')
       const { error } = await supabase
         .from('staff')
         .update({ is_active: isActive })

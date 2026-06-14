@@ -582,7 +582,7 @@ export function FeeLedgerPage() {
               key={t}
               onClick={() => setFilters(f => ({ ...f, term: t, streamId: undefined }))}
               style={{
-                padding: '0.25rem 0.85rem', border: 'none', borderRadius: 20,
+                padding: '0.55rem 0.85rem', minHeight: 36, border: 'none', borderRadius: 20,
                 background: filters.term === t ? 'var(--brand)' : 'transparent',
                 color: filters.term === t ? '#fff' : 'var(--txt3)',
                 fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 12,

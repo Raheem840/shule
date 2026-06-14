@@ -89,12 +89,16 @@ export type AddFeeTypeInput = {
   isCompulsory:   boolean
 }
 
+const isFinanceRole = (role?: string | null) => ['bursar', 'principal'].includes(role ?? '')
+
 export function useAddFeeType() {
   const { user } = useAuth()
   const qc = useQueryClient()
 
   return useMutation({
     mutationFn: async (input: AddFeeTypeInput) => {
+      if (!user) throw new Error('Not authenticated')
+      if (!isFinanceRole(user.role)) throw new Error('Forbidden')
       const { data, error } = await supabase
         .from('fee_structure')
         .insert({
@@ -128,6 +132,8 @@ export function useUpdateFeeAmount() {
 
   return useMutation({
     mutationFn: async ({ id, amount }: { id: string; amount: number }) => {
+      if (!user) throw new Error('Not authenticated')
+      if (!isFinanceRole(user.role)) throw new Error('Forbidden')
       const { error } = await supabase
         .from('fee_structure')
         .update({ amount })
@@ -149,6 +155,8 @@ export function useToggleFeeActive() {
 
   return useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      if (!user) throw new Error('Not authenticated')
+      if (!isFinanceRole(user.role)) throw new Error('Forbidden')
       const { error } = await supabase
         .from('fee_structure')
         .update({ is_active: isActive })
@@ -171,6 +179,8 @@ export function useUpdateFeeItem() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: AddFeeTypeInput & { id: string }) => {
+      if (!user) throw new Error('Not authenticated')
+      if (!isFinanceRole(user.role)) throw new Error('Forbidden')
       const { error } = await supabase
         .from('fee_structure')
         .update({
@@ -198,6 +208,8 @@ export function useDeleteFeeType() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!user) throw new Error('Not authenticated')
+      if (!isFinanceRole(user.role)) throw new Error('Forbidden')
       const { error } = await supabase.from('fee_structure').delete().eq('id', id).eq('school_id', user!.schoolId)
       if (error) throw error
     },
@@ -265,7 +277,7 @@ export function useAutoChargeFees() {
       const studentIds = students.map(s => s.id as string)
       const { data: existing } = await supabase.from('fee_payments').select('student_id')
         .eq('school_id', user.schoolId).eq('fee_structure_id', feeStructureId)
-        .eq('term', term).in('student_id', studentIds)
+        .eq('term', term).eq('academic_year_id', academicYearId).in('student_id', studentIds)
       const alreadyCharged = new Set((existing ?? []).map(r => r.student_id as string))
       const toCharge = studentIds.filter(id => !alreadyCharged.has(id))
       if (!toCharge.length) return { charged: 0 }

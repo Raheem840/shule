@@ -116,7 +116,7 @@ export function DeliveryLogPage() {
         </div>
         {allFailedIds.length > 0 && (
           <button type="button" onClick={handleRetryAll} disabled={retryAll.isPending}
-            style={{ padding:'8px 14px', border:'.5px solid var(--danger)', borderRadius:10, background:'rgba(244,63,94,.08)', color:'var(--danger)', fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+            style={{ padding:'10px 16px', minHeight:44, border:'.5px solid var(--danger)', borderRadius:10, background:'rgba(244,63,94,.08)', color:'var(--danger)', fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
             {retryAll.isPending ? 'Retrying…' : `Retry All Failed (${allFailedIds.length})`}
           </button>
         )}
@@ -240,7 +240,7 @@ export function DeliveryLogPage() {
                           disabled={retryOne.isPending}
                           style={{
                             fontSize: 11, fontWeight: 700, color: 'var(--brand)',
-                            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                            background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0', minHeight: 36,
                           }}
                         >
                           Retry

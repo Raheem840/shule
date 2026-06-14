@@ -283,6 +283,7 @@ export function BursarImportPage() {
 
   // ── Run DB insert after preview ─────────────────────────────────────────────
   async function runImport() {
+    if (!['bursar', 'principal'].includes(user?.role ?? '')) return
     setImporting(true)
     let imported = 0
     const failed: Array<{ row: number; reason: string }> = []
@@ -309,7 +310,7 @@ export function BursarImportPage() {
           notes:            r.notes ? String(r.notes) : null,
           term:             termNum,
           imported:         true,
-          created_by:       user!.id,
+          created_by:       user!.staffId ?? user!.id,
         }
       })
 
