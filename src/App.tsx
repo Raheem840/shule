@@ -227,7 +227,7 @@ export default function App() {
 
           {/* ── Bursar ─────────────────────────────────────────────── */}
           <Route element={
-            <ProtectedRoute allowedRoles={['bursar', 'principal']}>
+            <ProtectedRoute allowedRoles={['bursar']}>
               <AppShell />
             </ProtectedRoute>
           }>

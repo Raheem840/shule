@@ -272,7 +272,7 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Controller name="subjectId" control={control} render={({ field }) => (
               <SelectWrap label="Subject ★" value={field.value ?? ''} onChange={field.onChange}
                 error={errors.subjectId?.message}
@@ -299,7 +299,7 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
             )} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <FieldWrap label="Date ★" error={errors.date?.message}>
               <input type="date" {...register('date')} style={inputCls} />
             </FieldWrap>

@@ -38,9 +38,13 @@ export function StudentFullProfilePage() {
   const statusStyle = STATUS_COLOR[profile.status] ?? STATUS_COLOR.active
 
   async function handleStatusChange(newStatus: 'suspended' | 'expelled') {
-    await suspendMut.mutateAsync({ studentId: studentId!, status: newStatus })
-    setConfirmAction(null)
-    setConfirmText('')
+    try {
+      await suspendMut.mutateAsync({ studentId: studentId!, status: newStatus })
+      setConfirmAction(null)
+      setConfirmText('')
+    } catch (_e) {
+      // error surface via suspendMut.isError / suspendMut.error
+    }
   }
 
   return (
@@ -229,7 +233,7 @@ export function StudentFullProfilePage() {
         )}
         {profile.status === 'suspended' && (
           <button
-            onClick={() => void suspendMut.mutateAsync({ studentId: studentId!, status: 'active' })}
+            onClick={() => suspendMut.mutateAsync({ studentId: studentId!, status: 'active' }).catch(() => {})}
             className="sui-btn-primary"
           >
             Reinstate

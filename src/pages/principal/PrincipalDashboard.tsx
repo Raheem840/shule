@@ -70,7 +70,7 @@ function QuickActions() {
     { label: 'Approve Report Cards', path: '/principal/report-cards', color: 'var(--brand)',   bg: 'rgba(13,148,136,0.1)',   border: 'rgba(13,148,136,0.2)'   },
     { label: 'View Audit Log',       path: '/principal/audit',        color: 'var(--txt2)',    bg: 'var(--surface2)',        border: 'var(--border)'          },
     { label: 'Send Announcement',    path: '/principal/messages',     color: 'var(--violet)',  bg: 'rgba(139,92,246,0.08)', border: 'rgba(139,92,246,0.2)'  },
-    { label: 'Fee Summary',          path: '/bursar/dashboard',       color: 'var(--warning)', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)'  },
+    { label: 'Fee Summary',          path: '/principal/analytics',    color: 'var(--warning)', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)'  },
   ]
 
   return (

@@ -9,6 +9,7 @@ import {
 import { useStudents } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '../../store/AuthContext'
 import { Button } from '../../components/ui/Button'
 import { Modal, ModalCancelButton } from '../../components/ui/Modal'
 import { Select } from '../../components/ui/Select'
@@ -202,7 +203,7 @@ function RCTable({
   const cols = selectable ? '40px 1fr 160px 120px 200px' : '1fr 160px 120px 200px'
 
   return (
-    <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden', overflowX: 'auto' }}>
       {/* Header */}
       <div style={{
         display: 'grid',
@@ -342,6 +343,7 @@ export function PrincipalReportCardsPage() {
     })
   }
 
+  const { user }                = useAuth()
   const { data: classes  = [] } = useClasses()
   const { data: streams  = [] } = useStreams(classId || null)
   const release                 = useReleaseReportCard()
@@ -359,7 +361,7 @@ export function PrincipalReportCardsPage() {
         ids.map(id => approve.mutateAsync({ reportCardId: id, principalRemarks: remarks }))
       )
       // Invalidate once after all writes settle — avoids N mid-loop re-fetches
-      void qc.invalidateQueries({ queryKey: ['report-cards'] })
+      void qc.invalidateQueries({ queryKey: ['report-cards', user?.schoolId] })
       const failed = results.filter(r => r.status === 'rejected')
       if (failed.length > 0) {
         const succeeded = results.length - failed.length
@@ -384,7 +386,7 @@ export function PrincipalReportCardsPage() {
       const results = await Promise.allSettled(
         ids.map(id => release.mutateAsync({ reportCardId: id }))
       )
-      void qc.invalidateQueries({ queryKey: ['report-cards'] })
+      void qc.invalidateQueries({ queryKey: ['report-cards', user?.schoolId] })
       const failed = results.filter(r => r.status === 'rejected')
       if (failed.length > 0) {
         const succeeded = results.length - failed.length
@@ -614,7 +616,7 @@ export function PrincipalReportCardsPage() {
                 cards={approvedCards}
                 studentNameMap={studentNameMap}
                 readinessMap={readinessMap}
-                onRelease={card => release.mutateAsync({ reportCardId: card.id })}
+                onRelease={card => { release.mutateAsync({ reportCardId: card.id }).catch(() => {}) }}
                 onUnlock={(card, name) => setUnlockCard({ card, name })}
                 releaseLoading={release.isPending}
                 emptyMessage="No approved report cards yet. Approve cards from the 'Awaiting Approval' tab."

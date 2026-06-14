@@ -159,12 +159,12 @@ function DetailPanel({ entry }: { entry: AuditEntry }) {
     const changed = keys.filter(k => !SKIP_FIELDS.has(k) && JSON.stringify(oldData?.[k]) !== JSON.stringify(newData?.[k]))
     if (changed.length === 0) return <span style={{ color: 'var(--txt3)', fontSize: 12 }}>No significant fields were changed.</span>
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr', gap: 8, fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8, padding: '0 0 8px', borderBottom: '1px solid var(--border)', marginBottom: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, overflowX: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr', gap: 8, fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8, padding: '0 0 8px', borderBottom: '1px solid var(--border)', marginBottom: 8, minWidth: 400 }}>
           <span>Field</span><span style={{ color: '#f43f5e' }}>Before</span><span style={{ color: '#10b981' }}>After</span>
         </div>
         {changed.map(k => (
-          <div key={k} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr', gap: 8, fontSize: 12, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+          <div key={k} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr', gap: 8, fontSize: 12, padding: '6px 0', borderBottom: '1px solid var(--border)', minWidth: 400 }}>
             <span style={{ color: 'var(--txt3)', fontWeight: 600 }}>{prettifyField(k)}</span>
             <span style={{ color: '#f43f5e', textDecoration: 'line-through', opacity: 0.8 }}>{formatValue(oldData?.[k])}</span>
             <span style={{ color: '#10b981', fontWeight: 700 }}>{formatValue(newData?.[k])}</span>
@@ -335,13 +335,13 @@ function ActivityLogTab() {
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 }}>Done by</div>
-              <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="sui-input" style={{ width: 164, fontSize: 12 }}>
+              <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="sui-input" style={{ width: '100%', minWidth: 140, fontSize: 12 }}>
                 {ROLE_FILTER.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div>
               <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 }}>From</div>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="sui-input" style={{ width: 148, fontSize: 12 }} />
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="sui-input" style={{ width: '100%', minWidth: 130, fontSize: 12 }} />
             </div>
             <div>
               <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 }}>To</div>
@@ -597,12 +597,12 @@ function MessageLogTab() {
       )}
 
       {!isLoading && rows.length > 0 && (
-        <div className="sui-glass-panel" style={{ overflow: 'hidden' }}>
+        <div className="sui-glass-panel" style={{ overflow: 'hidden', overflowX: 'auto' }}>
           {rows.map((r, idx) => {
             const isExpanded = expanded === r.id
             const isLast = idx === rows.length - 1
             return (
-              <div key={r.id}>
+              <div key={r.id} style={{ minWidth: 540 }}>
                 <div
                   onClick={() => setExpanded(x => x === r.id ? null : r.id)}
                   style={{

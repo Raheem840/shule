@@ -934,7 +934,7 @@ export function AcademicYearPage() {
                     </span>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button
                     className="sui-btn-ghost"
                     style={{ fontSize: 12 }}

@@ -813,6 +813,7 @@ export function MarkEntryPage() {
     })
 
     if (validRows.length === 0) return result
+    if (!user?.schoolId) return result
 
     const { error } = await supabase.from('exam_results').upsert(
       validRows.map(r => {

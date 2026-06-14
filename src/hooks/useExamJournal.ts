@@ -83,7 +83,7 @@ export function useExamJournalById(journalId: string | null | undefined) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['exam-journal', journalId],
+    queryKey: ['exam-journal', user?.schoolId, journalId],
     enabled:  !!journalId && !!user,
     queryFn:  async () => {
       const { data, error } = await supabase

@@ -245,7 +245,7 @@ export function AttendancePage() {
           <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '.5px', fontFamily: 'var(--font2)' }}>Date</label>
           <input type="date" value={date} max={today}
             onChange={e => { setDate(e.target.value); setSaved(false) }}
-            style={{ padding: '8px 12px', fontSize: 12.5, background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10, color: 'var(--txt)', fontFamily: 'var(--font1)', width: 160 }} />
+            style={{ padding: '8px 12px', fontSize: 12.5, background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10, color: 'var(--txt)', fontFamily: 'var(--font1)', width: '100%', minWidth: 140 }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <label style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '.5px', fontFamily: 'var(--font2)' }}>Class</label>

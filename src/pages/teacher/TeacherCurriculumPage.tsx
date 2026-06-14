@@ -22,7 +22,7 @@ type Topic = {
 function useMyStaffRecord() {
   const { user } = useAuth()
   return useQuery({
-    queryKey: ['my-staff-record', user?.id],
+    queryKey: ['my-staff-record', user?.schoolId, user?.id],
     enabled: !!user,
     queryFn: async () => {
       const { data } = await supabase
@@ -106,12 +106,16 @@ function useMarkCovered() {
       const { data: dosStaff } = await supabase.from('staff').select('auth_user_id')
         .eq('school_id', user.schoolId).eq('role', 'dos').maybeSingle()
       if ((dosStaff as any)?.auth_user_id) {
-        await supabase.from('notifications').insert({
-          school_id: user.schoolId, user_id: (dosStaff as any).auth_user_id,
-          type: 'general', title: 'Curriculum Update',
-          body: 'A curriculum topic has been marked as covered.',
-          link: '/dos/curriculum', read: false, read_at: null,
-        })
+        try {
+          await supabase.from('notifications').insert({
+            school_id: user.schoolId, user_id: (dosStaff as any).auth_user_id,
+            type: 'general', title: 'Curriculum Update',
+            body: 'A curriculum topic has been marked as covered.',
+            link: '/dos/curriculum', read: false, read_at: null,
+          })
+        } catch (_e) {
+          // notification failure is non-fatal
+        }
       }
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['teacher-curriculum'] }),
@@ -180,13 +184,13 @@ function TopicCard({ topic, onMark, onUnmark, onDelete, busy }: {
       opacity: covered ? 0.82 : 1,
       transition: 'all .22s cubic-bezier(.4,0,.2,1)',
     }}>
-      {/* Checkbox — 44px tap target via padding */}
+      {/* Checkbox — min 36px tap target */}
       <button
         onClick={() => covered ? onUnmark(topic.id) : onMark(topic.id)}
         disabled={busy}
         aria-label={covered ? 'Mark as not covered' : 'Mark as covered'}
         style={{
-          width: 24, height: 24, borderRadius: 8, flexShrink: 0, marginTop: 1,
+          width: 36, height: 36, borderRadius: 10, flexShrink: 0, marginTop: 1,
           border: `2px solid ${covered ? 'var(--success)' : 'var(--brand)'}`,
           background: covered ? 'var(--success)' : 'transparent',
           display: 'flex', alignItems: 'center', justifyContent: 'center',

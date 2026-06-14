@@ -91,7 +91,7 @@ function EventFormModal({ initial, onSave, onClose, saving, showParentsToggle }:
           <form onSubmit={e => { void handleSubmit(e) }} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div><Lbl req>Title</Lbl><input {...f('title')} className="sui-input" style={{ width: '100%' }} placeholder="e.g. Mathematics End of Term Exam" /></div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div><Lbl req>Type</Lbl>
                 <select value={form.eventType} onChange={e => setForm(p => ({ ...p, eventType: e.target.value }))} className="sui-input" style={{ width: '100%' }}>
                   {TEACHER_EVENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -102,12 +102,12 @@ function EventFormModal({ initial, onSave, onClose, saving, showParentsToggle }:
 
             <div><Lbl>Subject</Lbl><select {...f('subjectId')} className="sui-input" style={{ width: '100%' }}><option value="">Select subject…</option>{subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: streams.length > 0 ? '1fr 1fr' : '1fr', gap: 12 }}>
+            <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: streams.length > 0 ? '1fr 1fr' : '1fr', gap: 12 }}>
               <div><Lbl>Class</Lbl><select value={form.classId} onChange={e => setForm(p => ({ ...p, classId: e.target.value, streamId: '' }))} className="sui-input" style={{ width: '100%' }}><option value="">Select class…</option>{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
               {streams.length > 0 && <div><Lbl>Stream</Lbl><select {...f('streamId')} className="sui-input" style={{ width: '100%' }}><option value="">All streams</option>{streams.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div><Lbl>Total Marks</Lbl><input type="number" {...f('totalMarks')} className="sui-input" style={{ width: '100%' }} placeholder="e.g. 100" /></div>
               <div><Lbl>Pass Mark</Lbl><input type="number" {...f('passMark')} className="sui-input" style={{ width: '100%' }} placeholder="e.g. 50" /></div>
             </div>
