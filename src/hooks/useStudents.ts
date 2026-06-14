@@ -12,14 +12,14 @@ const LIST_COLS = [
   'id', 'school_id', 'admission_number', 'first_name', 'last_name',
   'dob', 'gender', 'class_id', 'stream_id',
   'photo_url', 'status', 'enrolled_at', 'auth_user_id',
-  'student_type', 'auth_email',
+  'student_type', 'auth_email', 'temp_password',
 ].join(', ')
 
 const DETAIL_COLS = [
   'id', 'school_id', 'admission_number', 'first_name', 'last_name',
   'dob', 'gender', 'class_id', 'stream_id', 'academic_year_id',
   'photo_url', 'medical_notes', 'status', 'enrolled_at', 'auth_user_id',
-  'nationality', 'religion', 'student_type', 'previous_school', 'auth_email',
+  'nationality', 'religion', 'student_type', 'previous_school', 'auth_email', 'temp_password',
 ].join(', ')
 
 const GUARDIAN_COLS = [
@@ -54,6 +54,7 @@ function toStudent(r: AnyRow): Student {
     previousSchool:  (r.previous_school as string) ?? null,
     authUserId:      (r.auth_user_id as string) ?? null,
     authEmail:       (r.auth_email as string) ?? null,
+    tempPassword:    (r.temp_password as string) ?? null,
   }
 }
 

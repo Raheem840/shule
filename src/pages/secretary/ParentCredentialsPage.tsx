@@ -252,9 +252,11 @@ function GenerateAccessModal({
           // Add this student to the existing account if not already linked
           const ids = (existing.student_ids as string[]) ?? []
           if (!ids.includes(student.id)) {
-            await supabase.from('parent_accounts')
+            const { error: linkErr } = await supabase.from('parent_accounts')
               .update({ student_ids: [...ids, student.id] })
               .eq('id', existing.id)
+              .eq('school_id', user!.schoolId)
+            if (linkErr) throw new Error(`Failed to link student to parent: ${linkErr.message}`)
           }
           parentAccountId = existing.id
         } else {

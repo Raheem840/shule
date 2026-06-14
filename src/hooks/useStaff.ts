@@ -23,8 +23,10 @@ type AnyRow = Record<string, unknown>
 const LIST_COLS = [
   'id', 'school_id', 'auth_user_id', 'staff_number', 'first_name', 'last_name',
   'role', 'department_id', 'phone', 'email', 'join_date',
-  'employment_type', 'photo_url', 'is_active', 'temp_password',
+  'employment_type', 'photo_url', 'is_active',
 ].join(', ')
+// temp_password intentionally omitted from LIST_COLS — only fetch in DETAIL_COLS
+// so it is not included in dropdown/list queries used by DoS, deputy, teacher
 
 const DETAIL_COLS = [
   'id', 'school_id', 'auth_user_id', 'staff_number', 'first_name', 'last_name',
