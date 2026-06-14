@@ -263,7 +263,7 @@ export function ImportDataPage() {
         }
         if (streamId)              patch.stream_id        = streamId
         if (activeYearId && classId) patch.academic_year_id = activeYearId
-        const { error } = await supabase.from('students').update(patch).eq('id', existing.id)
+        const { error } = await supabase.from('students').update(patch).eq('id', existing.id).eq('school_id', user!.schoolId)
         if (error) {
           failedItems.push({ row: i + 2, reason: error.message })
         } else {
@@ -522,7 +522,7 @@ export function ImportDataPage() {
               <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
             <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--warning)' }}>Year Mismatch Notice</div>
-            <button onClick={() => setYearMismatchNotice([])} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', padding: 0 }}>
+            <button onClick={() => setYearMismatchNotice([])} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', padding: '10px', lineHeight: 0 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>

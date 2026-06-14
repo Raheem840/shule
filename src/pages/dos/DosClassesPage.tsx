@@ -275,10 +275,10 @@ function StreamsPanel({ cls }: { cls: Class }) {
                       onClick={() => setAssignStream(s)}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 4,
-                        padding: '4px 10px', borderRadius: 7,
+                        padding: '8px 12px', minHeight: 36, borderRadius: 9,
                         border: '.5px solid rgba(139,92,246,.3)',
                         background: 'rgba(139,92,246,.06)', color: '#8b5cf6',
-                        fontSize: 10.5, fontWeight: 700, cursor: 'pointer', transition: 'all .13s',
+                        fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all .13s',
                       }}
                       onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(139,92,246,.14)' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(139,92,246,.06)' }}

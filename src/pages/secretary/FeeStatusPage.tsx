@@ -212,45 +212,50 @@ export function FeeStatusPage() {
       {isError   && <div style={{ color: 'var(--danger)', padding: 16 }}>Failed to load fee status data.</div>}
 
       {!isLoading && !isError && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
+        <>
+        <div ref={parentRef} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', maxHeight: 560, overflowY: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: 130 }} />
+              <col />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 110 }} />
+            </colgroup>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
               <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
                 {['Adm No', 'Student', 'Class', 'Stream', 'Status'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>{h}</th>
                 ))}
               </tr>
             </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No students match the current filters.</td></tr>
+              ) : virtualiser.getVirtualItems().map(vi => {
+                const row = rows[vi.index]
+                const cfg = STATUS_CFG[row.status]
+                return (
+                  <tr key={row.studentId} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt3)' }}>{row.admissionNumber}</td>
+                    <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.firstName} {row.lastName}</td>
+                    <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--txt2)' }}>{row.className}</td>
+                    <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--txt2)' }}>{row.streamName}</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
           </table>
-          <div ref={parentRef} style={{ maxHeight: 520, overflowY: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No students match the current filters.</td></tr>
-                ) : virtualiser.getVirtualItems().map(vi => {
-                  const row = rows[vi.index]
-                  const cfg = STATUS_CFG[row.status]
-                  return (
-                    <tr key={row.studentId} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt3)', width: 130 }}>{row.admissionNumber}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{row.firstName} {row.lastName}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--txt2)' }}>{row.className}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--txt2)' }}>{row.streamName}</td>
-                      <td style={{ padding: '10px 14px' }}>
-                        <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-          {rows.length > 0 && (
-            <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--txt3)' }}>
-              Showing {rows.length} of {data.length} students
-            </div>
-          )}
         </div>
+        {rows.length > 0 && (
+          <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--txt3)', background: 'var(--surface)', borderRadius: '0 0 14px 14px' }}>
+            Showing {rows.length} of {data.length} students
+          </div>
+        )}
+        </>
       )}
     </div>
   )

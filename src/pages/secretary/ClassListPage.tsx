@@ -25,7 +25,7 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
       <div style={{ width:'100%', maxWidth:440, maxHeight:'88dvh', overflowY:'auto', background:'var(--surface)', borderRadius:20, boxShadow:'0 24px 80px rgba(0,0,0,.28)', padding:'22px 24px 24px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
           <div style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:16, color:'var(--txt)' }}>{title}</div>
-          <button onClick={onClose} style={{ width:30, height:30, borderRadius:9, border:'none', background:'var(--surface2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--txt3)' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          <button onClick={onClose} style={{ width:44, height:44, borderRadius:11, border:'none', background:'var(--surface2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--txt3)', flexShrink:0 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         {children}
       </div>
@@ -450,7 +450,7 @@ function StreamRow({
 
         <button
           onClick={onMoveStudent}
-          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700, color: 'var(--txt2)', cursor: 'pointer', fontFamily: 'var(--font2)', display: 'flex', alignItems: 'center', gap: 5, transition: 'border-color 0.15s, color 0.15s', whiteSpace: 'nowrap' }}
+          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', minHeight: 36, fontSize: 11, fontWeight: 700, color: 'var(--txt2)', cursor: 'pointer', fontFamily: 'var(--font2)', display: 'flex', alignItems: 'center', gap: 5, transition: 'border-color 0.15s, color 0.15s', whiteSpace: 'nowrap' }}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -523,7 +523,7 @@ function ClassCard({
 
             <button
               onClick={() => setAddStreamOpen(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', border: `1.5px solid ${color.border}`, borderRadius: 7, background: 'var(--surface)', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: color.text, fontFamily: 'var(--font2)', transition: 'all 0.15s' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 14px', minHeight: 36, border: `1.5px solid ${color.border}`, borderRadius: 9, background: 'var(--surface)', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: color.text, fontFamily: 'var(--font2)', transition: 'all 0.15s' }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M12 5v14M5 12h14"/>

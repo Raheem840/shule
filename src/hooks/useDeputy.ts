@@ -331,6 +331,7 @@ export function useUpdateDisciplineRecord() {
       notes: string | null
     }) => {
       if (!user) throw new Error('Not authenticated')
+      if (!isDeputyRole(user.role)) throw new Error('Forbidden')
 
       const { error } = await supabase
         .from('discipline_records')

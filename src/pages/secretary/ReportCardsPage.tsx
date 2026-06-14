@@ -348,7 +348,7 @@ export function ReportCardsPage() {
   const { data: streams  = [] } = useStreams(classId || null)
   const generate                = useGenerateReportCards()
   const notify                  = useNotifyPrincipal()
-  const { success: ok }         = useToast()
+  const { success: ok, error: err } = useToast()
 
   const cohortReady = !!term && !!classId
 
@@ -488,8 +488,12 @@ export function ReportCardsPage() {
     if (!term) return
     const count = reportCards.filter(c => c.status === 'ready').length
     if (count === 0) return
-    await notify.mutateAsync({ term: Number(term), year: Number(year), count })
-    ok(`Principal notified — ${count} report card${count !== 1 ? 's' : ''} sent for approval.`)
+    try {
+      await notify.mutateAsync({ term: Number(term), year: Number(year), count })
+      ok(`Principal notified — ${count} report card${count !== 1 ? 's' : ''} sent for approval.`)
+    } catch (e) {
+      err(e instanceof Error ? e.message : 'Failed to notify principal')
+    }
   }
 
   const yearOptions: SelectOption[] = [0, 1, 2].map(offset => {

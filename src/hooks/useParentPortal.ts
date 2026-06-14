@@ -502,6 +502,7 @@ export function useSendMessageToContact() {
 
   return useMutation({
     mutationFn: async ({ contactAuthUserId, body }: { contactAuthUserId: string; body: string }) => {
+      if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('messages')
         .insert({

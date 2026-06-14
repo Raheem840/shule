@@ -114,6 +114,7 @@ export function useDeactivateUser() {
   return useMutation({
     mutationFn: async ({ staffId, isActive }: { staffId: string; isActive: boolean }) => {
       if (!user) throw new Error('Not authenticated')
+      if (user.role !== 'it_admin') throw new Error('Forbidden')
 
       const { error } = await supabase
         .from('staff')
@@ -170,6 +171,7 @@ export function useSaveSchoolSettings() {
   return useMutation({
     mutationFn: async (settings: Partial<Omit<SchoolSettings, 'id'>>) => {
       if (!user) throw new Error('Not authenticated')
+      if (!['it_admin', 'principal'].includes(user.role)) throw new Error('Forbidden')
 
       const updates: Record<string, unknown> = {}
       if (settings.schoolName  != null) updates['school_name']   = settings.schoolName
@@ -401,6 +403,7 @@ export function usePromoteStudents() {
   return useMutation({
     mutationFn: async (onProgress?: (current: number, total: number) => void) => {
       if (!user) throw new Error('Not authenticated')
+      if (!['it_admin', 'principal'].includes(user.role)) throw new Error('Forbidden')
 
       // Fetch all active students with their class name
       const { data: students, error: studentsErr } = await supabase
@@ -595,6 +598,7 @@ export function useSelectivePromote() {
       selectedIds: string[],
     ): Promise<{ promoted: number; completed: number }> => {
       if (!user) throw new Error('Not authenticated')
+      if (!['it_admin', 'principal'].includes(user.role ?? '')) throw new Error('Forbidden')
       if (selectedIds.length === 0) return { promoted: 0, completed: 0 }
 
       const sid = user.schoolId
@@ -674,6 +678,7 @@ export function useToggleSurvey() {
   return useMutation({
     mutationFn: async ({ yearId, active }: { yearId: string; active: boolean }) => {
       if (!user) throw new Error('Not authenticated')
+      if (!['it_admin', 'dos', 'principal'].includes(user.role ?? '')) throw new Error('Forbidden')
 
       const { error } = await supabase
         .from('academic_years')

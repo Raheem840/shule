@@ -332,9 +332,9 @@ function StaffEditModal({ staff, depts, onClose }: {
         role:            form.role,
         department_id:   form.departmentId || null,
         employment_type: form.employmentType || null,
-      }).eq('id', staff.id)
+      }).eq('id', staff.id).eq('school_id', staff.schoolId)
       if (error) throw error
-      void qc.invalidateQueries({ queryKey: ['staff'] })
+      void qc.invalidateQueries({ queryKey: ['staff', staff.schoolId] })
       setSaved(true)
       setTimeout(() => onClose(), 1200)
     } catch (e) {

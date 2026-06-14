@@ -221,7 +221,7 @@ export function SecretaryStudentsPage() {
       }))
 
       const { error } = await supabase.from('students').upsert(insertRows, {
-        onConflict:       'admission_number',
+        onConflict:       'school_id,admission_number',
         ignoreDuplicates: strategy === 'skip',
       })
 

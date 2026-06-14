@@ -358,6 +358,7 @@ function ActiveCard({ staff, deptName, onReset, onLink, onDeactivated }: { staff
   const [c1, c2] = roleGrad(staff.role)
   const reset    = useResetStaffPassword()
   const qc       = useQueryClient()
+  const { user } = useAuth()
   const { error: err, success: ok } = useToast()
   const [deactivateBusy,   setDeactivateBusy]   = useState(false)
   const [showPrincipalConfirm, setShowPrincipalConfirm] = useState(false)
@@ -373,6 +374,7 @@ function ActiveCard({ staff, deptName, onReset, onLink, onDeactivated }: { staff
 
   async function doDeactivate() {
     if (!staff.authUserId) return
+    if (user?.role !== 'it_admin') return
     setDeactivateBusy(true)
     try {
       await Promise.all([
@@ -388,6 +390,7 @@ function ActiveCard({ staff, deptName, onReset, onLink, onDeactivated }: { staff
 
   async function doReactivate() {
     if (!staff.authUserId) return
+    if (user?.role !== 'it_admin') return
     setDeactivateBusy(true)
     try {
       await Promise.all([
@@ -971,6 +974,7 @@ function StudentActiveCard({ student, className, schoolShortName, onReset, onTog
 }) {
   const reset  = useResetStudentPassword()
   const qc     = useQueryClient()
+  const { user } = useAuth()
   const { error: err, success: ok } = useToast()
   const name   = `${student.first_name} ${student.last_name}`
   const [busy,        setBusy]        = useState(false)
@@ -993,6 +997,7 @@ function StudentActiveCard({ student, className, schoolShortName, onReset, onTog
 
   async function doDeactivate() {
     if (!student.auth_user_id) return
+    if (user?.role !== 'it_admin') return
     setBusy(true)
     try {
       await Promise.all([
@@ -1009,6 +1014,7 @@ function StudentActiveCard({ student, className, schoolShortName, onReset, onTog
 
   async function doReactivate() {
     if (!student.auth_user_id) return
+    if (user?.role !== 'it_admin') return
     setBusy(true)
     try {
       await Promise.all([
