@@ -1,6 +1,16 @@
 # SHULE — Database Schema (Ground Truth)
-# Audited: 2026-05-28 | RLS policies applied: 2026-06-02
+# Audited: 2026-05-28 | Last updated: 2026-06-14
+# RLS policies applied: 2026-06-02
 # This file is the single source of truth. Never query a column not listed here.
+#
+# Key corrections since Session 014:
+# - exam_journal: date_given (NOT date), teacher_notes (NOT notes)
+# - fee_payments: fee_structure_id (NOT fee_type_id), no year column (use academic_year_id)
+# - student_guardians: full_name (NOT guardian_name)
+# - report_cards: term is TEXT (NOT integer)
+# - school_events: visible_to_parents (NOT viewable_by_parents)
+# - students: now includes temp_password column (fetched in LIST_COLS and DETAIL_COLS)
+# - staff: temp_password removed from LIST_COLS — only in DETAIL_COLS
 
 ---
 
