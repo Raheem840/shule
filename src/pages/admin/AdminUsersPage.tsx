@@ -22,6 +22,7 @@ import {
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../components/ui/Toast'
 import { Avatar } from '../../components/shared/Avatar'
+import { generateTempPassword } from '../../lib/passwords'
 import type { Staff } from '../../types/app'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -527,13 +528,6 @@ function PendingActivationsBanner({
   const total = pendingStudentCount + pendingStaffCount
   if (dismissed || total === 0) return null
 
-  function genBulkPassword(): string {
-    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-    const arr = new Uint8Array(12)
-    crypto.getRandomValues(arr)
-    return Array.from(arr, b => chars[b % chars.length]).join('')
-  }
-
   async function bulkActivateStudents() {
     // Fetch school short_name once so we can derive emails per student
     const { data: schoolData } = await supabase
@@ -567,7 +561,7 @@ function PendingActivationsBanner({
         try {
           const admSlug = (s.admission_number ?? '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'student'
           const email    = s.auth_email || `${admSlug}@${shortName}.ug`
-          const password = genBulkPassword()
+          const password = generateTempPassword()
           const { error: fnError } = await supabase.functions.invoke('create-student-auth-user', {
             body: { studentId: s.id, email, schoolId, password },
           })
@@ -603,7 +597,7 @@ function PendingActivationsBanner({
       const batch = staff.slice(i, i + 10)
       await Promise.all(batch.map(async (s: { id: string; email: string | null }) => {
         try {
-          const password = genBulkPassword()
+          const password = generateTempPassword()
           const { error: fnError } = await supabase.functions.invoke('create-staff-auth-user', {
             body: { staffId: s.id, email: s.email, schoolId, password },
           })
@@ -894,10 +888,7 @@ function StudentPendingCard({ student, className, pending, schoolId, onActivated
     if (!pending) return
     // For a pending (not-yet-activated) student: generate fresh credentials locally.
     // No Edge Function call — student has no auth_user_id yet.
-    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-    const arr = new Uint8Array(10)
-    crypto.getRandomValues(arr)
-    const newPassword = Array.from(arr, b => chars[b % chars.length]).join('')
+    const newPassword = generateTempPassword()
     const updated: PendingStudentActivation = { ...pending, tempPassword: newPassword, storedAt: new Date().toISOString() }
     setPendingStudentActivation(updated)
     ok('New credentials generated')

@@ -327,6 +327,8 @@ export function BursarDashboard() {
           </div>
           {byClass.isLoading ? (
             <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LoadingSpinner size="sm" /></div>
+          ) : byClass.isError ? (
+            <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)', fontSize: 12 }}>Could not load class data</div>
           ) : (byClass.data?.length ?? 0) === 0 ? (
             <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)', fontSize: 12 }}>No fee data for this term</div>
           ) : (
@@ -368,6 +370,8 @@ export function BursarDashboard() {
           </div>
           {recent.isLoading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}><LoadingSpinner size="sm" /></div>
+          ) : recent.isError ? (
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--danger)', fontSize: 12 }}>Could not load recent payments</div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>

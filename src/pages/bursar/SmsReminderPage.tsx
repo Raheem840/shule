@@ -103,7 +103,7 @@ export function SmsReminderPage() {
 
   const { data: classes } = useClasses()
   const { data: streams } = useStreams(smsFilters.classId ?? null)
-  const { data: students, isLoading: loadingStudents } = useSmsStudents(smsFilters)
+  const { data: students, isLoading: loadingStudents, isError: studentsError, error: studentsErrorObj } = useSmsStudents(smsFilters)
   const { data: logData, isLoading: loadingLog } = useSmsReminderLog()
   const sendReminders = useSendReminders()
   const retryReminder = useRetryReminder()
@@ -320,7 +320,11 @@ export function SmsReminderPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(students ?? []).length === 0 ? (
+                  {studentsError ? (
+                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--danger)', fontSize: 13 }}>
+                      {(studentsErrorObj as Error)?.message ?? 'Could not load students. Check your connection.'}
+                    </td></tr>
+                  ) : (students ?? []).length === 0 ? (
                     <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--txt3)', fontSize: 13 }}>
                       No students match the filters.
                     </td></tr>
