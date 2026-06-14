@@ -14,8 +14,13 @@ const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
     const b: any = {
       select:      vi.fn().mockReturnThis(),
       eq:          vi.fn().mockReturnThis(),
+      neq:         vi.fn().mockReturnThis(),
+      not:         vi.fn().mockReturnThis(),
       in:          vi.fn().mockReturnThis(),
       upsert:      vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockImplementation(() =>
+        Promise.resolve(tableData[table] ?? { data: null, error: null })
+      ),
       then:        (resolve: any, reject?: any) =>
         Promise.resolve(tableData[table] ?? { data: [], error: null }).then(resolve, reject),
     }

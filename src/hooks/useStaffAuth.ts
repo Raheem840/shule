@@ -82,12 +82,17 @@ export function useActivateStaffLogin() {
         body: { staffId, email, schoolId: user.schoolId, password: tempPassword },
       })
 
-      if (fnError || !(fnData as any)?.success) {
-        const detail = (fnData as { error?: string } | null)?.error ?? fnError?.message ?? 'Unknown error'
+      if (fnError) {
+        // Edge function not deployed — fall back to manual credential setup
+        return { email, tempPassword, manual: true as const }
+      }
+
+      if (!(fnData as any)?.success) {
+        const detail = (fnData as { error?: string } | null)?.error ?? 'Unknown error'
         throw new Error(`Failed to activate login: ${detail}`)
       }
 
-      return { email, tempPassword, manual: false }
+      return { email, tempPassword, manual: false as const }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })

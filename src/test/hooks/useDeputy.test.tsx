@@ -14,14 +14,22 @@ const { mockFrom, setTableData, clearAll } = vi.hoisted(() => {
 
   function makeBuilder(table: string) {
     const b: any = {
-      select:  vi.fn().mockReturnThis(),
-      eq:      vi.fn().mockReturnThis(),
-      in:      vi.fn().mockReturnThis(),
-      is:      vi.fn().mockReturnThis(),
-      order:   vi.fn().mockReturnThis(),
-      insert:  mockInsert,
-      update:  vi.fn().mockReturnThis(),
-      single:  vi.fn().mockImplementation(() =>
+      select:      vi.fn().mockReturnThis(),
+      eq:          vi.fn().mockReturnThis(),
+      neq:         vi.fn().mockReturnThis(),
+      in:          vi.fn().mockReturnThis(),
+      is:          vi.fn().mockReturnThis(),
+      not:         vi.fn().mockReturnThis(),
+      gte:         vi.fn().mockReturnThis(),
+      limit:       vi.fn().mockReturnThis(),
+      order:       vi.fn().mockReturnThis(),
+      contains:    vi.fn().mockReturnThis(),
+      insert:      mockInsert,
+      update:      vi.fn().mockReturnThis(),
+      single:      vi.fn().mockImplementation(() =>
+        Promise.resolve(tableData[table] ?? { data: null, error: null })
+      ),
+      maybeSingle: vi.fn().mockImplementation(() =>
         Promise.resolve(tableData[table] ?? { data: null, error: null })
       ),
       then: (resolve: any, reject?: any) =>
@@ -169,6 +177,7 @@ describe('useDisciplineRecords', () => {
 // ── useAddDisciplineRecord ─────────────────────────────────────────────────
 describe('useAddDisciplineRecord', () => {
   it('calls supabase.from(discipline_records).insert with correct fields', async () => {
+    setTableData('staff', { data: { id: 'staff-dep-1' }, error: null })
     setTableData('discipline_records', { data: null, error: null })
 
     const { result } = renderHook(() => useAddDisciplineRecord(), { wrapper: createWrapper() })
@@ -188,11 +197,8 @@ describe('useAddDisciplineRecord', () => {
   })
 
   it('throws when Supabase insert returns an error', async () => {
-    mockFrom.mockImplementationOnce(() => ({
-      insert: vi.fn().mockReturnThis(),
-      then: (resolve: any, reject?: any) =>
-        Promise.resolve({ data: null, error: { message: 'RLS denied' } }).then(resolve, reject),
-    }))
+    setTableData('staff', { data: { id: 'staff-dep-1' }, error: null })
+    setTableData('discipline_records', { data: null, error: { message: 'RLS denied' } })
 
     const { result } = renderHook(() => useAddDisciplineRecord(), { wrapper: createWrapper() })
     await act(async () => {
@@ -213,7 +219,7 @@ describe('useAddDisciplineRecord', () => {
 // ── useTimetable ───────────────────────────────────────────────────────────
 describe('useTimetable', () => {
   it('returns timetable periods mapped correctly', async () => {
-    setTableData('timetable', {
+    setTableData('timetable_slots', {
       data: [
         {
           id: 't1', school_id: 'school-1', class_id: 'cls-1',
@@ -238,7 +244,7 @@ describe('useTimetable', () => {
   })
 
   it('is not disabled when classId is undefined', async () => {
-    setTableData('timetable', { data: [], error: null })
+    setTableData('timetable_slots', { data: [], error: null })
     const { result } = renderHook(() => useTimetable(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data!).toHaveLength(0)

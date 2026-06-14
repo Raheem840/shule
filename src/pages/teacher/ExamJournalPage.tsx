@@ -241,7 +241,7 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
 
   const modal = (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.52)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}>
-      <div style={{ width: '100%', maxWidth: 580, maxHeight: '90dvh', overflowY: 'auto', background: 'var(--surface)', padding: '24px', borderRadius: 22, boxShadow: '0 24px 80px rgba(0,0,0,.28)' }}>
+      <div role="dialog" aria-modal="true" data-testid="journal-create-modal" style={{ width: '100%', maxWidth: 580, maxHeight: '90dvh', overflowY: 'auto', background: 'var(--surface)', padding: '24px', borderRadius: 22, boxShadow: '0 24px 80px rgba(0,0,0,.28)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(145deg,#6366f1,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">

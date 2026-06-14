@@ -122,14 +122,15 @@ describe('useAttendance', () => {
 // ── useClassTermAttendance ─────────────────────────────────────
 describe('useClassTermAttendance', () => {
   it('computes per-student attendance rates correctly', async () => {
-    // 3 records for stu-1: 2 present + 1 absent → 66%
-    // 1 record for stu-2: 1 present → 100%
+    // 3 unique class dates → expectedDays = 3 for all students
+    // stu-1: 2 present + 1 absent → 2/3 = 67%
+    // stu-2: only present on day 1 of 3 → 1/3 = 33%
     setResponse('attendance', {
       data: [
-        { student_id: 'stu-1', status: 'present' },
-        { student_id: 'stu-1', status: 'present' },
-        { student_id: 'stu-1', status: 'absent' },
-        { student_id: 'stu-2', status: 'present' },
+        { student_id: 'stu-1', status: 'present', date: '2026-05-01' },
+        { student_id: 'stu-1', status: 'present', date: '2026-05-02' },
+        { student_id: 'stu-1', status: 'absent',  date: '2026-05-03' },
+        { student_id: 'stu-2', status: 'present', date: '2026-05-01' },
       ],
       error: null,
     })
@@ -144,13 +145,13 @@ describe('useClassTermAttendance', () => {
     const stu1  = rates.find(r => r.studentId === 'stu-1')!
     const stu2  = rates.find(r => r.studentId === 'stu-2')!
 
-    expect(stu1.rate).toBe(67)
+    expect(stu1.rate).toBe(67)           // 2/3
     expect(stu1.isBelowThreshold).toBe(true)
     expect(stu1.totalDays).toBe(3)
     expect(stu1.presentDays).toBe(2)
 
-    expect(stu2.rate).toBe(100)
-    expect(stu2.isBelowThreshold).toBe(false)
+    expect(stu2.rate).toBe(33)           // 1/3 class days
+    expect(stu2.isBelowThreshold).toBe(true)
   })
 
   it('marks a student below threshold when rate < 80%', async () => {
@@ -158,6 +159,7 @@ describe('useClassTermAttendance', () => {
       data: Array.from({ length: 10 }, (_, i) => ({
         student_id: 'stu-1',
         status: i < 7 ? 'present' : 'absent',
+        date: `2026-05-${String(i + 1).padStart(2, '0')}`,
       })),
       error: null,
     })
@@ -217,6 +219,7 @@ describe('useAttendanceSummary', () => {
 // ── useSaveAttendance ──────────────────────────────────────────
 describe('useSaveAttendance', () => {
   it('deletes existing records then inserts new ones', async () => {
+    setResponse('staff', { data: { id: 'staff-t-1' }, error: null })
     setResponse('attendance', { data: null, error: null })
 
     const { result } = renderHook(() => useSaveAttendance(), { wrapper: createWrapper() })

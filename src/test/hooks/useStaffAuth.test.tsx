@@ -64,7 +64,7 @@ const dbStaff = {
 describe('useActivateStaffLogin', () => {
   it('returns manual=false when Edge Function succeeds', async () => {
     setResponse('staff', { data: dbStaff, error: null })
-    mockFunctions.invoke.mockResolvedValue({ data: { authUserId: 'new-uid' }, error: null })
+    mockFunctions.invoke.mockResolvedValue({ data: { success: true, authUserId: 'new-uid' }, error: null })
 
     const { result } = renderHook(() => useActivateStaffLogin(), { wrapper: createWrapper() })
     let outcome: any

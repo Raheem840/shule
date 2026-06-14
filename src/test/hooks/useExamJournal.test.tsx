@@ -158,6 +158,7 @@ describe('useNextCALabel', () => {
 
 describe('useCreateJournal', () => {
   it('forces totalMarks=3 and passMark=2 for CA assessment type', async () => {
+    setResponse('staff', { data: { id: 'staff-1' }, error: null })
     setResponse('exam_journal', { data: { id: 'new-j-id' }, error: null })
     const { result } = renderHook(() => useCreateJournal(), { wrapper: createWrapper() })
 
@@ -179,6 +180,7 @@ describe('useCreateJournal', () => {
   })
 
   it('uses provided totalMarks and passMark for non-CA assessment types', async () => {
+    setResponse('staff', { data: { id: 'staff-1' }, error: null })
     setResponse('exam_journal', { data: { id: 'new-j-id-2' }, error: null })
     const { result } = renderHook(() => useCreateJournal(), { wrapper: createWrapper() })
 
@@ -197,6 +199,7 @@ describe('useCreateJournal', () => {
   })
 
   it('throws when supabase insert returns an error', async () => {
+    setResponse('staff', { data: { id: 'staff-1' }, error: null })
     setResponse('exam_journal', { data: null, error: { message: 'Insert failed' } })
     const { result } = renderHook(() => useCreateJournal(), { wrapper: createWrapper() })
 

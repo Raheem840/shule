@@ -43,6 +43,7 @@ vi.mock('../../lib/supabase', () => ({
       subscribe: vi.fn().mockReturnThis(),
     }),
     removeChannel: vi.fn().mockResolvedValue(undefined),
+    functions:     { invoke: vi.fn().mockResolvedValue({ data: null, error: null }) },
   },
 }))
 

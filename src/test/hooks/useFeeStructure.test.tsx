@@ -198,7 +198,7 @@ describe('useAcademicYears', () => {
   it('returns mapped AcademicYear objects', async () => {
     setResponse('academic_years', {
       data: [{
-        id: 'year-1', school_id: 'school-1', name: '2025',
+        id: 'year-1', school_id: 'school-1', label: '2025',
         start_date: '2025-01-01', end_date: '2025-12-31', is_active: true,
       }],
       error: null,

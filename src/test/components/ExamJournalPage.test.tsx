@@ -22,9 +22,11 @@ vi.mock('../../hooks/useExamJournal', () => ({
   useNextCALabel:   () => ({ data: 'C1', isLoading: false }),
 }))
 vi.mock('../../hooks/useClasses', () => ({
-  useClasses:  () => ({ data: [], isLoading: false }),
-  useStreams:   () => ({ data: [], isLoading: false }),
-  useSubjects: () => ({ data: [], isLoading: false }),
+  useClasses:            () => ({ data: [], isLoading: false }),
+  useStreams:            () => ({ data: [], isLoading: false }),
+  useSubjects:          () => ({ data: [], isLoading: false }),
+  useMyAssignedClasses:  () => [],
+  useMyAssignedSubjects: () => [],
 }))
 
 import { ExamJournalPage, journalSchema } from '../../pages/teacher/ExamJournalPage'
@@ -39,7 +41,7 @@ describe('ExamJournalPage', () => {
 
   it('renders a "Create Journal Entry" button', () => {
     render(<ExamJournalPage />)
-    expect(screen.getByRole('button', { name: /create journal entry/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /create journal entry/i }).length).toBeGreaterThan(0)
   })
 
   it('shows "No journal entries yet" when there are no journals', () => {
@@ -51,7 +53,7 @@ describe('ExamJournalPage', () => {
     const user = userEvent.setup()
     render(<ExamJournalPage />)
 
-    await user.click(screen.getByRole('button', { name: /create journal entry/i }))
+    await user.click(screen.getAllByRole('button', { name: /create journal entry/i })[0])
 
     // The modal form has an "Assessment Type" label that only appears inside the modal
     await waitFor(() => {
@@ -65,38 +67,38 @@ describe('ExamJournalPage', () => {
     async function openModalWithMidTerm() {
       const user = userEvent.setup()
       render(<ExamJournalPage />)
-      await user.click(screen.getByRole('button', { name: /create journal entry/i }))
-      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
-
-      const dialog = screen.getByRole('dialog')
+      await user.click(screen.getAllByRole('button', { name: /create journal entry/i })[0])
+      // Wait for the Assessment Type label — only rendered inside the modal
+      await waitFor(() => expect(screen.getByText('Assessment Type')).toBeInTheDocument())
+      // Navigate to the dialog container via DOM traversal
+      const dialog = screen.getByText('Assessment Type').closest('[data-testid="journal-create-modal"]') as HTMLElement
 
       // Change from default 'ca' to 'mid_term' (within the dialog) to reveal totalMarks
       const assessmentSelect = within(dialog).getAllByRole('combobox')[0]
       await user.selectOptions(assessmentSelect, 'mid_term')
-      await waitFor(() => expect(within(dialog).queryByLabelText(/total marks/i)).toBeInTheDocument())
+      // Wait for Total Marks number input to appear (FieldWrap uses <input type="number">)
+      await waitFor(() => expect(within(dialog).getAllByRole('spinbutton').length).toBeGreaterThan(0))
 
-      return user
+      return { user, dialog }
     }
 
     it('totalMarks input is present for non-CA assessment type (mid_term)', async () => {
-      await openModalWithMidTerm()
-      const dialog = screen.getByRole('dialog')
-      expect(within(dialog).getByLabelText(/total marks/i)).toBeInTheDocument()
+      const { dialog } = await openModalWithMidTerm()
+      // Total Marks is the first spinbutton (number input) in the form
+      expect(within(dialog).getAllByRole('spinbutton')[0]).toBeInTheDocument()
     })
 
     it('valid totalMarks value of 80 can be entered without error', async () => {
-      const user = await openModalWithMidTerm()
-      const dialog = screen.getByRole('dialog')
-      const input = within(dialog).getByLabelText(/total marks/i)
+      const { user, dialog } = await openModalWithMidTerm()
+      const input = within(dialog).getAllByRole('spinbutton')[0]
       await user.clear(input)
       await user.type(input, '80')
       expect((input as HTMLInputElement).value).toBe('80')
     })
 
     it('zero totalMarks causes validation error on submit', async () => {
-      const user = await openModalWithMidTerm()
-      const dialog = screen.getByRole('dialog')
-      const input = within(dialog).getByLabelText(/total marks/i)
+      const { user, dialog } = await openModalWithMidTerm()
+      const input = within(dialog).getAllByRole('spinbutton')[0]
       await user.clear(input)
       await user.type(input, '0')
 

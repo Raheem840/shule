@@ -129,6 +129,7 @@ describe('AddFeeSchema (fee structure)', () => {
   const valid = {
     name: 'School Fees', amount: 400000,
     appliesTo: 'all' as const, term: 1, academicYearId: 'year-uuid-1',
+    classId: null, isCompulsory: true, autoCharge: false,
   }
 
   it('accepts valid fee type', () => {
@@ -144,7 +145,7 @@ describe('AddFeeSchema (fee structure)', () => {
   it('rejects non-positive amount', () => {
     const r = AddFeeSchema.safeParse({ ...valid, amount: 0 })
     expect(r.success).toBe(false)
-    expect(r.error!.issues.find(i => i.path.includes('amount'))?.message).toMatch(/positive/i)
+    expect(r.error!.issues.find(i => i.path.includes('amount'))?.message).toMatch(/> 0/i)
   })
 
   it('rejects negative amount', () => {

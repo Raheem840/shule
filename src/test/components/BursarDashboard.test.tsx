@@ -3,12 +3,17 @@ import { render, screen } from '../utils'
 
 // Mock at hook level — avoids supabase dependency entirely
 vi.mock('../../hooks/useFeePayments', () => ({
-  useBursarKpis:          vi.fn(),
-  useFeeCollectionByClass: vi.fn(),
-  useRecentPayments:       vi.fn(),
-  useSmsCount:             vi.fn(),
+  useBursarKpis:            vi.fn(),
+  useFeeCollectionByClass:  vi.fn(),
+  useRecentPayments:        vi.fn(),
+  useSmsCount:              vi.fn(),
+  useFeeCollectionOverTime: vi.fn().mockReturnValue({ data: { points: [], classes: [] }, isLoading: false }),
   ugx: (n: number) => `UGX ${n.toLocaleString()}`,
   calcFeeStatus: vi.fn(),
+}))
+
+vi.mock('../../hooks/useFeeStructure', () => ({
+  useAcademicYears: vi.fn().mockReturnValue({ data: [], isLoading: false }),
 }))
 
 vi.mock('../../lib/supabase', () => ({
@@ -50,15 +55,15 @@ describe('BursarDashboard', () => {
   it('renders the page header', () => {
     setupMocks()
     render(<BursarDashboard />)
-    expect(screen.getByText(/bursar dashboard/i)).toBeInTheDocument()
+    expect(screen.getByText(/finance overview/i)).toBeInTheDocument()
   })
 
   it('renders the term selector buttons', () => {
     setupMocks()
     render(<BursarDashboard />)
-    expect(screen.getByRole('button', { name: /term 1/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /term 2/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /term 3/i })).toBeInTheDocument()
+    expect(screen.getByText('T1')).toBeInTheDocument()
+    expect(screen.getByText('T2')).toBeInTheDocument()
+    expect(screen.getByText('T3')).toBeInTheDocument()
   })
 
   it('renders KPI cards with mocked data', () => {
@@ -71,10 +76,10 @@ describe('BursarDashboard', () => {
     render(<BursarDashboard />)
 
     expect(screen.getByText(/total expected/i)).toBeInTheDocument()
-    expect(screen.getByText(/total collected/i)).toBeInTheDocument()
-    expect(screen.getByText(/outstanding/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/total collected/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/outstanding/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/fully unpaid/i)).toBeInTheDocument()
-    expect(screen.getByText(/reminders queued/i)).toBeInTheDocument()
+    expect(screen.getByText(/sms reminders/i)).toBeInTheDocument()
   })
 
   it('shows formatted UGX values in KPI cards', () => {
@@ -112,8 +117,8 @@ describe('BursarDashboard', () => {
     mockSmsCount.mockReturnValue({ data: null, isLoading: false })
 
     render(<BursarDashboard />)
-    // Loading state — KPI values not shown
-    expect(screen.queryByText(/total expected/i)).not.toBeInTheDocument()
+    // KPI labels always render; values show '—' while loading
+    expect(screen.getByText(/total expected/i)).toBeInTheDocument()
   })
 
   it('shows recent payments when data is provided', () => {

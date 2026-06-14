@@ -51,7 +51,7 @@ describe('OfflineBanner', () => {
     render(<OfflineBanner />)
     const banner = screen.getByTestId('offline-banner')
     expect(banner).toBeTruthy()
-    expect(banner.textContent).toContain('offline')
+    expect(banner.textContent).toContain('No internet')
   })
 
   it('shows green online-banner when coming back online', async () => {
@@ -89,7 +89,7 @@ describe('OfflineBanner', () => {
   it('contains correct offline message text', () => {
     Object.defineProperty(navigator, 'onLine', { value: false, writable: true })
     render(<OfflineBanner />)
-    expect(screen.getByTestId('offline-banner').textContent).toContain('will sync when connection returns')
+    expect(screen.getByTestId('offline-banner').textContent).toContain('Showing cached data')
   })
 
   it('contains correct online flash message text', async () => {
@@ -103,7 +103,7 @@ describe('OfflineBanner', () => {
 
     await waitFor(() => {
       const banner = screen.queryByTestId('online-banner')
-      if (banner) expect(banner.textContent).toContain('syncing')
+      if (banner) expect(banner.textContent).toContain('Syncing')
     })
   })
 })

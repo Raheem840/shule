@@ -457,6 +457,19 @@ export function useAssignClassTeacher() {
     }) => {
       if (!user) throw new Error('Not authenticated')
 
+      // Enforce: one class teacher per class
+      const { data: siblings } = await supabase
+        .from('streams')
+        .select('id, class_teacher_id')
+        .eq('class_id', _classId)
+        .eq('school_id', user.schoolId)
+        .neq('id', streamId)
+
+      const conflict = (siblings ?? []).find(
+        (s: any) => s.class_teacher_id && s.class_teacher_id !== teacherId
+      )
+      if (conflict) throw new Error('Another stream in this class already has a class teacher assigned.')
+
       // Update the stream
       const { error: streamErr } = await supabase
         .from('streams')

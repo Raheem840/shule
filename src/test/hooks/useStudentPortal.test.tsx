@@ -159,13 +159,13 @@ describe('useIsEndOfTermSurveyActive', () => {
     setResponse('academic_years', { data: { survey_active: true }, error: null })
     const { result } = renderHook(() => useIsEndOfTermSurveyActive(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toBe(true)
+    expect(result.current.data?.isActive).toBe(true)
   })
 
   it('returns false when no active academic year', async () => {
     setResponse('academic_years', { data: null, error: null })
     const { result } = renderHook(() => useIsEndOfTermSurveyActive(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toBe(false)
+    expect(result.current.data?.isActive).toBe(false)
   })
 })
