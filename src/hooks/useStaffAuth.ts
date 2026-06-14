@@ -11,7 +11,7 @@ function generateTempPassword(): string {
 }
 
 // ── ACTIVATION_KEY ─────────────────────────────────────────────────────────
-const ACTIVATION_KEY = 'shule_pending_activations'
+const ACTIVATION_KEY = 'shule_pending_staff_activations'
 
 export type PendingActivation = {
   staffId:      string
@@ -84,21 +84,25 @@ export function useActivateStaffLogin() {
 
       if (fnError) {
         // Edge function not deployed — persist credentials for manual setup
-        const staffRec = staff as any
+        const s = staff as any
         await supabase
           .from('staff')
           .update({ temp_password: tempPassword })
           .eq('id', staffId)
           .eq('school_id', user.schoolId)
-        const pending = getPendingActivations()
-        pending[staffId] = {
-          staffId,
-          email,
-          tempPassword,
-          name: `${staffRec.first_name as string} ${staffRec.last_name as string}`,
-          storedAt: new Date().toISOString(),
+        try {
+          const pending = getPendingActivations()
+          pending[staffId] = {
+            staffId,
+            email,
+            tempPassword,
+            name: `${(s.first_name as string | null) ?? ''} ${(s.last_name as string | null) ?? ''}`.trim(),
+            storedAt: new Date().toISOString(),
+          }
+          localStorage.setItem(ACTIVATION_KEY, JSON.stringify(pending))
+        } catch {
+          // localStorage unavailable (Safari private mode) — credentials shown in UI only
         }
-        localStorage.setItem(ACTIVATION_KEY, JSON.stringify(pending))
         return { email, tempPassword, manual: true as const }
       }
 
@@ -107,10 +111,12 @@ export function useActivateStaffLogin() {
         throw new Error(`Failed to activate login: ${detail}`)
       }
 
+      clearPendingActivation(staffId)
       return { email, tempPassword, manual: false as const }
     },
-    onSuccess: () => {
+    onSuccess: (_data, { staffId }) => {
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['staff-member', user?.schoolId, staffId] })
       void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })
     },
   })
@@ -182,8 +188,9 @@ export function useResetStaffPassword() {
       // Surface the actual error — don't show credentials that won't work
       throw new Error(`Password reset failed: ${fnError.message}`)
     },
-    onSuccess: () => {
+    onSuccess: (_data, { staffId }) => {
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['staff-member', user?.schoolId, staffId] })
       void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })
     },
   })

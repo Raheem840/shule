@@ -32,7 +32,7 @@ const DETAIL_COLS = [
   'national_id', 'address', 'join_date', 'employment_date', 'qualification_level',
   'qualification_title', 'institution', 'graduation_year',
   'date_of_birth', 'gender',
-  'employment_type', 'photo_url', 'is_active',
+  'employment_type', 'photo_url', 'is_active', 'temp_password',
 ].join(', ')
 
 function toStaff(r: AnyRow): Staff {
