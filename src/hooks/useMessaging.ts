@@ -315,6 +315,8 @@ export function usePostAnnouncement() {
     mutationFn: async (input: {
       body: string
       attachmentUrl?: string | null
+      attachmentName?: string | null
+      attachmentType?: string | null
     }) => {
       if (!user) throw new Error('Not authenticated')
       if (!ANNOUNCEMENT_POSTER_ROLES.includes(user.role)) {
@@ -329,7 +331,9 @@ export function usePostAnnouncement() {
           to_user_id:      null,
           is_announcement: true,
           body:            input.body,
-          attachment_url:  input.attachmentUrl ?? null,
+          attachment_url:  input.attachmentUrl  ?? null,
+          attachment_name: input.attachmentName ?? null,
+          attachment_type: input.attachmentType ?? null,
           sent_at:         new Date().toISOString(),
         })
 

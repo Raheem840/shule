@@ -60,7 +60,7 @@ function UnlockModal({ card, studentName, onClose }: {
               padding: '8px 10px', border: '1px solid var(--border)',
               borderRadius: 8, fontSize: 13, resize: 'vertical',
               background: 'var(--surface)', color: 'var(--txt)',
-              fontFamily: 'var(--font1)',
+              fontFamily: 'var(--font1)', width: '100%', boxSizing: 'border-box',
             }}
           />
         </label>
@@ -109,7 +109,7 @@ function ApproveModal({ card, studentName, onClose }: {
               padding: '8px 10px', border: '1px solid var(--border)',
               borderRadius: 8, fontSize: 13, resize: 'vertical',
               background: 'var(--surface)', color: 'var(--txt)',
-              fontFamily: 'var(--font1)',
+              fontFamily: 'var(--font1)', width: '100%', boxSizing: 'border-box',
             }}
           />
         </label>
@@ -389,6 +389,8 @@ export function PrincipalReportCardsPage() {
         ids.map(id => release.mutateAsync({ reportCardId: id }))
       )
       void qc.invalidateQueries({ queryKey: ['report-cards', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['parent-report-cards', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['my-report-cards', user?.schoolId] })
       const failed = results.filter(r => r.status === 'rejected')
       if (failed.length > 0) {
         const succeeded = results.length - failed.length

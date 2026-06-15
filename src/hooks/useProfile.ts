@@ -242,7 +242,7 @@ export function useApprovePasswordReset() {
       if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('notifications')
-        .update({ read_at: new Date().toISOString() })
+        .update({ read: true, read_at: new Date().toISOString() })
         .eq('id', notificationId)
         .eq('school_id', user!.schoolId)
       if (error) throw new Error(error.message)

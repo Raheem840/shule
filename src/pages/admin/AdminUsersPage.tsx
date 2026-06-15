@@ -244,7 +244,7 @@ function DeactivateConfirmModal({
           placeholder={isPrincipal ? 'Type full name…' : 'Type DEACTIVATE…'}
           autoFocus
         />
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button onClick={onCancel} style={{ padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
             Cancel
           </button>
@@ -450,14 +450,14 @@ function ActiveCard({ staff, deptName, onReset, onLink, onDeactivated }: { staff
                   {reset.isPending ? 'Resetting…' : '↺ Reset Password'}
                 </button>
                 <button onClick={() => onLink(staff.id, staffName)}
-                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)', fontWeight: 700, fontSize: 11, cursor: 'pointer', transition: 'all 0.15s' }}
+                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)', fontWeight: 700, fontSize: 11, cursor: 'pointer', transition: 'all 0.15s' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.color = 'var(--txt2)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--txt3)' }}
                   title="Manually link a Supabase auth UUID">
                   Link
                 </button>
                 <button onClick={() => handleDeactivateClick()} disabled={deactivateBusy || !staff.authUserId}
-                  style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid rgba(244,63,94,.3)', background: 'rgba(244,63,94,.08)', color: 'var(--danger)', fontWeight: 700, fontSize: 11, cursor: deactivateBusy ? 'wait' : 'pointer', opacity: deactivateBusy ? 0.6 : 1, transition: 'all 0.15s' }}
+                  style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(244,63,94,.3)', background: 'rgba(244,63,94,.08)', color: 'var(--danger)', fontWeight: 700, fontSize: 11, cursor: deactivateBusy ? 'wait' : 'pointer', opacity: deactivateBusy ? 0.6 : 1, transition: 'all 0.15s' }}
                   onMouseEnter={e => { if (!deactivateBusy) e.currentTarget.style.background = 'rgba(244,63,94,.15)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(244,63,94,.08)' }}
                   title="Revoke system access">
@@ -1067,7 +1067,7 @@ function StudentActiveCard({ student, className, schoolShortName, onReset, onTog
               {reset.isPending ? 'Resetting…' : '↺ Reset Password'}
             </button>
             <button onClick={() => setShowConfirm(true)} disabled={busy || !student.auth_user_id}
-              style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid rgba(244,63,94,.3)', background: 'rgba(244,63,94,.08)', color: 'var(--danger)', fontWeight: 700, fontSize: 11, cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1, transition: 'all 0.15s' }}
+              style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(244,63,94,.3)', background: 'rgba(244,63,94,.08)', color: 'var(--danger)', fontWeight: 700, fontSize: 11, cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1, transition: 'all 0.15s' }}
               onMouseEnter={e => { if (!busy) e.currentTarget.style.background = 'rgba(244,63,94,.15)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'rgba(244,63,94,.08)' }}>
               {busy ? '…' : 'Deactivate'}
@@ -1471,7 +1471,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
                 Select the type of account to create. The wizard will set up the database record <strong>and</strong> the login in one step.
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
                 {([
                   { id: 'staff'   as WEntityType, label: 'Staff',   desc: 'Any staff role', color: '#8b5cf6',
                     icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> },
@@ -1991,7 +1991,7 @@ export function AdminUsersPage() {
             <button
               key={s.id}
               onClick={() => { setSection(s.id); setSearch(''); setRoleFilter(''); setTab('pending') }}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13, transition: 'all 0.15s', background: section === s.id ? 'var(--surface)' : 'transparent', color: section === s.id ? 'var(--txt)' : 'var(--txt3)', boxShadow: section === s.id ? '0 1px 4px rgba(0,0,0,.08)' : 'none' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13, transition: 'all 0.15s', flexShrink: 0, background: section === s.id ? 'var(--surface)' : 'transparent', color: section === s.id ? 'var(--txt)' : 'var(--txt3)', boxShadow: section === s.id ? '0 1px 4px rgba(0,0,0,.08)' : 'none' }}
             >
               {s.icon}
               {s.label}
@@ -2188,14 +2188,14 @@ export function AdminUsersPage() {
               <div style={{ fontSize: 13, color: 'var(--txt3)' }}>Credentials appear here after staff, students, or parents are activated.</div>
             </div>
           ) : (
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', overflowX: 'auto' }}>
               <div style={{ padding: '12px 16px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt2)', fontFamily: 'var(--font2)' }}>
                   {vaultEntries.length} credential{vaultEntries.length !== 1 ? 's' : ''} stored
                 </span>
                 <span style={{ fontSize: 11, color: 'var(--txt3)' }}>Hover to reveal passwords</span>
               </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)' }}>
                     {['Name', 'Type', 'Email', 'Password', ''].map(h => (
