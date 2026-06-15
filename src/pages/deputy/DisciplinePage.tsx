@@ -198,7 +198,7 @@ function RecordModal({ initial, onClose }: { initial: DisciplineRecord | null; o
           </div>
 
           {/* Date + class */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <Lbl required>Incident Date</Lbl>
               <input type="date" className="sui-input" value={incidentDate} onChange={e => setIncidentDate(e.target.value)} style={{ width: '100%' }} />
@@ -420,7 +420,7 @@ export function DisciplinePage() {
             )
           })}
           {!isMobile && (
-            <select className="sui-input" value={classFilter} onChange={e => setClassFilter(e.target.value)} style={{ marginLeft: 'auto', width: 180, flexShrink: 0 }}>
+            <select className="sui-input" value={classFilter} onChange={e => setClassFilter(e.target.value)} style={{ marginLeft: 'auto', width: '100%', maxWidth: 200, flexShrink: 0 }}>
               <option value="">All Classes</option>
               {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -489,8 +489,8 @@ export function DisciplinePage() {
                     <div style={{ flex: 1, padding: '0 14px', fontSize: 12, color: 'var(--txt2)' }}>{r.className ?? '—'}</div>
                     <div style={{ flex: 2, padding: '0 14px', fontSize: 12, color: 'var(--txt2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.resolution}</div>
                     <div style={{ flex: '0 0 90px', padding: '0 14px', display: 'flex', gap: 6 }}>
-                      <button onClick={e => { e.stopPropagation(); openEdit(r) }} style={{ padding: '4px 10px', fontSize: 11.5, border: '.5px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', cursor: 'pointer', color: 'var(--txt2)', fontWeight: 600 }}>Edit</button>
-                      <button onClick={e => { e.stopPropagation(); openDelete(r) }} style={{ padding: '4px 10px', fontSize: 11.5, border: '.5px solid rgba(244,63,94,.3)', borderRadius: 8, background: 'rgba(244,63,94,.06)', cursor: 'pointer', color: 'var(--danger)', fontWeight: 600 }}>Del</button>
+                      <button onClick={e => { e.stopPropagation(); openEdit(r) }} style={{ padding: '8px 10px', minHeight: 36, fontSize: 11.5, border: '.5px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', cursor: 'pointer', color: 'var(--txt2)', fontWeight: 600 }}>Edit</button>
+                      <button onClick={e => { e.stopPropagation(); openDelete(r) }} style={{ padding: '8px 10px', minHeight: 36, fontSize: 11.5, border: '.5px solid rgba(244,63,94,.3)', borderRadius: 8, background: 'rgba(244,63,94,.06)', cursor: 'pointer', color: 'var(--danger)', fontWeight: 600 }}>Del</button>
                     </div>
                   </div>
                 )

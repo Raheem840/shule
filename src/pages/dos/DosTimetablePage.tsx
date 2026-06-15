@@ -1188,7 +1188,7 @@ function OverviewView({ term, year, periodDefs, onAssign, onEditClass }: {
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--txt3)' }}>No classes found{filterLevel ? ` for ${filterLevel}` : ''}.</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(380px,1fr))', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(380px,100%),1fr))', gap: 18 }}>
           {filtered.map(cls => (
             <MiniCard
               key={cls.id}

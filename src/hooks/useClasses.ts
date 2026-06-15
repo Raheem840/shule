@@ -203,6 +203,7 @@ export function useCreateDepartment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: { name: string; description?: string; accentColor?: string }) => {
+      if (!user) throw new Error('Not authenticated')
       const { data, error } = await supabase
         .from('departments')
         .insert({
@@ -226,6 +227,7 @@ export function useUpdateDepartment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: { id: string; name?: string; description?: string; accentColor?: string; headTeacherId?: string | null }) => {
+      if (!user) throw new Error('Not authenticated')
       const patch: Record<string, unknown> = {}
       if (input.name        !== undefined) patch.name           = input.name.trim()
       if (input.description !== undefined) patch.description    = input.description

@@ -246,7 +246,7 @@ function ClassPerformanceTab() {
           value={selectedClass ?? ''}
           onChange={e => setSelectedClass(e.target.value || null)}
           className="sui-input"
-          style={{ width: 200 }}
+          style={{ width: '100%', maxWidth: 260 }}
         >
           <option value="">Choose a class…</option>
           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -584,7 +584,7 @@ function CurriculumPlanTab() {
             value={selectedClass ?? ''}
             onChange={e => setSelectedClass(e.target.value || null)}
             className="sui-input"
-            style={{ width: 160 }}
+            style={{ width: '100%', minWidth: 130 }}
           >
             <option value="">Select…</option>
             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -598,7 +598,7 @@ function CurriculumPlanTab() {
             value={selectedSubject ?? ''}
             onChange={e => setSelectedSubject(e.target.value || null)}
             className="sui-input"
-            style={{ width: 200 }}
+            style={{ width: '100%', minWidth: 160 }}
           >
             <option value="">Select…</option>
             {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}

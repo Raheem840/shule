@@ -121,7 +121,7 @@ export function useRecentDiscipline() {
 
   return useQuery({
     queryKey: ['recent-discipline', user?.schoolId],
-    enabled: !!user,
+    enabled: !!user && isDeputyRole(user?.role),
     queryFn: async () => {
       const sid = user!.schoolId
 
@@ -170,7 +170,7 @@ export function useDisciplineRecords(filters?: {
 
   return useQuery({
     queryKey: ['discipline-records', user?.schoolId, filters],
-    enabled: !!user,
+    enabled: !!user && isDeputyRole(user?.role),
     queryFn: async () => {
       const sid = user!.schoolId
 
@@ -302,17 +302,20 @@ export function useAddDisciplineRecord() {
         // Insert messages (one per parent)
         void supabase.from('messages').insert(
           parentIds.map(uid => ({
-            school_id:    user.schoolId,
-            from_user_id: user.id,
-            to_user_id:   uid,
-            body:         msgBody,
-            sent_at:      now,
+            school_id:       user.schoolId,
+            from_user_id:    user.id,
+            to_user_id:      uid,
+            is_announcement: false,
+            body:            msgBody,
+            sent_at:         now,
           }))
         )
       }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['discipline-records', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['recent-discipline', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['deputy-kpis', user?.schoolId] })
     },
   })
 }
@@ -434,11 +437,13 @@ export function useClassAttendanceSummaries(classId: string | null) {
     queryKey: ['class-attendance-summaries', user?.schoolId, classId],
     enabled: !!user && !!classId,
     queryFn: async (): Promise<AttendanceSummary[]> => {
+      const yearStart = `${new Date().getFullYear()}-01-01`
       const { data, error } = await supabase
         .from('attendance')
         .select('student_id, status')
         .eq('school_id', user!.schoolId)
         .eq('class_id', classId!)
+        .gte('date', yearStart)
 
       if (error) throw new Error(error.message)
 

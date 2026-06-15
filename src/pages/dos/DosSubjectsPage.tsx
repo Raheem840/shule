@@ -249,9 +249,9 @@ export function DosSubjectsPage() {
           {[1,2,3,4].map(i => <div key={i} className="shule-skeleton" style={{ height: 56, borderRadius: 14 }} />)}
         </div>
       ) : (
-        <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 20, overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+        <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 20, overflow: 'hidden', overflowX: 'auto', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
           {/* Column headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 130px 110px', gap: 12, padding: '10px 20px', background: 'var(--surface2)', borderBottom: '.5px solid var(--border)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 130px 110px', gap: 12, padding: '10px 20px', background: 'var(--surface2)', borderBottom: '.5px solid var(--border)', minWidth: 500 }}>
             {['Subject', 'Curriculum Code', 'Level', ''].map(h => (
               <div key={h} style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .8, fontFamily: 'var(--font2)' }}>{h}</div>
             ))}
@@ -265,7 +265,7 @@ export function DosSubjectsPage() {
           ) : filtered.map((s, i) => (
             <div key={s.id} style={{
               display: 'grid', gridTemplateColumns: '1fr 160px 130px 110px',
-              gap: 12, padding: '12px 20px', alignItems: 'center',
+              gap: 12, padding: '12px 20px', alignItems: 'center', minWidth: 500,
               borderBottom: i < filtered.length - 1 ? '.5px solid var(--border)' : 'none',
               opacity: s.isActive ? 1 : .5,
               transition: 'background .1s',
