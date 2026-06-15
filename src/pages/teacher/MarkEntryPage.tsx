@@ -804,8 +804,8 @@ export function MarkEntryPage() {
         return
       }
       const scoreNum = Number(row.score)
-      if (isNaN(scoreNum) || scoreNum < 0) {
-        result.failed.push({ row: idx + 1, reason: `Invalid score: "${row.score}"` })
+      if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > (journal?.totalMarks ?? Infinity)) {
+        result.failed.push({ row: idx + 1, reason: `Invalid score: "${row.score}" (max ${journal?.totalMarks ?? '?'})` })
         return
       }
       const absent = (row.is_absent ?? '').toLowerCase() === 'true'
@@ -1066,7 +1066,7 @@ export function MarkEntryPage() {
                           if (v !== null && isNaN(v)) return
                           setMark(student.id, v, false)
                         }}
-                        style={{ width: 80, padding: '10px 8px', border: `.5px solid ${hasWarning ? 'var(--warning)' : 'var(--border)'}`, borderRadius: 8, fontSize: 16, background: isAbsent ? 'var(--surface2)' : 'var(--surface)', color: 'var(--txt)', fontFamily: 'var(--font3)' }}
+                        style={{ width: '100%', maxWidth: 80, padding: '10px 8px', border: `.5px solid ${hasWarning ? 'var(--warning)' : 'var(--border)'}`, borderRadius: 8, fontSize: 16, background: isAbsent ? 'var(--surface2)' : 'var(--surface)', color: 'var(--txt)', fontFamily: 'var(--font3)' }}
                       />
                       {hasWarning && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--warning)' }}>Exceeds max</span>}
                     </div>
@@ -1103,7 +1103,7 @@ export function MarkEntryPage() {
             {saveMarks.isPending ? 'Saving…' : saved ? '✓ Saved' : 'Save All'}
           </button>
           {journal?.status === 'draft' && (
-            <button onClick={() => void handlePublish()} disabled={publish.isPending}
+            <button onClick={() => void handlePublish()} disabled={saveMarks.isPending || publish.isPending}
               style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 3px 12px rgba(13,148,136,.35)' }}>
               {publish.isPending ? 'Publishing…' : 'Publish'}
             </button>

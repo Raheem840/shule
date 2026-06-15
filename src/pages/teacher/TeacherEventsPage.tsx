@@ -112,7 +112,7 @@ function EventFormModal({ initial, onSave, onClose, saving, showParentsToggle }:
               <div><Lbl>Pass Mark</Lbl><input type="number" {...f('passMark')} className="sui-input" style={{ width: '100%' }} placeholder="e.g. 50" /></div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div><Lbl>Term</Lbl><select {...f('term')} className="sui-input" style={{ width: '100%' }}>{['1','2','3'].map(t => <option key={t} value={t}>Term {t}</option>)}</select></div>
               <div><Lbl>Year</Lbl><input type="number" {...f('year')} className="sui-input" style={{ width: '100%' }} /></div>
             </div>

@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { useAuth } from '../../store/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { supabase as _supabase } from '../../lib/supabase'
 import {
   useParentConversations,
   useConversationWithParent,

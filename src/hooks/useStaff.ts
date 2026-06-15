@@ -230,6 +230,7 @@ export function useRegisterStaff() {
 
   return useMutation({
     mutationFn: async (input: RegisterStaffInput) => {
+      if (!user) throw new Error('Not authenticated')
       const { data: newStaff, error: staffErr } = await supabase
         .from('staff')
         .insert({
@@ -319,6 +320,7 @@ export function useSetStaffActive() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('staff')
         .update({ is_active: isActive })

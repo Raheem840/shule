@@ -107,7 +107,7 @@ function SalaryBandCell({ row }: { row: SalaryRow }) {
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
         aria-label="Edit salary band"
         style={{
-          width: 120, padding: '0.25rem 0.5rem',
+          width: '100%', maxWidth: 120, padding: '0.25rem 0.5rem',
           border: '1.5px solid var(--brand)', borderRadius: 'var(--r)',
           background: 'var(--surface)', color: 'var(--txt)',
           fontSize: 12, fontFamily: 'var(--font3)', outline: 'none',
@@ -312,9 +312,9 @@ export function SalaryPage() {
       {!isLoading && !error && (
         <div className="mob-cards" style={{
           background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--r-lg)', overflow: 'hidden',
+          borderRadius: 'var(--r-lg)', overflow: 'hidden', overflowX: 'auto',
         }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
             <thead>
               <tr>
                 {['Name', 'Role', 'Employment Type', 'Join Date', 'Salary Band'].map(h => (

@@ -140,7 +140,7 @@ function AddPaymentModal({
           {errors.studentId && <p style={field.err}>{errors.studentId.message}</p>}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+        <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
           <div>
             <label style={field.label}>Amount Due (UGX)</label>
             <input {...register('amountDue')} type="number" placeholder="800000" style={field.input} />
@@ -158,7 +158,7 @@ function AddPaymentModal({
           Balance: {ugx(Math.max(0, balance))} · {balance <= 0 ? 'Fully Paid' : 'Outstanding'}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+        <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
           <div>
             <label style={field.label}>Payment Date</label>
             <input {...register('paymentDate')} type="date" style={field.input} />
@@ -224,7 +224,7 @@ function EditableAmountCell({
           onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
           style={{
-            width: 110, padding: '0.2rem 0.4rem',
+            width: '100%', maxWidth: 110, padding: '0.2rem 0.4rem',
             border: '1.5px solid var(--brand)', borderRadius: 'var(--r)',
             background: 'var(--surface)', color: 'var(--txt)',
             fontFamily: 'var(--font3)', fontSize: 12, outline: 'none',

@@ -530,6 +530,7 @@ export function useUpdatePayment() {
 
   return useMutation({
     mutationFn: async (input: UpdatePaymentInput) => {
+      if (!user) throw new Error('Not authenticated')
       if (!isFinanceRole(user?.role)) throw new Error('Forbidden')
       const newBalance = Math.max(0, input.amountDue - input.amountPaid)
       const oldBalance = input.amountDue - input.oldAmountPaid

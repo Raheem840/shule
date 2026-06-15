@@ -280,7 +280,8 @@ function useRecordPayment() {
         .eq('school_id', user!.schoolId)
         .eq('student_id', input.studentId)
         .eq('term', input.term)
-      if (input.academicYearId) existQ = existQ.eq('academic_year_id', input.academicYearId)
+      if (input.academicYearId)  existQ = existQ.eq('academic_year_id', input.academicYearId)
+      if (input.feeStructureId)  existQ = existQ.eq('fee_structure_id', input.feeStructureId)
       const { data: existing } = await existQ.maybeSingle()
 
       if (existing) {
@@ -319,8 +320,10 @@ function useRecordPayment() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['bursar-student-fees'] })
-      void qc.invalidateQueries({ queryKey: ['fee-payments-bursar'] })
-      void qc.invalidateQueries({ queryKey: ['bursar-kpis'] })
+      void qc.invalidateQueries({ queryKey: ['fee-payments', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['recent-payments', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['fee-over-time', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['bursar-kpis', user?.schoolId] })
     },
   })
 }
@@ -344,6 +347,9 @@ function useUpdatePaymentAmount() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['bursar-student-fees'] })
+      void qc.invalidateQueries({ queryKey: ['fee-payments', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['recent-payments', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['bursar-kpis', user?.schoolId] })
     },
   })
 }

@@ -18,7 +18,6 @@ export function useMyStudentRecord() {
     queryKey: ['my-student-record', user?.schoolId, user?.id],
     enabled:  !!user?.id && user?.role === 'student',
     queryFn: async () => {
-      // DB NEEDS: ALTER TABLE students ADD COLUMN auth_user_id UUID REFERENCES auth.users(id)
       const { data, error } = await supabase
         .from('students')
         .select('id, school_id, admission_number, first_name, last_name, dob, gender, class_id, stream_id, photo_url, status, enrolled_at, student_type, classes(name)')

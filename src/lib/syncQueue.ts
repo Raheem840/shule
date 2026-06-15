@@ -28,11 +28,16 @@ export async function flushSyncQueue(): Promise<void> {
       let error: { message: string } | null = null
 
       if (item.actionType === 'delete') {
-        const { error: e } = await supabase
-          .from(item.tableName)
-          .delete()
-          .eq('id', payload['id'])
-        error = e
+        const recordId  = payload['id'] as string | undefined
+        const schoolId  = (item as any).schoolId as string | undefined
+        if (!recordId) {
+          // Guard: don't delete without an id
+        } else {
+          let q = supabase.from(item.tableName).delete().eq('id', recordId)
+          if (schoolId) q = (q as any).eq('school_id', schoolId)
+          const { error: e } = await q
+          error = e
+        }
       } else {
         const { error: e } = await supabase
           .from(item.tableName)

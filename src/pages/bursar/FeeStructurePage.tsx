@@ -376,7 +376,7 @@ function AmountCell({ fee }: { fee: FeeStructure }) {
       onChange={e => setDraft(e.target.value)}
       onBlur={() => { void commit() }}
       onKeyDown={e => e.key === 'Enter' && void commit()}
-      style={{ width: 100, padding: '4px 8px', borderRadius: 8, border: '1.5px solid var(--brand)', fontSize: 13, fontFamily: 'var(--font3)', background: 'var(--brand-light)', color: 'var(--txt)', outline: 'none' }}
+      style={{ width: '100%', maxWidth: 100, padding: '4px 8px', borderRadius: 8, border: '1.5px solid var(--brand)', fontSize: 13, fontFamily: 'var(--font3)', background: 'var(--brand-light)', color: 'var(--txt)', outline: 'none' }}
     />
   )
 
@@ -447,7 +447,7 @@ function EditFeeModal({ fee, onClose }: { fee: FeeStructure; onClose: () => void
           </div>
 
           {/* Amount + Term */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
               <label style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 5 }}>Amount (UGX) *</label>
               <input className="sui-input" type="number" min="0" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: Number(e.target.value) }))} style={{ width: '100%', fontFamily: 'var(--font3)' }} />
@@ -461,7 +461,7 @@ function EditFeeModal({ fee, onClose }: { fee: FeeStructure; onClose: () => void
           </div>
 
           {/* Applies to + Class */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
               <label style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 5 }}>Applies To *</label>
               <select className="sui-input" value={form.appliesTo} onChange={e => setForm(p => ({ ...p, appliesTo: e.target.value as AddFeeForm['appliesTo'] }))} style={{ width: '100%' }}>
@@ -585,7 +585,7 @@ function FeeCard({ fee, className, classBadges, onDelete, onAutoCharge, onEnable
         {/* Right: amount + actions */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
           <AmountCell fee={fee} />
-          <div style={{ display: 'flex', gap: 5 }}>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button
               onClick={() => void handleCharge()}
               disabled={charging}

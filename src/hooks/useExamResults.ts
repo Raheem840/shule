@@ -82,11 +82,14 @@ export function useSaveMarks() {
       year:           number
       marks:          MarkRow[]
     }) => {
+      if (!user) throw new Error('Not authenticated')
       const rows = marks.map(m => {
         // Grade: null for end_of_term (needs CA to combine), calculated for all others
         let grade: ExamResult['grade'] = null
         if (!m.isAbsent && m.score !== null && assessmentType !== 'end_of_term' && totalMarks > 0) {
-          grade = calculateCBCGrade((m.score / totalMarks) * 100)
+          // CA rubric is 0-3 points per indicator; use /3 not /totalMarks
+          const pct = assessmentType === 'ca' ? (m.score / 3) * 100 : (m.score / totalMarks) * 100
+          grade = calculateCBCGrade(pct)
         }
 
         return {

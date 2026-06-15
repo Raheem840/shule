@@ -194,6 +194,7 @@ export function useCheckCollision() {
       year: number
       excludeSlotId?: string  // for editing an existing slot
     }): Promise<{ classConflict: TimetableSlot | null; teacherConflict: TimetableSlot | null }> => {
+      if (!user) throw new Error('Not authenticated')
       const sid = user!.schoolId
       const { classId, streamId, teacherId, dayOfWeek, periodNumber, term, year, excludeSlotId } = params
 
@@ -293,8 +294,8 @@ export function useCreateTimetableSlot() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['timetable-slots'] })
-      void qc.invalidateQueries({ queryKey: ['teacher-timetable'] })
+      void qc.invalidateQueries({ queryKey: ['timetable-slots', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['teacher-timetable', user?.schoolId] })
     },
   })
 }
@@ -316,8 +317,8 @@ export function useDeleteTimetableSlot() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['timetable-slots'] })
-      void qc.invalidateQueries({ queryKey: ['teacher-timetable'] })
+      void qc.invalidateQueries({ queryKey: ['timetable-slots', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['teacher-timetable', user?.schoolId] })
     },
   })
 }
@@ -357,8 +358,8 @@ export function usePublishTimetable() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['timetable-slots'] })
-      void qc.invalidateQueries({ queryKey: ['teacher-timetable'] })
+      void qc.invalidateQueries({ queryKey: ['timetable-slots', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['teacher-timetable', user?.schoolId] })
     },
   })
 }

@@ -40,7 +40,7 @@ export function useTeacherRemarks(params: {
 
   return useQuery({
     queryKey: ['teacher-remarks', user?.schoolId, user?.id, term, classId, streamId, year],
-    enabled:  !!user && !!term && !!classId && !!year,
+    enabled:  !!user && !!user.staffId && !!term && !!classId && !!year,
     queryFn:  async () => {
       // class_id / stream_id not in DB — load all remarks for this teacher + term + year
       const { data, error } = await supabase
@@ -126,6 +126,7 @@ export function useSaveRemarks() {
       streamId: string | null
       rows:     RemarkRow[]
     }) => {
+      if (!user) throw new Error('Not authenticated')
       const records = rows.map(r => ({
         school_id:  user!.schoolId,
         student_id: r.studentId,

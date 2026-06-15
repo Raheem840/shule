@@ -162,11 +162,11 @@ export function DeliveryLogPage() {
         </select>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontSize: 11, color: 'var(--txt3)', whiteSpace: 'nowrap' }}>From</span>
-          <input style={{ ...inputStyle, width: 140 }} type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+          <input style={{ ...inputStyle, width: '100%', maxWidth: 140 }} type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontSize: 11, color: 'var(--txt3)', whiteSpace: 'nowrap' }}>To</span>
-          <input style={{ ...inputStyle, width: 140 }} type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+          <input style={{ ...inputStyle, width: '100%', maxWidth: 140 }} type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
         </div>
       </div>
 
@@ -184,9 +184,9 @@ export function DeliveryLogPage() {
       {!isLoading && !isError && (
         <div className="mob-cards" style={{
           background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--r-lg)', overflow: 'hidden',
+          borderRadius: 'var(--r-lg)', overflow: 'hidden', overflowX: 'auto',
         }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
             <thead>
               <tr>
                 {['Date', 'Student', 'Phone', 'Channel', 'Message', 'Status', 'Delivered At', ''].map(h => (

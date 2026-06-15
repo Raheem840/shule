@@ -790,7 +790,7 @@ function MyAnalyticsPanel({
   return (
     <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 18 }}>
       {/* Section header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 22px', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, boxShadow: '0 1px 6px rgba(0,0,0,.04)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '18px 22px', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, boxShadow: '0 1px 6px rgba(0,0,0,.04)' }}>
         <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(145deg,#6366f1,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>

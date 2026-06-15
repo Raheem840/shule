@@ -322,9 +322,9 @@ export function BursarImportPage() {
       }
     }
 
-    void qc.invalidateQueries({ queryKey: ['fee-payments'] })
+    void qc.invalidateQueries({ queryKey: ['fee-payments', user?.schoolId] })
     void qc.invalidateQueries({ queryKey: ['bursar-student-fees'] })
-    void qc.invalidateQueries({ queryKey: ['bursar-kpis'] })
+    void qc.invalidateQueries({ queryKey: ['bursar-kpis', user?.schoolId] })
 
     const skipped = matchedRows.filter(m => m.skipped).length
     setImportResult({ imported, updated: 0, skipped, failed })

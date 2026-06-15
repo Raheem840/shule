@@ -150,7 +150,7 @@ export function useMessages(contactId: string | null) {
           }
 
           qc.setQueryData(
-            ['messages', user.id, contactId],
+            ['messages', user.schoolId, user.id, contactId],
             (old: Message[] = []) => {
               if (old.some(m => m.id === newMsg.id)) return old
               return [...old, newMsg]
@@ -158,7 +158,7 @@ export function useMessages(contactId: string | null) {
           )
 
           // Refresh unread badge + contact list
-          void qc.invalidateQueries({ queryKey: ['unread-count', user.id] })
+          void qc.invalidateQueries({ queryKey: ['unread-count', user.schoolId, user.id] })
           void qc.invalidateQueries({ queryKey: ['contacts', user.schoolId, user.id] })
         }
       )

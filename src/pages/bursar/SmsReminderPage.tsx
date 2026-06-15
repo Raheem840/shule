@@ -236,7 +236,7 @@ export function SmsReminderPage() {
                   key={t}
                   onClick={() => setSmsFilters(f => ({ ...f, term: t }))}
                   style={{
-                    padding: '0.2rem 0.75rem', border: 'none', borderRadius: 20,
+                    padding: '0.2rem 0.75rem', minHeight: 36, border: 'none', borderRadius: 20,
                     background: smsFilters.term === t ? 'var(--brand)' : 'transparent',
                     color: smsFilters.term === t ? '#fff' : 'var(--txt3)',
                     fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 12, cursor: 'pointer',
