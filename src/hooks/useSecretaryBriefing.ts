@@ -65,7 +65,7 @@ export function useSecretaryBriefing(term: number, year: number) {
 
   return useQuery({
     queryKey: ['secretary-briefing', user?.schoolId, term, year],
-    enabled: !!user,
+    enabled: !!user?.schoolId,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<SecretaryBriefingData> => {
       const sid = user!.schoolId
@@ -114,7 +114,8 @@ export function useSecretaryBriefing(term: number, year: number) {
         supabase.from('fee_payments')
           .select('student_id, amount_paid, amount_due')
           .eq('school_id', sid)
-          .eq('term', term),
+          .eq('term', term)
+          .eq('academic_year_id', (activeYear as any)?.id ?? ''),
         supabase.from('attendance')
           .select('student_id, class_id, status, date')
           .eq('school_id', sid)

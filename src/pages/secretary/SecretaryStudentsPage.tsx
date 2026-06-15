@@ -193,6 +193,15 @@ export function SecretaryStudentsPage() {
     const streamMap = new Map(streams.map(s => [s.name.toLowerCase().trim(), s.id]))
     const today     = new Date().toISOString().slice(0, 10)
 
+    // Resolve active academic year for the import
+    const { data: ayData } = await supabase
+      .from('academic_years')
+      .select('id')
+      .eq('school_id', user!.schoolId)
+      .eq('is_active', true)
+      .maybeSingle()
+    const activeYearId = (ayData as { id: string } | null)?.id ?? null
+
     const BATCH = 50
     for (let offset = 0; offset < rows.length; offset += BATCH) {
       const batch = rows.slice(offset, offset + BATCH)
@@ -212,6 +221,7 @@ export function SecretaryStudentsPage() {
         religion:         row.religion?.trim() || null,
         class_id:         classMap.get(row.class?.toLowerCase().trim() ?? '') ?? null,
         stream_id:        streamMap.get(row.stream?.toLowerCase().trim() ?? '') ?? null,
+        academic_year_id: activeYearId,
         student_type:     (['day','boarder'].includes((row.student_type ?? '').toLowerCase().trim()))
                             ? row.student_type!.toLowerCase().trim()
                             : null,

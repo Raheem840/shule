@@ -59,6 +59,7 @@ function useCreateParentAccount() {
       studentIds:   string[]
       tempPassword: string
     }) => {
+      if (!user) throw new Error('Not authenticated')
       const { data, error } = await supabase
         .from('parent_accounts')
         .insert({
@@ -77,7 +78,7 @@ function useCreateParentAccount() {
       return data.id as string
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['parent-accounts'] })
+      qc.invalidateQueries({ queryKey: ['parent-accounts', user?.schoolId] })
     },
   })
 }
@@ -282,7 +283,7 @@ function GenerateAccessModal({
         generated.push({ guardianName: name, email, tempPassword: pw })
       }
 
-      qc.invalidateQueries({ queryKey: ['parent-accounts'] })
+      qc.invalidateQueries({ queryKey: ['parent-accounts', user?.schoolId] })
       setResults(generated)
     } catch (err) {
       showErr(err instanceof Error ? err.message : 'Failed to create parent access')

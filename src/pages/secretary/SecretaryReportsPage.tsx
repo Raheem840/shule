@@ -700,7 +700,7 @@ function useReport6Data() {
   const year = new Date().getFullYear()
   return useQuery({
     queryKey: ['rpt-fee-status', user?.schoolId, year],
-    enabled: !!user,
+    enabled: !!user && user.role === 'secretary',
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const sid = user!.schoolId

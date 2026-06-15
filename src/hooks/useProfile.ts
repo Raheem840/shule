@@ -142,8 +142,10 @@ export function useUpdateProfile() {
 
 // ── useChangePassword ──────────────────────────────────────────────────────
 export function useChangePassword() {
+  const { user } = useAuth()
   return useMutation({
     mutationFn: async (newPassword: string) => {
+      if (!user) throw new Error('Not authenticated')
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) throw new Error(error.message)
     },
@@ -237,6 +239,7 @@ export function useApprovePasswordReset() {
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
+      if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('notifications')
         .update({ read_at: new Date().toISOString() })

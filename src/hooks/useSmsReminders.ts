@@ -237,7 +237,8 @@ export function useSendReminders() {
 
   return useMutation({
     mutationFn: async (reminders: SendReminderInput[]) => {
-      if (!isSmsRole(user?.role)) throw new Error('Forbidden')
+      if (!user) throw new Error('Not authenticated')
+      if (!isSmsRole(user.role)) throw new Error('Forbidden')
       const reminderRows = reminders.map(r => ({
         school_id:     user!.schoolId,
         student_id:    r.studentId,
