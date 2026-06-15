@@ -287,6 +287,7 @@ function ItAdminWizard({ onDone }: { onDone: () => void }) {
   }
 
   async function saveYear() {
+    if (!user) return
     if (!yvals.name.trim()) { setErr2('Year name is required.'); return }
     setYSaving(true); setErr2('')
     try {

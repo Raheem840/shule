@@ -98,8 +98,8 @@ export function StudentFullProfilePage() {
         {profile.examResults.length === 0 ? (
           <div style={{ color: 'var(--txt3)', fontSize: 13 }}>No exam results recorded yet.</div>
         ) : (
-          <div className="mob-cards">
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 360 }}>
             <thead>
               <tr>
                 {['Subject', 'Term', 'Year', 'Score', 'Grade'].map(h => (
@@ -190,15 +190,15 @@ export function StudentFullProfilePage() {
           {profile.recentDiscipline.map((r: any) => (
             <div key={r.id} style={{
               padding: '8px 0', borderBottom: '1px solid var(--border)',
-              display: 'flex', justifyContent: 'space-between',
+              display: 'flex', flexDirection: 'column', gap: 4,
             }}>
-              <div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ fontWeight: 700, fontSize: 12, color: 'var(--warning)' }}>
                   {r.nature.charAt(0).toUpperCase() + r.nature.slice(1)}
                 </span>
-                <span style={{ fontSize: 12, color: 'var(--txt3)', marginLeft: 8 }}>{r.incident_date}</span>
+                <span style={{ fontSize: 12, color: 'var(--txt3)' }}>{r.incident_date}</span>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--txt2)', maxWidth: 300, textAlign: 'right' }}>
+              <div style={{ fontSize: 12, color: 'var(--txt2)' }}>
                 {r.resolution}
               </div>
             </div>
@@ -208,7 +208,7 @@ export function StudentFullProfilePage() {
 
       {/* Actions */}
       <div style={{
-        display: 'flex', gap: 10, padding: 20,
+        display: 'flex', gap: 10, flexWrap: 'wrap', padding: 20,
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
       }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginRight: 'auto' }}>Actions</div>
@@ -216,7 +216,7 @@ export function StudentFullProfilePage() {
           <button
             onClick={() => setConfirmAction('suspended')}
             className="sui-btn-outline"
-            style={{ borderColor: 'var(--warning)', color: 'var(--warning)' }}
+            style={{ borderColor: 'var(--warning)', color: 'var(--warning)', minHeight: 36 }}
           >
             Suspend Student
           </button>

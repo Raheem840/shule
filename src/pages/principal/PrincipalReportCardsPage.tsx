@@ -203,7 +203,7 @@ function RCTable({
   const cols = selectable ? '40px 1fr 160px 120px 200px' : '1fr 160px 120px 200px'
 
   return (
-    <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden', overflowX: 'auto' }}>
+    <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden', overflowX: 'auto' }} className="hscroll">
       {/* Header */}
       <div style={{
         display: 'grid',
@@ -213,6 +213,7 @@ function RCTable({
         fontSize: 11, fontWeight: 700, color: 'var(--txt3)',
         textTransform: 'uppercase', letterSpacing: 0.5,
         fontFamily: 'var(--font2)',
+        minWidth: 560,
       }}>
         {selectable && (
           <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -244,6 +245,7 @@ function RCTable({
             borderBottom: i < cards.length - 1 ? '1px solid var(--border)' : 'none',
             alignItems: 'center',
             background: checked ? 'rgba(13,148,136,0.05)' : undefined,
+            minWidth: 560,
           }}>
             {selectable && (
               <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -499,7 +501,7 @@ export function PrincipalReportCardsPage() {
           <div style={{
             display: 'flex', gap: 4, background: 'var(--surface)',
             borderRadius: 12, padding: 4, border: '1px solid var(--border)',
-            marginBottom: 16, width: 'fit-content',
+            marginBottom: 16, flexWrap: 'wrap',
             boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
           }}>
             {tabs.map(tab => {
@@ -509,7 +511,7 @@ export function PrincipalReportCardsPage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   style={{
-                    padding: '7px 16px', borderRadius: 9, border: 'none',
+                    padding: '9px 16px', borderRadius: 9, border: 'none',
                     fontSize: 13, fontWeight: 700, fontFamily: 'var(--font2)',
                     cursor: 'pointer', transition: 'all 0.18s',
                     background: active ? 'linear-gradient(135deg, var(--brand), var(--info))' : 'transparent',
@@ -538,7 +540,7 @@ export function PrincipalReportCardsPage() {
             <>
               {selectedIds.size > 0 && (
                 <div style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
+                  display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
                   padding: '10px 14px', marginBottom: 10,
                   background: 'rgba(13,148,136,0.08)', borderRadius: 10,
                   border: '1px solid rgba(13,148,136,0.25)',

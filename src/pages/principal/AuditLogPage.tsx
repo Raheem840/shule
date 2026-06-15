@@ -345,10 +345,10 @@ function ActivityLogTab() {
             </div>
             <div>
               <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 }}>To</div>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="sui-input" style={{ width: 148, fontSize: 12 }} />
+              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="sui-input" style={{ width: '100%', minWidth: 130, fontSize: 12 }} />
             </div>
-            <button onClick={() => exportExcel()} disabled={!entries.length} className="sui-btn-outline" style={{ fontSize: 11.5, height: 38, opacity: entries.length ? 1 : 0.5 }}>Export Excel</button>
-            <button onClick={exportCsv} disabled={!entries.length} className="sui-btn-outline" style={{ fontSize: 11.5, height: 38, opacity: entries.length ? 1 : 0.5 }}>CSV</button>
+            <button onClick={() => exportExcel()} disabled={!entries.length} className="sui-btn-outline" style={{ fontSize: 11.5, height: 38, minWidth: 90, opacity: entries.length ? 1 : 0.5 }}>Export Excel</button>
+            <button onClick={exportCsv} disabled={!entries.length} className="sui-btn-outline" style={{ fontSize: 11.5, height: 38, minWidth: 90, opacity: entries.length ? 1 : 0.5 }}>CSV</button>
           </div>
         </div>
       </div>
@@ -451,9 +451,10 @@ function ActivityLogTab() {
                 {/* ── Expanded detail ── */}
                 {isExpanded && (
                   <div style={{
-                    padding: '16px 20px 16px 78px',
+                    padding: '16px 20px',
                     borderBottom: isLast ? 'none' : '1px solid var(--border)',
                     background: 'var(--surface2)',
+                    overflowX: 'auto',
                   }}>
                     <DetailPanel entry={e} />
                   </div>
@@ -558,11 +559,11 @@ function MessageLogTab() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
             <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 }}>From date</div>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="sui-input" style={{ width: 150, fontSize: 12 }} />
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="sui-input" style={{ width: '100%', maxWidth: 150, fontSize: 12 }} />
           </div>
           <div>
             <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 }}>To date</div>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="sui-input" style={{ width: 150, fontSize: 12 }} />
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="sui-input" style={{ width: '100%', maxWidth: 150, fontSize: 12 }} />
           </div>
           <button className="sui-btn-outline" onClick={exportCsv} style={{ fontSize: 11.5, height: 38 }}>Export CSV</button>
         </div>

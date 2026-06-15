@@ -48,7 +48,7 @@ export function PrincipalStaffProfilePage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Avatar name={fullName} photoPath={staff.photoUrl} bucket="staff-photos" size="xl" />
           <div>
@@ -85,7 +85,7 @@ export function PrincipalStaffProfilePage() {
 
       {/* Info grid */}
       <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20,
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20,
         background: 'var(--surface)', border: '1px solid var(--border)',
         borderRadius: 14, padding: 24,
       }}>

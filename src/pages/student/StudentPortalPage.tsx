@@ -930,7 +930,7 @@ function SurveyTab({ studentId }: { studentId: string }) {
         <button
           type="submit"
           className="sui-btn-primary"
-          disabled={submitSurvey.isPending}
+          disabled={submitSurvey.isPending || surveyMeta?.currentTerm === null}
           style={{ alignSelf: 'flex-start' }}
         >
           {submitSurvey.isPending ? 'Submitting…' : 'Submit Survey'}

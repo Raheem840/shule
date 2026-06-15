@@ -446,7 +446,7 @@ export function DosJournalsPage() {
         </div>
 
         {/* Tab switcher */}
-        <div className="no-print" style={{ display: 'flex', gap: 6, background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: 6, width: 'fit-content' }}>
+        <div className="no-print" style={{ display: 'flex', gap: 6, background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: 6, maxWidth: 'fit-content', width: '100%' }}>
           {(['journals', 'analytics'] as const).map(v => (
             <button key={v} onClick={() => setTab(v)} style={{
               padding: '8px 20px', borderRadius: 10, border: 'none', cursor: 'pointer',
@@ -521,7 +521,7 @@ export function DosJournalsPage() {
             )}
 
             {!isLoading && !jError && (
-              <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+              <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
                 <div className="hscroll">
                   <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 700 }}>
                     <thead>
@@ -605,7 +605,7 @@ export function DosJournalsPage() {
                   </select>
                 </div>
               ))}
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+              <div style={{ width: '100%', display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4 }}>
                 <button
                   onClick={() => void exportExcel()}
                   style={{

@@ -481,7 +481,8 @@ export function useAddPayment() {
 
   return useMutation({
     mutationFn: async (input: AddPaymentInput) => {
-      if (!isFinanceRole(user?.role)) throw new Error('Forbidden')
+      if (!user) throw new Error('Not authenticated')
+      if (!isFinanceRole(user.role)) throw new Error('Forbidden')
       const { data, error } = await supabase
         .from('fee_payments')
         .insert({
@@ -654,7 +655,8 @@ export function useApplyPayment() {
 
   return useMutation({
     mutationFn: async (input: ApplyPaymentInput) => {
-      if (!isFinanceRole(user?.role)) throw new Error('Forbidden')
+      if (!user) throw new Error('Not authenticated')
+      if (!isFinanceRole(user.role)) throw new Error('Forbidden')
       const { error } = await supabase
         .from('fee_payments')
         .update({

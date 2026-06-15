@@ -587,6 +587,7 @@ export function useParentAccounts() {
     queryKey: ['parent-accounts', user?.schoolId],
     enabled:  !!user?.schoolId,
     queryFn: async () => {
+      if (!['secretary', 'principal', 'it_admin', 'bursar'].includes(user?.role ?? '')) throw new Error('Forbidden')
       const { data, error } = await supabase
         .from('parent_accounts')
         .select('id, school_id, email, full_name, phone, auth_user_id, temp_password, student_ids, created_by, created_at')

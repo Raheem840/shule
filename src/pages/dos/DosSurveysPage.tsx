@@ -227,7 +227,7 @@ export function DosSurveysPage() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', alignItems: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', alignItems: 'flex-end' }}>
         <div style={{ flex: '1 1 220px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Term</div>
           <TermPicker value={term} onChange={setTerm} />
@@ -313,8 +313,8 @@ export function DosSurveysPage() {
               <div style={{ fontSize: 13, color: 'var(--txt3)', maxWidth: 360, margin: '0 auto' }}>Enable the survey in Academic Year settings so students can submit responses for Term {term} {year}.</div>
             </div>
           ) : (
-            <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, overflowX: 'auto', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
                 <thead>
                   <tr>
                     {['Student','Class','Overall','Teacher','Hardest','Favourite','Suggestions'].map(h => (
