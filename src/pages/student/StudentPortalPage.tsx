@@ -1122,7 +1122,7 @@ function MyTimetableTab({ classId, streamId }: { classId: string | null; streamI
         <div style={{ flex: '1 1 220px' }}>
           <TermPicker format="full" value={term} onChange={setTerm} />
         </div>
-        <input type="number" value={year} onChange={e => setYear(parseInt(e.target.value))} className="sui-input" style={{ width: 84 }} />
+        <input type="number" value={year} onChange={e => setYear(parseInt(e.target.value))} className="sui-input" style={{ flex: '0 0 5rem', minWidth: 0 }} />
       </div>
 
       {!classId && (

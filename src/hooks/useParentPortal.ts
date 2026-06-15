@@ -385,19 +385,20 @@ export function useSendMessageToBursar() {
 
   return useMutation({
     mutationFn: async ({ bursarAuthUserId, body }: { bursarAuthUserId: string; body: string }) => {
+      if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('messages')
         .insert({
-          school_id:      user!.schoolId,
-          from_user_id:   user!.id,
-          to_user_id:     bursarAuthUserId,
+          school_id:       user.schoolId,
+          from_user_id:    user.id,
+          to_user_id:      bursarAuthUserId,
           body,
           is_announcement: false,
         })
       if (error) throw error
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['parent-bursar-messages', user?.schoolId, user?.id] })
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['parent-bursar-messages', user?.schoolId, user?.id, vars.bursarAuthUserId] })
     },
   })
 }
@@ -633,6 +634,8 @@ export function useGenerateParentAccess() {
 
   return useMutation({
     mutationFn: async (student: { id: string; admissionNumber: string }): Promise<GeneratedAccess> => {
+      if (!user) throw new Error('Not authenticated')
+      if (!['secretary', 'principal', 'it_admin'].includes(user.role ?? '')) throw new Error('Forbidden')
       // ── 1. School short name for fallback email ──────────────
       const { data: school } = await supabase
         .from('school_profile')

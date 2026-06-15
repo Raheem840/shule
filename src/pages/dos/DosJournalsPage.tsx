@@ -60,7 +60,7 @@ function useAllJournals() {
         supabase.from('exam_journal')
           .select('id, assessment_type, subject_id, class_id, term, year, total_marks, pass_mark, status, date_given, teacher_id')
           .eq('school_id', sid).order('date_given', { ascending: false }).limit(500),
-        supabase.from('staff').select('id, first_name, last_name').eq('school_id', sid),
+        supabase.from('staff').select('id, first_name, last_name').eq('school_id', sid).limit(500),
       ])
       if (journalsRes.error) throw new Error(journalsRes.error.message)
       const staffMap = new Map<string, string>(
@@ -272,7 +272,12 @@ export function DosJournalsPage() {
     const scored    = filteredResults.filter(r => r.score != null && !r.isAbsent)
     const allScores = scored.map(r => r.score as number)
     const avg       = allScores.length > 0 ? allScores.reduce((a, b) => a + b, 0) / allScores.length : 0
-    const passRate  = allScores.length > 0 ? (allScores.filter(s => s >= 50).length / allScores.length) * 100 : 0
+    const passRate  = scored.length > 0
+      ? (scored.filter(r => {
+          const j = journalMeta.get(r.examJournalId)
+          return (r.score as number) >= (j?.passMark ?? 50)
+        }).length / scored.length) * 100
+      : 0
 
     const classBucket   = new Map<string, number[]>()
     const subjectBucket = new Map<string, number[]>()

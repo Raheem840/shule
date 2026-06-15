@@ -442,7 +442,7 @@ function FeeBalanceTab({ studentId }: { studentId: string }) {
                       </div>
 
                       {/* Amounts */}
-                      <div className="portal-fee-amounts" style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexShrink: 0 }}>
+                      <div className="portal-fee-amounts" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
                         <div style={{ textAlign: 'right' }}>
                           <div style={{ fontSize: 10, color: 'var(--txt3)', fontFamily: 'var(--font2)', fontWeight: 600, marginBottom: 1 }}>Charged</div>
                           <div style={{ fontFamily: 'var(--font3)', fontWeight: 700, fontSize: 12, color: 'var(--txt2)' }}>{fmtUGX(r.amountDue)}</div>
@@ -475,7 +475,7 @@ function FeeBalanceTab({ studentId }: { studentId: string }) {
                 padding: '0.6rem 1.1rem',
                 background: 'var(--surface2)',
                 borderTop: '1px solid var(--border)',
-                display: 'flex', justifyContent: 'flex-end', gap: '1.25rem',
+                display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexWrap: 'wrap', rowGap: '0.4rem',
               }}>
                 {[
                   { l: 'Total Charged', v: fmtUGX(termDue),  c: 'var(--txt2)' },
@@ -1407,7 +1407,7 @@ function ChildHeroCard({
 
       {/* KPI row */}
       <div className="portal-kpi-grid" style={{
-        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))',
         borderTop: '1px solid var(--border)',
       }}>
         {kpis.map((kpi, i) => (

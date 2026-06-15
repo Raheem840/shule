@@ -39,7 +39,7 @@ export function useDosOverview() {
         supabase
           .from('exam_results')
           .select('exam_journal_id, subject_id, score, term, year')
-          .eq('school_id', sid),
+          .eq('school_id', sid).limit(10000),
         supabase
           .from('curriculum_plan')
           .select('id, covered_at')
@@ -172,7 +172,7 @@ export function useDosClassPerformance(classId: string | null) {
         supabase
           .from('exam_results')
           .select('exam_journal_id, student_id, subject_id, score')
-          .eq('school_id', sid),
+          .eq('school_id', sid).limit(10000),
         supabase
           .from('students')
           .select('id, first_name, last_name')
@@ -544,7 +544,7 @@ export function useAssignTeacherClasses() {
     onSuccess: (staffId: string) => {
       void qc.invalidateQueries({ queryKey: ['dos-teacher-perf', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['teachers-for-timetable', user?.schoolId] })
-      void qc.invalidateQueries({ queryKey: ['my-staff-record'] })
+      void qc.invalidateQueries({ queryKey: ['my-staff-record', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['staff-by-id', staffId] })
       void qc.invalidateQueries({ queryKey: ['staff-classes-raw', staffId] })
     },

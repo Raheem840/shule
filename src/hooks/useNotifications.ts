@@ -98,8 +98,8 @@ export function useMarkSingleNotificationRead() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['portal-notifications', user?.id] })
-      void qc.invalidateQueries({ queryKey: ['notifications', user?.id] })
+      void qc.invalidateQueries({ queryKey: ['portal-notifications', user?.schoolId, user?.id] })
+      void qc.invalidateQueries({ queryKey: ['notifications', user?.schoolId, user?.id] })
     },
   })
 }
@@ -124,8 +124,8 @@ export function useMarkNotificationsRead() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['notifications',        user?.id] })
-      void qc.invalidateQueries({ queryKey: ['portal-notifications', user?.id] })
+      void qc.invalidateQueries({ queryKey: ['notifications',        user?.schoolId, user?.id] })
+      void qc.invalidateQueries({ queryKey: ['portal-notifications', user?.schoolId, user?.id] })
     },
   })
 }

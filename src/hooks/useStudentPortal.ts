@@ -15,7 +15,7 @@ export function useMyStudentRecord() {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['my-student-record', user?.id],
+    queryKey: ['my-student-record', user?.schoolId, user?.id],
     enabled:  !!user?.id && user?.role === 'student',
     queryFn: async () => {
       // DB NEEDS: ALTER TABLE students ADD COLUMN auth_user_id UUID REFERENCES auth.users(id)
