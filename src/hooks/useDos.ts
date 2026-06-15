@@ -47,10 +47,11 @@ export function useDosOverview() {
           .eq('year', currentYear),
       ])
 
-      if (studentsRes.error) throw new Error(studentsRes.error.message)
-      if (staffRes.error)    throw new Error(staffRes.error.message)
-      if (journalsRes.error) throw new Error(journalsRes.error.message)
-      if (resultsRes.error)  throw new Error(resultsRes.error.message)
+      if (studentsRes.error)   throw new Error(studentsRes.error.message)
+      if (staffRes.error)      throw new Error(staffRes.error.message)
+      if (journalsRes.error)   throw new Error(journalsRes.error.message)
+      if (resultsRes.error)    throw new Error(resultsRes.error.message)
+      if (curriculumRes.error) throw new Error(curriculumRes.error.message)
 
       const students   = studentsRes.data ?? []
       const teachers   = staffRes.data ?? []
@@ -547,6 +548,7 @@ export function useAssignTeacherClasses() {
       void qc.invalidateQueries({ queryKey: ['my-staff-record', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['staff-by-id', staffId] })
       void qc.invalidateQueries({ queryKey: ['staff-classes-raw', staffId] })
+      void qc.invalidateQueries({ queryKey: ['streams', user?.schoolId] })
     },
   })
 }
@@ -587,6 +589,7 @@ export function useAssignTeacherSubjects() {
       void qc.invalidateQueries({ queryKey: ['dos-teacher-perf', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['teachers-for-timetable', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['staff-by-id', staffId] })
+      void qc.invalidateQueries({ queryKey: ['streams', user?.schoolId] })
     },
   })
 }

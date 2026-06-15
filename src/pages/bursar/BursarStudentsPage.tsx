@@ -75,7 +75,7 @@ function useBursarStudentFees(
   const { user } = useAuth()
   return useQuery({
     queryKey: ['bursar-student-fees', user?.schoolId, classId, streamId, term, academicYearId],
-    enabled:  !!user && !!classId,
+    enabled:  !!user?.schoolId && !!classId && ['bursar', 'principal'].includes(user?.role ?? ''),
     staleTime: 30_000,
     queryFn: async (): Promise<StudentFeeRow[]> => {
       // 1. Fetch students in class / stream
@@ -319,7 +319,7 @@ function useRecordPayment() {
       }
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['bursar-student-fees'] })
+      void qc.invalidateQueries({ queryKey: ['bursar-student-fees', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['fee-payments', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['recent-payments', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['fee-over-time', user?.schoolId] })
@@ -346,7 +346,7 @@ function useUpdatePaymentAmount() {
       if (error) throw error
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['bursar-student-fees'] })
+      void qc.invalidateQueries({ queryKey: ['bursar-student-fees', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['fee-payments', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['recent-payments', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['bursar-kpis', user?.schoolId] })

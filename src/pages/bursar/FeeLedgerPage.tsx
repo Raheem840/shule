@@ -400,6 +400,8 @@ export function FeeLedgerPage() {
   // ── Fee import handler ────────────────────────────────────────
   const handleFeeImport = useCallback(
     async (parsedRows: ParsedRow[], strategy: ConflictStrategy): Promise<ImportResult> => {
+      if (!user) throw new Error('Not authenticated')
+      if (!['bursar', 'principal'].includes(user.role ?? '')) throw new Error('Forbidden')
       const result: ImportResult = { imported: 0, updated: 0, skipped: 0, failed: [] }
       const term = filters.term ?? 1
 
@@ -500,7 +502,7 @@ export function FeeLedgerPage() {
   const tdStyle = { padding: '0.65rem 0.85rem', verticalAlign: 'middle' as const }
 
   return (
-    <div style={{ padding: '1.5rem 2rem', maxWidth: 1400, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
+    <div style={{ padding: 'clamp(0.75rem, 4vw, 1.5rem) clamp(0.75rem, 4vw, 2rem)', maxWidth: 1400, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
       {/* Hero Band */}
       <div style={{
         borderRadius: 18, overflow: 'hidden',
@@ -604,7 +606,7 @@ export function FeeLedgerPage() {
           value={filters.classId ?? ''}
           onChange={e => setFilters(f => ({ ...f, classId: e.target.value || undefined, streamId: undefined }))}
           aria-label="Filter by class"
-          style={{ padding: '0.35rem 0.85rem', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', background: 'var(--surface)', color: 'var(--txt)', fontSize: 13 }}
+          style={{ padding: '0.35rem 0.85rem', minWidth: 120, border: '1.5px solid var(--border)', borderRadius: 'var(--r)', background: 'var(--surface)', color: 'var(--txt)', fontSize: 13 }}
         >
           <option value="">All Classes</option>
           {(classes ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -615,7 +617,7 @@ export function FeeLedgerPage() {
           onChange={e => setFilters(f => ({ ...f, streamId: e.target.value || undefined }))}
           aria-label="Filter by stream"
           disabled={!filters.classId}
-          style={{ padding: '0.35rem 0.85rem', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', background: 'var(--surface)', color: 'var(--txt)', fontSize: 13, opacity: filters.classId ? 1 : 0.5 }}
+          style={{ padding: '0.35rem 0.85rem', minWidth: 100, border: '1.5px solid var(--border)', borderRadius: 'var(--r)', background: 'var(--surface)', color: 'var(--txt)', fontSize: 13, opacity: filters.classId ? 1 : 0.5 }}
         >
           <option value="">All Streams</option>
           {(streams ?? []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -625,7 +627,7 @@ export function FeeLedgerPage() {
           value={filters.status ?? ''}
           onChange={e => setFilters(f => ({ ...f, status: (e.target.value as FeeStatus) || undefined }))}
           aria-label="Filter by status"
-          style={{ padding: '0.35rem 0.85rem', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', background: 'var(--surface)', color: 'var(--txt)', fontSize: 13 }}
+          style={{ padding: '0.35rem 0.85rem', minWidth: 110, border: '1.5px solid var(--border)', borderRadius: 'var(--r)', background: 'var(--surface)', color: 'var(--txt)', fontSize: 13 }}
         >
           <option value="">All Statuses</option>
           <option value="paid">Paid</option>

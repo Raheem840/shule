@@ -180,7 +180,7 @@ function PeriodConfigPanel({ defs, onChange, onClose }: {
               <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 17, color: 'var(--txt)', letterSpacing: -.3 }}>Configure Periods</div>
               <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 1 }}>Set times & event types for each period</div>
             </div>
-            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: 'var(--surface2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)' }}>
+            <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: 'var(--surface2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
@@ -213,7 +213,7 @@ function PeriodConfigPanel({ defs, onChange, onClose }: {
                     placeholder="Period label…"
                     style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--txt)', background: 'transparent', border: 'none', outline: 'none', padding: 0 }}
                   />
-                  <button onClick={() => remove(i)} style={{ width: 24, height: 24, borderRadius: 7, border: 'none', background: 'rgba(244,63,94,.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)', flexShrink: 0, fontSize: 10 }}>
+                  <button onClick={() => remove(i)} style={{ width: 36, height: 36, borderRadius: 7, border: 'none', background: 'rgba(244,63,94,.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)', flexShrink: 0, fontSize: 10 }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
                   </button>
                 </div>
@@ -364,7 +364,7 @@ function AssignModal({ target, term, year, periodDefs, onClose, onSaved }: {
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ width: '100%', maxWidth: 640, maxHeight: '92dvh', background: 'var(--surface)', borderRadius: 26, boxShadow: '0 32px 100px rgba(0,0,0,.35)', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'discCenterIn .26s cubic-bezier(.32,.72,0,1) both' }}>
+      <div style={{ width: '100%', maxWidth: 'min(640px, 95vw)', maxHeight: '92dvh', background: 'var(--surface)', borderRadius: 26, boxShadow: '0 32px 100px rgba(0,0,0,.35)', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'discCenterIn .26s cubic-bezier(.32,.72,0,1) both' }}>
 
         {/* ── Premium gradient header ── */}
         <div style={{ background: 'linear-gradient(135deg, #2d1b69 0%, #4c1d95 50%, #5b21b6 100%)', padding: '24px 28px 20px', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
@@ -422,7 +422,7 @@ function AssignModal({ target, term, year, periodDefs, onClose, onSaved }: {
               <div style={{ position: 'relative' }}>
                 <svg style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: .4 }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--txt)" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
-                  style={{ paddingLeft: 26, paddingRight: 10, paddingTop: 5, paddingBottom: 5, borderRadius: 8, border: '.5px solid var(--border)', fontSize: 12, background: 'var(--surface2)', color: 'var(--txt)', outline: 'none', width: 140 }} />
+                  style={{ paddingLeft: 26, paddingRight: 10, paddingTop: 5, paddingBottom: 5, borderRadius: 8, border: '.5px solid var(--border)', fontSize: 12, background: 'var(--surface2)', color: 'var(--txt)', outline: 'none', width: 'min(140px, 40vw)' }} />
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto', paddingRight: 2 }}>
@@ -1544,7 +1544,7 @@ export function DosTimetablePage() {
   const isMobile = useIsMobile()
 
   const [view,            setView]            = useState<ViewMode>('overview')
-  const [term,            setTerm]            = useState('Term 1')
+  const [term,            setTerm]            = useState('1')
   const [year,            setYear]            = useState(new Date().getFullYear())
   const [showConfigPanel, setShowConfigPanel] = useState(false)
   const [assignTarget,    setAssignTarget]    = useState<ModalTarget | null>(null)
@@ -1621,7 +1621,7 @@ export function DosTimetablePage() {
             ['builder',  'Builder',   'M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18'],
           ] as [ViewMode, string, string][]).map(([v, label, path]) => (
             <button key={v} onClick={() => setView(v)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: 'none', background: view === v ? 'var(--surface)' : 'transparent', color: view === v ? 'var(--txt)' : 'var(--txt3)', fontSize: 12.5, fontWeight: view === v ? 700 : 600, cursor: 'pointer', transition: 'all .15s', boxShadow: view === v ? '0 1px 6px rgba(0,0,0,.08)' : 'none', whiteSpace: 'nowrap' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', minHeight: 36, borderRadius: 10, border: 'none', background: view === v ? 'var(--surface)' : 'transparent', color: view === v ? 'var(--txt)' : 'var(--txt3)', fontSize: 12.5, fontWeight: view === v ? 700 : 600, cursor: 'pointer', transition: 'all .15s', boxShadow: view === v ? '0 1px 6px rgba(0,0,0,.08)' : 'none', whiteSpace: 'nowrap' }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><path d={path}/></svg>
               {label}

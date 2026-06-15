@@ -151,7 +151,7 @@ function ImportFeeStructureModal({ onClose }: { onClose: () => void }) {
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ width: '100%', maxWidth: 640, maxHeight: '90dvh', background: 'var(--surface)', borderRadius: 24, boxShadow: '0 28px 80px rgba(0,0,0,.26)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ width: '100%', maxWidth: 'min(640px, 95vw)', maxHeight: '90dvh', background: 'var(--surface)', borderRadius: 24, boxShadow: '0 28px 80px rgba(0,0,0,.26)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}
         <div style={{ padding: '20px 24px 16px', background: 'linear-gradient(150deg,rgba(13,148,136,.1),transparent)', borderBottom: '.5px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -550,7 +550,7 @@ function FeeCard({ fee, className, classBadges, onDelete, onAutoCharge, onEnable
       {/* Top accent strip */}
       <div style={{ height: 3, background: fee.isActive ? accentColor : 'var(--border)' }} />
 
-      <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+      <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         {/* Left: icon */}
         <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: `${accentColor}12`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2">
@@ -583,7 +583,7 @@ function FeeCard({ fee, className, classBadges, onDelete, onAutoCharge, onEnable
         </div>
 
         {/* Right: amount + actions */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, minWidth: 0 }}>
           <AmountCell fee={fee} />
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button
@@ -923,8 +923,8 @@ export function FeeStructurePage() {
     }
     ok(totalCharged > 0 ? `${totalCharged} student(s) billed across all fees` : 'All eligible students are already billed')
     void qc.invalidateQueries({ queryKey: ['uncharged-counts-v2'] })
-    void qc.invalidateQueries({ queryKey: ['bursar-student-fees'] })
-    void qc.invalidateQueries({ queryKey: ['fee-payments'] })
+    void qc.invalidateQueries({ queryKey: ['bursar-student-fees', user?.schoolId] })
+    void qc.invalidateQueries({ queryKey: ['fee-payments', user?.schoolId] })
   }
 
   const activeYear = years.find(y => y.isActive) ?? years[0]
@@ -980,8 +980,8 @@ export function FeeStructurePage() {
         ? `${result.charged} student(s) charged for "${fee.name}"`
         : `All eligible students already billed for "${fee.name}"`)
       void qc.invalidateQueries({ queryKey: ['uncharged-counts-v2'] })
-      void qc.invalidateQueries({ queryKey: ['bursar-student-fees'] })
-      void qc.invalidateQueries({ queryKey: ['fee-payments'] })
+      void qc.invalidateQueries({ queryKey: ['bursar-student-fees', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['fee-payments', user?.schoolId] })
     } catch (e: any) { err(e.message ?? 'Auto-charge failed') }
   }
 
@@ -1020,9 +1020,9 @@ export function FeeStructurePage() {
                 <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,.6)', marginTop: 3, fontWeight: 600 }}>{k.label}</div>
               </div>
             ))}
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button onClick={() => setShowImport(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 16px', borderRadius: 12, border: '1px solid rgba(255,255,255,.25)', background: 'rgba(255,255,255,.1)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', backdropFilter: 'blur(8px)' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 16px', minHeight: 44, borderRadius: 12, border: '1px solid rgba(255,255,255,.25)', background: 'rgba(255,255,255,.1)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', backdropFilter: 'blur(8px)' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 Import CSV
               </button>

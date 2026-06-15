@@ -267,6 +267,7 @@ export function useAutoChargeFees() {
       term: number; year?: number; amount: number; academicYearId: string
     }) => {
       if (!user) throw new Error('Not authenticated')
+      if (!['bursar', 'principal'].includes(user.role ?? '')) throw new Error('Forbidden')
       let q = supabase.from('students').select('id, student_type').eq('school_id', user.schoolId).eq('status', 'active')
       if (classId) q = q.eq('class_id', classId)
       if (appliesTo === 'boarders')     q = q.eq('student_type', 'boarder')
@@ -295,8 +296,8 @@ export function useAutoChargeFees() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['uncharged-counts-v2'] })
       void qc.invalidateQueries({ queryKey: ['fee-payments', user?.schoolId] })
-      void qc.invalidateQueries({ queryKey: ['bursar-student-fees'] })
-      void qc.invalidateQueries({ queryKey: ['bursar-kpis'] })
+      void qc.invalidateQueries({ queryKey: ['bursar-student-fees', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['bursar-kpis', user?.schoolId] })
     },
   })
 }
