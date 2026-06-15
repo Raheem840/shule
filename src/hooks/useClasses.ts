@@ -102,6 +102,7 @@ export function useAddSubject() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: { name: string; curriculumCode?: string; level?: string; departmentId?: string | null }) => {
+      if (!user) throw new Error('Not authenticated')
       const { data, error } = await supabase
         .from('subjects')
         .insert({
@@ -129,6 +130,7 @@ export function useUpdateSubject() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: { id: string; name?: string; curriculumCode?: string; level?: string; departmentId?: string | null }) => {
+      if (!user) throw new Error('Not authenticated')
       const patch: Record<string, unknown> = {}
       if (input.name !== undefined)           patch.name            = input.name
       if (input.curriculumCode !== undefined) patch.curriculum_code = input.curriculumCode || null
@@ -154,6 +156,7 @@ export function useToggleSubjectActive() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('subjects')
         .update({ is_active: isActive })
@@ -248,6 +251,7 @@ export function useArchiveDepartment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, archived }: { id: string; archived: boolean }) => {
+      if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('departments').update({ archived })
         .eq('id', id).eq('school_id', user!.schoolId)
@@ -264,6 +268,7 @@ export function useCreateClass() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: { name: string; level?: string | null }) => {
+      if (!user) throw new Error('Not authenticated')
       const { data: ayData } = await supabase
         .from('academic_years')
         .select('id')
@@ -301,6 +306,7 @@ export function useCreateStream() {
 
   return useMutation({
     mutationFn: async ({ classId, name }: { classId: string; name: string }) => {
+      if (!user) throw new Error('Not authenticated')
       const { data, error } = await supabase
         .from('streams')
         .insert({ school_id: user!.schoolId, class_id: classId, name: name.trim() })
@@ -323,6 +329,7 @@ export function useMoveStudent() {
 
   return useMutation({
     mutationFn: async ({ studentId, toStreamId }: { studentId: string; toStreamId: string }) => {
+      if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('students')
         .update({ stream_id: toStreamId })

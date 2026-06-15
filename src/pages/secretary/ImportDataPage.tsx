@@ -161,6 +161,7 @@ export function ImportDataPage() {
   //       anything else (different class, or new name) → INSERT
   //       admission number year = importYear state (default = current year)
   async function handleStudentImport(rows: ParsedRow[]): Promise<ImportResult> {
+    if (!user) throw new Error('Not authenticated')
     const failedItems: Array<{ row: number; reason: string }> = []
     let imported = 0
     let updated  = 0
@@ -340,7 +341,7 @@ export function ImportDataPage() {
       // Silently ignore errors (e.g. duplicate) — guardian is supplemental
     }
 
-    void qc.invalidateQueries({ queryKey: ['students'] })
+    void qc.invalidateQueries({ queryKey: ['students', user.schoolId] })
     setImportedStudents(newStudentResults)
 
     // Set activation flag and success metadata
@@ -358,6 +359,7 @@ export function ImportDataPage() {
 
   // ── Staff import handler ────────────────────────────────────────────────────
   async function handleStaffImport(rows: ParsedRow[]): Promise<ImportResult> {
+    if (!user) throw new Error('Not authenticated')
     const failedItems: Array<{ row: number; reason: string }> = []
     let imported = 0
 
@@ -447,7 +449,7 @@ export function ImportDataPage() {
       }
     }
 
-    void qc.invalidateQueries({ queryKey: ['staff'] })
+    void qc.invalidateQueries({ queryKey: ['staff', user.schoolId] })
     setImportSuccess({ count: imported, type: 'staff' })
     return { imported, updated: 0, skipped: 0, failed: failedItems }
   }

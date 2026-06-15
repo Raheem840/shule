@@ -240,6 +240,7 @@ export function useRegisterStudent() {
 
   return useMutation({
     mutationFn: async (input: RegisterStudentInput) => {
+      if (!user) throw new Error('Not authenticated')
       // students.created_by is a FK → staff.id (the staff row's own PK),
       // NOT auth.users.id. Resolve the staff row first, same pattern as
       // useExamJournal. If the lookup fails we still proceed with null
@@ -315,6 +316,7 @@ export function useUpdateStudent() {
 
   return useMutation({
     mutationFn: async ({ id, ...fields }: UpdateStudentInput) => {
+      if (!user) throw new Error('Not authenticated')
       // Build update object with only provided fields
       const patch: AnyRow = {}
       if (fields.firstName    !== undefined) patch.first_name    = fields.firstName
@@ -357,6 +359,7 @@ export function useDeleteStudent() {
 
   return useMutation({
     mutationFn: async (studentId: string) => {
+      if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('students')
         .delete()
@@ -381,6 +384,7 @@ export function useSetStudentStatus() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: Student['status'] }) => {
+      if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('students')
         .update({ status })

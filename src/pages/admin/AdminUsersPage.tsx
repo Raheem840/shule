@@ -1335,6 +1335,9 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
 
   async function handleCreate() {
     if (busy || !entity) return
+    if (!user || !['it_admin', 'principal', 'secretary'].includes(user.role ?? '')) {
+      setError('Forbidden: insufficient role'); return
+    }
     setBusy(true)
     setError(null)
     const password = wizGenPass()

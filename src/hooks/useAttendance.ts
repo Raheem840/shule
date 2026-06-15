@@ -197,6 +197,7 @@ export function useSaveAttendance() {
 
   return useMutation({
     mutationFn: async (input: AttendanceInput) => {
+      if (!user) throw new Error('Not authenticated')
       // Delete existing records for this class+date then re-insert.
       const { error: delErr } = await supabase
         .from('attendance')

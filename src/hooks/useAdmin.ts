@@ -12,7 +12,7 @@ export function useSystemKpis() {
 
   return useQuery({
     queryKey: ['system-kpis', user?.schoolId],
-    enabled: !!user?.schoolId,
+    enabled: !!user?.schoolId && user?.role === 'it_admin',
     queryFn: async (): Promise<SystemKpis> => {
       const sid = user!.schoolId
 
@@ -91,6 +91,7 @@ export function useResetPassword() {
   return useMutation({
     mutationFn: async (authUserId: string): Promise<{ newPassword: string }> => {
       if (!user) throw new Error('Not authenticated')
+      if (user.role !== 'it_admin') throw new Error('Forbidden')
 
       const newPassword = generateTempPassword()
       const { error } = await supabase.functions.invoke('reset-staff-password', {
@@ -300,6 +301,7 @@ export function useDeleteUser() {
   return useMutation({
     mutationFn: async ({ staffId, authUserId }: { staffId: string; authUserId: string | null }) => {
       if (!user) throw new Error('Not authenticated')
+      if (user.role !== 'it_admin') throw new Error('Forbidden')
 
       // Remove the staff row first (clears FK to auth user)
       const { error: deleteErr } = await supabase
@@ -370,7 +372,7 @@ export function useStorageBuckets() {
 
   return useQuery({
     queryKey: ['storage-buckets', user?.schoolId],
-    enabled: !!user,
+    enabled: !!user && user?.role === 'it_admin',
     queryFn: async () => {
       const results = await Promise.allSettled(
         KNOWN_BUCKETS.map(async (b) => {

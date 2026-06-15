@@ -77,7 +77,7 @@ export function useMessages(contactId: string | null) {
   const qc = useQueryClient()
 
   const query = useQuery({
-    queryKey: ['messages', user?.id, contactId],
+    queryKey: ['messages', user?.schoolId, user?.id, contactId],
     enabled: !!user && !!contactId,
     queryFn: async (): Promise<Message[]> => {
       const uid = user!.id
@@ -189,6 +189,7 @@ export function useSendMessage() {
         school_id:       user.schoolId,
         from_user_id:    user.id,
         to_user_id:      input.toUserId,
+        is_announcement: false,
         body:            input.body,
         attachment_url:  input.attachmentUrl  ?? null,
         attachment_name: input.attachmentName ?? null,
@@ -381,7 +382,7 @@ export function useUnreadCount() {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['unread-count', user?.id],
+    queryKey: ['unread-count', user?.schoolId, user?.id],
     enabled: !!user,
     queryFn: async (): Promise<number> => {
       const { count, error } = await supabase

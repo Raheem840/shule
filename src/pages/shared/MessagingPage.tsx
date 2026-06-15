@@ -561,7 +561,7 @@ function AnnouncementsView({ onBack }: { onBack?: () => void }) {
   async function handlePost(text: string) {
     try {
       await post({ body: text })
-      void supabase.functions.invoke('broadcast-announcement', { body: { body: text, role: user?.role } })
+      void supabase.functions.invoke('broadcast-announcement', { body: { body: text, role: user?.role, school_id: user?.schoolId } })
     } catch (e: any) { toastErr(e.message) }
   }
 
