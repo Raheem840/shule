@@ -508,7 +508,7 @@ export function useConversationWithParent(parentAuthUserId: string | null) {
   const qc = useQueryClient()
 
   const query = useQuery({
-    queryKey: ['parent-thread', user?.id, parentAuthUserId],
+    queryKey: ['parent-thread', user?.schoolId, user?.id, parentAuthUserId],
     enabled: !!user && !!parentAuthUserId,
     staleTime: 10_000,
     refetchInterval: 15_000,
@@ -577,7 +577,7 @@ export function useConversationWithParent(parentAuthUserId: string | null) {
           }
 
           qc.setQueryData(
-            ['parent-thread', user.id, parentAuthUserId],
+            ['parent-thread', user.schoolId, user.id, parentAuthUserId],
             (old: Message[] = []) => {
               if (old.some(m => m.id === newMsg.id)) return old
               return [...old, newMsg]

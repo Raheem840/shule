@@ -67,7 +67,7 @@ function EventFormModal({ initial, onSave, onClose, saving, showParentsToggle }:
   }
 
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.52)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.52)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '12px 16px' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ width: '100%', maxWidth: 520, maxHeight: '92dvh', background: 'var(--surface)', borderRadius: 22, boxShadow: '0 24px 80px rgba(0,0,0,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '20px 24px 18px', background: `linear-gradient(150deg,${color}14,${color}05,transparent)`, borderBottom: `.5px solid ${color}20`, flexShrink: 0 }}>
@@ -151,7 +151,7 @@ function ConfirmDelete({ event, onConfirm, onCancel, busy }: { event: SchoolEven
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, padding: 20 }}
       onClick={e => e.target === e.currentTarget && onCancel()}>
-      <div style={{ width: '100%', maxWidth: 400, background: 'var(--surface)', borderRadius: 20, padding: '28px 28px 24px', boxShadow: '0 24px 80px rgba(0,0,0,.3)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ width: '100%', maxWidth: 400, background: 'var(--surface)', borderRadius: 20, padding: '28px 20px 24px', boxShadow: '0 24px 80px rgba(0,0,0,.3)', display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div>
           <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, color: 'var(--txt)', marginBottom: 8 }}>Delete event?</div>
           <div style={{ fontSize: 13.5, color: 'var(--txt2)', lineHeight: 1.55 }}>"{event.title}" will be permanently deleted.</div>
@@ -304,16 +304,16 @@ export function TeacherEventsPage() {
 
       {/* ── Type filter pills ── */}
       {presentTypes.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, scrollbarWidth: 'none' }}>
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6, scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
           <button onClick={() => setTypeFilter('all')}
-            style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 99, cursor: 'pointer', fontWeight: typeFilter === 'all' ? 800 : 600, fontSize: 12, background: typeFilter === 'all' ? 'var(--txt)' : 'var(--surface2)', color: typeFilter === 'all' ? 'var(--surface)' : 'var(--txt3)', border: `.5px solid ${typeFilter === 'all' ? 'var(--txt)' : 'var(--border)'}`, transition: 'all .16s', whiteSpace: 'nowrap' }}>
+            style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 99, cursor: 'pointer', fontWeight: typeFilter === 'all' ? 800 : 600, fontSize: 12, background: typeFilter === 'all' ? 'var(--txt)' : 'var(--surface2)', color: typeFilter === 'all' ? 'var(--surface)' : 'var(--txt3)', border: `.5px solid ${typeFilter === 'all' ? 'var(--txt)' : 'var(--border)'}`, transition: 'all .16s', whiteSpace: 'nowrap' }}>
             All types
           </button>
           {presentTypes.map(t => {
             const on = typeFilter === t.value
             return (
               <button key={t.value} onClick={() => setTypeFilter(on ? 'all' : t.value)}
-                style={{ flexShrink: 0, padding: '5px 14px', borderRadius: 99, cursor: 'pointer', fontWeight: on ? 800 : 600, fontSize: 12, background: on ? t.color : 'var(--surface2)', color: on ? '#fff' : 'var(--txt3)', border: `.5px solid ${on ? t.color : 'var(--border)'}`, transition: 'all .16s', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
+                style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 99, cursor: 'pointer', fontWeight: on ? 800 : 600, fontSize: 12, background: on ? t.color : 'var(--surface2)', color: on ? '#fff' : 'var(--txt3)', border: `.5px solid ${on ? t.color : 'var(--border)'}`, transition: 'all .16s', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: on ? 'rgba(255,255,255,.8)' : t.color, flexShrink: 0 }} />
                 {t.label}
               </button>

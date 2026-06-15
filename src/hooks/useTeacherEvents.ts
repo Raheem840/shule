@@ -199,9 +199,9 @@ export function useCreateEvent() {
       })()
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['teacher-events'] })
-      void qc.invalidateQueries({ queryKey: ['school-events-all'] })
-      void qc.invalidateQueries({ queryKey: ['term-progress'] })
+      void qc.invalidateQueries({ queryKey: ['teacher-events', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['school-events-all', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['term-progress', user?.schoolId] })
     },
   })
 }
@@ -248,9 +248,9 @@ export function useUpdateEvent() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['teacher-events'] })
-      void qc.invalidateQueries({ queryKey: ['school-events-all'] })
-      void qc.invalidateQueries({ queryKey: ['term-progress'] })
+      void qc.invalidateQueries({ queryKey: ['teacher-events', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['school-events-all', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['term-progress', user?.schoolId] })
     },
   })
 }
@@ -267,9 +267,9 @@ export function useDeleteEvent() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['school-events-all'] })
-      void qc.invalidateQueries({ queryKey: ['teacher-events'] })
-      void qc.invalidateQueries({ queryKey: ['term-progress'] })
+      void qc.invalidateQueries({ queryKey: ['school-events-all', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['teacher-events', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['term-progress', user?.schoolId] })
     },
   })
 }
@@ -292,7 +292,8 @@ export function useJournalEvent() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['teacher-events'] })
+      void qc.invalidateQueries({ queryKey: ['teacher-events', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['school-events-all', user?.schoolId] })
     },
   })
 }

@@ -257,11 +257,12 @@ export function usePublishJournal() {
 
   return useMutation({
     mutationFn: async (journalId: string) => {
+      if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('exam_journal')
         .update({ status: 'published' })
         .eq('id', journalId)
-        .eq('school_id', user!.schoolId)
+        .eq('school_id', user.schoolId)
 
       if (error) throw error
       return journalId

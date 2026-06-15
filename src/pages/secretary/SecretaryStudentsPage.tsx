@@ -52,13 +52,13 @@ function StudentProfileModal({ student, classes, streams, onClose, onEdit }: {
   }
 
   const modal = (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 500, padding: 16 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 500, padding: 'max(16px, env(safe-area-inset-bottom)) 16px 16px' }}>
       <div className="sui-modal-dialog" style={{ background: 'var(--surface)', width: '100%', maxWidth: 520, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header with avatar */}
         <div style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)`, padding: '24px 24px 20px', position: 'relative', flexShrink: 0 }}>
           <div style={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,.08)', pointerEvents: 'none' }} />
-          <button onClick={onClose} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,.2)', border: 'none', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={onClose} style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,.2)', border: 'none', borderRadius: '50%', width: 36, height: 36, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, position: 'relative', zIndex: 1 }}>
@@ -186,11 +186,13 @@ export function SecretaryStudentsPage() {
     rows: ParsedRow[],
     strategy: ConflictStrategy,
   ): Promise<ImportResult> {
+    if (!user) throw new Error('Not authenticated')
     const result: ImportResult = { imported: 0, updated: 0, skipped: 0, failed: [] }
     if (rows.length === 0) return result
 
     const classMap  = new Map(classes.map(c => [c.name.toLowerCase().trim(), c.id]))
-    const streamMap = new Map(streams.map(s => [s.name.toLowerCase().trim(), s.id]))
+    // Key: `${classId}::${streamName}` to avoid collision when multiple classes share a stream name
+    const streamMap = new Map(streams.map(s => [`${s.classId ?? ''}::${s.name.toLowerCase().trim()}`, s.id]))
     const today     = new Date().toISOString().slice(0, 10)
 
     // Resolve active academic year for the import
@@ -220,7 +222,7 @@ export function SecretaryStudentsPage() {
         nationality:      row.nationality?.trim() || null,
         religion:         row.religion?.trim() || null,
         class_id:         classMap.get(row.class?.toLowerCase().trim() ?? '') ?? null,
-        stream_id:        streamMap.get(row.stream?.toLowerCase().trim() ?? '') ?? null,
+        stream_id:        (() => { const cid = classMap.get(row.class?.toLowerCase().trim() ?? '') ?? ''; return streamMap.get(`${cid}::${row.stream?.toLowerCase().trim() ?? ''}`) ?? null })(),
         academic_year_id: activeYearId,
         student_type:     (['day','boarder'].includes((row.student_type ?? '').toLowerCase().trim()))
                             ? row.student_type!.toLowerCase().trim()

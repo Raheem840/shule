@@ -105,6 +105,7 @@ function useTeacherClassName() {
         .from('staff')
         .select('classes')
         .eq('id', user!.staffId!)
+        .eq('school_id', user!.schoolId)
         .maybeSingle()
       const classIds = ((staff as any)?.classes ?? []) as string[]
       if (classIds.length === 0) return null

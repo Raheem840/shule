@@ -552,12 +552,12 @@ function PerformanceAnalytics({ marks, students, totalMarks, isCA }: {
           <div
             key={chip.label}
             style={{
-              flex: '1 1 130px',
+              flex: '1 1 120px',
               background:   'var(--surface2)',
               border:       '1px solid var(--border)',
               borderRadius: 14,
               padding:      '16px 20px',
-              minWidth:     120,
+              minWidth:     110,
             }}
           >
             <div style={{
@@ -847,8 +847,12 @@ export function MarkEntryPage() {
     }
 
     result.imported = validRows.length
-    // Invalidate so the grid refreshes
     qc.invalidateQueries({ queryKey: ['exam-results', user?.schoolId, journal.id] })
+    qc.invalidateQueries({ queryKey: ['dos-overview', user?.schoolId] })
+    qc.invalidateQueries({ queryKey: ['dos-class-perf', user?.schoolId] })
+    qc.invalidateQueries({ queryKey: ['principal-kpis', user?.schoolId] })
+    qc.invalidateQueries({ queryKey: ['secretary-briefing', user?.schoolId] })
+    qc.invalidateQueries({ queryKey: ['term-progress', user?.schoolId] })
     return result
   }
 
@@ -889,8 +893,8 @@ export function MarkEntryPage() {
             <span>Pass: <strong>{passMark}</strong></span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font2)' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
+          <div style={{ fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font2)', minWidth: 0, flexShrink: 1 }}>
             <span style={{ color: '#10b981', fontWeight: 700 }}>{enteredCount}</span>/{students.length} entered
             {missingCount > 0 && <span style={{ color: 'var(--warning)', marginLeft: 8 }}>· {missingCount} missing</span>}
             {absentCount  > 0 && <span style={{ color: 'var(--info)',    marginLeft: 8 }}>· {absentCount} absent</span>}
@@ -958,7 +962,7 @@ export function MarkEntryPage() {
           </div>
         )}
 
-        <div ref={parentRef} style={{ maxHeight: isMobile ? 'calc(100dvh - 280px)' : 420, overflowY: 'auto' }}>
+        <div ref={parentRef} style={{ maxHeight: isMobile ? 'calc(100dvh - 360px)' : 420, overflowY: 'auto' }}>
           <div style={{ height: rowVirt.getTotalSize(), position: 'relative' }}>
             {rowVirt.getVirtualItems().map(vRow => {
               const student  = students[vRow.index]
@@ -1086,7 +1090,7 @@ export function MarkEntryPage() {
 
                   <div>
                     <input type="checkbox" checked={isAbsent} onChange={e => setMark(student.id, null, e.target.checked)}
-                      title="Mark absent" style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--brand)' }} />
+                      title="Mark absent" style={{ width: 20, height: 20, cursor: 'pointer', accentColor: 'var(--brand)' }} />
                   </div>
                 </div>
               )
