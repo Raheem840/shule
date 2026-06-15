@@ -16,7 +16,8 @@ export function useDeputyOverview() {
     queryKey: ['deputy-overview', user?.schoolId],
     enabled: !!user && isDeputyRole(user?.role),
     queryFn: async () => {
-      const sid = user!.schoolId
+      if (!user) throw new Error('Not authenticated')
+      const sid = user.schoolId
 
       const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10)
       const [classesRes, attendanceRes] = await Promise.all([
@@ -66,7 +67,8 @@ export function useDeputyKpis() {
     queryKey: ['deputy-kpis', user?.schoolId],
     enabled: !!user && isDeputyRole(user?.role),
     queryFn: async () => {
-      const sid = user!.schoolId
+      if (!user) throw new Error('Not authenticated')
+      const sid = user.schoolId
 
       const [disciplineRes, streamsRes, attendanceRes] = await Promise.all([
         supabase
@@ -123,7 +125,8 @@ export function useRecentDiscipline() {
     queryKey: ['recent-discipline', user?.schoolId],
     enabled: !!user && isDeputyRole(user?.role),
     queryFn: async () => {
-      const sid = user!.schoolId
+      if (!user) throw new Error('Not authenticated')
+      const sid = user.schoolId
 
       const { data, error } = await supabase
         .from('discipline_records')
@@ -172,7 +175,8 @@ export function useDisciplineRecords(filters?: {
     queryKey: ['discipline-records', user?.schoolId, filters],
     enabled: !!user && isDeputyRole(user?.role),
     queryFn: async () => {
-      const sid = user!.schoolId
+      if (!user) throw new Error('Not authenticated')
+      const sid = user.schoolId
 
       let q = supabase
         .from('discipline_records')
@@ -392,13 +396,14 @@ export function useTimetable(classId?: string | null) {
     queryKey: ['timetable', user?.schoolId, classId],
     enabled: !!user,
     queryFn: async (): Promise<TimetablePeriod[]> => {
+      if (!user) throw new Error('Not authenticated')
       let q = supabase
         .from('timetable_slots')
         .select(
           'id, school_id, class_id, stream_id, subject_id, teacher_id,' +
           ' day_of_week, period_number, start_time, end_time, term, year, is_published'
         )
-        .eq('school_id', user!.schoolId)
+        .eq('school_id', user.schoolId)
         .order('day_of_week', { ascending: true })
         .order('period_number', { ascending: true })
 
@@ -437,11 +442,12 @@ export function useClassAttendanceSummaries(classId: string | null) {
     queryKey: ['class-attendance-summaries', user?.schoolId, classId],
     enabled: !!user && !!classId,
     queryFn: async (): Promise<AttendanceSummary[]> => {
+      if (!user) throw new Error('Not authenticated')
       const yearStart = `${new Date().getFullYear()}-01-01`
       const { data, error } = await supabase
         .from('attendance')
         .select('student_id, status')
-        .eq('school_id', user!.schoolId)
+        .eq('school_id', user.schoolId)
         .eq('class_id', classId!)
         .gte('date', yearStart)
 

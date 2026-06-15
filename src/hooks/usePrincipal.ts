@@ -98,7 +98,7 @@ export function useTopClasses() {
 
   return useQuery({
     queryKey: ['top-classes', user?.schoolId],
-    enabled: !!user,
+    enabled: !!user && user.role === 'principal',
     queryFn: async (): Promise<TopClass[]> => {
       const sid = user!.schoolId
 
@@ -212,7 +212,7 @@ export function useAuditLog(params?: {
 
   return useQuery({
     queryKey: ['audit-log', user?.schoolId, params],
-    enabled: !!user,
+    enabled: !!user && user.role === 'principal',
     queryFn: async (): Promise<AuditEntry[]> => {
       let q = supabase
         .from('audit_log')
@@ -484,7 +484,7 @@ export function useAllClassPerformance() {
   const { user } = useAuth()
   return useQuery({
     queryKey: ['class-performance', user?.schoolId],
-    enabled:  !!user,
+    enabled:  !!user && user.role === 'principal',
     queryFn: async () => {
       const sid = user!.schoolId
 
@@ -554,7 +554,7 @@ export function useAttendanceByClass() {
   const { user } = useAuth()
   return useQuery({
     queryKey: ['attendance-by-class', user?.schoolId],
-    enabled:  !!user,
+    enabled:  !!user && user.role === 'principal',
     queryFn: async () => {
       const sid  = user!.schoolId
       const since = new Date()
@@ -602,7 +602,7 @@ export function useGenderEnrollment() {
   const { user } = useAuth()
   return useQuery({
     queryKey: ['gender-enrollment', user?.schoolId],
-    enabled:  !!user,
+    enabled:  !!user && user.role === 'principal',
     queryFn: async () => {
       const { data } = await supabase
         .from('students')
@@ -629,7 +629,7 @@ export function useStaffRoleBreakdown() {
   const { user } = useAuth()
   return useQuery({
     queryKey: ['staff-role-breakdown', user?.schoolId],
-    enabled:  !!user,
+    enabled:  !!user && user.role === 'principal',
     queryFn: async () => {
       const { data } = await supabase
         .from('staff')
@@ -654,7 +654,7 @@ export function useMonthlyDiscipline() {
   const { user } = useAuth()
   return useQuery({
     queryKey: ['monthly-discipline', user?.schoolId],
-    enabled:  !!user,
+    enabled:  !!user && user.role === 'principal',
     queryFn: async () => {
       const sixMonthsAgo = new Date()
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)

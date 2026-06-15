@@ -669,11 +669,11 @@ function MyReportCardsTab({ studentId }: { studentId: string }) {
                 target="_blank"
                 rel="noreferrer"
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '0.45rem 0.9rem', borderRadius: 10,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  padding: '0.75rem 1rem', borderRadius: 10, width: '100%',
                   background: 'var(--brand)', color: '#fff',
                   fontSize: 12, fontWeight: 700, fontFamily: 'var(--font2)',
-                  textDecoration: 'none', flexShrink: 0,
+                  textDecoration: 'none',
                   boxShadow: '0 4px 12px rgba(13,148,136,.4)',
                   transition: 'opacity 0.15s',
                 }}
@@ -741,7 +741,7 @@ function StarRating({ value, onChange }: { value: number; onChange: (n: number) 
           onClick={() => onChange(n)}
           onMouseEnter={() => setHovered(n)}
           onMouseLeave={() => setHovered(0)}
-          style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 3, lineHeight: 1, transition: 'transform 0.1s' }}
+          style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 6, lineHeight: 1, transition: 'transform 0.1s' }}
         >
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
             <path
@@ -931,7 +931,7 @@ function SurveyTab({ studentId }: { studentId: string }) {
           type="submit"
           className="sui-btn-primary"
           disabled={submitSurvey.isPending || surveyMeta?.currentTerm === null}
-          style={{ alignSelf: 'flex-start' }}
+          style={{ width: '100%' }}
         >
           {submitSurvey.isPending ? 'Submitting…' : 'Submit Survey'}
         </button>
@@ -1530,7 +1530,7 @@ export function StudentPortalPage() {
                 backdropFilter: 'blur(8px)', borderRadius: 14, padding: '10px 14px',
               }}>
                 <div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', fontFamily: 'var(--font2)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>Pass Rate</div>
-                <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--font2)', color: passRate >= 70 ? '#6ee7b7' : passRate >= 50 ? '#fde68a' : '#fda4af', lineHeight: 1, letterSpacing: -.5 }}>{passRate}%</div>
+                <div style={{ fontSize: 'clamp(15px, 4vw, 22px)', fontWeight: 900, fontFamily: 'var(--font2)', color: passRate >= 70 ? '#6ee7b7' : passRate >= 50 ? '#fde68a' : '#fda4af', lineHeight: 1, letterSpacing: -.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{passRate}%</div>
               </div>
             )}
             {attendance && (
@@ -1540,7 +1540,7 @@ export function StudentPortalPage() {
                 backdropFilter: 'blur(8px)', borderRadius: 14, padding: '10px 14px',
               }}>
                 <div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', fontFamily: 'var(--font2)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>Attendance</div>
-                <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--font2)', color: attendance.isBelowThreshold ? '#fda4af' : '#6ee7b7', lineHeight: 1, letterSpacing: -.5 }}>{attendance.rate}%</div>
+                <div style={{ fontSize: 'clamp(15px, 4vw, 22px)', fontWeight: 900, fontFamily: 'var(--font2)', color: attendance.isBelowThreshold ? '#fda4af' : '#6ee7b7', lineHeight: 1, letterSpacing: -.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attendance.rate}%</div>
               </div>
             )}
             <div style={{
@@ -1550,9 +1550,10 @@ export function StudentPortalPage() {
             }}>
               <div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', fontFamily: 'var(--font2)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: .7, marginBottom: 3 }}>Balance</div>
               <div style={{
-                fontSize: fees.length === 0 ? 13 : 22, fontWeight: 900, fontFamily: 'var(--font2)',
+                fontSize: fees.length === 0 ? 13 : 'clamp(15px, 4vw, 22px)', fontWeight: 900, fontFamily: 'var(--font2)',
                 color: fees.length === 0 ? 'rgba(255,255,255,.35)' : totalBal > 0 ? '#fda4af' : '#6ee7b7',
                 lineHeight: 1, letterSpacing: fees.length === 0 ? 0 : -.5,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
                 {fees.length === 0 ? '—' : totalBal > 0 ? `${(totalBal / 1000).toFixed(0)}k` : 'Clear'}
               </div>

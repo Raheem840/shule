@@ -10,7 +10,7 @@ export function useNotifications() {
 
   return useQuery({
     queryKey: ['notifications', user?.schoolId, user?.id],
-    enabled: !!user,
+    enabled: !!user && !!user.schoolId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notifications')
@@ -48,7 +48,7 @@ export function usePortalNotifications() {
 
   return useQuery({
     queryKey: ['portal-notifications', user?.schoolId, user?.id],
-    enabled: !!user,
+    enabled: !!user && !!user.schoolId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notifications')

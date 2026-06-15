@@ -772,8 +772,8 @@ function ReportCardsTab({ studentId }: { studentId: string }) {
                 target="_blank"
                 rel="noreferrer"
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-                  padding: '0.6rem 1.25rem', borderRadius: 10,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                  padding: '0.75rem 1.25rem', borderRadius: 10, width: '100%',
                   background: 'var(--brand)', color: '#fff',
                   fontSize: 12.5, fontWeight: 700, fontFamily: 'var(--font2)',
                   textDecoration: 'none', transition: 'background 0.15s, transform 0.1s',
@@ -1048,9 +1048,9 @@ function MessagesTab({ classId }: { classId: string | null }) {
   }
 
   return (
-    <div className="portal-msg-shell" style={{ display: 'flex', height: '65vh', minHeight: 480, overflow: 'hidden' }}>
+    <div className="portal-msg-shell" style={{ display: 'flex', height: '60vh', minHeight: 320, overflow: 'hidden' }}>
       {/* Contact sidebar */}
-      <div className="portal-msg-rail" style={{ width: 180, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--surface2)' }}>
+      <div className="portal-msg-rail" style={{ width: 'clamp(72px, 30%, 180px)', flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--surface2)', overflowY: 'auto' }}>
         <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5 }}>Contacts</div>
         {contacts.map(c => {
           const isSel = selectedContact?.authUserId === c.authUserId

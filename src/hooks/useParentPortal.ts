@@ -72,7 +72,7 @@ export function useParentStudents() {
 
   const studentsQuery = useQuery({
     queryKey: ['parent-students', user?.schoolId, effectiveIds],
-    enabled:  !!user?.schoolId && effectiveIds.length > 0,
+    enabled:  user?.role === 'parent' && !!user?.schoolId && effectiveIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
@@ -120,7 +120,7 @@ export function useStudentReleasedReportCards(studentId: string | null) {
 
   return useQuery({
     queryKey: ['parent-report-cards', user?.schoolId, studentId],
-    enabled:  !!studentId && !!user?.schoolId,
+    enabled:  user?.role === 'parent' && !!studentId && !!user?.schoolId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('report_cards')
@@ -151,7 +151,7 @@ export function useStudentExamSummary(studentId: string | null) {
 
   return useQuery({
     queryKey: ['parent-exam-summary', user?.schoolId, studentId],
-    enabled:  !!studentId && !!user?.schoolId,
+    enabled:  user?.role === 'parent' && !!studentId && !!user?.schoolId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('exam_results')
@@ -210,8 +210,9 @@ export function useStudentFeeBalance(studentId: string | null) {
 
   return useQuery({
     queryKey: ['parent-fee-balance', user?.schoolId, studentId],
-    enabled:  !!studentId && !!user?.schoolId,
+    enabled:  user?.role === 'parent' && !!studentId && !!user?.schoolId,
     queryFn: async () => {
+      if (user?.role !== 'parent') throw new Error('Forbidden')
       if (studentId && user?.studentIds && !user.studentIds.includes(studentId)) {
         throw new Error('Forbidden')
       }
@@ -354,7 +355,7 @@ export function useParentMessagesWithBursar(bursarAuthUserId: string | null | un
 
   return useQuery({
     queryKey: ['parent-bursar-messages', user?.schoolId, me, bursar],
-    enabled:  !!user?.schoolId && !!me && !!bursar,
+    enabled:  user?.role === 'parent' && !!user?.schoolId && !!me && !!bursar,
     refetchInterval: 15_000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -472,7 +473,7 @@ export function useParentMessagesWithContact(contactAuthUserId: string | null | 
 
   return useQuery({
     queryKey: ['parent-contact-messages', user?.schoolId, user?.id, contactAuthUserId],
-    enabled:  !!user?.schoolId && !!user?.id && !!contactAuthUserId,
+    enabled:  user?.role === 'parent' && !!user?.schoolId && !!user?.id && !!contactAuthUserId,
     refetchInterval: 10_000,
     queryFn: async () => {
       const me      = user!.id
@@ -585,9 +586,8 @@ export function useParentAccounts() {
 
   return useQuery({
     queryKey: ['parent-accounts', user?.schoolId],
-    enabled:  !!user?.schoolId,
+    enabled:  !!user?.schoolId && ['secretary', 'principal', 'it_admin', 'bursar'].includes(user?.role ?? ''),
     queryFn: async () => {
-      if (!['secretary', 'principal', 'it_admin', 'bursar'].includes(user?.role ?? '')) throw new Error('Forbidden')
       const { data, error } = await supabase
         .from('parent_accounts')
         .select('id, school_id, email, full_name, phone, auth_user_id, temp_password, student_ids, created_by, created_at')
@@ -764,7 +764,7 @@ export function useGenerateParentAccess() {
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['parent-accounts'] })
+      qc.invalidateQueries({ queryKey: ['parent-accounts', user?.schoolId] })
     },
   })
 }

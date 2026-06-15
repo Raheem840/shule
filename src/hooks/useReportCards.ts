@@ -193,7 +193,9 @@ export function useStudentReadiness(params: {
         let status: ReadinessStatus = 'ready'
         if (issues.length === 1 && issues[0].includes('remarks')) {
           status = 'missing_remarks'
-        } else if (issues.some(i => i.includes('mark') || i.includes('exam'))) {
+        } else if (issues.some(i => i.includes('exam'))) {
+          status = 'not_ready'
+        } else if (issues.some(i => i.includes('mark'))) {
           status = issues.length > 1 ? 'not_ready' : 'missing_marks'
         }
 
@@ -624,7 +626,7 @@ export function useNotifyPrincipal() {
   const { user } = useAuth()
 
   return useMutation({
-    mutationFn: async ({ term, year, count }: { term: number; year: number; count: number }) => {
+    mutationFn: async ({ term, year, count }: { term: string | number; year: number; count: number }) => {
       if (!user) throw new Error('Not authenticated')
       // Fetch all principals so each gets a notification row (user_id is required for the bell query)
       const { data: principals } = await supabase
