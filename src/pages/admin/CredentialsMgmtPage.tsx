@@ -423,6 +423,17 @@ function StaffPanel({
     ok(`Reset ${targets.length} passwords`)
   }
 
+  async function activateAll() {
+    const targets = allStaff.filter(s => !s.authUserId && !!s.email)
+    if (!targets.length) { ok('All staff already have logins'); return }
+    let done = 0
+    for (const s of targets) {
+      try { await handleActivate(s.id); done++ } catch { /* individual errors shown by handleActivate */ }
+    }
+    ok(`Activated ${done} of ${targets.length} staff`)
+  }
+
+  const unactivatedStaffCount = allStaff.filter(s => !s.authUserId && !!s.email).length
   const isOrphan = (s: typeof allStaff[0]) => !!s.authUserId && !s.email
 
   return (
@@ -434,6 +445,14 @@ function StaffPanel({
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, staff number or email…" style={{ border: 'none', background: 'transparent', fontSize: 12.5, color: 'var(--txt)', outline: 'none', flex: 1 }} />
           {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', display: 'flex', padding: 0 }}><IcoClose /></button>}
         </div>
+        {unactivatedStaffCount > 0 && (
+          <ActionBtn
+            onClick={() => setConfirm({ title: `Activate all ${unactivatedStaffCount} staff?`, body: 'This will create login accounts for all staff members who don\'t have one yet.', onConfirm: () => { void activateAll(); setConfirm(null) } })}
+            label={`Activate All (${unactivatedStaffCount})`}
+            icon={<IcoKey />}
+            variant="brand"
+          />
+        )}
         {selected.size > 0 && (
           <ActionBtn onClick={() => setConfirm({ title: `Reset ${selected.size} passwords?`, body: 'New temp passwords will be generated for all selected staff members with active logins.', onConfirm: () => { void bulkReset(); setConfirm(null) } })} label={`Reset ${selected.size}`} icon={<IcoRefresh />} variant="warning" />
         )}
@@ -668,6 +687,18 @@ function StudentsPanel({
     ok(`Reset ${targets.length} student passwords`)
   }
 
+  async function activateAll() {
+    const targets = allStudents.filter(s => !s.auth_user_id)
+    if (!targets.length) { ok('All students already have logins'); return }
+    let done = 0
+    for (const s of targets) {
+      try { await handleActivate(s); done++ } catch { /* individual errors shown by handleActivate */ }
+    }
+    ok(`Activated ${done} of ${targets.length} students`)
+  }
+
+  const unactivatedCount = allStudents.filter(s => !s.auth_user_id).length
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       {/* Toolbar */}
@@ -693,6 +724,14 @@ function StudentsPanel({
           icon={<IcoDownload />}
           variant="ghost"
         />
+        {unactivatedCount > 0 && (
+          <ActionBtn
+            onClick={() => setConfirm({ title: `Activate all ${unactivatedCount} students?`, body: 'This will create login accounts for every student who doesn\'t have one yet. This may take a minute.', onConfirm: () => { void activateAll(); setConfirm(null) } })}
+            label={`Activate All (${unactivatedCount})`}
+            icon={<IcoKey />}
+            variant="brand"
+          />
+        )}
         {selected.size > 0 && (
           <ActionBtn onClick={() => setConfirm({ title: `Reset ${selected.size} passwords?`, body: 'New temp passwords will be generated for all selected students with active logins.', onConfirm: () => { void bulkReset(); setConfirm(null) } })} label={`Reset ${selected.size}`} icon={<IcoRefresh />} variant="warning" />
         )}
