@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
-const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
+const { mockFrom, mockFunctionsInvoke, setResponse, clearResponses } = vi.hoisted(() => {
   const tableData: Record<string, any> = {}
   const setResponse    = (table: string, resp: any) => { tableData[table] = resp }
   const clearResponses = () => { for (const k of Object.keys(tableData)) delete tableData[k] }
@@ -26,7 +26,8 @@ const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
   }
 
   const mockFrom = vi.fn().mockImplementation(makeBuilder)
-  return { mockFrom, setResponse, clearResponses }
+  const mockFunctionsInvoke = vi.fn().mockResolvedValue({ data: { results: [] }, error: null })
+  return { mockFrom, mockFunctionsInvoke, setResponse, clearResponses }
 })
 
 vi.mock('../../lib/supabase', () => ({
@@ -37,6 +38,7 @@ vi.mock('../../lib/supabase', () => ({
       signOut:           vi.fn(),
     },
     from: mockFrom,
+    functions: { invoke: mockFunctionsInvoke },
   },
 }))
 
@@ -66,16 +68,7 @@ beforeEach(() => {
 })
 
 describe('useSendReminders', () => {
-  it('inserts into sms_reminders and send_queue, returns count', async () => {
-    // sms_reminders insert returns the inserted rows (with IDs)
-    setResponse('sms_reminders', {
-      data: [
-        { id: 'sms-1', student_id: 'stu-1', guardian_phone: '0700111222', channel: 'sms', message: 'Pay fees' },
-        { id: 'sms-2', student_id: 'stu-2', guardian_phone: '0700333444', channel: 'sms', message: 'Pay fees' },
-      ],
-      error: null,
-    })
-    // send_queue insert just needs to not error
+  it('writes to send_queue and calls edge function, returns count', async () => {
     setResponse('send_queue', { data: null, error: null })
 
     const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
@@ -89,14 +82,12 @@ describe('useSendReminders', () => {
     })
 
     expect(count).toBe(2)
-    expect(mockFrom).toHaveBeenCalledWith('sms_reminders')
     expect(mockFrom).toHaveBeenCalledWith('send_queue')
+    // sms_reminders is owned by the edge function — hook must NOT insert it
+    expect(mockFrom).not.toHaveBeenCalledWith('sms_reminders')
   })
 
-  it('returns 0 when no reminders were inserted (empty array)', async () => {
-    setResponse('sms_reminders', { data: [], error: null })
-    setResponse('send_queue',    { data: null, error: null })
-
+  it('returns 0 when empty array passed (no DB calls)', async () => {
     const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
 
     let count: number | undefined
@@ -105,27 +96,10 @@ describe('useSendReminders', () => {
     })
 
     expect(count).toBe(0)
-  })
-
-  it('throws when sms_reminders insert fails', async () => {
-    setResponse('sms_reminders', { data: null, error: { message: 'Insert failed' } })
-
-    const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
-
-    await act(async () => {
-      await expect(
-        result.current.mutateAsync([
-          { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Pay fees' },
-        ])
-      ).rejects.toEqual({ message: 'Insert failed' })
-    })
+    expect(mockFrom).not.toHaveBeenCalled()
   })
 
   it('throws when send_queue insert fails', async () => {
-    setResponse('sms_reminders', {
-      data: [{ id: 'sms-1', student_id: 'stu-1', guardian_phone: '0700111222', channel: 'sms', message: 'Pay fees' }],
-      error: null,
-    })
     setResponse('send_queue', { data: null, error: { message: 'Queue insert failed' } })
 
     const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
@@ -137,6 +111,24 @@ describe('useSendReminders', () => {
         ])
       ).rejects.toEqual({ message: 'Queue insert failed' })
     })
+  })
+
+  it('edge function error is non-fatal — mutation still succeeds', async () => {
+    setResponse('send_queue', { data: null, error: null })
+    // functions.invoke mock returns error
+    mockFunctionsInvoke.mockResolvedValueOnce({ data: null, error: new Error('AT unreachable') })
+
+    const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
+
+    let count: number | undefined
+    await act(async () => {
+      count = await result.current.mutateAsync([
+        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Pay fees' },
+      ])
+    })
+
+    expect(count).toBe(1)
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
   })
 })
 

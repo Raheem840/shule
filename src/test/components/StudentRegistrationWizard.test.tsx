@@ -39,7 +39,7 @@ vi.mock('../../store/AuthContext', () => ({
 }))
 
 vi.mock('../../hooks/useStudents', () => ({
-  useNextAdmissionNumber: () => ({ data: 1, isLoading: false }),
+  useNextAdmissionNumber: () => ({ data: 'KJA/2025/0001', isLoading: false }),
   useRegisterStudent:     () => ({ mutate: vi.fn(), isPending: false }),
 }))
 

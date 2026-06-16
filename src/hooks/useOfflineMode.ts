@@ -20,19 +20,17 @@ async function probeSupabase(): Promise<boolean> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
   try {
-    // Querying school_profile with head:true costs almost nothing.
+    // Plain GET — avoids HEAD + count:exact which some proxies reject.
     const { error } = await supabase
       .from('school_profile')
-      .select('id', { count: 'exact', head: true })
-      .abortSignal(controller.signal)
+      .select('id')
       .limit(1)
-    // A 4xx or network error both set `error`; row-level permission denials
-    // still mean Supabase is reachable (error.code starts with "4").
+      .abortSignal(controller.signal)
+    // Any PostgREST error (4xx) means we reached the API fine.
+    // Only true network/abort errors mean unreachable.
     if (error) {
-      // PGRST errors (PostgREST) mean we reached the API fine — just no row.
-      // Network errors have no code and message contains "fetch" or "network".
       const msg = error.message?.toLowerCase() ?? ''
-      if (msg.includes('fetch') || msg.includes('network') || msg.includes('abort')) {
+      if (msg.includes('fetch') || msg.includes('network') || msg.includes('networkerror') || msg.includes('abort')) {
         return false
       }
     }

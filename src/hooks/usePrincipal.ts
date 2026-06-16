@@ -259,7 +259,7 @@ export function useStudentFullProfile(studentId: string | null) {
     queryFn: async () => {
       const sid = user!.schoolId
 
-      const [studentRes, resultsRes, attendanceRes, disciplineRes, feeRes] = await Promise.all([
+      const [studentRes, resultsRes, publishedJournalsRes, attendanceRes, disciplineRes, feeRes] = await Promise.all([
         supabase
           .from('students')
           .select(
@@ -272,11 +272,16 @@ export function useStudentFullProfile(studentId: string | null) {
           .maybeSingle(),
         supabase
           .from('exam_results')
-          .select('subject_id, score, grade, term, year')
+          .select('subject_id, score, grade, term, year, exam_journal_id')
           .eq('school_id', sid)
           .eq('student_id', studentId!)
           .order('year', { ascending: false })
           .order('term', { ascending: false }),
+        supabase
+          .from('exam_journal')
+          .select('id')
+          .eq('school_id', sid)
+          .eq('status', 'published'),
         supabase
           .from('attendance')
           .select('status')
@@ -318,8 +323,9 @@ export function useStudentFullProfile(studentId: string | null) {
       const className  = (classRes as any).data?.name  ?? ''
       const streamName = (streamRes as any).data?.name ?? ''
 
-      // Resolve subject names for exam results
-      const rawResults = resultsRes.data ?? []
+      // Filter exam results to published journals only
+      const publishedIds = new Set((publishedJournalsRes.data ?? []).map((j: any) => j.id as string))
+      const rawResults = (resultsRes.data ?? []).filter((r: any) => publishedIds.has(r.exam_journal_id))
       const subjectIds = [...new Set(rawResults.map((r: any) => r.subject_id).filter(Boolean))]
       let subjectMap: Record<string, string> = {}
       if (subjectIds.length > 0) {

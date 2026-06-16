@@ -1359,6 +1359,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
         if (fnErr || fnData == null || !(fnData as any)?.success) throw new Error((fnData as { error?: string } | null)?.error ?? fnErr?.message ?? 'Failed to create auth user')
         orphanTable = null
         void qc.invalidateQueries({ queryKey: ['staff', schoolId] })
+        void qc.invalidateQueries({ queryKey: ['credentials-vault', schoolId] })
         setResult({ email, password, name: `${firstName.trim()} ${lastName.trim()}` })
 
       } else if (entity === 'student') {
@@ -1381,6 +1382,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
         void qc.invalidateQueries({ queryKey: ['students', schoolId] })
         void qc.invalidateQueries({ queryKey: ['students-pending-login', schoolId] })
         void qc.invalidateQueries({ queryKey: ['students-active-login', schoolId] })
+        void qc.invalidateQueries({ queryKey: ['credentials-vault', schoolId] })
         setResult({ email, password, name: `${firstName.trim()} ${lastName.trim()}`, note: `Admission: ${(row as any).admission_number ?? '—'}` })
 
       } else {
@@ -1398,6 +1400,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName, clas
         orphanTable = null
         void qc.invalidateQueries({ queryKey: ['parents-pending-login', schoolId] })
         void qc.invalidateQueries({ queryKey: ['parents-active-login', schoolId] })
+        void qc.invalidateQueries({ queryKey: ['credentials-vault', schoolId] })
         setResult({ email, password, name: fullName.trim() })
       }
 

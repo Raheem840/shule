@@ -223,7 +223,7 @@ export function useSendMessage() {
       })
     },
     onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({ queryKey: ['messages', user?.id, vars.toUserId] })
+      void qc.invalidateQueries({ queryKey: ['messages', user?.schoolId, user?.id, vars.toUserId] })
       void qc.invalidateQueries({ queryKey: ['contacts', user?.schoolId, user?.id] })
     },
   })
@@ -251,7 +251,7 @@ export function useMarkRead() {
       if (error) throw new Error(error.message)
     },
     onSuccess: (_data, fromUserId) => {
-      void qc.invalidateQueries({ queryKey: ['messages', user?.id, fromUserId] })
+      void qc.invalidateQueries({ queryKey: ['messages', user?.schoolId, user?.id, fromUserId] })
       void qc.invalidateQueries({ queryKey: ['contacts', user?.schoolId, user?.id] })
     },
   })
@@ -647,7 +647,7 @@ export function useSendMessageToParent() {
       })
     },
     onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({ queryKey: ['parent-thread', user?.id, vars.toUserId] })
+      void qc.invalidateQueries({ queryKey: ['parent-thread', user?.schoolId, user?.id, vars.toUserId] })
       void qc.invalidateQueries({ queryKey: ['parent-conversations', user?.schoolId, user?.id] })
     },
   })
@@ -671,7 +671,7 @@ export function useMarkParentThreadRead() {
       if (error) throw new Error(error.message)
     },
     onSuccess: (_data, fromUserId) => {
-      void qc.invalidateQueries({ queryKey: ['parent-thread', user?.id, fromUserId] })
+      void qc.invalidateQueries({ queryKey: ['parent-thread', user?.schoolId, user?.id, fromUserId] })
       void qc.invalidateQueries({ queryKey: ['parent-conversations', user?.schoolId, user?.id] })
     },
   })

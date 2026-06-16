@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { Modal, ModalCancelButton } from '../../components/ui/Modal'
+import { Button } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/Toast'
 import { useToggleSurvey } from '../../hooks/useAdmin'
 
@@ -316,31 +319,25 @@ function CreateYearModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="sui-overlay" style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-    }}>
-      <div className="sui-modal-dialog" style={{
-        background: 'var(--surface)', borderRadius: 20, padding: 28,
-        width: 520, maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto',
-      }}>
-        <h3 style={{ fontFamily: 'var(--font2)', fontWeight: 800, margin: '0 0 20px', color: 'var(--txt)' }}>
-          Create Academic Year
-        </h3>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <YearFormFields vals={vals} set={set} />
-          <FutureDateWarning startDate={vals.startDate} confirmed={futureConfirmed} onConfirm={setFutureConfirmed} />
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button onClick={onClose} className="sui-btn-outline">Cancel</button>
-          <button onClick={handleCreate} className="sui-btn-primary" disabled={!canSubmit}>
-            {create.isPending ? 'Creating…' : 'Create Year'}
-          </button>
-        </div>
+    <Modal
+      open
+      onClose={onClose}
+      title="Create Academic Year"
+      size="md"
+      footer={
+        <>
+          <ModalCancelButton onClose={onClose} />
+          <Button variant="primary" onClick={handleCreate} loading={create.isPending} disabled={!canSubmit}>
+            Create Year
+          </Button>
+        </>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <YearFormFields vals={vals} set={set} />
+        <FutureDateWarning startDate={vals.startDate} confirmed={futureConfirmed} onConfirm={setFutureConfirmed} />
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -379,31 +376,25 @@ function EditYearModal({ year, onClose }: { year: AcademicYearRow; onClose: () =
   }
 
   return (
-    <div className="sui-overlay" style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-    }}>
-      <div className="sui-modal-dialog" style={{
-        background: 'var(--surface)', borderRadius: 20, padding: 28,
-        width: 520, maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto',
-      }}>
-        <h3 style={{ fontFamily: 'var(--font2)', fontWeight: 800, margin: '0 0 20px', color: 'var(--txt)' }}>
-          Edit Academic Year
-        </h3>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <YearFormFields vals={vals} set={set} />
-          <FutureDateWarning startDate={vals.startDate} confirmed={futureConfirmed} onConfirm={setFutureConfirmed} />
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button onClick={onClose} className="sui-btn-outline">Cancel</button>
-          <button onClick={handleSave} className="sui-btn-primary" disabled={!canSubmit}>
-            {update.isPending ? 'Saving…' : 'Save Changes'}
-          </button>
-        </div>
+    <Modal
+      open
+      onClose={onClose}
+      title="Edit Academic Year"
+      size="md"
+      footer={
+        <>
+          <ModalCancelButton onClose={onClose} />
+          <Button variant="primary" onClick={handleSave} loading={update.isPending} disabled={!canSubmit}>
+            Save Changes
+          </Button>
+        </>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <YearFormFields vals={vals} set={set} />
+        <FutureDateWarning startDate={vals.startDate} confirmed={futureConfirmed} onConfirm={setFutureConfirmed} />
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -443,9 +434,9 @@ function PromoteModal({ years, activeYear, onClose }: {
     } catch (e: any) { err(e.message) }
   }
 
-  return (
+  return createPortal(
     <div className="sui-overlay" style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem',
     }}>
       <div className="sui-modal-dialog" style={{
@@ -590,7 +581,8 @@ function PromoteModal({ years, activeYear, onClose }: {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    (document.querySelector('.ar') as HTMLElement | null) ?? document.body
   )
 }
 

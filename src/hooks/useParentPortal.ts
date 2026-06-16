@@ -213,7 +213,8 @@ export function useStudentFeeBalance(studentId: string | null) {
     enabled:  user?.role === 'parent' && !!studentId && !!user?.schoolId,
     queryFn: async () => {
       if (user?.role !== 'parent') throw new Error('Forbidden')
-      if (studentId && user?.studentIds && !user.studentIds.includes(studentId)) {
+      // Guard fires for empty studentIds (stale JWT) AND mismatched studentIds
+      if (studentId && !(user?.studentIds ?? []).includes(studentId)) {
         throw new Error('Forbidden')
       }
       const [paymentsRes, fsRes] = await Promise.all([

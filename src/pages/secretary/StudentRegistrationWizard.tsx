@@ -67,7 +67,7 @@ export const wizardSchema = z.object({
   nationality:     z.string().optional(),
   religion:        z.string().optional(),
   medicalNotes:    z.string().optional(),
-  admissionNumber: z.string().min(1, 'Admission number is required'),
+  admissionNumber: z.string().regex(/^[A-Z0-9]+\/\d{4}\/\d{4}$/, 'Format: PREFIX/YYYY/0001'),
   classId:         z.string().min(1, 'Class is required'),
   streamId:        z.string().optional(),
   studentType:     z.string().optional(),
@@ -227,8 +227,7 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
   const { user }               = useAuth()
   const { success: ok, error: err } = useToast()
   const year                   = new Date().getFullYear()
-  const { data: nextSeq }      = useNextAdmissionNumber(year)
-  const prefix                 = 'STU'
+  const { data: nextAdmNumber } = useNextAdmissionNumber(year)
   const { data: classes = [] } = useClasses()
   const registerMutation        = useRegisterStudent()
 
@@ -248,10 +247,10 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
   const { fields: gFields, append: gAppend, remove: gRemove } = useFieldArray({ control, name: 'guardians' })
 
   useEffect(() => {
-    if (step === 2 && nextSeq && prefix && !getValues('admissionNumber')) {
-      setValue('admissionNumber', `${prefix}/${year}/${String(nextSeq).padStart(4, '0')}`)
+    if (step === 2 && nextAdmNumber && !getValues('admissionNumber')) {
+      setValue('admissionNumber', nextAdmNumber)
     }
-  }, [step, nextSeq, prefix])
+  }, [step, nextAdmNumber])
 
   useEffect(() => {
     if (!open) {

@@ -11,7 +11,7 @@ export function DosCurriculumPage() {
 
   const { data: classes  = [] } = useClasses()
   const { data: subjects = [] } = useSubjects()
-  const { data: topics = [], isLoading, isError } = useDosCurriculumPlan(subjectId || null, classId || null)
+  const { data: topics = [], isLoading, isError } = useDosCurriculumPlan(subjectId || null, classId || null, year)
   const markCovered = useMarkTopicCovered()
 
   const filtered = term ? topics.filter(t => String(t.term) === term) : topics

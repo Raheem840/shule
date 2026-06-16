@@ -35,7 +35,8 @@ export function useDosOverview() {
         supabase
           .from('exam_journal')
           .select('id, subject_id, pass_mark, total_marks, term, year')
-          .eq('school_id', sid),
+          .eq('school_id', sid)
+          .eq('status', 'published'),
         supabase
           .from('exam_results')
           .select('exam_journal_id, subject_id, score, term, year')
@@ -169,7 +170,8 @@ export function useDosClassPerformance(classId: string | null) {
           .from('exam_journal')
           .select('id, subject_id, pass_mark, class_id')
           .eq('school_id', sid)
-          .eq('class_id', classId!),
+          .eq('class_id', classId!)
+          .eq('status', 'published'),
         supabase
           .from('exam_results')
           .select('exam_journal_id, student_id, subject_id, score')
@@ -264,6 +266,7 @@ export function useDosTeacherPerformance() {
     enabled: !!user,
     queryFn: async (): Promise<TeacherPerfRow[]> => {
       const sid = user!.schoolId
+      const currentYear = new Date().getFullYear()
 
       const [staffRes, journalsRes, resultsRes, topicsRes, subjectsRes] = await Promise.all([
         supabase
@@ -275,15 +278,17 @@ export function useDosTeacherPerformance() {
         supabase
           .from('exam_journal')
           .select('id, teacher_id, pass_mark, subject_id, class_id, term, year')
-          .eq('school_id', sid),
+          .eq('school_id', sid)
+          .eq('status', 'published'),
         supabase
           .from('exam_results')
           .select('exam_journal_id, score, teacher_id')
           .eq('school_id', sid),
         supabase
           .from('curriculum_plan')
-          .select('subject_id, covered_at, school_id')
-          .eq('school_id', sid),
+          .select('subject_id, covered_at, school_id, year')
+          .eq('school_id', sid)
+          .eq('year', currentYear),
         supabase
           .from('subjects')
           .select('id, name')
@@ -356,12 +361,14 @@ export function useDosTeacherPerformance() {
 // ── useDosCurriculumPlan ────────────────────────────────────────────────────
 export function useDosCurriculumPlan(
   subjectId: string | null,
-  classId: string | null
+  classId: string | null,
+  year?: number
 ) {
   const { user } = useAuth()
+  const y = year ?? new Date().getFullYear()
 
   return useQuery({
-    queryKey: ['dos-curriculum', user?.schoolId, subjectId, classId],
+    queryKey: ['dos-curriculum', user?.schoolId, subjectId, classId, y],
     enabled: !!user && !!subjectId && !!classId,
     queryFn: async (): Promise<CurriculumTopic[]> => {
       const { data, error } = await supabase
@@ -373,6 +380,7 @@ export function useDosCurriculumPlan(
         .eq('school_id', user!.schoolId)
         .eq('subject_id', subjectId!)
         .eq('class_id', classId!)
+        .eq('year', y)
         .order('expected_date', { ascending: true, nullsFirst: false })
 
       if (error) throw new Error(error.message)

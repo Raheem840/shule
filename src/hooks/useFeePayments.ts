@@ -39,19 +39,14 @@ export function useBursarKpis(term: number, academicYearId: string | null) {
 
   return useQuery({
     queryKey: ['bursar-kpis', user?.schoolId, term, academicYearId],
-    enabled:  !!user?.schoolId && isFinanceRole(user?.role),
+    enabled:  !!user?.schoolId && !!academicYearId && isFinanceRole(user?.role),
     queryFn: async () => {
-      let q = supabase
+      const { data, error } = await supabase
         .from('fee_payments')
         .select('student_id, amount_due, amount_paid')
         .eq('school_id', user!.schoolId)
         .eq('term', term)
-
-      if (academicYearId) {
-        q = q.eq('academic_year_id', academicYearId)
-      }
-
-      const { data, error } = await q
+        .eq('academic_year_id', academicYearId!)
 
       if (error) throw error
 
@@ -523,6 +518,9 @@ export type UpdatePaymentInput = {
   amountDue:     number
   amountPaid:    number
   oldAmountPaid: number
+  receiptNumber?: string | null
+  paymentDate?:   string | null
+  notes?:         string | null
 }
 
 export function useUpdatePayment() {
@@ -536,9 +534,14 @@ export function useUpdatePayment() {
       const newBalance = Math.max(0, input.amountDue - input.amountPaid)
       const oldBalance = input.amountDue - input.oldAmountPaid
 
+      const patch: Record<string, unknown> = { amount_paid: input.amountPaid, balance: newBalance }
+      if (input.receiptNumber !== undefined) patch.receipt_number = input.receiptNumber
+      if (input.paymentDate   !== undefined) patch.payment_date   = input.paymentDate
+      if (input.notes         !== undefined) patch.notes          = input.notes
+
       const { error: updErr } = await supabase
         .from('fee_payments')
-        .update({ amount_paid: input.amountPaid, balance: newBalance })
+        .update(patch)
         .eq('id', input.id)
         .eq('school_id', user!.schoolId)
 

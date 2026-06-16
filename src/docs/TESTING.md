@@ -109,8 +109,9 @@ Test each role logs in and lands on the correct dashboard:
 - Log in as principal
 - Go to Academic Years → Create
 - Set term1/term2/term3 dates
-- Mark as active
-- Confirm only ONE year is active (old active should auto-deactivate)
+- Click **Save** (year is created as inactive)
+- Click **Set as Active** on the new year's card
+- Confirm only ONE year is active (previous active year auto-deactivates)
 
 ### 4.2 Term progress widget
 - Visit any role dashboard that shows the term progress bar
@@ -171,7 +172,7 @@ Test each role logs in and lands on the correct dashboard:
 - Download the template CSV
 - Fill in 3 students by admission number
 - Import the file
-- Confirm all 3 rows are created with correct `fee_structure_id` (not null)
+- Confirm all 3 rows appear in the ledger (`fee_structure_id` may be null for imported rows — that is expected)
 
 ### 6.5 Parent sees fees
 - Log in as parent linked to a student with payments

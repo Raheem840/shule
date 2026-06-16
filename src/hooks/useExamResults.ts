@@ -83,6 +83,7 @@ export function useSaveMarks() {
       marks:          MarkRow[]
     }) => {
       if (!user) throw new Error('Not authenticated')
+      if (!user.staffId) throw new Error('Staff profile not found — please sign out and sign in again')
       const rows = marks.map(m => {
         // Grade: null for end_of_term (needs CA to combine), calculated for all others
         let grade: ExamResult['grade'] = null
@@ -97,7 +98,7 @@ export function useSaveMarks() {
           exam_journal_id: journalId,
           student_id:      m.studentId,
           subject_id:      subjectId,
-          teacher_id:      user!.staffId ?? user!.id,
+          teacher_id:      user!.staffId,
           score:           m.isAbsent ? null : m.score,
           grade,
           is_absent:       m.isAbsent,

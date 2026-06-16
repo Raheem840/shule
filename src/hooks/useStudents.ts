@@ -164,6 +164,7 @@ export function useStudentById(id: string | null | undefined) {
 // ── useNextAdmissionNumber ─────────────────────────────────────
 // staleTime: 0 — two secretaries could register at the same time.
 // Always fetch fresh to avoid duplicate admission numbers.
+// Returns the full formatted string e.g. "KJA/2025/0001" matching the DB trigger format.
 export function useNextAdmissionNumber(year: number) {
   const { user } = useAuth()
 
@@ -172,22 +173,29 @@ export function useNextAdmissionNumber(year: number) {
     enabled:  !!user?.schoolId,
     staleTime: 0,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('students')
-        .select('admission_number')
-        .eq('school_id', user!.schoolId)
-        .like('admission_number', `%/${year}/%`)
-        .order('admission_number', { ascending: false })
-        .limit(1)
+      const [studRes, schoolRes] = await Promise.all([
+        supabase
+          .from('students')
+          .select('admission_number')
+          .eq('school_id', user!.schoolId)
+          .like('admission_number', `%/${year}/%`)
+          .order('admission_number', { ascending: false })
+          .limit(1),
+        supabase
+          .from('school_profile')
+          .select('short_name')
+          .eq('id', user!.schoolId)
+          .maybeSingle(),
+      ])
 
-      if (error) throw error
+      if (studRes.error) throw studRes.error
+      if (schoolRes.error) throw schoolRes.error
 
-      if (!data || data.length === 0) return 1
-
-      // Format: KJA/2025/0049 → split on '/' → take last segment
-      const last = data[0].admission_number as string
-      const seq  = parseInt(last.split('/').pop() ?? '0', 10)
-      return isNaN(seq) ? 1 : seq + 1
+      const prefix = (schoolRes.data?.short_name as string | null) ?? 'STU'
+      const last   = studRes.data?.[0]?.admission_number as string | undefined
+      const seq    = last ? parseInt(last.split('/').pop() ?? '0', 10) : 0
+      const next   = isNaN(seq) ? 1 : seq + 1
+      return `${prefix}/${year}/${String(next).padStart(4, '0')}`
     },
   })
 }

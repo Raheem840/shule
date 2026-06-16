@@ -222,8 +222,8 @@ export function useSmsReminderLog() {
 }
 
 // ── useSendReminders ──────────────────────────────────────────
-// Inserts rows into both sms_reminders AND send_queue.
-// Does NOT call Africa's Talking — that's Week 9.
+// Writes to send_queue (offline buffer), then calls the send-sms edge function.
+// The edge function owns sms_reminders inserts (with final status from AT).
 export type SendReminderInput = {
   studentId:     string
   guardianPhone: string
@@ -239,38 +239,36 @@ export function useSendReminders() {
     mutationFn: async (reminders: SendReminderInput[]) => {
       if (!user) throw new Error('Not authenticated')
       if (!isSmsRole(user.role)) throw new Error('Forbidden')
-      const reminderRows = reminders.map(r => ({
-        school_id:     user!.schoolId,
-        student_id:    r.studentId,
-        parent_phone: r.guardianPhone,
-        channel:       r.channel,
-        message:       r.message,
-        status:        'pending',
-        sent_at:       null,
-      }))
+      if (reminders.length === 0) return 0
 
-      const { data: inserted, error: reminderErr } = await supabase
-        .from('sms_reminders')
-        .insert(reminderRows)
-        .select('id, student_id, parent_phone, channel, message')
-
-      if (reminderErr) throw reminderErr
-
-      const queueRows = (inserted ?? []).map(r => ({
+      // Offline buffer — edge fn updates these rows when it processes them
+      const queueRows = reminders.map(r => ({
         school_id: user!.schoolId,
         type:      r.channel,
-        payload:   { to: r.parent_phone, message: r.message, student_id: r.student_id },
+        payload:   { to: r.guardianPhone, message: r.message, student_id: r.studentId },
         status:    'pending',
       }))
 
-      if (queueRows.length > 0) {
-        const { error: queueErr } = await supabase
-          .from('send_queue')
-          .insert(queueRows)
-        if (queueErr) throw queueErr
+      const { error: queueErr } = await supabase.from('send_queue').insert(queueRows)
+      if (queueErr) throw queueErr
+
+      // Call AT via edge function — non-fatal if AT key not yet configured.
+      // The edge function inserts its own sms_reminders rows with final status.
+      const recipients = reminders.map(r => ({
+        phone:     r.guardianPhone,
+        message:   r.message,
+        studentId: r.studentId,
+        channel:   r.channel,
+      }))
+      const { error: fnErr } = await supabase.functions.invoke('send-sms', {
+        body: { recipients, schoolId: user!.schoolId },
+      })
+      if (fnErr) {
+        // Edge fn error is non-fatal: send_queue row ensures eventual delivery
+        console.warn('[useSendReminders] edge fn error:', fnErr)
       }
 
-      return inserted?.length ?? 0
+      return reminders.length
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sms-log',   user?.schoolId] })

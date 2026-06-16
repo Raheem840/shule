@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '../../store/AuthContext'
 import { createPortal } from 'react-dom'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -886,6 +887,7 @@ function AddFeeModal({ onClose }: { onClose: () => void }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export function FeeStructurePage() {
   const qc = useQueryClient()
+  const { user } = useAuth()
   const [showAdd,    setShowAdd]    = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [filterTerm, setFilterTerm] = useState<number | null>(null)

@@ -12,6 +12,12 @@ type UserRole =
   | 'bursar'    | 'class_teacher' | 'teacher'
   | 'student'   | 'parent'       | 'it_admin'
 
+// Tables that offline writes are allowed to touch. Finance tables are excluded.
+const ALLOWED_SYNC_TABLES = new Set([
+  'attendance', 'messages', 'exam_results', 'teacher_remarks',
+  'curriculum_plan', 'discipline_records', 'school_events',
+])
+
 // ── Flush pending writes ───────────────────────────────────────────────────────
 export async function flushSyncQueue(): Promise<void> {
   const pending = await db.sync_queue
@@ -23,6 +29,11 @@ export async function flushSyncQueue(): Promise<void> {
 
   for (const item of pending) {
     try {
+      if (!ALLOWED_SYNC_TABLES.has(item.tableName)) {
+        await db.sync_queue.update(item.id!, { status: 'failed' })
+        continue
+      }
+
       const payload = JSON.parse(item.payload) as Record<string, unknown>
 
       let error: { message: string } | null = null

@@ -157,35 +157,47 @@ describe('useStudentById', () => {
 
 // ── useNextAdmissionNumber ───────────────────────────────────────
 describe('useNextAdmissionNumber', () => {
-  it('returns 1 when no students exist for the year', async () => {
+  it('returns seq 0001 when no students exist for the year', async () => {
     setResponse('students', { data: [], error: null })
+    setResponse('school_profile', { data: { short_name: 'KJA' }, error: null })
     const { result } = renderHook(() => useNextAdmissionNumber(2025), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toBe(1)
+    expect(result.current.data).toBe('KJA/2025/0001')
   })
 
-  it('returns seq+1 from the last admission number', async () => {
+  it('returns seq+1 from the last admission number as formatted string', async () => {
     setResponse('students', {
       data: [{ admission_number: 'KJA/2025/0049' }],
       error: null,
     })
+    setResponse('school_profile', { data: { short_name: 'KJA' }, error: null })
     const { result } = renderHook(() => useNextAdmissionNumber(2025), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toBe(50)
+    expect(result.current.data).toBe('KJA/2025/0050')
   })
 
-  it('returns 1 when admission number format is unrecognized (NaN)', async () => {
+  it('returns 0001 when admission number format is unrecognized (NaN)', async () => {
     setResponse('students', {
       data: [{ admission_number: 'INVALID' }],
       error: null,
     })
+    setResponse('school_profile', { data: { short_name: 'KJA' }, error: null })
     const { result } = renderHook(() => useNextAdmissionNumber(2025), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    // parseInt('INVALID'.split('/').pop()) = NaN → returns 1
-    expect(result.current.data).toBe(1)
+    // parseInt('INVALID'.split('/').pop()) = NaN → seq=1 → '0001'
+    expect(result.current.data).toBe('KJA/2025/0001')
+  })
+
+  it('falls back to STU prefix when short_name is null', async () => {
+    setResponse('students', { data: [], error: null })
+    setResponse('school_profile', { data: { short_name: null }, error: null })
+    const { result } = renderHook(() => useNextAdmissionNumber(2025), { wrapper: createWrapper() })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toBe('STU/2025/0001')
   })
 })
 

@@ -103,6 +103,7 @@ export function useResetPassword() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['credentials-vault', user?.schoolId] })
     },
   })
 }
@@ -113,7 +114,7 @@ export function useDeactivateUser() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ staffId, isActive }: { staffId: string; isActive: boolean }) => {
+    mutationFn: async ({ staffId, isActive, authUserId }: { staffId: string; isActive: boolean; authUserId?: string | null }) => {
       if (!user) throw new Error('Not authenticated')
       if (user.role !== 'it_admin') throw new Error('Forbidden')
 
@@ -124,9 +125,17 @@ export function useDeactivateUser() {
         .eq('school_id', user.schoolId)
 
       if (error) throw new Error(error.message)
+
+      // Enforce at Supabase Auth level so the user's active session is revoked
+      if (authUserId) {
+        await supabase.functions.invoke('set-user-disabled', {
+          body: { authUserId, disabled: !isActive },
+        })
+      }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['credentials-vault', user?.schoolId] })
     },
   })
 }
