@@ -114,7 +114,9 @@ function ToastItem({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => vo
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([])
 
-  const add = useCallback((message: string, variant: ToastVariant, duration = 4000) => {
+  const add = useCallback((message: string, variant: ToastVariant, duration?: number) => {
+    const defaultDuration = variant === 'success' ? 1500 : 4000
+    duration = duration ?? defaultDuration
     const id = `${Date.now()}-${Math.random()}`
     setToasts(prev => [...prev, { id, message, variant, duration }])
   }, [])

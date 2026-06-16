@@ -227,13 +227,51 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onClose, danger }:
   title: string; body: string; confirmLabel: string; onConfirm: () => void; onClose: () => void; danger?: boolean
 }) {
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, padding: 20 }}>
-      <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 420, boxShadow: '0 24px 80px rgba(0,0,0,.28)' }}>
-        <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 16, color: 'var(--txt)', marginBottom: 8 }}>{title}</div>
-        <div style={{ fontSize: 13, color: 'var(--txt2)', lineHeight: 1.55, marginBottom: 22 }}>{body}</div>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-          <button onClick={onConfirm} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: danger ? 'var(--danger)' : 'linear-gradient(135deg,var(--brand),var(--info))', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{confirmLabel}</button>
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, padding: 20 }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--surface)', borderRadius: 20, width: '100%', maxWidth: 440, boxShadow: '0 32px 96px rgba(0,0,0,.32)', overflow: 'hidden' }}
+      >
+        {/* Colour bar */}
+        <div style={{ height: 4, background: danger ? 'var(--danger)' : 'linear-gradient(90deg,var(--brand),var(--info))' }} />
+
+        <div style={{ padding: '28px 28px 24px' }}>
+          {/* Icon + title row */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 14 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: danger ? 'rgba(244,63,94,.12)' : 'rgba(13,148,136,.1)',
+              color: danger ? 'var(--danger)' : 'var(--brand)',
+            }}>
+              {danger
+                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              }
+            </div>
+            <div>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 15, color: 'var(--txt)', lineHeight: 1.3 }}>{title}</div>
+              <div style={{ fontSize: 13, color: 'var(--txt2)', lineHeight: 1.6, marginTop: 5 }}>{body}</div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 6 }}>
+            <button
+              onClick={onClose}
+              style={{ padding: '9px 20px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 600, fontSize: 13, cursor: 'pointer', transition: 'background .15s' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              style={{ padding: '9px 22px', borderRadius: 10, border: 'none', background: danger ? 'var(--danger)' : 'linear-gradient(135deg,var(--brand),var(--info))', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: danger ? '0 4px 14px rgba(244,63,94,.3)' : '0 4px 14px rgba(13,148,136,.3)' }}
+            >
+              {confirmLabel}
+            </button>
+          </div>
         </div>
       </div>
     </div>,
