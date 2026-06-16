@@ -592,6 +592,7 @@ function StudentsPanel({
   const { data: allStudents = [], isLoading } = useQuery({
     queryKey: ['students-creds', schoolId],
     enabled:  !!schoolId,
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')

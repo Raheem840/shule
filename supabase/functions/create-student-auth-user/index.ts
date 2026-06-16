@@ -20,9 +20,9 @@ serve(async (req) => {
       })
     }
 
-    const { studentId, email, schoolId, password } = await req.json()
+    const { studentId, schoolId, password } = await req.json()
 
-    if (!studentId || !email || !schoolId || !password) {
+    if (!studentId || !schoolId || !password) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -65,6 +65,37 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    // Fetch student + school from DB — derive email server-side so it always
+    // matches the current admission_number regardless of what the client sent.
+    const { data: studentRow, error: studentErr } = await adminClient
+      .from('students')
+      .select('admission_number, auth_email')
+      .eq('id', studentId)
+      .eq('school_id', schoolId)
+      .maybeSingle()
+
+    if (studentErr || !studentRow) {
+      return new Response(JSON.stringify({ error: 'Student not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const { data: schoolRow } = await adminClient
+      .from('school_profile')
+      .select('short_name, school_name')
+      .eq('id', schoolId)
+      .maybeSingle()
+
+    // Use stored auth_email if already set (preserves existing accounts on re-activation).
+    // Otherwise derive fresh from the current admission_number + school short_name.
+    const email: string = (studentRow as any).auth_email ?? (() => {
+      const adm    = ((studentRow as any).admission_number as string ?? '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'student'
+      const domain = ((schoolRow as any)?.short_name ?? (schoolRow as any)?.school_name ?? 'school')
+        .toLowerCase().replace(/[^a-z0-9]/g, '')
+      return `${adm}@${domain}.ug`
+    })()
 
     // Helper: find a user by email across all pages
     async function findUserByEmail(emailToFind: string) {
@@ -137,7 +168,7 @@ serve(async (req) => {
             success: true,
             authUserId: existing.id,
             alreadyExisted: true,
-            // Return the password that is actually in the DB so the caller can show it
+            email,
             actualPassword: storedPassword ?? password,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -154,7 +185,7 @@ serve(async (req) => {
       .eq('school_id', schoolId)
 
     return new Response(
-      JSON.stringify({ success: true, authUserId: newUser.user.id }),
+      JSON.stringify({ success: true, authUserId: newUser.user.id, email }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (error) {

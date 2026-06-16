@@ -499,9 +499,9 @@ export function useCreateStudentLogin() {
 
       const tempPassword = generateTempPassword()
 
-      // 3. Call edge function — throws on any failure so no fake credentials are ever shown
+      // 3. Call edge function — email is derived server-side from the DB
       const { data: fnData, error: fnError } = await supabase.functions.invoke('create-student-auth-user', {
-        body: { studentId, email, schoolId: user.schoolId, password: tempPassword },
+        body: { studentId, schoolId: user.schoolId, password: tempPassword },
       })
 
       if (fnError) {
@@ -509,12 +509,12 @@ export function useCreateStudentLogin() {
         throw new Error(`Failed to create login: ${detail}`)
       }
 
-      // If the auth user already existed, the edge function preserves the stored password
-      // and returns actualPassword so we show the correct one (not the newly generated one)
-      const fn = fnData as { actualPassword?: string } | null
+      // Edge function derives email server-side and returns it — use that as the source of truth
+      const fn = fnData as { email?: string; actualPassword?: string } | null
+      const actualEmail    = fn?.email ?? email
       const displayPassword = fn?.actualPassword ?? tempPassword
 
-      return { email, tempPassword: displayPassword, manual: false }
+      return { email: actualEmail, tempPassword: displayPassword, manual: false }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
