@@ -20,9 +20,12 @@ serve(async (req) => {
       })
     }
 
-    const { email, staffId, schoolId, password } = await req.json()
+    // No password field — staff set their own password via an emailed invite
+    // link, the same way "Forgot password" works on the login page. IT admin
+    // / secretary never see or choose a password for someone else.
+    const { email, staffId, schoolId, redirectTo } = await req.json()
 
-    if (!email || !staffId || !schoolId || !password) {
+    if (!email || !staffId || !schoolId) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -41,6 +44,14 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } },
     )
+    // Separate anonymous client for resetPasswordForEmail — that call is a
+    // public/unauthenticated mailer trigger and shouldn't run under the
+    // caller's own session.
+    const anonClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    )
 
     const { data: { user: caller } } = await userClient.auth.getUser()
     if (!caller) {
@@ -54,6 +65,7 @@ serve(async (req) => {
       .from('staff')
       .select('role, school_id')
       .eq('auth_user_id', caller.id)
+      .eq('is_active', true)
       .maybeSingle()
 
     if (
@@ -67,17 +79,38 @@ serve(async (req) => {
       })
     }
 
-    // Fetch target staff role for app_metadata
-    const { data: targetStaff } = await adminClient
-      .from('staff')
-      .select('role')
-      .eq('id', staffId)
-      .eq('school_id', schoolId)
-      .maybeSingle()
+    // Optimistic path: try to invite as a brand-new auth user first (the vast
+    // majority of calls — a fresh staff record with no auth account yet).
+    // Only fall back to a full-directory email search if that fails with
+    // "already registered", instead of paging through every auth user (which
+    // could number in the thousands once students/parents/staff share
+    // auth.users) on every single call.
+    const { data: newUser, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
+      redirectTo: redirectTo || undefined,
+    })
 
-    const staffRole = (targetStaff?.role as string | undefined) ?? 'teacher'
+    if (!inviteError) {
+      await adminClient
+        .from('staff')
+        .update({ auth_user_id: newUser.user.id })
+        .eq('id', staffId)
+        .eq('school_id', schoolId)
 
-    // Helper: find a user by email across all pages (handles > 50 users)
+      return new Response(
+        JSON.stringify({ success: true, authUserId: newUser.user.id, invited: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    if (!inviteError.message.includes('already registered') && !inviteError.message.includes('already exists')) {
+      return new Response(JSON.stringify({ error: 'Failed to invite staff member', detail: inviteError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Already has an auth account (e.g. re-linking after Unlink) — find it,
+    // link it, and send a reset email so they can set/regain access themselves.
     async function findUserByEmail(emailToFind: string) {
       let page = 1
       while (true) {
@@ -89,58 +122,26 @@ serve(async (req) => {
       }
     }
 
-    const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      app_metadata: { user_role: staffRole, school_id: schoolId },
-    })
-
-    if (createError) {
-      // Auth user already exists — update password + app_metadata and re-link
-      if (createError.message.includes('already been registered') || createError.message.includes('already exists')) {
-        const existing = await findUserByEmail(email)
-        if (!existing) {
-          return new Response(JSON.stringify({ error: 'User exists but could not be located' }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          })
-        }
-
-        // Update password AND app_metadata so shown credentials match Supabase
-        const { error: updateErr } = await adminClient.auth.admin.updateUserById(existing.id, {
-          password,
-          app_metadata: { user_role: staffRole, school_id: schoolId },
-        })
-        if (updateErr) {
-          return new Response(JSON.stringify({ error: 'Failed to update existing user', detail: updateErr.message }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          })
-        }
-
-        await adminClient
-          .from('staff')
-          .update({ auth_user_id: existing.id, temp_password: password })
-          .eq('id', staffId)
-          .eq('school_id', schoolId)
-
-        return new Response(
-          JSON.stringify({ success: true, authUserId: existing.id, alreadyExisted: true }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        )
-      }
-      throw createError
+    const existing = await findUserByEmail(email)
+    if (!existing) {
+      return new Response(JSON.stringify({ error: 'User exists but could not be located' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     await adminClient
       .from('staff')
-      .update({ auth_user_id: newUser.user.id, temp_password: password })
+      .update({ auth_user_id: existing.id })
       .eq('id', staffId)
       .eq('school_id', schoolId)
 
+    const { error: resetErr } = await anonClient.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectTo || undefined,
+    })
+
     return new Response(
-      JSON.stringify({ success: true, authUserId: newUser.user.id }),
+      JSON.stringify({ success: true, authUserId: existing.id, alreadyExisted: true, emailSent: !resetErr }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (error) {

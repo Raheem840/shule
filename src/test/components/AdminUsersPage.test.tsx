@@ -166,6 +166,22 @@ describe('AdminUsersPage', () => {
     expect(screen.getByRole('button', { name: /create user/i })).toBeInTheDocument()
   })
 
+  it('opens the Create User modal using the shared modal dialog class (correct mobile/viewport positioning)', async () => {
+    const user = userEvent.setup()
+    render(<AdminUsersPage />)
+    await user.click(screen.getByRole('button', { name: /create user/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Create Staff Account')).toBeInTheDocument()
+    })
+    // The dialog must carry .sui-modal-dialog — that's what drives the app's
+    // shared mobile bottom-sheet / viewport-safe positioning (index.css). A
+    // bespoke unstyled div here previously caused the modal to render outside
+    // the visible viewport on mobile, requiring a scroll to see it.
+    const dialog = screen.getByText('Create Staff Account').closest('.sui-modal-dialog')
+    expect(dialog).not.toBeNull()
+  })
+
   it('renders all four section tabs: Staff, Students, Parents, Credentials', async () => {
     render(<AdminUsersPage />)
     await waitFor(() => {

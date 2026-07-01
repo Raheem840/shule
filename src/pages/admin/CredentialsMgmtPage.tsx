@@ -48,7 +48,10 @@ type ParentRow = {
   created_at: string
 }
 
-type PasswordResult = { id: string; name: string; email: string; password: string; type: TabId; manual?: boolean }
+// `password` is only set for students/parents (still on the temp-password
+// model). Staff results omit it — an invite/reset email was sent instead, see
+// create-staff-auth-user / reset-staff-password.
+type PasswordResult = { id: string; name: string; email: string; password?: string; type: TabId }
 
 type BulkSelection = Set<string>
 
@@ -125,8 +128,14 @@ function PasswordCard({ result, onDismiss }: { result: PasswordResult; onDismiss
             <IcoCheck />
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--success)', fontFamily: 'var(--font2)' }}>Password Reset — {result.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--txt3)' }}>{result.manual ? 'Manual mode — create auth account in Supabase Dashboard first, then share credentials' : 'Share these credentials securely'}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--success)', fontFamily: 'var(--font2)' }}>
+              {result.password ? 'Password Reset' : 'Login Activated'} — {result.name}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--txt3)' }}>
+              {result.password
+                ? 'Share these credentials securely'
+                : 'An email was sent to set their password — no password to share.'}
+            </div>
           </div>
         </div>
         <button onClick={onDismiss} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt3)', padding: 4, display: 'flex' }}>
@@ -134,10 +143,13 @@ function PasswordCard({ result, onDismiss }: { result: PasswordResult; onDismiss
         </button>
       </div>
       <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {[
-          { key: 'email' as const, label: 'Email',    value: result.email },
-          { key: 'pass'  as const, label: 'Password', value: result.password },
-        ].map(f => (
+        {(result.password
+          ? [
+              { key: 'email' as const, label: 'Email',    value: result.email },
+              { key: 'pass'  as const, label: 'Password', value: result.password },
+            ]
+          : [{ key: 'email' as const, label: 'Email', value: result.email }]
+        ).map(f => (
           <div key={f.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,.04)', border: '1px solid rgba(16,185,129,.12)', borderRadius: 10, padding: '9px 13px' }}>
             <div>
               <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: .8, marginBottom: 3 }}>{f.label}</div>
@@ -154,7 +166,9 @@ function PasswordCard({ result, onDismiss }: { result: PasswordResult; onDismiss
       </div>
       <div style={{ padding: '10px 16px 14px', display: 'flex', gap: 8 }}>
         <button
-          onClick={() => doCopy('all', `${result.name}\nEmail: ${result.email}\nPassword: ${result.password}\nURL: ${window.location.origin}`)}
+          onClick={() => doCopy('all', result.password
+            ? `${result.name}\nEmail: ${result.email}\nPassword: ${result.password}\nURL: ${window.location.origin}`
+            : `${result.name}\nEmail: ${result.email}\nURL: ${window.location.origin}`)}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 12, fontWeight: 700, color: 'var(--txt2)', cursor: 'pointer', transition: 'background 0.15s' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}
@@ -402,8 +416,12 @@ function StaffPanel({
       const r = await activate.mutateAsync({ staffId })
       const staff = allStaff.find(s => s.id === staffId)
       const name  = staff ? `${staff.firstName} ${staff.lastName}` : 'Staff'
-      onPasswordResult({ id: staffId, name, email: r.email, password: r.tempPassword, type: 'staff', manual: r.manual })
-      ok('Login activated')
+      onPasswordResult({ id: staffId, name, email: r.email, type: 'staff' })
+      if (r.emailSent) {
+        ok('Login activated — invite email sent')
+      } else {
+        err(`Login linked, but the email to ${r.email} failed to send — ask them to use "Forgot password" at login instead.`)
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Activation failed'
       if (msg.includes('already activated')) {
@@ -420,10 +438,10 @@ function StaffPanel({
     if (!staff.authUserId) return
     setBusy(staff.id, true)
     try {
-      const r = await resetPw.mutateAsync({ authUserId: staff.authUserId, staffId: staff.id, email: staff.email ?? '', name: `${staff.firstName} ${staff.lastName}` })
+      await resetPw.mutateAsync({ authUserId: staff.authUserId, staffId: staff.id, email: staff.email ?? '', name: `${staff.firstName} ${staff.lastName}` })
       const displayEmail = staff.email ?? '(email not set — check staff profile)'
-      onPasswordResult({ id: staff.id, name: `${staff.firstName} ${staff.lastName}`, email: displayEmail, password: r.tempPassword, type: 'staff' })
-      ok('Password reset')
+      onPasswordResult({ id: staff.id, name: `${staff.firstName} ${staff.lastName}`, email: displayEmail, type: 'staff' })
+      ok('Reset email sent')
     } catch (e) { err(e instanceof Error ? e.message : 'Reset failed') }
     finally { setBusy(staff.id, false) }
   }

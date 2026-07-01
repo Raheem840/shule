@@ -7,14 +7,12 @@ import {
   useUserManagement,
   useResetPassword,
   useDeactivateUser,
-  useDeleteUser,
   useSchoolSettings,
   useSaveSchoolSettings,
   useSaveApiConfig,
   useApiConfigStatus,
   useAcademicYears,
   useToggleSurvey,
-  usePromoteStudents,
 } from '../../hooks/useAdmin'
 import type { UserRow } from '../../types/week9'
 
@@ -132,13 +130,9 @@ function UserManagementSection() {
   const { data: users = [], isLoading } = useUserManagement()
   const { mutateAsync: resetPwd,    isPending: resetting } = useResetPassword()
   const { mutateAsync: toggleActive }                      = useDeactivateUser()
-  const { mutateAsync: deleteUser,  isPending: deleting }  = useDeleteUser()
   const [resetTarget,  setResetTarget]  = useState<UserRow | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null)
-  const [deleteTyped,  setDeleteTyped]  = useState('')
-  const [deleteError,  setDeleteError]  = useState('')
   const [resetDone,    setResetDone]    = useState(false)
-  const [resetPassword, setResetPassword] = useState('')
+  const [resetEmail, setResetEmail] = useState('')
   const [resetError,   setResetError]   = useState('')
   const [search,       setSearch]       = useState('')
   const listRef = useRef<HTMLDivElement>(null)
@@ -161,23 +155,11 @@ function UserManagementSection() {
     if (!resetTarget?.authUserId) return
     setResetError('')
     try {
-      const { newPassword } = await resetPwd(resetTarget.authUserId)
-      setResetPassword(newPassword)
+      const { email } = await resetPwd(resetTarget.authUserId)
+      setResetEmail(email)
       setResetDone(true)
     } catch (err: any) {
       setResetError(err.message ?? 'Reset failed')
-    }
-  }
-
-  async function handleDelete() {
-    if (!deleteTarget || deleteTyped !== 'DELETE') return
-    setDeleteError('')
-    try {
-      await deleteUser({ staffId: deleteTarget.staffId, authUserId: deleteTarget.authUserId })
-      setDeleteTarget(null)
-      setDeleteTyped('')
-    } catch (err: any) {
-      setDeleteError(err.message ?? 'Delete failed')
     }
   }
 
@@ -307,7 +289,7 @@ function UserManagementSection() {
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                     {u.authUserId && (
                       <button
-                        onClick={() => { setResetTarget(u); setResetDone(false); setResetPassword(''); setResetError('') }}
+                        onClick={() => { setResetTarget(u); setResetDone(false); setResetEmail(''); setResetError('') }}
                         style={{
                           padding: '4px 10px', borderRadius: 7, fontSize: 10, fontWeight: 700,
                           border: '1px solid var(--border)', background: 'transparent',
@@ -318,7 +300,7 @@ function UserManagementSection() {
                       </button>
                     )}
                     <button
-                      onClick={() => toggleActive({ staffId: u.staffId, isActive: !u.isActive })}
+                      onClick={() => toggleActive({ staffId: u.staffId, isActive: !u.isActive, authUserId: u.authUserId })}
                       style={{
                         padding: '4px 10px', borderRadius: 7, fontSize: 10, fontWeight: 700,
                         border: `1px solid ${u.isActive ? 'rgba(245,158,11,0.4)' : 'rgba(16,185,129,0.4)'}`,
@@ -327,16 +309,6 @@ function UserManagementSection() {
                       }}
                     >
                       {u.isActive ? 'Deactivate' : 'Activate'}
-                    </button>
-                    <button
-                      onClick={() => { setDeleteTarget(u); setDeleteTyped(''); setDeleteError('') }}
-                      style={{
-                        padding: '4px 10px', borderRadius: 7, fontSize: 10, fontWeight: 700,
-                        border: '1px solid rgba(244,63,94,0.3)', background: 'rgba(244,63,94,0.06)',
-                        color: 'var(--danger)', cursor: 'pointer',
-                      }}
-                    >
-                      Delete
                     </button>
                   </div>
                 </div>
@@ -360,69 +332,6 @@ function UserManagementSection() {
           </div>
         )}
       </div>
-
-      {/* Delete User Modal */}
-      {deleteTarget && (
-        <div
-          className="sui-overlay"
-          style={{
-            position: 'fixed', inset: 0, background: 'var(--modal-overlay)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-          }}
-          onClick={e => { if (e.target === e.currentTarget) setDeleteTarget(null) }}
-        >
-          <div
-            className="sui-modal-dialog"
-            style={{
-              background: 'var(--modal-bg)', borderRadius: 20, padding: 28, width: 420,
-              border: '1px solid var(--modal-border)',
-              borderTop: '1px solid var(--modal-border-t)',
-              backdropFilter: 'blur(24px)', boxShadow: 'var(--modal-shadow)',
-            }}
-          >
-            <h3 style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, marginTop: 0, color: 'var(--danger)' }}>
-              Delete User Account
-            </h3>
-            <p style={{ color: 'var(--txt2)', fontSize: 13, lineHeight: 1.5 }}>
-              This will permanently remove <strong>{deleteTarget.name}</strong>'s staff record and revoke their login access.
-              This action cannot be undone.
-            </p>
-            <p style={{ fontSize: 13, color: 'var(--txt2)', marginBottom: 8 }}>
-              Type <code style={{ fontFamily: 'var(--font3)', background: 'var(--danger-bg)', color: 'var(--danger)', padding: '1px 5px', borderRadius: 4 }}>DELETE</code> to confirm:
-            </p>
-            <input
-              value={deleteTyped}
-              onChange={e => setDeleteTyped(e.target.value)}
-              placeholder="Type DELETE to confirm"
-              className="sui-input"
-              style={{ width: '100%', marginBottom: 12 }}
-              autoFocus
-            />
-            {deleteError && (
-              <div style={{ background: 'var(--danger-bg)', color: 'var(--danger)',
-                padding: '8px 12px', borderRadius: 8, fontSize: 13, marginBottom: 12 }}>
-                {deleteError}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setDeleteTarget(null)} className="sui-btn-outline">Cancel</button>
-              <button
-                onClick={() => { void handleDelete() }}
-                disabled={deleteTyped !== 'DELETE' || deleting}
-                style={{
-                  padding: '8px 18px', border: 'none', borderRadius: 10,
-                  background: deleteTyped === 'DELETE' ? 'var(--danger)' : 'var(--surface2)',
-                  color: deleteTyped === 'DELETE' ? '#fff' : 'var(--txt3)',
-                  fontWeight: 700, fontSize: 13, cursor: deleteTyped === 'DELETE' ? 'pointer' : 'default',
-                  fontFamily: 'var(--font2)',
-                }}
-              >
-                {deleting ? 'Deleting…' : 'Permanently Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Reset Password Modal */}
       {resetTarget && (
@@ -452,18 +361,14 @@ function UserManagementSection() {
                   background: 'var(--success-bg)', color: 'var(--success)',
                   padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 16,
                 }}>
-                  Password reset. New temporary password:{' '}
-                  <code style={{ fontFamily: 'var(--font3)', background: 'rgba(0,0,0,0.12)', padding: '1px 5px', borderRadius: 4 }}>
-                    {resetPassword}
-                  </code>
-                  . Share securely — the staff member must change it on next login.
+                  Reset email sent to <strong>{resetEmail}</strong>. They'll get a link to set a new password themselves.
                 </div>
-                <button onClick={() => { setResetTarget(null); setResetDone(false); setResetPassword('') }} className="sui-btn-primary">Done</button>
+                <button onClick={() => { setResetTarget(null); setResetDone(false); setResetEmail('') }} className="sui-btn-primary">Done</button>
               </>
             ) : (
               <>
                 <p style={{ color: 'var(--txt2)', fontSize: 13 }}>
-                  Reset password for <strong>{resetTarget.name}</strong>? A random temporary password will be generated.
+                  Send a password reset email to <strong>{resetTarget.name}</strong>? They'll receive a link to set a new password themselves.
                 </p>
                 {resetError && (
                   <div style={{ background: 'var(--danger-bg)', color: 'var(--danger)',
@@ -478,7 +383,7 @@ function UserManagementSection() {
                     disabled={resetting}
                     className="sui-btn-primary"
                   >
-                    {resetting ? 'Resetting…' : 'Reset Password'}
+                    {resetting ? 'Sending…' : 'Send Reset Email'}
                   </button>
                 </div>
               </>
@@ -498,12 +403,6 @@ function SchoolSettingsSection() {
   const { mutateAsync: saveSettings, isPending: savingSettings } = useSaveSchoolSettings()
   const { mutateAsync: saveApiKey, isPending: savingKey } = useSaveApiConfig()
   const { mutateAsync: toggleSurvey } = useToggleSurvey()
-  const { mutateAsync: promoteStudents, isPending: isPromoting } = usePromoteStudents()
-  const [showPromoteModal, setShowPromoteModal]       = useState(false)
-  const [promoteConfirmText, setPromoteConfirmText]   = useState('')
-  const [promoteProgress, setPromoteProgress]         = useState<{ current: number; total: number } | null>(null)
-  const [promoteResult, setPromoteResult]             = useState<{ promoted: number; completed: number; total: number } | null>(null)
-  const [promoteErr, setPromoteErr]                   = useState('')
 
   const [form, setForm] = useState({ schoolName: '', shortName: '', motto: '', primaryColor: '#0d9488' })
   const [settingsSaved, setSettingsSaved] = useState(false)
@@ -737,17 +636,10 @@ function SchoolSettingsSection() {
         </div>
       </div>
 
-      {/* Academic Years + Survey Toggle + Promote */}
+      {/* Academic Years + Survey Toggle */}
       <div className="sui-glass-panel" style={{ padding: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--txt)' }}>Academic Years</div>
-          <button
-            onClick={() => { setPromoteConfirmText(''); setPromoteResult(null); setPromoteErr(''); setShowPromoteModal(true) }}
-            className="sui-btn-outline"
-            style={{ fontSize: 12, color: 'var(--danger)', borderColor: 'var(--danger)' }}
-          >
-            Promote All Students
-          </button>
         </div>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -797,106 +689,6 @@ function SchoolSettingsSection() {
         </table>
       </div>
 
-      {/* Promote Students Modal */}
-      {showPromoteModal && (
-        <div
-          className="sui-overlay"
-          style={{
-            position: 'fixed', inset: 0, background: 'var(--modal-overlay)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-          }}
-          onClick={e => { if (e.target === e.currentTarget) setShowPromoteModal(false) }}
-        >
-          <div
-            className="sui-modal-dialog"
-            style={{
-              background: 'var(--modal-bg)', borderRadius: 20, padding: 32,
-              maxWidth: 480, width: '100%',
-              border: '1px solid var(--modal-border)',
-              borderTop: '1px solid var(--modal-border-t)',
-              backdropFilter: 'blur(24px)', boxShadow: 'var(--modal-shadow)',
-            }}
-          >
-            <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--txt)', margin: '0 0 12px' }}>
-              Promote All Students
-            </h2>
-            {promoteResult ? (
-              <div>
-                <div style={{
-                  padding: '12px 16px', background: 'var(--success-bg)', borderRadius: 10,
-                  border: '1px solid var(--success)', fontSize: 14, color: 'var(--success)',
-                  fontWeight: 600, marginBottom: 16,
-                }}>
-                  Promotion complete: {promoteResult.promoted} promoted, {promoteResult.completed} marked as completed.
-                </div>
-                <button
-                  onClick={() => setShowPromoteModal(false)}
-                  className="sui-btn-outline"
-                  style={{ width: '100%' }}
-                >
-                  Close
-                </button>
-              </div>
-            ) : (
-              <>
-                <p style={{ fontSize: 13, color: 'var(--txt2)', marginBottom: 16, lineHeight: 1.6 }}>
-                  This will promote all active students to the next class. S.4 and S.6 students will be marked as Completed.
-                  This cannot be undone. Type <strong>PROMOTE</strong> to confirm.
-                </p>
-                {promoteProgress && (
-                  <div style={{ marginBottom: 12 }}>
-                    <div style={{ fontSize: 12, color: 'var(--txt3)', marginBottom: 4 }}>
-                      Promoting student {promoteProgress.current} of {promoteProgress.total}…
-                    </div>
-                    <div style={{ height: 6, background: 'var(--surface2)', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%', background: 'var(--brand)',
-                        width: `${Math.round((promoteProgress.current / promoteProgress.total) * 100)}%`,
-                        transition: 'width 0.2s',
-                      }} />
-                    </div>
-                  </div>
-                )}
-                <input
-                  value={promoteConfirmText}
-                  onChange={e => setPromoteConfirmText(e.target.value)}
-                  placeholder="Type PROMOTE"
-                  className="sui-input"
-                  style={{ width: '100%', marginBottom: 12 }}
-                />
-                {promoteErr && <div style={{ color: 'var(--danger)', fontSize: 12, marginBottom: 8 }}>{promoteErr}</div>}
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                  <button className="sui-btn-outline" onClick={() => setShowPromoteModal(false)}>Cancel</button>
-                  <button
-                    disabled={promoteConfirmText !== 'PROMOTE' || isPromoting}
-                    onClick={async () => {
-                      setPromoteErr('')
-                      setPromoteProgress({ current: 0, total: 1 })
-                      try {
-                        const result = await promoteStudents((c, t) => setPromoteProgress({ current: c, total: t }))
-                        setPromoteResult(result)
-                      } catch (e: any) {
-                        setPromoteErr(e.message ?? 'Promotion failed')
-                      } finally {
-                        setPromoteProgress(null)
-                      }
-                    }}
-                    style={{
-                      padding: '8px 20px',
-                      background: promoteConfirmText === 'PROMOTE' ? 'var(--danger)' : 'var(--border)',
-                      color: promoteConfirmText === 'PROMOTE' ? '#fff' : 'var(--txt3)',
-                      border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13,
-                      cursor: promoteConfirmText === 'PROMOTE' ? 'pointer' : 'not-allowed',
-                    }}
-                  >
-                    {isPromoting ? 'Promoting…' : 'Confirm Promote'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

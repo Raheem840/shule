@@ -2,6 +2,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const ALLOWED_ROLES  = ['secretary', 'principal', 'it_admin', 'deputy', 'dos', 'bursar', 'teacher', 'class_teacher']
+// These roles manage other staff members' records and may upload a photo for
+// someone else (e.g. during registration). Every other role may only upload
+// their own photo — enforced by comparing staffId to the caller's own staff row.
+const MANAGES_OTHERS_ROLES = ['secretary', 'principal', 'it_admin']
 const ALLOWED_TYPES  = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_SIZE_BYTES = 5 * 1024 * 1024  // 5 MB
 
@@ -15,6 +19,16 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
   })
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> {
+  try {
+    const b64 = token.split('.')[1]
+    const padded = b64.padEnd(b64.length + (4 - b64.length % 4) % 4, '=')
+    return JSON.parse(atob(padded.replace(/-/g, '+').replace(/_/g, '/')))
+  } catch {
+    return {}
+  }
 }
 
 serve(async (req) => {
@@ -36,10 +50,34 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await anonClient.auth.getUser(token)
     if (authError || !user) return json({ error: 'Invalid session' }, 401)
 
-    // Role is in app_metadata (set by the custom access token hook)
-    const userRole = (user.app_metadata?.user_role ?? '') as string
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+
+    // Role resolution — JWT payload first (custom access token hook claim), then
+    // app_metadata, then a staff-table lookup as a last resort. The staff-table
+    // lookup also gives us the caller's own staff id, needed for the ownership
+    // check below.
+    const jwtPayload = decodeJwtPayload(token)
+    let userRole =
+      (jwtPayload.user_role as string | undefined) ??
+      (user.app_metadata?.user_role as string | undefined) ??
+      ''
+
+    const { data: callerStaff } = await serviceClient
+      .from('staff')
+      .select('id, role')
+      .eq('auth_user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (!userRole || !ALLOWED_ROLES.includes(userRole)) {
+      userRole = (callerStaff?.role as string | undefined) ?? userRole
+    }
+
     if (!ALLOWED_ROLES.includes(userRole)) {
-      return json({ error: 'Insufficient permissions — secretary, principal or IT admin required' }, 403)
+      return json({ error: 'Insufficient permissions — staff account required' }, 403)
     }
 
     // ── 2. Parse multipart form data ───────────────────────────────────────
@@ -51,6 +89,13 @@ serve(async (req) => {
       return json({ error: 'Both file and staffId are required' }, 400)
     }
 
+    // Only secretary/principal/it_admin may set a photo for someone else
+    // (e.g. during staff registration) — every other role may only upload
+    // their own.
+    if (!MANAGES_OTHERS_ROLES.includes(userRole) && staffId !== callerStaff?.id) {
+      return json({ error: 'You can only update your own profile photo' }, 403)
+    }
+
     // ── 3. Validate file ───────────────────────────────────────────────────
     if (!ALLOWED_TYPES.includes(file.type)) {
       return json({ error: `Invalid file type "${file.type}". Allowed: jpg, png, webp.` }, 400)
@@ -60,11 +105,6 @@ serve(async (req) => {
     }
 
     // ── 4. Upload via service role client (bypasses RLS) ──────────────────
-    const serviceClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
-
     const ext = file.type.split('/')[1].replace('jpeg', 'jpg')
     const filePath   = `${staffId}/${Date.now()}.${ext}`
     const arrayBuffer = await file.arrayBuffer()

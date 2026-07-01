@@ -46,7 +46,7 @@ vi.mock('../../store/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }))
 
-import { useActivateStaffLogin, useLinkAuthUser } from '../../hooks/useStaffAuth'
+import { useActivateStaffLogin, useLinkAuthUser, useResetStaffPassword, useSendCredentialsSms } from '../../hooks/useStaffAuth'
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -62,9 +62,9 @@ const dbStaff = {
 }
 
 describe('useActivateStaffLogin', () => {
-  it('returns manual=false when Edge Function succeeds', async () => {
+  it('invites the staff member by email and returns no password (emailSent=true)', async () => {
     setResponse('staff', { data: dbStaff, error: null })
-    mockFunctions.invoke.mockResolvedValue({ data: { success: true, authUserId: 'new-uid' }, error: null })
+    mockFunctions.invoke.mockResolvedValue({ data: { success: true, authUserId: 'new-uid', invited: true }, error: null })
 
     const { result } = renderHook(() => useActivateStaffLogin(), { wrapper: createWrapper() })
     let outcome: any
@@ -72,22 +72,22 @@ describe('useActivateStaffLogin', () => {
       outcome = await result.current.mutateAsync({ staffId: 'staff-1' })
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(outcome.manual).toBe(false)
     expect(outcome.email).toBe('john@k.ug')
+    expect(outcome.emailSent).toBe(true)
+    expect(outcome.tempPassword).toBeUndefined()
+    // No password should ever be sent to the edge function
+    const sentBody = (mockFunctions.invoke.mock.calls.at(-1) as any)[1].body
+    expect(sentBody.password).toBeUndefined()
   })
 
-  it('returns manual=true when Edge Function fails (not deployed)', async () => {
+  it('throws when the Edge Function fails (no more localStorage/manual fallback)', async () => {
     setResponse('staff', { data: dbStaff, error: null })
     mockFunctions.invoke.mockResolvedValue({ data: null, error: { message: 'Function not deployed' } })
 
     const { result } = renderHook(() => useActivateStaffLogin(), { wrapper: createWrapper() })
-    let outcome: any
     await act(async () => {
-      outcome = await result.current.mutateAsync({ staffId: 'staff-1' })
+      await expect(result.current.mutateAsync({ staffId: 'staff-1' })).rejects.toThrow('Function not deployed')
     })
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(outcome.manual).toBe(true)
-    expect(typeof outcome.tempPassword).toBe('string')
   })
 
   it('throws when staff not found', async () => {
@@ -128,5 +128,65 @@ describe('useLinkAuthUser', () => {
         result.current.mutateAsync({ staffId: 'staff-1', authUserId: 'not-a-uuid' })
       ).rejects.toThrow('Invalid UUID')
     })
+  })
+})
+
+describe('useResetStaffPassword', () => {
+  it('sends a reset email (no password generated) and logs to audit_log', async () => {
+    mockFunctions.invoke.mockResolvedValue({ data: { success: true, email: 'john@k.ug' }, error: null })
+
+    const { result } = renderHook(() => useResetStaffPassword(), { wrapper: createWrapper() })
+    let outcome: any
+    await act(async () => {
+      outcome = await result.current.mutateAsync({ authUserId: 'auth-1', staffId: 'staff-1', name: 'John Doe' })
+    })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(outcome.email).toBe('john@k.ug')
+    expect(outcome.tempPassword).toBeUndefined()
+    const sentBody = (mockFunctions.invoke.mock.calls.find((c: any) => c[0] === 'reset-staff-password')?.[1]).body
+    expect(sentBody.newPassword).toBeUndefined()
+    expect(sentBody.userId).toBe('auth-1')
+    // Audit log entry written regardless
+    expect(mockFrom).toHaveBeenCalledWith('audit_log')
+  })
+
+  it('throws when the Edge Function fails', async () => {
+    mockFunctions.invoke.mockResolvedValue({ data: null, error: { message: 'Function error' } })
+    const { result } = renderHook(() => useResetStaffPassword(), { wrapper: createWrapper() })
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ authUserId: 'auth-1', staffId: 'staff-1', name: 'John Doe' })
+      ).rejects.toThrow('Password reset failed')
+    })
+  })
+})
+
+describe('useSendCredentialsSms', () => {
+  it('omits the password line when no password is provided (staff, email-based model)', async () => {
+    mockFunctions.invoke.mockResolvedValue({ data: { success: true }, error: null })
+    const { result } = renderHook(() => useSendCredentialsSms(), { wrapper: createWrapper() })
+    await act(async () => {
+      await result.current.mutateAsync({ phone: '+256700000000', name: 'John Doe', email: 'john@k.ug' })
+    })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const sentBody = (mockFunctions.invoke.mock.calls.at(-1) as any)[1].body
+    const message  = sentBody.recipients[0].message as string
+    expect(message).not.toMatch(/Password:/)
+    expect(message).toMatch(/check your email/i)
+  })
+
+  it('includes the password line when a password is provided (students, unchanged model)', async () => {
+    mockFunctions.invoke.mockResolvedValue({ data: { success: true }, error: null })
+    const { result } = renderHook(() => useSendCredentialsSms(), { wrapper: createWrapper() })
+    await act(async () => {
+      await result.current.mutateAsync({ phone: '+256700000000', name: 'Alice', email: 'alice@k.ug', password: 'Temp@1234' })
+    })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const sentBody = (mockFunctions.invoke.mock.calls.at(-1) as any)[1].body
+    const message  = sentBody.recipients[0].message as string
+    expect(message).toMatch(/Password: Temp@1234/)
   })
 })

@@ -13,7 +13,13 @@ export function applyBrandColor(hex: string): void {
   // light: heavily diluted into near-white
   const light = `#${toHex(r * 0.08 + 248 * 0.92)}${toHex(g * 0.08 + 250 * 0.92)}${toHex(b * 0.08 + 252 * 0.92)}`
 
-  const root = document.documentElement
+  // The design tokens (--brand etc.) are declared as the .ar wrapper's own CSS
+  // custom properties (index.css), not on :root. An element's own declared
+  // custom property always wins over an inherited value, so setting these on
+  // document.documentElement (<html>) was silently overridden by .ar's
+  // stylesheet rule and never took visible effect anywhere. Target .ar itself,
+  // falling back to <html> if it isn't mounted yet.
+  const root = (document.querySelector('.ar') as HTMLElement | null) ?? document.documentElement
   root.style.setProperty('--brand',       hex)
   root.style.setProperty('--brand-dark',  dark)
   root.style.setProperty('--brand-light', light)

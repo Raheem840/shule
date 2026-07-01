@@ -5,6 +5,7 @@ import { useStudents } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { Avatar } from '../../components/shared/Avatar'
+import { PromoteStudentsSection } from '../../components/shared/PromoteStudentsSection'
 
 // ─── Status badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: 'active' | 'suspended' | 'expelled' }) {
@@ -63,6 +64,7 @@ export function DeputyStudentsPage() {
   const [classId,  setClassId]  = useState('')
   const [streamId, setStreamId] = useState('')
   const [search,   setSearch]   = useState('')
+  const [showPromote, setShowPromote] = useState(false)
 
   const { data: classes  = [] } = useClasses()
   const { data: streams  = [] } = useStreams(classId || null)
@@ -109,8 +111,15 @@ export function DeputyStudentsPage() {
               </span>
             )}
           </div>
-          <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: 0 }}>Read-only student directory</p>
+          <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: 0 }}>Student directory · end-of-year promotion</p>
         </div>
+        <button
+          onClick={() => setShowPromote(v => !v)}
+          className="sui-btn-primary"
+          style={{ fontSize: 12.5, flexShrink: 0 }}
+        >
+          {showPromote ? 'Hide Promotion' : 'Promote Students'}
+        </button>
         {rows.length > 0 && (
           <button
             onClick={() => {
@@ -130,6 +139,8 @@ export function DeputyStudentsPage() {
           </button>
         )}
       </div>
+
+      {showPromote && <PromoteStudentsSection />}
 
       {/* ── Filters ── */}
       <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 16, padding: '14px 16px', display: 'flex', gap: 10, flexWrap: 'wrap', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>

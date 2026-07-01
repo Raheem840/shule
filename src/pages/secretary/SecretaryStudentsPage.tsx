@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { StudentsPage } from './StudentsPage'
 import { StudentRegistrationWizard } from './StudentRegistrationWizard'
 import { ImportWizard, type ColumnSpec, type ParsedRow, type ImportResult, type ConflictStrategy } from '../../components/shared/ImportWizard'
+import { PromoteStudentsSection } from '../../components/shared/PromoteStudentsSection'
 import { Modal } from '../../components/ui/Modal'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useAuth } from '../../store/AuthContext'
@@ -174,6 +175,7 @@ export function SecretaryStudentsPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [viewed,     setViewed]     = useState<Student | null>(null)
   const [editing,    setEditing]    = useState<Student | null>(null)
+  const [showPromote, setShowPromote] = useState(false)
 
   const qc                     = useQueryClient()
   const { user }               = useAuth()
@@ -256,6 +258,18 @@ export function SecretaryStudentsPage() {
 
   return (
     <>
+      {/* ── End-of-year promotion ─────────────────────────── */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button
+          onClick={() => setShowPromote(v => !v)}
+          className="sui-btn-primary"
+          style={{ fontSize: 12.5 }}
+        >
+          {showPromote ? 'Hide Promotion' : 'Promote Students'}
+        </button>
+      </div>
+      {showPromote && <div style={{ marginBottom: 20 }}><PromoteStudentsSection /></div>}
+
       {/* ── Main student list ─────────────────────────────── */}
       <StudentsPage
         onRegister={() => setWizardOpen(true)}

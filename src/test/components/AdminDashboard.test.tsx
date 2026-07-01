@@ -55,14 +55,12 @@ vi.mock('../../hooks/useAdmin', () => ({
   useUserManagement:    vi.fn(),
   useResetPassword:     vi.fn(),
   useDeactivateUser:    vi.fn(),
-  useDeleteUser:        vi.fn(),
   useSchoolSettings:    vi.fn(),
   useSaveSchoolSettings:vi.fn(),
   useSaveApiConfig:     vi.fn(),
   useApiConfigStatus:   vi.fn(),
   useAcademicYears:     vi.fn(),
   useToggleSurvey:      vi.fn(),
-  usePromoteStudents:   vi.fn(),
 }))
 
 // ── Toast ──────────────────────────────────────────────────────────────────────
@@ -74,9 +72,9 @@ vi.mock('../../components/ui/Toast', () => ({
 // ── Imports after mocks ────────────────────────────────────────────────────────
 import {
   useSystemKpis, useStorageBuckets, useUserManagement,
-  useResetPassword, useDeactivateUser, useDeleteUser,
+  useResetPassword, useDeactivateUser,
   useSchoolSettings, useSaveSchoolSettings, useSaveApiConfig,
-  useApiConfigStatus, useAcademicYears, useToggleSurvey, usePromoteStudents,
+  useApiConfigStatus, useAcademicYears, useToggleSurvey,
 } from '../../hooks/useAdmin'
 import { AdminDashboard } from '../../pages/admin/AdminDashboard'
 
@@ -85,14 +83,12 @@ const mockUseStorageBuckets    = useStorageBuckets    as ReturnType<typeof vi.fn
 const mockUseUserManagement    = useUserManagement    as ReturnType<typeof vi.fn>
 const mockUseResetPassword     = useResetPassword     as ReturnType<typeof vi.fn>
 const mockUseDeactivateUser    = useDeactivateUser    as ReturnType<typeof vi.fn>
-const mockUseDeleteUser        = useDeleteUser        as ReturnType<typeof vi.fn>
 const mockUseSchoolSettings    = useSchoolSettings    as ReturnType<typeof vi.fn>
 const mockUseSaveSchoolSettings= useSaveSchoolSettings as ReturnType<typeof vi.fn>
 const mockUseSaveApiConfig     = useSaveApiConfig     as ReturnType<typeof vi.fn>
 const mockUseApiConfigStatus   = useApiConfigStatus   as ReturnType<typeof vi.fn>
 const mockUseAcademicYears     = useAcademicYears     as ReturnType<typeof vi.fn>
 const mockUseToggleSurvey      = useToggleSurvey      as ReturnType<typeof vi.fn>
-const mockUsePromoteStudents   = usePromoteStudents   as ReturnType<typeof vi.fn>
 
 const MUTATION_STUB = { mutateAsync: vi.fn(), mutate: vi.fn(), isPending: false }
 
@@ -139,7 +135,6 @@ function setupMocks(overrides: Record<string, any> = {}) {
   })
   mockUseResetPassword.mockReturnValue({ ...MUTATION_STUB, isPending: false })
   mockUseDeactivateUser.mockReturnValue({ ...MUTATION_STUB })
-  mockUseDeleteUser.mockReturnValue({ ...MUTATION_STUB, isPending: false })
   mockUseSchoolSettings.mockReturnValue({
     data: overrides.school ?? SAMPLE_SCHOOL, isLoading: overrides.schoolLoading ?? false,
   })
@@ -148,7 +143,6 @@ function setupMocks(overrides: Record<string, any> = {}) {
   mockUseApiConfigStatus.mockReturnValue({ data: { atEnabled: false, waEnabled: false }, isLoading: false })
   mockUseAcademicYears.mockReturnValue({ data: overrides.years ?? SAMPLE_ACADEMIC_YEARS, isLoading: false })
   mockUseToggleSurvey.mockReturnValue({ ...MUTATION_STUB })
-  mockUsePromoteStudents.mockReturnValue({ ...MUTATION_STUB, isPending: false })
 }
 
 beforeEach(() => {
@@ -272,6 +266,33 @@ describe('AdminDashboard', () => {
     await waitFor(() => {
       expect(screen.getByText(/loading users/i)).toBeInTheDocument()
     })
+  })
+
+  it('clicking Deactivate passes authUserId so the Supabase Auth-level ban actually fires', async () => {
+    const mutate = vi.fn()
+    mockUseDeactivateUser.mockReturnValue({ ...MUTATION_STUB, mutateAsync: mutate })
+    const user = userEvent.setup()
+    render(<AdminDashboard />)
+    await user.click(screen.getByRole('tab', { name: /user management/i }))
+    await waitFor(() => screen.getByText('Alice Nakato'))
+
+    const deactivateButtons = screen.getAllByText('Deactivate')
+    await user.click(deactivateButtons[0])
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ staffId: 'sf1', isActive: false, authUserId: 'au1' })
+    )
+  })
+
+  it('does not render a Delete button or delete confirmation modal in User Management', async () => {
+    const user = userEvent.setup()
+    render(<AdminDashboard />)
+    await user.click(screen.getByRole('tab', { name: /user management/i }))
+    await waitFor(() => screen.getByText('Alice Nakato'))
+
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument()
+    expect(screen.queryByText(/permanently delete/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/delete user account/i)).not.toBeInTheDocument()
   })
 
   // ── School Settings tab ───────────────────────────────────────────────────

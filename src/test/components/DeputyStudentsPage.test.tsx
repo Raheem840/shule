@@ -44,6 +44,12 @@ vi.mock('../../components/shared/Avatar', () => ({
   Avatar: ({ name }: { name: string }) => <div data-testid="avatar">{name[0]}</div>,
 }))
 
+// Toast stub — PromoteStudentsSection (rendered when "Promote Students" is clicked) uses useToast()
+vi.mock('../../components/ui/Toast', () => ({
+  useToast:      () => ({ success: vi.fn(), error: vi.fn() }),
+  ToastProvider: ({ children }: any) => children,
+}))
+
 import { useStudents }         from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { DeputyStudentsPage }  from '../../pages/deputy/DeputyStudentsPage'
@@ -99,10 +105,23 @@ describe('DeputyStudentsPage', () => {
     expect(screen.getByText('Students')).toBeInTheDocument()
   })
 
-  it('renders the "Read-only student directory" subtitle', () => {
+  it('renders the student directory subtitle', () => {
     setupMocks()
     render(<DeputyStudentsPage />)
-    expect(screen.getByText(/read-only student directory/i)).toBeInTheDocument()
+    expect(screen.getByText(/student directory/i)).toBeInTheDocument()
+  })
+
+  it('renders a "Promote Students" button that reveals the promotion section', async () => {
+    setupMocks()
+    const user = userEvent.setup()
+    render(<DeputyStudentsPage />)
+
+    const btn = screen.getByRole('button', { name: /promote students/i })
+    expect(btn).toBeInTheDocument()
+    expect(screen.queryByText(/end-of-year: promote students/i)).not.toBeInTheDocument()
+
+    await user.click(btn)
+    expect(screen.getByText(/end-of-year: promote students/i)).toBeInTheDocument()
   })
 
   it('shows loading skeletons while students load', () => {

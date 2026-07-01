@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
@@ -127,80 +126,6 @@ function useUpdateAcademicYear() {
       void qc.invalidateQueries({ queryKey: ['academic-years-full', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['academic-years', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['principal-kpis', user?.schoolId] })
-    },
-  })
-}
-
-function usePromoteAllStudents() {
-  const { user } = useAuth()
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (newYearId: string) => {
-      if (!user) throw new Error('Not authenticated')
-      const sid = user.schoolId
-
-      // Fetch ALL classes for school ordered by level
-      const { data: classes, error: classErr } = await supabase
-        .from('classes')
-        .select('id, name, level, academic_year_id')
-        .eq('school_id', sid)
-        .order('level', { ascending: true })
-      if (classErr) throw new Error(classErr.message)
-
-      const sorted = ((classes ?? []) as any[]).filter(c => c.level).sort((a: any, b: any) => Number(a.level) - Number(b.level))
-
-      // Map each class id → next class id (by level order, across any year)
-      const nextClassMap = new Map<string, string | null>()
-      for (let i = 0; i < sorted.length; i++) {
-        nextClassMap.set(sorted[i].id, sorted[i + 1]?.id ?? null)
-      }
-      const lastClassId = sorted[sorted.length - 1]?.id ?? null
-
-      // Fetch all active students
-      const { data: students, error: stuErr } = await supabase
-        .from('students')
-        .select('id, class_id')
-        .eq('school_id', sid)
-        .eq('status', 'active')
-      if (stuErr) throw new Error(stuErr.message)
-
-      const toGraduate = ((students ?? []) as any[]).filter(s => s.class_id === lastClassId).map(s => s.id)
-      const toPromote  = ((students ?? []) as any[]).filter(s => s.class_id !== lastClassId)
-
-      if (toGraduate.length > 0) {
-        const { error } = await supabase
-          .from('students').update({ academic_year_id: newYearId, class_id: null, stream_id: null })
-          .in('id', toGraduate).eq('school_id', sid)
-        if (error) throw new Error(error.message)
-      }
-
-      // Group by next class and batch-update with new academic_year_id
-      const byNextClass = new Map<string, string[]>()
-      for (const s of toPromote as any[]) {
-        const nextId = nextClassMap.get(s.class_id) ?? null
-        if (!nextId) continue
-        if (!byNextClass.has(nextId)) byNextClass.set(nextId, [])
-        byNextClass.get(nextId)!.push(s.id)
-      }
-      for (const [nextClassId, ids] of byNextClass) {
-        const { error } = await supabase
-          .from('students').update({ class_id: nextClassId, stream_id: null, academic_year_id: newYearId })
-          .in('id', ids).eq('school_id', sid)
-        if (error) throw new Error(error.message)
-      }
-
-      // Activate the new academic year
-      await supabase.from('academic_years').update({ is_active: false }).eq('school_id', sid)
-      const { error: activateErr } = await supabase.from('academic_years').update({ is_active: true }).eq('id', newYearId).eq('school_id', sid)
-      if (activateErr) throw new Error(activateErr.message)
-
-      return { graduated: toGraduate.length, promoted: toPromote.length }
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
-      void qc.invalidateQueries({ queryKey: ['principal-kpis', user?.schoolId] })
-      void qc.invalidateQueries({ queryKey: ['academic-years-full', user?.schoolId] })
-      void qc.invalidateQueries({ queryKey: ['academic-years', user?.schoolId] })
     },
   })
 }
@@ -404,185 +329,6 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
       <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 4 }}>{label}</label>
       {children}
     </div>
-  )
-}
-
-// ── Promote All Modal ──────────────────────────────────────────────────────
-function PromoteModal({ years, activeYear, onClose }: {
-  years: AcademicYearRow[]
-  activeYear: AcademicYearRow | null
-  onClose: () => void
-}) {
-  const { success: ok, error: err } = useToast()
-  const promote = usePromoteAllStudents()
-  const [targetYearId, setTargetYearId] = useState('')
-  const [confirmed, setConfirmed] = useState(false)
-
-  const inactiveYears = years.filter(y => !y.isActive)
-
-  // Gate: term 3 of active year must be completed
-  const term3End    = activeYear?.term3End ?? null
-  const term3Done   = term3End ? Date.now() > new Date(term3End).getTime() : false
-  const term3Label  = term3End ? formatDate(term3End) : 'not set'
-
-  async function handlePromote() {
-    if (!targetYearId || !confirmed || !term3Done) return
-    try {
-      const result = await promote.mutateAsync(targetYearId)
-      ok(`Promotion complete. ${result.graduated} graduated · ${result.promoted} promoted. New year activated.`)
-      onClose()
-    } catch (e: any) { err(e.message) }
-  }
-
-  return createPortal(
-    <div className="sui-overlay" style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem',
-    }}>
-      <div className="sui-modal-dialog" style={{
-        background: 'var(--surface)', borderRadius: 20, overflow: 'hidden',
-        width: 480, maxWidth: '95vw', boxShadow: '0 24px 64px rgba(0,0,0,.25)',
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '20px 24px 16px',
-          background: term3Done
-            ? 'linear-gradient(135deg, #7c3aed, #6d28d9)'
-            : 'linear-gradient(135deg, #475569, #334155)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: 13,
-              background: 'rgba(255,255,255,.18)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
-                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 00-3-3.87"/>
-                <path d="M16 3.13a4 4 0 010 7.75"/>
-              </svg>
-            </div>
-            <div>
-              <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 18, color: '#fff', letterSpacing: -.3 }}>
-                Promote All Students
-              </div>
-              <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,.7)', marginTop: 2 }}>
-                End-of-year class advancement
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-          {/* Term 3 gate */}
-          <div style={{
-            padding: '12px 14px', borderRadius: 12,
-            background: term3Done ? 'rgba(16,185,129,.08)' : 'rgba(245,158,11,.08)',
-            border: `1px solid ${term3Done ? 'rgba(16,185,129,.25)' : 'rgba(245,158,11,.3)'}`,
-            display: 'flex', gap: 10, alignItems: 'flex-start',
-          }}>
-            {term3Done ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" style={{ flexShrink: 0, marginTop: 1 }}>
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2" style={{ flexShrink: 0, marginTop: 1 }}>
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-            )}
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 12.5, color: term3Done ? 'var(--success)' : 'var(--warning)', fontFamily: 'var(--font2)' }}>
-                {term3Done ? 'Term 3 completed' : 'Term 3 not yet complete'}
-              </div>
-              <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2 }}>
-                {term3Done
-                  ? `Term 3 ended ${term3Label}. Promotion is now available.`
-                  : `Promotion is only available after Term 3 ends (${term3Label}). Please wait until the end of Term 3.`}
-              </div>
-            </div>
-          </div>
-
-          {/* Only show the rest if term 3 is done */}
-          {term3Done && (
-            <>
-              <p style={{ fontSize: 13, color: 'var(--txt2)', margin: 0, lineHeight: 1.7 }}>
-                This moves all active students to the next class in the <strong>target year's class list</strong>.
-                Students in the final class are marked as <strong>graduated</strong>. Streams are cleared.
-                The target year becomes the new <strong>active year</strong>.
-              </p>
-
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: .5 }}>
-                  Target Academic Year *
-                </label>
-                <select
-                  value={targetYearId}
-                  onChange={e => setTargetYearId(e.target.value)}
-                  className="sui-input"
-                  style={{ width: '100%' }}
-                >
-                  <option value="">— Select year to promote into —</option>
-                  {inactiveYears.map(y => (
-                    <option key={y.id} value={y.id}>{y.name}</option>
-                  ))}
-                </select>
-                {inactiveYears.length === 0 && (
-                  <div style={{ fontSize: 12, color: 'var(--warning)', marginTop: 6, fontWeight: 600 }}>
-                    Create a new academic year first before promoting.
-                  </div>
-                )}
-              </div>
-
-              <label style={{
-                display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer',
-                padding: '10px 12px', borderRadius: 10,
-                background: confirmed ? 'rgba(244,63,94,.06)' : 'var(--surface2)',
-                border: `1px solid ${confirmed ? 'rgba(244,63,94,.25)' : 'var(--border)'}`,
-                transition: 'all .15s',
-              }}>
-                <input
-                  type="checkbox"
-                  checked={confirmed}
-                  onChange={e => setConfirmed(e.target.checked)}
-                  style={{ marginTop: 2, accentColor: 'var(--danger)', width: 15, height: 15 }}
-                />
-                <span style={{ fontSize: 12.5, color: 'var(--txt2)', lineHeight: 1.6 }}>
-                  I understand this action <strong style={{ color: 'var(--danger)' }}>cannot be undone</strong>. All active students will be promoted,
-                  final-year students graduated, and the target year activated.
-                </span>
-              </label>
-            </>
-          )}
-
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4 }}>
-            <button onClick={onClose} className="sui-btn-outline">Cancel</button>
-            {term3Done && (
-              <button
-                onClick={() => { void handlePromote() }}
-                disabled={!confirmed || !targetYearId || promote.isPending}
-                style={{
-                  padding: '9px 20px', borderRadius: 10, border: 'none', fontWeight: 800,
-                  fontSize: 13, cursor: confirmed && targetYearId ? 'pointer' : 'default',
-                  fontFamily: 'var(--font2)',
-                  background: confirmed && targetYearId
-                    ? 'linear-gradient(135deg, #dc2626, #b91c1c)'
-                    : 'var(--surface2)',
-                  color: confirmed && targetYearId ? '#fff' : 'var(--txt3)',
-                  boxShadow: confirmed && targetYearId ? '0 4px 14px rgba(220,38,38,.35)' : 'none',
-                  transition: 'all .15s',
-                  opacity: promote.isPending ? .7 : 1,
-                }}
-              >
-                {promote.isPending ? 'Promoting…' : 'Promote All Students'}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>,
-    (document.querySelector('.ar') as HTMLElement | null) ?? document.body
   )
 }
 
@@ -819,12 +565,9 @@ export function AcademicYearPage() {
   const toggleSurvey = useToggleSurvey()
   const [expanded,     setExpanded]     = useState<string | null>(null)
   const [showCreate,   setShowCreate]   = useState(false)
-  const [showPromote,  setShowPromote]  = useState(false)
   const [editingYear,  setEditingYear]  = useState<AcademicYearRow | null>(null)
   const [futureActiveYear, setFutureActiveYear] = useState<AcademicYearRow | null>(null)
 
-  const activeYear  = data.find(y => y.isActive) ?? null
-  const term3Done   = activeYear?.term3End ? Date.now() > new Date(activeYear.term3End).getTime() : false
   const today       = new Date().toISOString().split('T')[0]
 
   async function handleSetActive(year: AcademicYearRow) {
@@ -868,31 +611,6 @@ export function AcademicYearPage() {
         </div>
       </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {isPrincipal && (
-            <button
-              onClick={() => setShowPromote(true)}
-              title={term3Done ? 'Promote students to next class' : 'Available after Term 3 ends'}
-              style={{
-                padding: '8px 16px', borderRadius: 10, fontWeight: 700,
-                fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font2)',
-                background: term3Done
-                  ? 'linear-gradient(135deg, #7c3aed, #6d28d9)'
-                  : 'var(--surface2)',
-                color: term3Done ? '#fff' : 'var(--txt3)',
-                boxShadow: term3Done ? '0 3px 12px rgba(124,58,237,.3)' : 'none',
-                transition: 'all .15s', display: 'flex', alignItems: 'center', gap: 6,
-                border: term3Done ? 'none' : '1px solid var(--border)',
-              }}
-            >
-              {!term3Done && (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
-                </svg>
-              )}
-              Promote All Students
-              {!term3Done && <span style={{ fontSize: 10, opacity: .7 }}>(Term 3 pending)</span>}
-            </button>
-          )}
           {canManageYear && (
             <button className="sui-btn-primary" style={{ fontSize: 13 }} onClick={() => setShowCreate(true)}>
               + New Year
@@ -990,7 +708,6 @@ export function AcademicYearPage() {
       )}
 
       {showCreate  && <CreateYearModal onClose={() => setShowCreate(false)} />}
-      {showPromote && <PromoteModal years={data} activeYear={activeYear} onClose={() => setShowPromote(false)} />}
       {editingYear && <EditYearModal year={editingYear} onClose={() => setEditingYear(null)} />}
 
       {/* Future active-year confirmation dialog */}

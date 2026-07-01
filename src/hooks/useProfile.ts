@@ -3,14 +3,6 @@ import { supabase } from '../lib/supabase'
 import { uploadStaffPhoto } from '../lib/uploadStaffPhoto'
 import { useAuth } from '../store/AuthContext'
 
-export type PasswordResetRequest = {
-  id: string
-  staffName: string
-  authUserId: string
-  requestedAt: string
-  desiredPassword: string
-}
-
 export type MyProfile = {
   id: string
   firstName: string
@@ -148,108 +140,6 @@ export function useChangePassword() {
       if (!user) throw new Error('Not authenticated')
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) throw new Error(error.message)
-    },
-  })
-}
-
-// ── useRequestPasswordReset ────────────────────────────────────────────────
-// Staff submits a desired-password request via the notifications table.
-// This notifies the IT admin's bell AND appears in PasswordResetsPage.
-export function useRequestPasswordReset() {
-  const { user } = useAuth()
-
-  return useMutation({
-    mutationFn: async ({ staffName, desiredPassword }: { staffName: string; desiredPassword: string }) => {
-      if (!user) throw new Error('Not authenticated')
-
-      // Find all IT admin auth_user_ids for this school
-      const { data: admins, error: adminErr } = await supabase
-        .from('staff')
-        .select('auth_user_id')
-        .eq('school_id', user.schoolId)
-        .eq('role', 'it_admin')
-        .not('auth_user_id', 'is', null)
-
-      if (adminErr) throw new Error(adminErr.message)
-      if (!admins || admins.length === 0) {
-        throw new Error('No IT Admin account found. Contact your school administrator directly.')
-      }
-
-      const rows = admins.map((a: any) => ({
-        school_id:   user.schoolId,
-        user_id:     a.auth_user_id as string,
-        from_user:   user.id,
-        type:        'system',
-        title:       'Password Reset Request',
-        body:        `${staffName} wants to change their password. New password: ${desiredPassword}`,
-        target_role: 'it_admin',
-        read:        false,
-        read_at:     null,
-      }))
-
-      const { error } = await supabase.from('notifications').insert(rows)
-      if (error) throw new Error(error.message)
-    },
-  })
-}
-
-// ── usePasswordResetRequests ───────────────────────────────────────────────
-// IT admin reads unread system notifications that are password reset requests.
-export function usePasswordResetRequests() {
-  const { user } = useAuth()
-
-  return useQuery({
-    queryKey: ['pwd-reset-requests', user?.schoolId, user?.id],
-    enabled:  !!user && user.role === 'it_admin',
-    staleTime: 0,
-    queryFn: async (): Promise<PasswordResetRequest[]> => {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('id, title, body, from_user, created_at')
-        .eq('school_id', user!.schoolId)
-        .eq('user_id', user!.id)
-        .eq('type', 'system')
-        .ilike('title', 'Password Reset%')
-        .is('read_at', null)
-        .order('created_at', { ascending: false })
-
-      if (error) throw new Error(error.message)
-
-      return (data ?? []).map((r: any) => {
-        const body: string = r.body ?? ''
-        const nameMatch = body.match(/^(.+?) wants to change/)
-        const pwdMatch  = body.match(/New password: (.+)$/)
-        return {
-          id:              r.id as string,
-          staffName:       nameMatch?.[1] ?? 'Unknown',
-          authUserId:      (r.from_user as string) ?? '',
-          requestedAt:     r.created_at as string,
-          desiredPassword: pwdMatch?.[1] ?? '',
-        }
-      })
-    },
-  })
-}
-
-// ── useApprovePasswordReset ────────────────────────────────────────────────
-// IT admin marks request notification as read (done).
-export function useApprovePasswordReset() {
-  const { user } = useAuth()
-  const qc = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (notificationId: string) => {
-      if (!user) throw new Error('Not authenticated')
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true, read_at: new Date().toISOString() })
-        .eq('id', notificationId)
-        .eq('school_id', user!.schoolId)
-      if (error) throw new Error(error.message)
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['pwd-reset-requests'] })
-      void qc.invalidateQueries({ queryKey: ['notifications'] })
     },
   })
 }

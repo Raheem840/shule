@@ -1,49 +1,20 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
-import { generateTempPassword } from '../lib/passwords'
-
-// ── ACTIVATION_KEY ─────────────────────────────────────────────────────────
-const ACTIVATION_KEY = 'shule_pending_staff_activations'
-
-export type PendingActivation = {
-  staffId:      string
-  email:        string
-  tempPassword: string
-  name:         string
-  storedAt:     string
-}
-
-export function getPendingActivations(): Record<string, PendingActivation> {
-  try {
-    return JSON.parse(localStorage.getItem(ACTIVATION_KEY) ?? '{}')
-  } catch {
-    return {}
-  }
-}
-
-export function clearPendingActivation(staffId: string): void {
-  try {
-    const existing = getPendingActivations()
-    delete existing[staffId]
-    localStorage.setItem(ACTIVATION_KEY, JSON.stringify(existing))
-  } catch {
-    // localStorage unavailable (Safari private mode) — stale entry; harmless
-  }
-}
 
 // ── useActivateStaffLogin ──────────────────────────────────────────────────
 // Calls 'create-staff-auth-user' Edge Function which:
-//   - Creates Supabase Auth user with email + default password
+//   - Creates a Supabase Auth user and emails them an invite link to set
+//     their own password (or, if the auth account already exists, emails a
+//     password-reset link) — the same "Forgot password" mechanism used on
+//     the login page. Nobody but the staff member ever sees their password.
 //   - Updates staff.auth_user_id with the new auth user's UUID
-//   - Returns { success, authUserId }
-// Falls back to localStorage if Edge Function not deployed.
 export function useActivateStaffLogin() {
   const { user } = useAuth()
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ staffId, emailOverride }: { staffId: string; emailOverride?: string }): Promise<{ email: string; tempPassword: string; manual: boolean }> => {
+    mutationFn: async ({ staffId, emailOverride }: { staffId: string; emailOverride?: string }): Promise<{ email: string; emailSent: boolean }> => {
       if (!user) throw new Error('Not authenticated')
 
       const { data: staff, error: staffErr } = await supabase
@@ -73,43 +44,22 @@ export function useActivateStaffLogin() {
         email = `staff.${staffNum}@${shortName}.ug`
       }
 
-      const tempPassword = generateTempPassword()
-
       const { data: fnData, error: fnError } = await supabase.functions.invoke('create-staff-auth-user', {
-        body: { staffId, email, schoolId: user.schoolId, password: tempPassword },
+        body: {
+          staffId, email, schoolId: user.schoolId,
+          redirectTo: `${window.location.origin}/reset-password`,
+        },
       })
 
       if (fnError) {
-        // Edge function not deployed — persist credentials for manual setup
-        const s = staff as any
-        await supabase
-          .from('staff')
-          .update({ temp_password: tempPassword })
-          .eq('id', staffId)
-          .eq('school_id', user.schoolId)
-        try {
-          const pending = getPendingActivations()
-          pending[staffId] = {
-            staffId,
-            email,
-            tempPassword,
-            name: `${(s.first_name as string | null) ?? ''} ${(s.last_name as string | null) ?? ''}`.trim(),
-            storedAt: new Date().toISOString(),
-          }
-          localStorage.setItem(ACTIVATION_KEY, JSON.stringify(pending))
-        } catch {
-          // localStorage unavailable (Safari private mode) — credentials shown in UI only
-        }
-        return { email, tempPassword, manual: true as const }
+        throw new Error(`Failed to activate login: ${fnError.message}`)
       }
-
       if (!(fnData as any)?.success) {
         const detail = (fnData as { error?: string } | null)?.error ?? 'Unknown error'
         throw new Error(`Failed to activate login: ${detail}`)
       }
 
-      clearPendingActivation(staffId)
-      return { email, tempPassword, manual: false as const }
+      return { email, emailSent: (fnData as any)?.emailSent !== false }
     },
     onSuccess: (_data, { staffId }) => {
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
@@ -141,7 +91,6 @@ export function useLinkAuthUser() {
         .eq('school_id', user.schoolId)
 
       if (error) throw new Error(error.message)
-      clearPendingActivation(staffId)
     },
     onSuccess: (_data, { staffId }) => {
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
@@ -152,7 +101,9 @@ export function useLinkAuthUser() {
 }
 
 // ── useResetStaffPassword ──────────────────────────────────────────────────
-// Calls reset-staff-password Edge Function with a new random temp password.
+// Sends the staff member a password-reset EMAIL via the reset-staff-password
+// Edge Function — the same "Forgot password" mechanism as the login page.
+// IT admin / principal never see or set the password directly.
 export function useResetStaffPassword() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -160,13 +111,11 @@ export function useResetStaffPassword() {
   return useMutation({
     mutationFn: async ({ authUserId, staffId, name }: {
       authUserId: string; staffId: string; email?: string; name: string
-    }): Promise<{ tempPassword: string; manual: boolean }> => {
+    }): Promise<{ email: string }> => {
       if (!user) throw new Error('Not authenticated')
 
-      const tempPassword = generateTempPassword()
-
-      const { error: fnError } = await supabase.functions.invoke('reset-staff-password', {
-        body: { userId: authUserId, newPassword: tempPassword },
+      const { data, error: fnError } = await supabase.functions.invoke('reset-staff-password', {
+        body: { userId: authUserId, redirectTo: `${window.location.origin}/reset-password` },
       })
 
       // Record in audit_log regardless of success/failure
@@ -178,13 +127,11 @@ export function useResetStaffPassword() {
         table_name:  'staff',
         record_id:   staffId,
         entity_name: name,
-        new_value:   { reset_by: user!.email, method: fnError ? 'manual' : 'edge_function', timestamp: new Date().toISOString() },
+        new_value:   { reset_by: user!.email, method: 'email', timestamp: new Date().toISOString() },
       })
 
-      if (!fnError) return { tempPassword, manual: false }
-
-      // Surface the actual error — don't show credentials that won't work
-      throw new Error(`Password reset failed: ${fnError.message}`)
+      if (fnError) throw new Error(`Password reset failed: ${fnError.message}`)
+      return { email: (data as { email?: string } | null)?.email ?? '' }
     },
     onSuccess: (_data, { staffId }) => {
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
@@ -195,26 +142,37 @@ export function useResetStaffPassword() {
 }
 
 // ── useSendCredentialsSms ─────────────────────────────────────────────────
-// Sends login credentials to a staff member via Africa's Talking SMS.
+// Sends login info to a staff/student member via Africa's Talking SMS.
+// Staff no longer have a password to send — omit `password` and they're told
+// to check their email for the invite/reset link instead. Students still use
+// the temp-password model (unchanged by this staff-password-model change),
+// so `password` stays supported for that caller.
 // The send-sms Edge Function takes { recipients: [{phone, message}], schoolId }.
 export function useSendCredentialsSms() {
   const { user } = useAuth()
 
   return useMutation({
     mutationFn: async ({ phone, name, email, password }: {
-      phone: string; name: string; email: string; password: string
+      phone: string; name: string; email: string; password?: string
     }) => {
       if (!user) throw new Error('Not authenticated')
 
       const loginUrl = window.location.origin
-      const message  = [
-        `Hi ${name},`,
-        `Your Shule school system login has been activated.`,
-        `Email: ${email}`,
-        `Password: ${password}`,
-        `Login at: ${loginUrl}`,
-        `Please change your password after first login.`,
-      ].join('\n')
+      const message  = password
+        ? [
+            `Hi ${name},`,
+            `Your Shule school system login has been activated.`,
+            `Email: ${email}`,
+            `Password: ${password}`,
+            `Login at: ${loginUrl}`,
+            `Please change your password after first login.`,
+          ].join('\n')
+        : [
+            `Hi ${name},`,
+            `Your Shule school system login has been activated.`,
+            `Email: ${email}`,
+            `Check your email for a link to set your password, then log in at: ${loginUrl}`,
+          ].join('\n')
 
       const { error } = await supabase.functions.invoke('send-sms', {
         body: {

@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { db } from '../lib/db'
 import { listFiles } from '../lib/storage'
-import { generateTempPassword } from '../lib/passwords'
 import type { SystemKpis, UserRow, SchoolSettings, ApiConfig } from '../types/week9'
 
 // ── useSystemKpis ──────────────────────────────────────────────────────────
@@ -82,24 +81,24 @@ export function useUserManagement() {
 }
 
 // ── useResetPassword ───────────────────────────────────────────────────────
-// Calls a Supabase Edge Function to reset a staff member's password.
-// The Edge Function runs with service_role key — never expose it to the client.
+// Sends the staff member a password-reset EMAIL via a Supabase Edge Function
+// (the same "Forgot password" mechanism as the login page). IT admin never
+// sees or sets the password directly.
 export function useResetPassword() {
   const { user } = useAuth()
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async (authUserId: string): Promise<{ newPassword: string }> => {
+    mutationFn: async (authUserId: string): Promise<{ email: string }> => {
       if (!user) throw new Error('Not authenticated')
       if (user.role !== 'it_admin') throw new Error('Forbidden')
 
-      const newPassword = generateTempPassword()
-      const { error } = await supabase.functions.invoke('reset-staff-password', {
-        body: { userId: authUserId, newPassword },
+      const { data, error } = await supabase.functions.invoke('reset-staff-password', {
+        body: { userId: authUserId, redirectTo: `${window.location.origin}/reset-password` },
       })
 
       if (error) throw new Error(error.message)
-      return { newPassword }
+      return { email: (data as { email?: string } | null)?.email ?? '' }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })
@@ -126,11 +125,15 @@ export function useDeactivateUser() {
 
       if (error) throw new Error(error.message)
 
-      // Enforce at Supabase Auth level so the user's active session is revoked
+      // Enforce at Supabase Auth level so the user's active session is revoked.
+      // This is the part that actually blocks login — if it fails, the DB flag
+      // alone is not enough (the JWT hook still refuses claims for is_active=false,
+      // but an already-issued token stays valid until it naturally expires).
       if (authUserId) {
-        await supabase.functions.invoke('set-user-disabled', {
+        const { error: banError } = await supabase.functions.invoke('set-user-disabled', {
           body: { authUserId, disabled: !isActive },
         })
+        if (banError) throw new Error(`Staff record updated, but the auth-level ${isActive ? 'reactivation' : 'ban'} failed: ${banError.message}`)
       }
     },
     onSuccess: () => {
@@ -300,42 +303,6 @@ export function useAcademicYears() {
   })
 }
 
-// ── useDeleteUser ──────────────────────────────────────────────────────────
-// Removes the staff row and calls an Edge Function to delete the auth account.
-// The Edge Function (delete-staff-user) runs with service_role — never expose it.
-export function useDeleteUser() {
-  const { user } = useAuth()
-  const qc = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ staffId, authUserId }: { staffId: string; authUserId: string | null }) => {
-      if (!user) throw new Error('Not authenticated')
-      if (user.role !== 'it_admin') throw new Error('Forbidden')
-
-      // Remove the staff row first (clears FK to auth user)
-      const { error: deleteErr } = await supabase
-        .from('staff')
-        .delete()
-        .eq('id', staffId)
-        .eq('school_id', user.schoolId)
-
-      if (deleteErr) throw new Error(deleteErr.message)
-
-      // Delete auth account via Edge Function if auth user exists
-      if (authUserId) {
-        const { error: fnErr } = await supabase.functions.invoke('delete-staff-user', {
-          body: { userId: authUserId },
-        })
-        if (fnErr) throw new Error(fnErr.message)
-      }
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })
-      void qc.invalidateQueries({ queryKey: ['system-kpis', user?.schoolId] })
-    },
-  })
-}
-
 // ── useStorageBuckets ──────────────────────────────────────────────────────
 // listBuckets() requires the service role key and returns empty with the
 // anon key. Use the known bucket names from the schema instead, then query
@@ -414,7 +381,7 @@ export function usePromoteStudents() {
   return useMutation({
     mutationFn: async (onProgress?: (current: number, total: number) => void) => {
       if (!user) throw new Error('Not authenticated')
-      if (!['it_admin', 'principal'].includes(user.role)) throw new Error('Forbidden')
+      if (!['deputy', 'secretary'].includes(user.role)) throw new Error('Forbidden')
 
       // Fetch all active students with their class name
       const { data: students, error: studentsErr } = await supabase
@@ -609,7 +576,7 @@ export function useSelectivePromote() {
       selectedIds: string[],
     ): Promise<{ promoted: number; completed: number }> => {
       if (!user) throw new Error('Not authenticated')
-      if (!['it_admin', 'principal'].includes(user.role ?? '')) throw new Error('Forbidden')
+      if (!['deputy', 'secretary'].includes(user.role ?? '')) throw new Error('Forbidden')
       if (selectedIds.length === 0) return { promoted: 0, completed: 0 }
 
       const sid = user.schoolId

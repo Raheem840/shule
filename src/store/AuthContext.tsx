@@ -82,6 +82,17 @@ function sessionToUser(session: Session | null): AuthUser | null {
   }
 }
 
+// A deactivated staff member's session carries no role/school_id claims (see
+// custom_access_token_hook) — instead it carries this marker so the UI can show
+// a specific message rather than the generic "not linked to a role" one.
+function isDeactivatedSession(session: Session | null): boolean {
+  if (!session) return false
+  const jwt = decodeJWT(session.access_token)
+  return jwt.account_status === 'deactivated'
+}
+
+const DEACTIVATED_MESSAGE = 'Your account has been deactivated by the IT Admin. Contact them if you believe this is a mistake.'
+
 // ── Cache session to IndexedDB for offline use ────────────────
 async function cacheSessionToDb(session: Session, user: AuthUser): Promise<void> {
   try {
@@ -92,6 +103,14 @@ async function cacheSessionToDb(session: Session, user: AuthUser): Promise<void>
       savedAt: new Date().toISOString(),
     })
   } catch { /* ignore */ }
+}
+
+// Deactivation must win over the offline-session bridge: sign out for real and
+// drop the cached session so a deactivated user can't keep using a stale device
+// session indefinitely.
+async function forceSignOutDeactivated(): Promise<void> {
+  try { await db.auth_session.delete('current') } catch { /* ignore */ }
+  try { await supabase.auth.signOut() } catch { /* ignore */ }
 }
 
 // ── Provider ──────────────────────────────────────────────────
@@ -121,6 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAuthError(null)
           await cacheSessionToDb(activeSession, u)
           void primeOfflineCache(u.schoolId, u.role, u.id)
+        } else if (isDeactivatedSession(activeSession)) {
+          await forceSignOutDeactivated()
+          setUser(null)
+          setAuthError(DEACTIVATED_MESSAGE)
         } else {
           if (import.meta.env.DEV) {
             console.error(
@@ -155,8 +178,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                       setIsOfflineMode(false)
                       setAuthError(null)
                       await cacheSessionToDb(data.session, u)
+                    } else if (isDeactivatedSession(data.session)) {
+                      // Account was deactivated since this device last cached a session —
+                      // the cached session must not keep working.
+                      await forceSignOutDeactivated()
+                      setUser(null)
+                      setIsOfflineMode(false)
+                      setAuthError(DEACTIVATED_MESSAGE)
                     }
-                    // If refresh returned session but no claims, keep cached user — don't sign out
+                    // Otherwise refresh returned a session but no claims for another
+                    // reason — keep cached user, don't sign out.
                   }
                   // If refresh returned null session, keep cached user until they explicitly sign out
                 })
@@ -192,7 +223,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               })
             }
           } else if (event === 'SIGNED_IN') {
-            setAuthError('Account not linked to a school role. Contact your IT Admin.')
+            if (isDeactivatedSession(session)) {
+              await forceSignOutDeactivated()
+              setAuthError(DEACTIVATED_MESSAGE)
+            } else {
+              setAuthError('Account not linked to a school role. Contact your IT Admin.')
+            }
           }
         } else {
           setUser(null)

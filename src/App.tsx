@@ -91,7 +91,6 @@ const ParentPortalPage         = lazy(() => import('./pages/parent/ParentPortalP
 // Admin
 const AdminDashboard           = lazy(() => import('./pages/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })))
 const AdminUsersPage           = lazy(() => import('./pages/admin/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })))
-const PasswordResetsPage       = lazy(() => import('./pages/admin/PasswordResetsPage').then(m => ({ default: m.PasswordResetsPage })))
 const SchoolProfilePage        = lazy(() => import('./pages/admin/SchoolProfilePage').then(m => ({ default: m.SchoolProfilePage })))
 const ApiConfigPage            = lazy(() => import('./pages/admin/ApiConfigPage').then(m => ({ default: m.ApiConfigPage })))
 const TemplatesPage            = lazy(() => import('./pages/admin/TemplatesPage').then(m => ({ default: m.TemplatesPage })))
@@ -304,7 +303,6 @@ export default function App() {
           }>
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/users"     element={<AdminUsersPage />} />
-            <Route path="/admin/resets"    element={<PasswordResetsPage />} />
             <Route path="/admin/school"    element={<SchoolProfilePage />} />
             <Route path="/admin/api"       element={<ApiConfigPage />} />
             <Route path="/admin/templates" element={<TemplatesPage />} />

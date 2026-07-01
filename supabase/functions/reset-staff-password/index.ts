@@ -25,6 +25,9 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
   }
 }
 
+// Sends the staff member a password-reset EMAIL — the same "Forgot password"
+// mechanism used on the login page. IT admin / principal can no longer set or
+// see a staff member's password directly; they can only trigger this email.
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS })
@@ -59,6 +62,7 @@ serve(async (req) => {
         .from('staff')
         .select('role')
         .eq('auth_user_id', user.id)
+        .eq('is_active', true)
         .maybeSingle()
       userRole = (callerStaff?.role as string | undefined) ?? userRole
     }
@@ -67,48 +71,29 @@ serve(async (req) => {
       return json({ error: 'Insufficient permissions — IT Admin or Principal required', resolvedRole: userRole }, 403)
     }
 
-    const body = await req.json() as { userId?: string; newPassword?: string }
-    const { userId, newPassword } = body
+    const body = await req.json() as { userId?: string; redirectTo?: string }
+    const { userId, redirectTo } = body
 
-    if (!userId || !newPassword) {
-      return json({ error: 'userId and newPassword are required' }, 400)
-    }
-    if (newPassword.length < 8) {
-      return json({ error: 'Password must be at least 8 characters' }, 400)
+    if (!userId) {
+      return json({ error: 'userId is required' }, 400)
     }
 
-    // Fetch target staff role + school to patch app_metadata
-    const { data: targetStaff } = await serviceClient
-      .from('staff')
-      .select('role, school_id')
-      .eq('auth_user_id', userId)
-      .maybeSingle()
-
-    // Require staff record — can't set correct role/school in app_metadata without it
-    if (!targetStaff) {
-      return json({ error: 'Staff record not found for this auth user — cannot verify role. Use Unlink + Re-activate to fix.' }, 400)
+    // Look up the target's email server-side (authoritative — never trust a
+    // client-supplied email for this).
+    const { data: targetUser, error: getUserErr } = await serviceClient.auth.admin.getUserById(userId)
+    if (getUserErr || !targetUser?.user?.email) {
+      return json({ error: 'Could not resolve an email address for this account' }, 400)
     }
 
-    const { error: updateError } = await serviceClient.auth.admin.updateUserById(userId, {
-      password: newPassword,
-      app_metadata: {
-        user_role: targetStaff.role,
-        school_id: targetStaff.school_id,
-      },
+    const { error: resetErr } = await anonClient.auth.resetPasswordForEmail(targetUser.user.email, {
+      redirectTo: redirectTo || undefined,
     })
 
-    if (updateError) {
-      return json({ error: 'Failed to update password', detail: updateError.message }, 500)
+    if (resetErr) {
+      return json({ error: 'Failed to send reset email', detail: resetErr.message }, 500)
     }
 
-    // Persist new temp_password on the staff row for IT admin credential retrieval
-    await serviceClient
-      .from('staff')
-      .update({ temp_password: newPassword })
-      .eq('auth_user_id', userId)
-      .eq('school_id', targetStaff.school_id)
-
-    return json({ success: true })
+    return json({ success: true, email: targetUser.user.email })
 
   } catch (err) {
     return json({ error: 'Internal server error', detail: String(err) }, 500)
