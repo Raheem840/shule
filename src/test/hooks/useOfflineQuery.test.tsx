@@ -187,7 +187,6 @@ describe('useOfflineQuery', () => {
 
     // Track whether servedFromCache was ever true during the render lifecycle
     const snapshots: boolean[] = []
-    let snapshotCachedAt: Date | null = null
 
     const { result } = renderHook(
       () => {
@@ -197,7 +196,6 @@ describe('useOfflineQuery', () => {
         )
         if (r.servedFromCache) {
           snapshots.push(true)
-          snapshotCachedAt = r.cachedAt
         }
         return r
       },

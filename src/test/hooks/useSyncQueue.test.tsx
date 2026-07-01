@@ -1,16 +1,21 @@
 // Tests for useSyncQueue — background flush service for offline writes
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 
 // ── Hoist all mocks ───────────────────────────────────────────────────────────
 const { mockUseConnection, mockGetPendingSync, mockMarkSynced, mockMarkFailed, mockFrom } = vi.hoisted(() => {
-  const mockUseConnection = vi.fn(() => ({
+  const mockUseConnection = vi.fn((): {
+    isVerified: boolean
+    isOnline: boolean
+    lastOnlineAt: Date | null
+    connectionQuality: 'good' | 'slow' | 'offline'
+  } => ({
     isVerified: false,
     isOnline: false,
     lastOnlineAt: null,
-    connectionQuality: 'offline' as const,
+    connectionQuality: 'offline',
   }))
   const mockGetPendingSync = vi.fn().mockResolvedValue([])
   const mockMarkSynced     = vi.fn().mockResolvedValue(undefined)

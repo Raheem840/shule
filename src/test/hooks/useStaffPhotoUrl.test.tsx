@@ -1,5 +1,5 @@
 // Tests for useStaffPhotoUrl — resolves signed URL for private staff-photos bucket
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 
 // ── Mock storage lib ──────────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ describe('useStaffPhotoUrl', () => {
 
     const { result, rerender } = renderHook(
       ({ path }: { path: string | null }) => useStaffPhotoUrl(path),
-      { initialProps: { path: 'photos/test.jpg' } },
+      { initialProps: { path: 'photos/test.jpg' as string | null } },
     )
 
     await waitFor(() => expect(result.current).toBe(signedUrl))

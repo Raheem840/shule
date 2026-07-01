@@ -6,11 +6,16 @@ import type { ReactNode } from 'react'
 
 // ── Hoist mocks ───────────────────────────────────────────────────────────────
 const { mockUseConnection, mockQueueSync, mockToastInfo } = vi.hoisted(() => {
-  const mockUseConnection = vi.fn(() => ({
+  const mockUseConnection = vi.fn((): {
+    isVerified: boolean
+    isOnline: boolean
+    lastOnlineAt: Date | null
+    connectionQuality: 'good' | 'slow' | 'offline'
+  } => ({
     isVerified: true,
     isOnline: true,
     lastOnlineAt: null,
-    connectionQuality: 'good' as const,
+    connectionQuality: 'good',
   }))
   const mockQueueSync = vi.fn().mockResolvedValue(undefined)
   const mockToastInfo = vi.fn()
