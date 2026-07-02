@@ -682,15 +682,23 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
         const cannotRestoreMsg = `${reason} — and the original slot could not be restored. ${slot.subjectName ?? 'The lesson'} on ${origDay} period ${slot.periodNumber} must be re-added manually.`
         try {
           // Re-check the original cell with a fresh DB query — a concurrent
-          // session may have booked it in the window since we deleted it, and
-          // an upsert would silently overwrite that unrelated slot otherwise.
-          const { classConflict } = await checkCollision.mutateAsync({
-            classId: slot.classId, streamId: slot.streamId,
-            teacherId: slot.teacherId,
-            dayOfWeek: slot.dayOfWeek, periodNumber: slot.periodNumber,
-            term, year,
-          })
-          if (classConflict) { setDragError(cannotRestoreMsg); return }
+          // session may have booked the class OR the teacher into that slot in
+          // the window since we deleted it, and an upsert would silently
+          // overwrite that unrelated slot otherwise. If the check itself can't
+          // be completed (network blip), don't give up on the restore — fall
+          // through and attempt it anyway, same as the old behaviour.
+          let blocked = false
+          try {
+            const { classConflict, teacherConflict } = await checkCollision.mutateAsync({
+              classId: slot.classId, streamId: slot.streamId,
+              teacherId: slot.teacherId,
+              dayOfWeek: slot.dayOfWeek, periodNumber: slot.periodNumber,
+              term, year,
+            })
+            blocked = !!(classConflict || teacherConflict)
+          } catch { /* could not verify — attempt restore anyway */ }
+
+          if (blocked) { setDragError(cannotRestoreMsg); return }
 
           await createSlot.mutateAsync({
             classId: slot.classId, streamId: slot.streamId,

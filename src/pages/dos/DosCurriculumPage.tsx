@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useDosCurriculumPlan, useMarkTopicCovered } from '../../hooks/useDos'
 import { useClasses, useSubjects } from '../../hooks/useClasses'
-import { useStaff } from '../../hooks/useStaff'
 
 export function DosCurriculumPage() {
   const currentYear = new Date().getFullYear()
@@ -12,16 +11,11 @@ export function DosCurriculumPage() {
 
   const { data: classes  = [] } = useClasses()
   const { data: subjects = [] } = useSubjects()
-  const { data: staff    = [] } = useStaff()
+  // coveredByName is resolved server-side in useDosCurriculumPlan, scoped to
+  // just the auth_user_ids present in this class/subject's topics — not the
+  // whole school staff roster.
   const { data: topics = [], isLoading, isError } = useDosCurriculumPlan(subjectId || null, classId || null, year)
   const markCovered = useMarkTopicCovered()
-
-  // covered_by stores the marker's auth_user_id — resolve it to a display name
-  // so the DOS can actually see who covered each topic, not just when.
-  const teacherNameByAuthId = useMemo(
-    () => new Map(staff.filter(s => s.authUserId).map(s => [s.authUserId as string, `${s.firstName} ${s.lastName}`])),
-    [staff]
-  )
 
   const filtered = term ? topics.filter(t => String(t.term) === term) : topics
   const covered  = filtered.filter(t => t.coveredAt != null).length
@@ -68,7 +62,7 @@ export function DosCurriculumPage() {
                 const subj = subjects.find(s => s.id === subjectId)?.name ?? ''
                 const header = 'Class,Subject,Term,Topic,Planned Date,Covered Date,Covered By,Status\n'
                 const rows = filtered.map(t =>
-                  `"${cls}","${subj}","${t.term}","${(t.topicName ?? '').replace(/"/g,'""')}","${t.plannedDate ?? ''}","${t.coveredAt ? String(t.coveredAt).slice(0,10) : ''}","${(t.coveredBy ? (teacherNameByAuthId.get(t.coveredBy) ?? '') : '').replace(/"/g,'""')}","${t.coveredAt ? 'Covered' : 'Pending'}"`
+                  `"${cls}","${subj}","${t.term}","${(t.topicName ?? '').replace(/"/g,'""')}","${t.plannedDate ?? ''}","${t.coveredAt ? String(t.coveredAt).slice(0,10) : ''}","${(t.coveredByName ?? '').replace(/"/g,'""')}","${t.coveredAt ? 'Covered' : 'Pending'}"`
                 ).join('\n')
                 const blob = new Blob([header + rows], { type: 'text/csv' })
                 const a = document.createElement('a')
@@ -188,7 +182,7 @@ export function DosCurriculumPage() {
                         <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--txt2)', whiteSpace: 'nowrap' }}>Term {t.term}</td>
                         <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font3)', whiteSpace: 'nowrap' }}>{t.plannedDate ? new Date(t.plannedDate).toLocaleDateString('en-UG') : '—'}</td>
                         <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--txt3)', fontFamily: 'var(--font3)', whiteSpace: 'nowrap' }}>{t.coveredAt ? new Date(t.coveredAt).toLocaleDateString('en-UG') : '—'}</td>
-                        <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--txt3)', whiteSpace: 'nowrap' }}>{t.coveredBy ? (teacherNameByAuthId.get(t.coveredBy) ?? '—') : '—'}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--txt3)', whiteSpace: 'nowrap' }}>{t.coveredByName ?? '—'}</td>
                         <td style={{ padding: '11px 14px' }}>
                           {t.coveredAt ? (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: 'rgba(16,185,129,.1)', color: 'var(--success)', border: '.5px solid rgba(16,185,129,.25)', whiteSpace: 'nowrap' }}>

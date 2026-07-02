@@ -291,7 +291,7 @@ export function useCreateTimetableSlot() {
         })
 
       if (error?.code === '42P01') return  // table not yet created
-      if (error?.code === '23505' && error.message.includes('teacher_no_double_booking')) {
+      if (error?.code === '23505' && error.message?.includes('teacher_no_double_booking')) {
         // Belt-and-braces DB constraint — the UI's useCheckCollision should
         // normally catch this first, but a race between two concurrent
         // sessions can still hit it here.

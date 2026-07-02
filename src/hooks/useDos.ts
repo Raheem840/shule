@@ -385,6 +385,21 @@ export function useDosCurriculumPlan(
 
       if (error) throw new Error(error.message)
 
+      // Resolve covered_by (auth_user_id) → teacher name, scoped to just the
+      // ids actually present here — not the whole school staff roster.
+      const coveredByIds = [...new Set((data ?? []).map((r: any) => r.covered_by).filter(Boolean))]
+      const nameByAuthId = new Map<string, string>()
+      if (coveredByIds.length > 0) {
+        const { data: staffRows } = await supabase
+          .from('staff')
+          .select('auth_user_id, first_name, last_name')
+          .eq('school_id', user!.schoolId)
+          .in('auth_user_id', coveredByIds as string[])
+        for (const s of (staffRows ?? []) as any[]) {
+          nameByAuthId.set(s.auth_user_id, `${s.first_name} ${s.last_name}`)
+        }
+      }
+
       return (data ?? []).map((r: any, idx: number) => ({
         id:            r.id,
         schoolId:      r.school_id,
@@ -397,6 +412,7 @@ export function useDosCurriculumPlan(
         plannedDate:   r.expected_date,
         coveredAt:     r.covered_at,
         coveredBy:     r.covered_by,
+        coveredByName: r.covered_by ? (nameByAuthId.get(r.covered_by) ?? null) : null,
         teacherId:     null,
         sequenceOrder: idx + 1,
       }))

@@ -79,8 +79,9 @@ export type CurriculumTopic = {
   year: number
   plannedDate: string | null
   coveredAt: string | null
-  coveredBy: string | null    // auth user ID of teacher who marked covered
-  teacherId: string | null    // FK → staff.id
+  coveredBy: string | null       // auth user ID of teacher who marked covered
+  coveredByName: string | null   // resolved display name for coveredBy
+  teacherId: string | null       // FK → staff.id
   sequenceOrder: number
 }
 

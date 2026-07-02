@@ -54,12 +54,14 @@ function useExamAgg() {
           .from('exam_journal')
           .select('id')
           .eq('school_id', user!.schoolId)
-          .eq('status', 'published'),
+          .eq('status', 'published')
+          .limit(10000),
         supabase
           .from('exam_results')
           .select('student_id, score, exam_journal_id, exam_journal:exam_journal_id(class_id, subject_id)')
           .eq('school_id', user!.schoolId)
-          .not('score', 'is', null),
+          .not('score', 'is', null)
+          .limit(50000),
       ])
       if (publishedRes.error) throw publishedRes.error
       if (resultsRes.error)   throw resultsRes.error

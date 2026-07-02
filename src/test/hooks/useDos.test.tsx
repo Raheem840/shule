@@ -54,6 +54,7 @@ import {
   useDosOverview,
   useDosClassPerformance,
   useAssignClassTeacher,
+  useDosCurriculumPlan,
 } from '../../hooks/useDos'
 
 function createWrapper() {
@@ -253,5 +254,53 @@ describe('useDosClassPerformance', () => {
     // Top student = Alice (80), Bottom = Bob (30)
     expect(perf.topStudents[0].name).toBe('Alice A')
     expect(perf.bottomStudents[0].name).toBe('Bob B')
+  })
+})
+
+// ── useDosCurriculumPlan — coveredByName resolution ────────────────────────
+// coveredBy stores the marker's auth_user_id; the hook resolves it to a
+// display name via a staff lookup scoped to just the ids present in the
+// fetched topics — not the whole school staff roster.
+describe('useDosCurriculumPlan — coveredByName resolution', () => {
+  it('resolves coveredBy to the matching staff member\'s name', async () => {
+    setTableData('curriculum_plan', {
+      data: [{
+        id: 't1', school_id: 'school-1', subject_id: 'sub-1', class_id: 'cls-1',
+        topic: 'Algebra', term: '1', year: 2026, expected_date: null,
+        covered: true, covered_at: '2026-02-01T00:00:00Z', covered_by: 'auth-1',
+      }],
+      error: null,
+    })
+    setTableData('staff', {
+      data: [{ auth_user_id: 'auth-1', first_name: 'Jane', last_name: 'Doe' }],
+      error: null,
+    })
+
+    const { result } = renderHook(
+      () => useDosCurriculumPlan('sub-1', 'cls-1', 2026),
+      { wrapper: createWrapper() }
+    )
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data![0].coveredByName).toBe('Jane Doe')
+  })
+
+  it('returns coveredByName: null when covered_by is null (topic not yet covered)', async () => {
+    setTableData('curriculum_plan', {
+      data: [{
+        id: 't1', school_id: 'school-1', subject_id: 'sub-1', class_id: 'cls-1',
+        topic: 'Algebra', term: '1', year: 2026, expected_date: null,
+        covered: false, covered_at: null, covered_by: null,
+      }],
+      error: null,
+    })
+
+    const { result } = renderHook(
+      () => useDosCurriculumPlan('sub-1', 'cls-1', 2026),
+      { wrapper: createWrapper() }
+    )
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data![0].coveredByName).toBe(null)
+    // No covered_by ids present — the staff lookup should never fire.
+    expect(mockFrom).not.toHaveBeenCalledWith('staff')
   })
 })
