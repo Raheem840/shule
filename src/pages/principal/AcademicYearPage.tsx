@@ -80,6 +80,12 @@ type YearFormVals = {
   term3Start: string; term3End: string
 }
 
+// Empty date inputs submit as "" — Postgres rejects "" for a date column
+// with 'invalid input syntax for type date: ""'. Convert blanks to null.
+function nullIfEmpty(v: string): string | null {
+  return v.trim() === '' ? null : v
+}
+
 function useCreateAcademicYear() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -89,13 +95,13 @@ function useCreateAcademicYear() {
       const { error } = await supabase.from('academic_years').insert({
         school_id:   user.schoolId,
         label:       vals.name,   // label is the real column; name is a generated alias
-        start_date:  vals.startDate,
-        end_date:    vals.endDate,
+        start_date:  nullIfEmpty(vals.startDate),
+        end_date:    nullIfEmpty(vals.endDate),
         is_active:   false,
         survey_active: false,
-        term1_start: vals.term1Start, term1_end: vals.term1End,
-        term2_start: vals.term2Start, term2_end: vals.term2End,
-        term3_start: vals.term3Start, term3_end: vals.term3End,
+        term1_start: nullIfEmpty(vals.term1Start), term1_end: nullIfEmpty(vals.term1End),
+        term2_start: nullIfEmpty(vals.term2Start), term2_end: nullIfEmpty(vals.term2End),
+        term3_start: nullIfEmpty(vals.term3Start), term3_end: nullIfEmpty(vals.term3End),
       })
       if (error) throw new Error(error.message)
     },
@@ -114,11 +120,11 @@ function useUpdateAcademicYear() {
       if (!user) throw new Error('Not authenticated')
       const { error } = await supabase.from('academic_years').update({
         label:       vals.name,
-        start_date:  vals.startDate,
-        end_date:    vals.endDate,
-        term1_start: vals.term1Start, term1_end: vals.term1End,
-        term2_start: vals.term2Start, term2_end: vals.term2End,
-        term3_start: vals.term3Start, term3_end: vals.term3End,
+        start_date:  nullIfEmpty(vals.startDate),
+        end_date:    nullIfEmpty(vals.endDate),
+        term1_start: nullIfEmpty(vals.term1Start), term1_end: nullIfEmpty(vals.term1End),
+        term2_start: nullIfEmpty(vals.term2Start), term2_end: nullIfEmpty(vals.term2End),
+        term3_start: nullIfEmpty(vals.term3Start), term3_end: nullIfEmpty(vals.term3End),
       }).eq('id', vals.id).eq('school_id', user.schoolId)
       if (error) throw new Error(error.message)
     },

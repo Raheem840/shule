@@ -5,7 +5,9 @@ import {
 } from 'recharts'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { TermPicker } from '../../components/ui/TermPicker'
 import { useDosOverview } from '../../hooks/useDos'
+import { useClasses } from '../../hooks/useClasses'
 import {
   useSchoolFeeSummary,
   useAllClassPerformance,
@@ -153,6 +155,25 @@ function Loading() {
   return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><LoadingSpinner size="md" /></div>
 }
 
+// ── Class picker (always includes an "All Classes" option) ─────────────────
+function ClassPicker({ classes, value, onChange }: {
+  classes: { id: string; name: string }[]
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <select
+      className="sui-input"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      style={{ minWidth: 160, fontSize: 12.5 }}
+    >
+      <option value="">All Classes</option>
+      {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+    </select>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════
@@ -160,6 +181,11 @@ export function PrincipalAnalyticsPage() {
   const [tab, setTab] = useState<'academic' | 'attendance' | 'finance'>('academic')
   const currentYear = new Date().getFullYear()
 
+  const [academicClassFilter,   setAcademicClassFilter]   = useState('')
+  const [attendanceClassFilter, setAttendanceClassFilter] = useState('')
+  const [financeTerm,           setFinanceTerm]           = useState('1')
+
+  const { data: classes = [] } = useClasses()
   const { data: kpis, isLoading: kpisLoading, isError: kpisError } = usePrincipalKpis()
   const { data: dos,        isLoading: dosLoading         } = useDosOverview()
   const { data: classPerf,  isLoading: classPerfLoading, isError: classPerfError } = useAllClassPerformance()
@@ -168,7 +194,10 @@ export function PrincipalAnalyticsPage() {
   const { data: staffRoles, isLoading: staffRolesLoading  } = useStaffRoleBreakdown()
   const { data: discipline, isLoading: disciplineLoading  } = useMonthlyDiscipline()
   const { data: fees,       isLoading: feesLoading        } = useSchoolFeeSummary()
-  const { data: byClass,    isLoading: byClassLoading     } = useFeeCollectionByClass(1, null)
+  const { data: byClass,    isLoading: byClassLoading     } = useFeeCollectionByClass(Number(financeTerm), null)
+
+  const filteredClassPerf  = academicClassFilter   ? (classPerf   ?? []).filter(c => c.classId === academicClassFilter)   : classPerf
+  const filteredAttByClass = attendanceClassFilter  ? (attByClass ?? []).filter(c => c.classId === attendanceClassFilter) : attByClass
 
   const TABS = [
     { key: 'academic',   label: 'Academic'   },
@@ -219,23 +248,28 @@ export function PrincipalAnalyticsPage() {
             ? <Loading />
             : (
               <div style={card}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 6 }}>
-                  Class Pass Rate Heatmap
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 6 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
+                    Class Pass Rate Heatmap
+                  </div>
+                  <ClassPicker classes={classes} value={academicClassFilter} onChange={setAcademicClassFilter} />
                 </div>
                 {classPerfError ? (
                   <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--danger)', fontSize: 13 }}>
                     Could not load class data — refresh to try again.
                   </div>
-                ) : !classPerf?.length ? (
+                ) : !filteredClassPerf?.length ? (
                   <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--txt3)', fontSize: 13 }}>
-                    Class performance data will appear once teachers enter and publish exam marks.
+                    {academicClassFilter
+                      ? 'No performance data for this class yet.'
+                      : 'Class performance data will appear once teachers enter and publish exam marks.'}
                   </div>
                 ) : (
                   <>
                     <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 16 }}>
                       Each tile shows the pass rate across all recorded exams for that class this academic year.
                     </div>
-                    <ClassHeatmap classes={classPerf} />
+                    <ClassHeatmap classes={filteredClassPerf} />
                   </>
                 )}
               </div>
@@ -403,15 +437,20 @@ export function PrincipalAnalyticsPage() {
             ? <Loading />
             : (
               <div style={card}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 16 }}>Attendance by Class — Last 30 Days</div>
-                {!attByClass?.length ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>Attendance by Class — Last 30 Days</div>
+                  <ClassPicker classes={classes} value={attendanceClassFilter} onChange={setAttendanceClassFilter} />
+                </div>
+                {!filteredAttByClass?.length ? (
                   <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--txt3)', fontSize: 13 }}>
-                    Attendance data will appear once teachers start recording daily attendance.
+                    {attendanceClassFilter
+                      ? 'No attendance data for this class in the last 30 days.'
+                      : 'Attendance data will appear once teachers start recording daily attendance.'}
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={Math.min(340, attByClass.length * 30 + 40)}>
+                  <ResponsiveContainer width="100%" height={Math.min(340, filteredAttByClass.length * 30 + 40)}>
                     <BarChart
-                      data={attByClass}
+                      data={filteredAttByClass}
                       layout="vertical"
                       margin={{ top: 4, right: 20, bottom: 4, left: 60 }}
                     >
@@ -420,7 +459,7 @@ export function PrincipalAnalyticsPage() {
                       <YAxis type="category" dataKey="className" tick={{ fontSize: 11, fill: C.txt3 }} width={60} />
                       <Tooltip formatter={(v) => [`${Number(v)}%`, 'Attendance']} />
                       <Bar dataKey="rate" name="Attendance" radius={[0, 5, 5, 0]}>
-                        {attByClass.map((entry, i) => (
+                        {filteredAttByClass.map((entry, i) => (
                           <Cell key={i} fill={
                             entry.rate == null ? C.txt3
                             : entry.rate >= 85 ? C.success
@@ -469,6 +508,12 @@ export function PrincipalAnalyticsPage() {
       {/* ── FINANCE ──────────────────────────────────────────────────────── */}
       {tab === 'finance' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ width: 220 }}>
+              <TermPicker value={financeTerm} onChange={setFinanceTerm} />
+            </div>
+          </div>
+
           {feesLoading
             ? <Loading />
             : fees && (
@@ -514,11 +559,11 @@ export function PrincipalAnalyticsPage() {
                     : (
                       <div style={card}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 16 }}>
-                          {`Fees by Class — Term 1 ${currentYear}`}
+                          {`Fees by Class — Term ${financeTerm} ${currentYear}`}
                         </div>
                         {!byClass?.length ? (
                           <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--txt3)', fontSize: 13 }}>
-                            No fee payment data for Term 1 {currentYear} yet.
+                            No fee payment data for Term {financeTerm} {currentYear} yet.
                           </div>
                         ) : (
                           <ResponsiveContainer width="100%" height={220}>

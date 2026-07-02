@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useStudentFullProfile, useSuspendStudent } from '../../hooks/usePrincipal'
+import { useAuth } from '../../store/AuthContext'
 import { Avatar } from '../../components/shared/Avatar'
 
 const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
@@ -23,6 +24,12 @@ function InfoRow({ label, value }: { label: string; value: string | number | nul
 export function StudentFullProfilePage() {
   const { studentId } = useParams<{ studentId: string }>()
   const navigate      = useNavigate()
+  const { user }       = useAuth()
+  const canManageStatus = user?.role === 'deputy'
+  // Finance isolation — Deputy sees zero financial data (CLAUDE.md non-negotiable).
+  // This page is also rendered at /deputy/students/:id, so the fee section must not
+  // render unconditionally.
+  const canSeeFinance = user?.role === 'principal'
   const { data: profile, isLoading, isError } = useStudentFullProfile(studentId ?? null)
   const suspendMut = useSuspendStudent()
   const [confirmAction, setConfirmAction] = useState<'suspended' | 'expelled' | null>(null)
@@ -151,35 +158,37 @@ export function StudentFullProfilePage() {
         </div>
       </div>
 
-      {/* Fee Summary — totals ONLY, no line items */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>Fee Status</div>
-        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Total Billed</div>
-            <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--txt)' }}>
-              UGX {(profile.feeSummary.totalDue ?? 0).toLocaleString()}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Total Paid</div>
-            <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--success)' }}>
-              UGX {(profile.feeSummary.totalPaid ?? 0).toLocaleString()}
-            </div>
-          </div>
-          {(profile.feeSummary.totalDue ?? 0) - (profile.feeSummary.totalPaid ?? 0) > 0 && (
+      {/* Fee Summary — totals ONLY, no line items. Principal only — Deputy gets zero financial data. */}
+      {canSeeFinance && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>Fee Status</div>
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Outstanding</div>
-              <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--danger)' }}>
-                UGX {((profile.feeSummary.totalDue ?? 0) - (profile.feeSummary.totalPaid ?? 0)).toLocaleString()}
+              <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Total Billed</div>
+              <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--txt)' }}>
+                UGX {(profile.feeSummary.totalDue ?? 0).toLocaleString()}
               </div>
             </div>
-          )}
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Total Paid</div>
+              <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--success)' }}>
+                UGX {(profile.feeSummary.totalPaid ?? 0).toLocaleString()}
+              </div>
+            </div>
+            {(profile.feeSummary.totalDue ?? 0) - (profile.feeSummary.totalPaid ?? 0) > 0 && (
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Outstanding</div>
+                <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--danger)' }}>
+                  UGX {((profile.feeSummary.totalDue ?? 0) - (profile.feeSummary.totalPaid ?? 0)).toLocaleString()}
+                </div>
+              </div>
+            )}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 8 }}>
+            Detailed fee ledger is accessible to Bursar only.
+          </div>
         </div>
-        <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 8 }}>
-          Detailed fee ledger is accessible to Bursar only.
-        </div>
-      </div>
+      )}
 
       {/* Discipline */}
       {profile.disciplineCount > 0 && (
@@ -206,43 +215,57 @@ export function StudentFullProfilePage() {
         </div>
       )}
 
-      {/* Actions */}
-      <div style={{
-        display: 'flex', gap: 10, flexWrap: 'wrap', padding: 20,
-        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
-      }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginRight: 'auto' }}>Actions</div>
-        {profile.status === 'active' && (
-          <button
-            onClick={() => setConfirmAction('suspended')}
-            className="sui-btn-outline"
-            style={{ borderColor: 'var(--warning)', color: 'var(--warning)', minHeight: 36 }}
-          >
-            Suspend Student
-          </button>
-        )}
-        {profile.status !== 'expelled' && (
-          <button
-            onClick={() => setConfirmAction('expelled')}
-            style={{ padding: '8px 16px', borderRadius: 10, border: 'none',
-              background: 'var(--danger-bg)', color: 'var(--danger)',
-              fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
-          >
-            Expel Student
-          </button>
-        )}
-        {profile.status === 'suspended' && (
-          <button
-            onClick={() => suspendMut.mutateAsync({ studentId: studentId!, status: 'active' }).catch(() => {})}
-            className="sui-btn-primary"
-          >
-            Reinstate
-          </button>
-        )}
-      </div>
+      {/* Actions — suspend/expel authority belongs to the Deputy; Principal is read-only */}
+      {canManageStatus ? (
+        <div style={{
+          display: 'flex', gap: 10, flexWrap: 'wrap', padding: 20,
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginRight: 'auto' }}>Actions</div>
+          {profile.status === 'active' && (
+            <button
+              onClick={() => setConfirmAction('suspended')}
+              className="sui-btn-outline"
+              style={{ borderColor: 'var(--warning)', color: 'var(--warning)', minHeight: 36 }}
+            >
+              Suspend Student
+            </button>
+          )}
+          {profile.status !== 'expelled' && (
+            <button
+              onClick={() => setConfirmAction('expelled')}
+              style={{ padding: '8px 16px', borderRadius: 10, border: 'none',
+                background: 'var(--danger-bg)', color: 'var(--danger)',
+                fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+            >
+              Expel Student
+            </button>
+          )}
+          {profile.status === 'suspended' && (
+            <button
+              onClick={() => { suspendMut.mutate({ studentId: studentId!, status: 'active' }) }}
+              className="sui-btn-primary"
+            >
+              Reinstate
+            </button>
+          )}
+          {suspendMut.isError && !confirmAction && (
+            <div style={{ width: '100%', color: 'var(--danger)', fontSize: 12 }}>
+              {suspendMut.error?.message ?? 'Action failed.'}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{
+          padding: '14px 20px', background: 'var(--surface2)', border: '1px solid var(--border)',
+          borderRadius: 14, fontSize: 12.5, color: 'var(--txt3)',
+        }}>
+          Suspension and expulsion are managed by the Deputy Principal. This view is read-only.
+        </div>
+      )}
 
       {/* Confirm dialog */}
-      {confirmAction && (
+      {canManageStatus && confirmAction && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
@@ -264,6 +287,11 @@ export function StudentFullProfilePage() {
               style={{ width: '100%', marginBottom: 16 }}
               placeholder="Type full name to confirm…"
             />
+            {suspendMut.isError && (
+              <div style={{ color: 'var(--danger)', fontSize: 12, marginBottom: 12 }}>
+                {suspendMut.error?.message ?? 'Action failed.'}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button onClick={() => { setConfirmAction(null); setConfirmText('') }} className="sui-btn-outline">Cancel</button>
               <button

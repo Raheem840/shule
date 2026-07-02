@@ -1,4 +1,6 @@
--- Migration: 00003_functions_triggers
+-- Migration: 00002_functions_triggers
+-- Renumbered from 00003 → 00002: RLS policies (now 00003) call auth_school_id()/
+-- auth_role(), defined here — must load first or a fresh bootstrap fails.
 -- Source: supabase db dump --linked --schema public (2026-06-02)
 -- Contents: all functions, triggers, and function grants
 

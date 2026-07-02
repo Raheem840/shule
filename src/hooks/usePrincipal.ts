@@ -419,6 +419,7 @@ export function useStaffFullProfile(staffId: string | null) {
 }
 
 // ── useSuspendStudent ──────────────────────────────────────────────────────
+// Suspend/expel authority belongs to the Deputy — the Principal is read-only here.
 export function useSuspendStudent() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -426,7 +427,7 @@ export function useSuspendStudent() {
   return useMutation({
     mutationFn: async ({ studentId, status }: { studentId: string; status: 'active' | 'suspended' | 'expelled' }) => {
       if (!user) throw new Error('Not authenticated')
-      if (user.role !== 'principal') throw new Error('Forbidden')
+      if (user.role !== 'deputy') throw new Error('Forbidden')
 
       // Fetch auth_user_id before updating status
       const { data: stu } = await supabase

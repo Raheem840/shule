@@ -65,9 +65,20 @@ function formatValue(v: unknown): string {
 }
 
 // ─── Narrative sentence builder ───────────────────────────────────────────────
-function buildNarrative(action: string, table: string, entityName: string | null, role: string): string {
+function buildNarrative(action: string, table: string, entityName: string | null, role: string, entry?: AuditEntry): string {
   const actor  = friendlyRole(role)
   const entity = entityName ? ` — ${entityName}` : ''
+
+  // Staff row updates that only touch last_login_at are login stamps, not edits —
+  // show them distinctly instead of the generic "updated a staff profile" message.
+  if (action === 'UPDATE' && table === 'staff' && entry) {
+    const keys = Array.from(new Set([...Object.keys(entry.oldData ?? {}), ...Object.keys(entry.newData ?? {})]))
+    const changed = keys.filter(k => JSON.stringify(entry.oldData?.[k]) !== JSON.stringify(entry.newData?.[k]))
+    if (changed.length === 1 && changed[0] === 'last_login_at') {
+      return `${actor} logged in${entity}`
+    }
+  }
+
   const key    = `${action}:${table}`
   const map: Record<string, string> = {
     'INSERT:students':           `${actor} enrolled a new student${entity}`,
@@ -254,7 +265,7 @@ function ActivityLogTab() {
     }
 
     entries.forEach((e: AuditEntry, i) => {
-      const narrative = buildNarrative(e.action, e.tableName, e.entityName, e.userRole)
+      const narrative = buildNarrative(e.action, e.tableName, e.entityName, e.userRole, e)
       const dataRow = ws.addRow([
         new Date(e.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
         narrative,
@@ -292,7 +303,7 @@ function ActivityLogTab() {
   function exportCsv() {
     const header = 'Activity,Area,Done By,Record,Date\n'
     const rows = entries.map((e: AuditEntry) =>
-      `"${buildNarrative(e.action, e.tableName, e.entityName, e.userRole)}","${friendlyTable(e.tableName)}","${friendlyRole(e.userRole)}","${e.entityName ?? ''}","${new Date(e.createdAt).toLocaleString('en-GB')}"`
+      `"${buildNarrative(e.action, e.tableName, e.entityName, e.userRole, e)}","${friendlyTable(e.tableName)}","${friendlyRole(e.userRole)}","${e.entityName ?? ''}","${new Date(e.createdAt).toLocaleString('en-GB')}"`
     ).join('\n')
     const blob = new Blob([header + rows], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -385,7 +396,7 @@ function ActivityLogTab() {
         <div className="sui-glass-panel" style={{ overflow: 'hidden' }}>
           {entries.map((e: AuditEntry, idx) => {
             const meta      = ACTION_META[e.action] ?? ACTION_META['UPDATE']
-            const narrative = buildNarrative(e.action, e.tableName, e.entityName, e.userRole)
+            const narrative = buildNarrative(e.action, e.tableName, e.entityName, e.userRole, e)
             const isExpanded = expanded === e.id
             const isLast    = idx === entries.length - 1
 

@@ -1,9 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useStudents, useSetStudentStatus } from '../../hooks/useStudents'
+import { useStudents } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
-import { useToast } from '../../components/ui/Toast'
 import { Avatar } from '../../components/shared/Avatar'
 import type { Student } from '../../types/app'
 
@@ -44,37 +43,10 @@ function pal(name: string) {
   return PALETTE[i]
 }
 // ── Action menu ───────────────────────────────────────────────────────────────
-const STATUS_ACTIONS: Record<StudentStatus, { action: StudentStatus; label: string; icon: string; color: string; hoverBg: string }[]> = {
-  active: [
-    { action: 'suspended', label: 'Suspend', icon: 'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01', color: '#f59e0b', hoverBg: 'rgba(245,158,11,.07)' },
-    { action: 'expelled',  label: 'Expel',   icon: 'M12 22a10 10 0 100-20 10 10 0 000 20zM15 9l-6 6M9 9l6 6',                                              color: '#f43f5e', hoverBg: 'rgba(244,63,94,.07)' },
-  ],
-  suspended: [
-    { action: 'active',   label: 'Reinstate', icon: 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3', color: '#10b981', hoverBg: 'rgba(16,185,129,.07)' },
-    { action: 'expelled', label: 'Expel',     icon: 'M12 22a10 10 0 100-20 10 10 0 000 20zM15 9l-6 6M9 9l6 6', color: '#f43f5e', hoverBg: 'rgba(244,63,94,.07)' },
-  ],
-  expelled: [
-    { action: 'active', label: 'Reinstate', icon: 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3', color: '#10b981', hoverBg: 'rgba(16,185,129,.07)' },
-  ],
-}
-
+// Principal is read-only for student status — suspend/expel/reinstate live with the Deputy.
 function StudentActionMenu({ student, pos, onClose, onView }: {
   student: Student; pos: { top: number; left: number }; onClose: () => void; onView: () => void
 }) {
-  const setStatus = useSetStudentStatus()
-  const { success: ok, error: err } = useToast()
-  const status = (student.status ?? 'active') as StudentStatus
-
-  const opts = STATUS_ACTIONS[status] ?? []
-
-  async function doStatus(newStatus: StudentStatus) {
-    try {
-      await setStatus.mutateAsync({ id: student.id, status: newStatus as Student['status'] })
-      ok(`${student.firstName} is now ${newStatus}`)
-    } catch (e: any) { err(e?.message ?? 'Action failed') }
-    onClose()
-  }
-
   return createPortal(
     <div
       onMouseDown={e => e.stopPropagation()}
@@ -97,17 +69,6 @@ function StudentActionMenu({ student, pos, onClose, onView }: {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         View Profile
       </button>
-      {opts.length > 0 && <div style={{ height: '.5px', background: 'var(--border)', margin: '2px 0' }} />}
-      {opts.map(o => (
-        <button key={o.action} disabled={setStatus.isPending} onClick={() => { void doStatus(o.action) }}
-          style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 700, color: o.color, transition: 'background .1s' }}
-          onMouseEnter={e => (e.currentTarget.style.background = o.hoverBg)}
-          onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d={o.icon}/></svg>
-          {o.label}
-        </button>
-      ))}
     </div>,
     document.body
   )

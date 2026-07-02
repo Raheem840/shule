@@ -2,9 +2,58 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStaffById } from '../../hooks/useStaff'
 import { useSuspendStaff } from '../../hooks/usePrincipal'
+import { useDosTeacherPerformance } from '../../hooks/useDos'
 import { Avatar } from '../../components/shared/Avatar'
+import { Modal, ModalCancelButton } from '../../components/ui/Modal'
+import { Button } from '../../components/ui/Button'
 import { ROLE_LABEL } from '../../config/roleNav'
 import type { UserRole } from '../../store/AuthContext'
+
+const TEACHER_ROLES = new Set<UserRole>(['teacher', 'class_teacher'])
+
+function RateBar({ value }: { value: number }) {
+  const c = value >= 70 ? 'var(--success)' : value >= 50 ? 'var(--warning)' : 'var(--danger)'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ width: 80, height: 6, borderRadius: 3, background: 'var(--surface2)', overflow: 'hidden' }}>
+        <div style={{ width: `${value}%`, height: '100%', borderRadius: 3, background: c, transition: 'width .4s' }} />
+      </div>
+      <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font3)', color: c }}>{value}%</span>
+    </div>
+  )
+}
+
+// Teacher performance — same metrics DOS sees (curriculum coverage, pass rate)
+function TeacherPerformanceSection({ staffId }: { staffId: string }) {
+  const { data = [], isLoading } = useDosTeacherPerformance()
+  const row = data.find(t => t.staffId === staffId)
+
+  if (isLoading) {
+    return <div style={{ color: 'var(--txt3)', fontSize: 13, padding: 20 }}>Loading performance…</div>
+  }
+  if (!row) {
+    return (
+      <div style={{ color: 'var(--txt3)', fontSize: 13, padding: 20, textAlign: 'center' }}>
+        No performance data yet — this teacher hasn't been assigned subjects or published any assessments.
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      {[
+        { label: 'Pass Rate', node: <RateBar value={row.passRate} /> },
+        { label: 'Curriculum Coverage', node: <RateBar value={row.curriculumCoverage} /> },
+        { label: 'Assessments This Term', node: <div style={{ fontSize: 28, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--txt)', lineHeight: 1 }}>{row.assessmentsThisTerm}</div> },
+      ].map(({ label, node }) => (
+        <div key={label} style={{ flex: '1 1 160px', background: 'var(--surface2)', borderRadius: 14, padding: '14px 16px', border: '.5px solid var(--border)' }}>
+          <div style={{ fontSize: 10.5, color: 'var(--txt3)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: .8, marginBottom: 10 }}>{label}</div>
+          {node}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 const QUAL_LABELS: Record<number, string> = {
   1: 'Certificate',
@@ -47,6 +96,22 @@ export function PrincipalStaffProfilePage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Back */}
+      <button
+        onClick={() => navigate(-1)}
+        aria-label="Go back"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+          background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px',
+          color: 'var(--txt3)', fontSize: 13, fontWeight: 700,
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+        </svg>
+        Back
+      </button>
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -103,50 +168,53 @@ export function PrincipalStaffProfilePage() {
         )}
       </div>
 
-      {/* Suspend modal */}
-      {showSuspendModal && (
+      {/* Teacher performance — same metrics DOS sees */}
+      {TEACHER_ROLES.has(staff.role as UserRole) && (
         <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 14, padding: 24,
         }}>
-          <div style={{
-            background: 'var(--surface)', borderRadius: 20, padding: 32,
-            maxWidth: 440, width: '100%', boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
-          }}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--txt)', margin: '0 0 8px' }}>
-              Suspend Staff Member
-            </h2>
-            <p style={{ fontSize: 13, color: 'var(--txt2)', marginBottom: 16 }}>
-              This will prevent {fullName} from logging in. Type their full name to confirm.
-            </p>
-            <input
-              placeholder={fullName}
-              value={confirmText}
-              onChange={e => setConfirmText(e.target.value)}
-              className="sui-input"
-              style={{ width: '100%', marginBottom: 12 }}
-            />
-            {suspendErr && (
-              <div style={{ color: 'var(--danger)', fontSize: 12, marginBottom: 8 }}>{suspendErr}</div>
-            )}
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="sui-btn-outline" onClick={() => setShowSuspendModal(false)}>Cancel</button>
-              <button
-                onClick={handleSuspend}
-                disabled={confirmText !== fullName || isSuspending}
-                style={{
-                  padding: '8px 20px', background: confirmText === fullName ? 'var(--warning)' : 'var(--border)',
-                  color: confirmText === fullName ? '#fff' : 'var(--txt3)',
-                  border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13,
-                  cursor: confirmText === fullName ? 'pointer' : 'not-allowed',
-                }}
-              >
-                {isSuspending ? 'Suspending…' : 'Confirm Suspend'}
-              </button>
-            </div>
-          </div>
+          <h2 style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 15, color: 'var(--txt)', margin: '0 0 16px' }}>
+            Teaching Performance
+          </h2>
+          <TeacherPerformanceSection staffId={staff.id} />
         </div>
       )}
+
+      {/* Suspend modal */}
+      <Modal
+        open={showSuspendModal}
+        onClose={() => setShowSuspendModal(false)}
+        title="Suspend Staff Member"
+        size="sm"
+        footer={
+          <>
+            <ModalCancelButton onClose={() => setShowSuspendModal(false)} />
+            <Button
+              variant="danger"
+              onClick={handleSuspend}
+              loading={isSuspending}
+              disabled={confirmText !== fullName}
+            >
+              Confirm Suspend
+            </Button>
+          </>
+        }
+      >
+        <p style={{ fontSize: 13, color: 'var(--txt2)', marginBottom: 16 }}>
+          This will prevent {fullName} from logging in. Type their full name to confirm.
+        </p>
+        <input
+          placeholder={fullName}
+          value={confirmText}
+          onChange={e => setConfirmText(e.target.value)}
+          className="sui-input"
+          style={{ width: '100%', marginBottom: 12 }}
+        />
+        {suspendErr && (
+          <div style={{ color: 'var(--danger)', fontSize: 12 }}>{suspendErr}</div>
+        )}
+      </Modal>
     </div>
   )
 }

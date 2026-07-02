@@ -23,7 +23,8 @@ export function RemarksViewPage() {
   const { data: classes = [] }  = useClasses()
   const { data: streams = [] }  = useStreams()
   const { data: staff = [] }    = useStaff()
-  const { data: remarksMap = new Map(), isLoading: remarksLoading } = useAllTeacherRemarks({ term, year })
+  const { data: remarksMapRaw, isLoading: remarksLoading } = useAllTeacherRemarks({ term, year })
+  const remarksMap = remarksMapRaw instanceof Map ? remarksMapRaw : new Map<string, import('../../types/app').TeacherRemark[]>()
 
   // Build lookup maps
   const classMap  = useMemo(() => new Map(classes.map(c => [c.id, c.name])), [classes])

@@ -206,11 +206,28 @@ export function SecretaryStudentsPage() {
       .maybeSingle()
     const activeYearId = (ayData as { id: string } | null)?.id ?? null
 
-    const BATCH = 50
-    for (let offset = 0; offset < rows.length; offset += BATCH) {
-      const batch = rows.slice(offset, offset + BATCH)
+    // A student must belong to a class — reject rows whose class doesn't resolve
+    // to a real class rather than silently importing with class_id: null.
+    const validRows: Array<{ row: ParsedRow; classId: string }> = []
+    rows.forEach((row, i) => {
+      const classId = classMap.get(row.class?.toLowerCase().trim() ?? '')
+      if (!classId) {
+        result.failed.push({
+          row: i + 1,
+          reason: row.class?.trim()
+            ? `Class "${row.class.trim()}" does not match any existing class`
+            : 'Class is required',
+        })
+      } else {
+        validRows.push({ row, classId })
+      }
+    })
 
-      const insertRows = batch.map(row => ({
+    const BATCH = 50
+    for (let offset = 0; offset < validRows.length; offset += BATCH) {
+      const batch = validRows.slice(offset, offset + BATCH)
+
+      const insertRows = batch.map(({ row, classId }) => ({
         school_id:        user!.schoolId,
         admission_number: row.admission_number,
         first_name:       row.first_name,
@@ -223,8 +240,8 @@ export function SecretaryStudentsPage() {
                             : null,
         nationality:      row.nationality?.trim() || null,
         religion:         row.religion?.trim() || null,
-        class_id:         classMap.get(row.class?.toLowerCase().trim() ?? '') ?? null,
-        stream_id:        (() => { const cid = classMap.get(row.class?.toLowerCase().trim() ?? '') ?? ''; return streamMap.get(`${cid}::${row.stream?.toLowerCase().trim() ?? ''}`) ?? null })(),
+        class_id:         classId,
+        stream_id:        streamMap.get(`${classId}::${row.stream?.toLowerCase().trim() ?? ''}`) ?? null,
         academic_year_id: activeYearId,
         student_type:     (['day','boarder'].includes((row.student_type ?? '').toLowerCase().trim()))
                             ? row.student_type!.toLowerCase().trim()

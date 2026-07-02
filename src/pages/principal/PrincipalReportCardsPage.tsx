@@ -620,7 +620,10 @@ export function PrincipalReportCardsPage() {
                 cards={approvedCards}
                 studentNameMap={studentNameMap}
                 readinessMap={readinessMap}
-                onRelease={card => { release.mutateAsync({ reportCardId: card.id }).catch(() => {}) }}
+                onRelease={card => {
+                  setBulkError(null)
+                  release.mutateAsync({ reportCardId: card.id }).catch((e: any) => setBulkError(e?.message ?? 'Failed to release report card.'))
+                }}
                 onUnlock={(card, name) => setUnlockCard({ card, name })}
                 releaseLoading={release.isPending}
                 emptyMessage="No approved report cards yet. Approve cards from the 'Awaiting Approval' tab."

@@ -73,10 +73,12 @@ cp docker-compose.school.yml shule-install/
 cp nginx.conf                shule-install/
 
 # Copy core migrations — installer applies these to the local Supabase DB
+# Order matters: functions/triggers (00002) must load before RLS policies (00003)
+# since the policies call auth_school_id()/auth_role() defined there.
 cp supabase/migrations/00001_initial_schema.sql        shule-install/migrations/
-cp supabase/migrations/00002_rls_policies.sql           shule-install/migrations/
-cp supabase/migrations/00003_functions_triggers.sql     shule-install/migrations/
-# 00004 note: edge_function_notes.sql is informational only — JWT hook is in 00003
+cp supabase/migrations/00002_functions_triggers.sql    shule-install/migrations/
+cp supabase/migrations/00003_rls_policies.sql           shule-install/migrations/
+# 00004 note: edge_function_notes.sql is informational only — JWT hook is in 00002
 cp supabase/seeds/base.sql                              shule-install/migrations/
 
 echo ""

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '../utils'
+import { render, screen, waitFor, within } from '../utils'
 import userEvent from '@testing-library/user-event'
 
 // ── Supabase stub ──────────────────────────────────────────────────────────
@@ -224,5 +224,38 @@ describe('PrincipalStudentsPage', () => {
     // 3 total, 2 active, 1 suspended, 0 expelled
     expect(screen.getByText('3')).toBeInTheDocument()   // Total Enrolled
     expect(screen.getByText('Total Enrolled')).toBeInTheDocument()
+  })
+
+  // Principal is read-only for student status — the Deputy owns suspend/expel/reinstate.
+  // The 3-dot action menu must only offer "View Profile".
+  describe('3-dot action menu', () => {
+    it('offers only "View Profile" — no Suspend/Expel/Reinstate', async () => {
+      setupMocks(STUDENTS)
+      const user = userEvent.setup()
+      render(<PrincipalStudentsPage />)
+
+      // Each card footer has two buttons: "View Profile" and the icon-only 3-dot menu button.
+      const viewBtn = screen.getAllByText('View Profile')[0]
+      const footer  = viewBtn.parentElement as HTMLElement
+      const dotButton = within(footer).getAllByRole('button').find(b => b !== viewBtn)!
+      const viewProfileCountBefore = screen.getAllByText('View Profile').length
+
+      await user.click(dotButton)
+
+      // Menu is portaled to document.body — its own "View Profile" item adds one more match.
+      await waitFor(() => {
+        expect(screen.getAllByText('View Profile').length).toBe(viewProfileCountBefore + 1)
+      })
+      // Scope the "no suspend/expel/reinstate" assertion to the menu itself — the page's
+      // status filter pills and KPI chips legitimately contain the word "Suspended".
+      // actionsLabel -> header wrapper -> outer menu container (the one holding the View Profile button)
+      const actionsLabel = screen.getByText('Actions')
+      const menu = actionsLabel.parentElement!.parentElement as HTMLElement
+      expect(within(menu).getAllByRole('button')).toHaveLength(1)
+      expect(within(menu).getByRole('button')).toHaveTextContent('View Profile')
+      expect(within(menu).queryByText(/suspend/i)).not.toBeInTheDocument()
+      expect(within(menu).queryByText(/expel/i)).not.toBeInTheDocument()
+      expect(within(menu).queryByText(/reinstate/i)).not.toBeInTheDocument()
+    })
   })
 })

@@ -110,7 +110,6 @@ export const ROLE_NAV: Record<UserRole, RoleNav> = {
       label: 'Communication',
       items: [
         { label: 'Messages',     path: '/principal/messages',     svg: SVG.messages,    badge: 'alert' },
-        { label: 'Announcements',path: '/principal/announcements',svg: SVG.announcements},
         { label: 'Settings',     path: '/principal/settings',     svg: SVG.settings     },
       ],
     },

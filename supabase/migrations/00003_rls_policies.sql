@@ -1,4 +1,6 @@
--- Migration: 00002_rls_policies
+-- Migration: 00003_rls_policies
+-- Renumbered from 00002 → 00003: these policies call auth_school_id()/auth_role(),
+-- which are defined in 00002_functions_triggers.sql — must load after it.
 -- Source: supabase db dump --linked --schema public (2026-06-02)
 -- Contents: ENABLE ROW LEVEL SECURITY + all CREATE POLICY statements
 

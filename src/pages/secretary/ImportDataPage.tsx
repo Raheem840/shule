@@ -12,12 +12,12 @@ import { validateStudentRow, validateStaffRow } from '../../lib/validators'
 const STUDENT_REQUIRED: ColumnSpec[] = [
   { key: 'first_name', label: 'First Name', required: true },
   { key: 'last_name',  label: 'Last Name',  required: true },
+  { key: 'class_name', label: 'Class Name', required: true },
 ]
 const STUDENT_OPTIONAL: ColumnSpec[] = [
   { key: 'admission_number', label: 'Admission Number' },
   { key: 'dob',              label: 'Date of Birth'    },
   { key: 'gender',           label: 'Gender'           },
-  { key: 'class_name',       label: 'Class Name'       },
   { key: 'stream_name',      label: 'Stream Name'      },
   { key: 'student_type',     label: 'Student Type'     },
   { key: 'nationality',      label: 'Nationality'      },
@@ -273,6 +273,14 @@ export function ImportDataPage() {
           // Upsert guardian if parent columns provided
           await upsertGuardian(existing.id, r)
         }
+      } else if (!classId) {
+        // A student must belong to a class — reject rather than silently insert with class_id: null
+        failedItems.push({
+          row: i + 2,
+          reason: rawClassName
+            ? `Class "${rawClassName}" does not match any existing class`
+            : 'Class is required',
+        })
       } else {
         // INSERT — new student
         // For current year: leave admission_number null → DB trigger auto-generates SCHOOL/YEAR/NNNN

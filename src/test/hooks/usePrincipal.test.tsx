@@ -27,6 +27,12 @@ const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
   return { mockFrom, setResponse, clearResponses }
 })
 
+const { mockInvoke, authState } = vi.hoisted(() => ({
+  mockInvoke: vi.fn().mockResolvedValue({ data: null, error: null }),
+  // Mutable current user for role-guard tests — see useSuspendStudent describe block below.
+  authState: { role: 'principal' } as { role: string },
+}))
+
 vi.mock('../../lib/supabase', () => ({
   supabase: {
     auth: {
@@ -34,18 +40,19 @@ vi.mock('../../lib/supabase', () => ({
       onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
     },
     from: mockFrom,
+    functions: { invoke: mockInvoke },
   },
 }))
 
 vi.mock('../../store/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 'principal-1', role: 'principal', schoolId: 'school-1', name: 'P', email: 'p@k.ug' },
+    user: { id: 'principal-1', role: authState.role, schoolId: 'school-1', name: 'P', email: 'p@k.ug' },
     loading: false, signOut: vi.fn(),
   }),
   AuthProvider: ({ children }: any) => children,
 }))
 
-import { usePrincipalKpis, useTopClasses } from '../../hooks/usePrincipal'
+import { usePrincipalKpis, useTopClasses, useSuspendStudent } from '../../hooks/usePrincipal'
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -54,7 +61,7 @@ function createWrapper() {
   )
 }
 
-beforeEach(() => { vi.clearAllMocks(); clearResponses() })
+beforeEach(() => { vi.clearAllMocks(); clearResponses(); authState.role = 'principal'; mockInvoke.mockResolvedValue({ data: null, error: null }) })
 
 describe('usePrincipalKpis', () => {
   it('returns zero KPIs when all data is empty', async () => {
@@ -140,5 +147,29 @@ describe('useTopClasses', () => {
     expect(result.current.data).toHaveLength(1)
     expect(result.current.data![0].className).toBe('Senior 1')
     expect(result.current.data![0].passRate).toBe(100)
+  })
+})
+
+// ── useSuspendStudent — role guard ──────────────────────────────────────────
+// Suspend/expel authority belongs to the Deputy — the Principal is read-only.
+describe('useSuspendStudent', () => {
+  it('deputy role CAN suspend a student', async () => {
+    authState.role = 'deputy'
+    setResponse('students', { data: { auth_user_id: 'auth-1' }, error: null })
+
+    const { result } = renderHook(() => useSuspendStudent(), { wrapper: createWrapper() })
+    await result.current.mutateAsync({ studentId: 'stu-1', status: 'suspended' })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  })
+
+  it('principal role is rejected with Forbidden', async () => {
+    authState.role = 'principal'
+    setResponse('students', { data: { auth_user_id: 'auth-1' }, error: null })
+
+    const { result } = renderHook(() => useSuspendStudent(), { wrapper: createWrapper() })
+    await expect(
+      result.current.mutateAsync({ studentId: 'stu-1', status: 'suspended' })
+    ).rejects.toThrow('Forbidden')
   })
 })
