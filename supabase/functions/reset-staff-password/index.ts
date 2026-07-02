@@ -15,16 +15,6 @@ function json(data: unknown, status = 200): Response {
   })
 }
 
-function decodeJwtPayload(token: string): Record<string, unknown> {
-  try {
-    const b64 = token.split('.')[1]
-    const padded = b64.padEnd(b64.length + (4 - b64.length % 4) % 4, '=')
-    return JSON.parse(atob(padded.replace(/-/g, '+').replace(/_/g, '/')))
-  } catch {
-    return {}
-  }
-}
-
 // Sends the staff member a password-reset EMAIL — the same "Forgot password"
 // mechanism used on the login page. IT admin / principal can no longer set or
 // see a staff member's password directly; they can only trigger this email.
@@ -50,25 +40,21 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await anonClient.auth.getUser(token)
     if (authError || !user) return json({ error: 'Invalid session' }, 401)
 
-    // Role resolution — JWT payload first, then app_metadata, then staff table
-    const jwtPayload = decodeJwtPayload(token)
-    let userRole =
-      (jwtPayload.user_role as string | undefined) ??
-      (user.app_metadata?.user_role as string | undefined) ??
-      ''
+    // Role resolution — always re-verify against the live staff table (is_active
+    // required). A JWT/app_metadata role claim is NOT trusted on its own: a token
+    // issued before the caller was deactivated stays valid until it expires, and
+    // trusting the stale claim would let a deactivated admin keep resetting
+    // passwords — the exact gap migration 20260701_000001 was meant to close.
+    const { data: callerStaff } = await serviceClient
+      .from('staff')
+      .select('role')
+      .eq('auth_user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+    const userRole = (callerStaff?.role as string | undefined) ?? ''
 
     if (!userRole || !ALLOWED_ROLES.includes(userRole)) {
-      const { data: callerStaff } = await serviceClient
-        .from('staff')
-        .select('role')
-        .eq('auth_user_id', user.id)
-        .eq('is_active', true)
-        .maybeSingle()
-      userRole = (callerStaff?.role as string | undefined) ?? userRole
-    }
-
-    if (!ALLOWED_ROLES.includes(userRole)) {
-      return json({ error: 'Insufficient permissions — IT Admin or Principal required', resolvedRole: userRole }, 403)
+      return json({ error: 'Insufficient permissions — IT Admin or Principal required' }, 403)
     }
 
     const body = await req.json() as { userId?: string; redirectTo?: string }

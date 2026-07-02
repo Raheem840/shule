@@ -469,12 +469,29 @@ export function useSuspendStaff() {
     mutationFn: async ({ staffId, isActive }: { staffId: string; isActive: boolean }) => {
       if (!user) throw new Error('Not authenticated')
       if (user.role !== 'principal') throw new Error('Forbidden')
+
+      // Fetch auth_user_id before updating status
+      const { data: stf } = await supabase
+        .from('staff')
+        .select('auth_user_id')
+        .eq('id', staffId)
+        .eq('school_id', user.schoolId)
+        .maybeSingle()
+
       const { error } = await supabase
         .from('staff')
         .update({ is_active: isActive })
         .eq('id', staffId)
         .eq('school_id', user.schoolId)
       if (error) throw new Error(error.message)
+
+      // Disable/enable the auth account so a suspended staff member's existing
+      // session is actually revoked, not just left to expire naturally.
+      if (stf?.auth_user_id) {
+        await supabase.functions.invoke('set-user-disabled', {
+          body: { authUserId: stf.auth_user_id, disabled: !isActive },
+        })
+      }
     },
     onSuccess: (_d, vars) => {
       void qc.invalidateQueries({ queryKey: ['staff-full-profile', user?.schoolId, vars.staffId] })

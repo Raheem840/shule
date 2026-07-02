@@ -52,7 +52,7 @@ vi.mock('../../store/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }))
 
-import { usePrincipalKpis, useTopClasses, useSuspendStudent } from '../../hooks/usePrincipal'
+import { usePrincipalKpis, useTopClasses, useSuspendStudent, useSuspendStaff } from '../../hooks/usePrincipal'
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -171,5 +171,37 @@ describe('useSuspendStudent', () => {
     await expect(
       result.current.mutateAsync({ studentId: 'stu-1', status: 'suspended' })
     ).rejects.toThrow('Forbidden')
+  })
+})
+
+// ── useSuspendStaff — must actually revoke the auth session ─────────────────
+// A suspended staff member's Supabase Auth session must be disabled, not just
+// staff.is_active flipped in the DB — otherwise an already-issued JWT keeps
+// working until it naturally expires.
+describe('useSuspendStaff', () => {
+  it('calls set-user-disabled with the resolved auth_user_id when suspending', async () => {
+    authState.role = 'principal'
+    setResponse('staff', { data: { auth_user_id: 'auth-staff-1' }, error: null })
+
+    const { result } = renderHook(() => useSuspendStaff(), { wrapper: createWrapper() })
+    await result.current.mutateAsync({ staffId: 'staff-1', isActive: false })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockInvoke).toHaveBeenCalledWith('set-user-disabled', {
+      body: { authUserId: 'auth-staff-1', disabled: true },
+    })
+  })
+
+  it('calls set-user-disabled with disabled: false when reactivating', async () => {
+    authState.role = 'principal'
+    setResponse('staff', { data: { auth_user_id: 'auth-staff-1' }, error: null })
+
+    const { result } = renderHook(() => useSuspendStaff(), { wrapper: createWrapper() })
+    await result.current.mutateAsync({ staffId: 'staff-1', isActive: true })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockInvoke).toHaveBeenCalledWith('set-user-disabled', {
+      body: { authUserId: 'auth-staff-1', disabled: false },
+    })
   })
 })

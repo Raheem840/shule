@@ -39,7 +39,7 @@ vi.mock('../../store/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }))
 
-import { usePromoteStudents, useSelectivePromote } from '../../hooks/useAdmin'
+import { usePromoteStudents, useSelectivePromote, useLoadPromotionCandidates } from '../../hooks/useAdmin'
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -80,5 +80,23 @@ describe('useSelectivePromote — role gating', () => {
     currentUser.role = role
     const { result } = renderHook(() => useSelectivePromote(), { wrapper: createWrapper() })
     await expect(result.current.mutateAsync(['stu-1'])).rejects.toThrow('Forbidden')
+  })
+})
+
+// useLoadPromotionCandidates previously had no role guard at all, so principal
+// (allowed on /deputy/students and /secretary/students per ProtectedRoute)
+// could walk the whole promotion wizard and only get blocked at final confirm.
+describe('useLoadPromotionCandidates — role gating', () => {
+  it.each(['deputy', 'secretary'])('allows %s to load promotion candidates', async (role) => {
+    currentUser.role = role
+    const { result } = renderHook(() => useLoadPromotionCandidates(), { wrapper: createWrapper() })
+    await result.current.mutateAsync({ term: '3', year: 2026 })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  })
+
+  it.each(['it_admin', 'principal', 'teacher', 'dos'])('forbids %s from loading promotion candidates', async (role) => {
+    currentUser.role = role
+    const { result } = renderHook(() => useLoadPromotionCandidates(), { wrapper: createWrapper() })
+    await expect(result.current.mutateAsync({ term: '3', year: 2026 })).rejects.toThrow('Forbidden')
   })
 })

@@ -508,6 +508,7 @@ export function useLoadPromotionCandidates() {
   return useMutation({
     mutationFn: async ({ term, year }: { term: string; year: number }): Promise<PromotionCandidate[]> => {
       if (!user) throw new Error('Not authenticated')
+      if (!['deputy', 'secretary'].includes(user.role)) throw new Error('Forbidden')
       const sid = user.schoolId
 
       // Load students + classes in parallel with exam results aggregated in JS

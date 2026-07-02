@@ -21,16 +21,6 @@ function json(body: unknown, status = 200): Response {
   })
 }
 
-function decodeJwtPayload(token: string): Record<string, unknown> {
-  try {
-    const b64 = token.split('.')[1]
-    const padded = b64.padEnd(b64.length + (4 - b64.length % 4) % 4, '=')
-    return JSON.parse(atob(padded.replace(/-/g, '+').replace(/_/g, '/')))
-  } catch {
-    return {}
-  }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS })
@@ -55,28 +45,22 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // Role resolution — JWT payload first (custom access token hook claim), then
-    // app_metadata, then a staff-table lookup as a last resort. The staff-table
+    // Role resolution — always re-verify against the live staff table (is_active
+    // required). A JWT/app_metadata role claim is NOT trusted on its own: a token
+    // issued before the caller was deactivated stays valid until it expires, and
+    // trusting a stale claim would let a deactivated staff member keep uploading
+    // photos (including for other staff, per MANAGES_OTHERS_ROLES below). This
     // lookup also gives us the caller's own staff id, needed for the ownership
     // check below.
-    const jwtPayload = decodeJwtPayload(token)
-    let userRole =
-      (jwtPayload.user_role as string | undefined) ??
-      (user.app_metadata?.user_role as string | undefined) ??
-      ''
-
     const { data: callerStaff } = await serviceClient
       .from('staff')
       .select('id, role')
       .eq('auth_user_id', user.id)
       .eq('is_active', true)
       .maybeSingle()
+    const userRole = (callerStaff?.role as string | undefined) ?? ''
 
     if (!userRole || !ALLOWED_ROLES.includes(userRole)) {
-      userRole = (callerStaff?.role as string | undefined) ?? userRole
-    }
-
-    if (!ALLOWED_ROLES.includes(userRole)) {
       return json({ error: 'Insufficient permissions — staff account required' }, 403)
     }
 
