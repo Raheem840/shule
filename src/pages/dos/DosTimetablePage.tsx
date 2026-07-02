@@ -637,7 +637,11 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
     const slot = active.data.current?.slot as TimetableSlot | undefined
     if (!slot) return
     if (slot.dayOfWeek === newDay && slot.periodNumber === newPeriod) return
-    if (slotMap.has(`${newDay}-${newPeriod}`)) return
+    if (slotMap.has(`${newDay}-${newPeriod}`)) {
+      const dayLabel = DAYS.find(d => d[0] === newDay)?.[1] ?? newDay
+      setDragError(`That slot is already taken on ${dayLabel} period ${newPeriod}.`)
+      return
+    }
 
     // Check teacher conflict across ALL classes before moving
     try {
@@ -669,17 +673,36 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
           dayOfWeek: newDay, periodNumber: newPeriod,
           startTime: slot.startTime, endTime: slot.endTime, term, year,
         })
-      } catch {
-        // Create failed after delete — restore at original position
+      } catch (moveErr: any) {
+        // Create failed after delete — try to restore at original position.
+        // Surface the real reason (e.g. the teacher-double-booking message from
+        // useCreateTimetableSlot) instead of a generic "failed" with no cause.
+        const reason = moveErr?.message ?? 'Move failed'
+        const origDay = DAYS.find(d => d[0] === slot.dayOfWeek)?.[1] ?? slot.dayOfWeek
+        const cannotRestoreMsg = `${reason} — and the original slot could not be restored. ${slot.subjectName ?? 'The lesson'} on ${origDay} period ${slot.periodNumber} must be re-added manually.`
         try {
+          // Re-check the original cell with a fresh DB query — a concurrent
+          // session may have booked it in the window since we deleted it, and
+          // an upsert would silently overwrite that unrelated slot otherwise.
+          const { classConflict } = await checkCollision.mutateAsync({
+            classId: slot.classId, streamId: slot.streamId,
+            teacherId: slot.teacherId,
+            dayOfWeek: slot.dayOfWeek, periodNumber: slot.periodNumber,
+            term, year,
+          })
+          if (classConflict) { setDragError(cannotRestoreMsg); return }
+
           await createSlot.mutateAsync({
             classId: slot.classId, streamId: slot.streamId,
             subjectId: slot.subjectId, teacherId: slot.teacherId,
             dayOfWeek: slot.dayOfWeek, periodNumber: slot.periodNumber,
             startTime: slot.startTime, endTime: slot.endTime, term, year,
           })
-        } catch { /**/ }
-        setDragError('Move failed — slot restored to original position.')
+          setDragError(`${reason} — slot restored to original position.`)
+        } catch {
+          // Restore also failed — the slot is genuinely gone; don't claim otherwise.
+          setDragError(cannotRestoreMsg)
+        }
       }
     } catch {
       setDragError('Move failed — please try again.')

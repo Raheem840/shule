@@ -47,13 +47,25 @@ function useExamAgg() {
       byStudent: Map<string, ResultAgg>
       byClassSubject: SubjectClassCell[]
     }> => {
-      // Fetch exam_results joined with exam_journal for class_id + subject_id
-      const { data, error } = await supabase
-        .from('exam_results')
-        .select('student_id, score, exam_journal:exam_journal_id(class_id, subject_id)')
-        .eq('school_id', user!.schoolId)
-        .not('score', 'is', null)
-      if (error) throw error
+      // Only published journals reflect finalised marks — draft entries are a
+      // teacher's work-in-progress and would skew averages shown to DOS.
+      const [publishedRes, resultsRes] = await Promise.all([
+        supabase
+          .from('exam_journal')
+          .select('id')
+          .eq('school_id', user!.schoolId)
+          .eq('status', 'published'),
+        supabase
+          .from('exam_results')
+          .select('student_id, score, exam_journal_id, exam_journal:exam_journal_id(class_id, subject_id)')
+          .eq('school_id', user!.schoolId)
+          .not('score', 'is', null),
+      ])
+      if (publishedRes.error) throw publishedRes.error
+      if (resultsRes.error)   throw resultsRes.error
+
+      const publishedIds = new Set((publishedRes.data ?? []).map((j: any) => j.id as string))
+      const data = (resultsRes.data ?? []).filter((r: any) => publishedIds.has(r.exam_journal_id))
 
       const byStudent = new Map<string, ResultAgg>()
       const cellAccum = new Map<string, { total: number; count: number }>()
@@ -243,6 +255,8 @@ export function DosStudentsPage() {
   }, [allStudents, filterClass, filterStream, filterGender, filterType, search])
 
   // ── Enrolment by class (for bar chart) ───────────────────────────────────
+  const unassignedCount = useMemo(() => allStudents.filter(s => !s.classId).length, [allStudents])
+
   const enrolByClass = useMemo(() => {
     const m = new Map<string, number>()
     for (const s of allStudents) {
@@ -254,7 +268,7 @@ export function DosStudentsPage() {
       .sort((a, b) => b.count - a.count)
   }, [allStudents, classes])
 
-  const maxEnrolment = enrolByClass[0]?.count ?? 1
+  const maxEnrolment = Math.max(enrolByClass[0]?.count ?? 1, unassignedCount)
 
   // ── Attendance by class ───────────────────────────────────────────────────
   const attendByClass = useMemo(() => {
@@ -399,10 +413,25 @@ export function DosStudentsPage() {
           {/* Enrolment by class */}
           <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, padding: '20px 24px', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
             <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>Enrolment by Class</h3>
-            {enrolByClass.length > 0 ? enrolByClass.slice(0, 8).map(({ cls, count }) => (
-              <HBar key={cls.id} label={cls.name} value={count} max={maxEnrolment} color="var(--brand)" />
-            )) : (
+            {enrolByClass.length > 0 || unassignedCount > 0 ? (
+              <>
+                {enrolByClass.slice(0, 8).map(({ cls, count }) => (
+                  <HBar key={cls.id} label={cls.name} value={count} max={maxEnrolment} color="var(--brand)" />
+                ))}
+                {unassignedCount > 0 && (
+                  <HBar label="Unassigned" value={unassignedCount} max={maxEnrolment} color="var(--danger)" />
+                )}
+              </>
+            ) : (
               <div style={{ fontSize: 13, color: 'var(--txt3)', textAlign: 'center', padding: '20px 0' }}>No class data.</div>
+            )}
+            {unassignedCount > 0 && (
+              <div style={{ marginTop: 10, fontSize: 11.5, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ flexShrink: 0 }}>
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/>
+                </svg>
+                {unassignedCount} active student{unassignedCount !== 1 ? 's have' : ' has'} no class assigned — ask Secretary to assign {unassignedCount !== 1 ? 'them' : 'a class'}.
+              </div>
             )}
           </div>
         </div>

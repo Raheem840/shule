@@ -124,6 +124,40 @@ describe('useCreateTimetableSlot', () => {
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
   })
+
+  it('throws a friendly message on teacher double-booking unique violation (23505)', async () => {
+    setResponse('timetable_slots', {
+      data: null,
+      error: {
+        code: '23505',
+        message: 'duplicate key value violates unique constraint "timetable_slots_teacher_no_double_booking"',
+      },
+    })
+    const { result } = renderHook(() => useCreateTimetableSlot(), { wrapper: createWrapper() })
+    await expect(
+      result.current.mutateAsync({
+        classId: 'cls-1', streamId: null, subjectId: 'sub-1', teacherId: 'staff-1',
+        dayOfWeek: 1, periodNumber: 1, term: '1', year: 2025,
+      })
+    ).rejects.toThrow('This teacher is already scheduled for another class at that day/period.')
+  })
+
+  it('surfaces the raw message unchanged for a different 23505 unique violation', async () => {
+    setResponse('timetable_slots', {
+      data: null,
+      error: {
+        code: '23505',
+        message: 'duplicate key value violates unique constraint "timetable_slots_class_stream_day_period_key"',
+      },
+    })
+    const { result } = renderHook(() => useCreateTimetableSlot(), { wrapper: createWrapper() })
+    await expect(
+      result.current.mutateAsync({
+        classId: 'cls-1', streamId: null, subjectId: 'sub-1', teacherId: 'staff-1',
+        dayOfWeek: 1, periodNumber: 1, term: '1', year: 2025,
+      })
+    ).rejects.toThrow('duplicate key value violates unique constraint "timetable_slots_class_stream_day_period_key"')
+  })
 })
 
 describe('useDeleteTimetableSlot', () => {
