@@ -16,6 +16,7 @@ const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
       eq:          vi.fn().mockReturnThis(),
       order:       vi.fn().mockReturnThis(),
       limit:       vi.fn().mockReturnThis(),
+      like:        vi.fn().mockReturnThis(),
       insert:      vi.fn().mockReturnThis(),
       update:      vi.fn().mockReturnThis(),
       single:      vi.fn().mockImplementation(() => Promise.resolve(tableData[table] ?? { data: null, error: null })),
@@ -73,7 +74,7 @@ const dbStaffRow = {
   phone:            '0700000001',
   email:            'j.mukasa@school.ac.ug',
   join_date:        '2024-01-01',
-  employment_type:  'permanent',
+  employment_type:  'full_time',
   photo_url:        null,
   is_active:        true,
 }
@@ -162,14 +163,16 @@ describe('useStaffById', () => {
 })
 
 describe('useNextStaffNumber', () => {
-  it('returns STF/STAFF/001 when no staff exist and no school short_name', async () => {
+  const year = new Date().getFullYear()
+
+  it('returns STF/STAFF/{year}/001 when no staff exist and no school short_name', async () => {
     setResponse('staff',          { data: [],   error: null })
     setResponse('school_profile', { data: { short_name: null }, error: null })
 
     const { result } = renderHook(() => useNextStaffNumber(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(result.current.data).toBe('STF/STAFF/001')
+    expect(result.current.data).toBe(`STF/STAFF/${year}/001`)
   })
 
   it('uses school short_name as prefix when available', async () => {
@@ -179,27 +182,34 @@ describe('useNextStaffNumber', () => {
     const { result } = renderHook(() => useNextStaffNumber(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(result.current.data).toBe('KJA/STAFF/001')
+    expect(result.current.data).toBe(`KJA/STAFF/${year}/001`)
   })
 
-  it('increments from the last staff number', async () => {
-    setResponse('staff',          { data: [{ staff_number: 'KJA/STAFF/005' }], error: null })
+  it('increments from the highest sequence in the current year, ignoring other years/formats', async () => {
+    setResponse('staff', {
+      data: [
+        { staff_number: `KJA/STAFF/${year}/005` },
+        { staff_number: `KJA/STAFF/${year - 1}/099` }, // different year — must not affect sequence
+        { staff_number: 'KJA/STAFF/012' },              // old pre-migration format — must not affect sequence
+      ],
+      error: null,
+    })
     setResponse('school_profile', { data: { short_name: 'KJA' }, error: null })
 
     const { result } = renderHook(() => useNextStaffNumber(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(result.current.data).toBe('KJA/STAFF/006')
+    expect(result.current.data).toBe(`KJA/STAFF/${year}/006`)
   })
 
   it('zero-pads the sequence to 3 digits', async () => {
-    setResponse('staff',          { data: [{ staff_number: 'KJA/STAFF/009' }], error: null })
+    setResponse('staff',          { data: [{ staff_number: `KJA/STAFF/${year}/009` }], error: null })
     setResponse('school_profile', { data: { short_name: 'KJA' }, error: null })
 
     const { result } = renderHook(() => useNextStaffNumber(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(result.current.data).toBe('KJA/STAFF/010')
+    expect(result.current.data).toBe(`KJA/STAFF/${year}/010`)
   })
 })
 
@@ -291,7 +301,7 @@ describe('useRegisterStaff', () => {
         phone: '0700222333', email: 'sarah@school.ac.ug',
         nationalId: null, photoUrl: null,
         role: 'teacher', staffNumber: 'KJA/STAFF/010',
-        departmentId: null, employmentType: 'permanent',
+        departmentId: null, employmentType: 'full_time',
         joinDate: '2025-01-15', subjects: [], classes: [],
         qualificationLevel: null, qualificationTitle: null,
         institution: null, graduationYear: null,
@@ -316,7 +326,7 @@ describe('useRegisterStaff', () => {
         phone: null, email: null,
         nationalId: null, photoUrl: null,
         role: 'teacher', staffNumber: 'KJA/STAFF/011',
-        departmentId: null, employmentType: 'permanent',
+        departmentId: null, employmentType: 'full_time',
         joinDate: '2025-01-15', subjects: [], classes: [],
         qualificationLevel: null, qualificationTitle: null,
         institution: null, graduationYear: null,
@@ -341,7 +351,7 @@ describe('useRegisterStaff', () => {
           phone: null, email: null,
           nationalId: null, photoUrl: null,
           role: 'teacher', staffNumber: 'KJA/STAFF/001',
-          departmentId: null, employmentType: 'permanent',
+          departmentId: null, employmentType: 'full_time',
           joinDate: null, subjects: [], classes: [],
           qualificationLevel: null, qualificationTitle: null,
           institution: null, graduationYear: null,

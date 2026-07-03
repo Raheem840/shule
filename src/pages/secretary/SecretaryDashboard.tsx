@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   AreaChart, Area,
-  LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { FeeStatusDonut } from '../../components/shared/FeeStatusDonut'
+import { ContributionHeatmap } from '../../components/shared/ContributionHeatmap'
 import { StudentRegistrationWizard } from './StudentRegistrationWizard'
 
 // ─── Chart colour constants (no CSS vars in Recharts) ──────────────────────
@@ -118,6 +118,7 @@ function useSecretaryDashData() {
         activityRes,
         ayRes,
         schoolRes,
+        classesRes,
       ] = await Promise.all([
         supabase.from('students')
           .select('id, status, class_id, enrolled_at')
@@ -158,6 +159,9 @@ function useSecretaryDashData() {
           .select('id, school_name, short_name')
           .eq('id', sid)
           .maybeSingle(),
+        supabase.from('classes')
+          .select('id, name')
+          .eq('school_id', sid),
       ])
 
       // Students
@@ -180,21 +184,27 @@ function useSecretaryDashData() {
       // Parent portals
       const parentPortals = parentRes.count ?? 0
 
-      // Enrollment trend (current year, by month)
       const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-      const monthCounts = Array(12).fill(0)
+
+      // Enrollment by class over time (GitHub-contributions-style heatmap):
+      // one row per class, one column per month, cell = new enrollments that month.
+      const classMap = new Map((classesRes.data ?? []).map((c: any) => [c.id, c.name as string]))
+      const classMonthCounts = new Map<string, number[]>()
       for (const s of students) {
-        const d = new Date((s as any).enrolled_at)
-        if (d.getFullYear() === currentYear) {
-          monthCounts[d.getMonth()]++
-        }
+        const row = s as any
+        if (!row.class_id) continue
+        const d = new Date(row.enrolled_at)
+        if (d.getFullYear() !== currentYear) continue
+        if (!classMonthCounts.has(row.class_id)) classMonthCounts.set(row.class_id, Array(12).fill(0))
+        classMonthCounts.get(row.class_id)![d.getMonth()]++
       }
-      // Cumulative
-      let cum = 0
-      const enrollmentTrend = months.map((m, i) => {
-        cum += monthCounts[i]
-        return { month: m, count: cum }
-      })
+      const enrollmentByClass = Array.from(classMonthCounts.entries())
+        .map(([classId, counts]) => ({
+          classId,
+          className: classMap.get(classId) ?? 'Unknown',
+          months: months.map((m, i) => ({ label: m, count: counts[i] })),
+        }))
+        .sort((a, b) => a.className.localeCompare(b.className))
 
       // Fee status counts
       const payments = feeRes.data ?? []
@@ -263,7 +273,7 @@ function useSecretaryDashData() {
         parentPortals,
         stuckCards: stuckCards.length,
         flaggedStudents: flaggedStudents.length,
-        enrollmentTrend,
+        enrollmentByClass,
         academicSnapshot,
         feeStatusCounts,
         activityFeed,
@@ -539,25 +549,16 @@ export function SecretaryDashboard() {
 
       {/* ── [4] Enrollment Trend + Fee Status ────────────────────────────── */}
       <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '55% 1fr', gap: 14 }}>
-        {/* Enrollment trend */}
+        {/* Enrollment by class over time */}
         <Panel>
-          <SectionHead title="Enrollment Trend" action={
+          <SectionHead title="Enrollment by Class" action={
             <span style={{ fontSize: 11, color: 'var(--txt3)' }}>{new Date().getFullYear()}</span>
           } />
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={d.enrollmentTrend} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-              <XAxis dataKey="month" tick={{ fontSize: 10, fill: C.txt3 }} />
-              <YAxis tick={{ fontSize: 10, fill: C.txt3 }} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Line
-                type="monotone" dataKey="count" name="Students"
-                stroke={C.brand} strokeWidth={2.5}
-                dot={{ r: 3, fill: C.brand, stroke: 'none' }}
-                activeDot={{ r: 5 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <ContributionHeatmap
+            columnLabels={['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']}
+            rows={d.enrollmentByClass.map(c => ({ id: c.classId, label: c.className, cells: c.months }))}
+            emptyMessage="No new enrollments recorded this year."
+          />
         </Panel>
 
         {/* Fee status */}

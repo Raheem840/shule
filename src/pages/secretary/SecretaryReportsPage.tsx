@@ -704,8 +704,19 @@ function useReport6Data() {
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const sid = user!.schoolId
+      const { data: ayRows } = await supabase
+        .from('academic_years')
+        .select('id, is_active')
+        .eq('school_id', sid)
+        .order('start_date', { ascending: false })
+      const activeAyId = (ayRows ?? []).find((r: any) => r.is_active)?.id ?? (ayRows ?? [])[0]?.id ?? null
+
       const [feeRes, studRes, classRes] = await Promise.all([
-        supabase.from('fee_payments').select('student_id, amount_paid, amount_due').eq('school_id', sid),
+        (() => {
+          let q = supabase.from('fee_payments').select('student_id, amount_paid, amount_due').eq('school_id', sid)
+          if (activeAyId) q = q.eq('academic_year_id', activeAyId)
+          return q
+        })(),
         supabase.from('students').select('id, class_id').eq('school_id', sid).eq('status', 'active'),
         supabase.from('classes').select('id, name').eq('school_id', sid),
       ])
@@ -821,7 +832,7 @@ function useReport7Data() {
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const sid = user!.schoolId
-      const [guardRes, studRes] = await Promise.all([
+      const [guardRes, studRes, classRes] = await Promise.all([
         supabase.from('student_guardians')
           .select('id, student_id, full_name, relationship, phone, email, do_not_contact')
           .eq('school_id', sid),
@@ -829,20 +840,29 @@ function useReport7Data() {
           .select('id, first_name, last_name, class_id')
           .eq('school_id', sid)
           .eq('status', 'active'),
+        supabase.from('classes')
+          .select('id, name')
+          .eq('school_id', sid),
       ])
-      const studMap = new Map((studRes.data ?? []).map((s: any) => [s.id, { name: `${s.first_name} ${s.last_name}`, classId: s.class_id }]))
+      const classMap = new Map((classRes.data ?? []).map((c: any) => [c.id, c.name as string]))
+      const studMap = new Map((studRes.data ?? []).map((s: any) => [s.id, { name: `${s.first_name} ${s.last_name}`, classId: s.class_id as string | null }]))
       const activeStudentIds = new Set(studRes.data?.map((s: any) => s.id) ?? [])
       return (guardRes.data ?? [])
         .filter((g: any) => activeStudentIds.has(g.student_id))
-        .map((g: any) => ({
-          id:           g.id,
-          studentName:  studMap.get(g.student_id)?.name ?? '—',
-          guardianName: g.full_name,
-          relationship: g.relationship,
-          phone:        g.phone ?? '—',
-          email:        g.email ?? '—',
-          doNotContact: g.do_not_contact as boolean,
-        }))
+        .map((g: any) => {
+          const stud = studMap.get(g.student_id)
+          return {
+            id:           g.id,
+            studentName:  stud?.name ?? '—',
+            classId:      stud?.classId ?? null,
+            className:    (stud?.classId && classMap.get(stud.classId)) || 'Unassigned',
+            guardianName: g.full_name,
+            relationship: g.relationship,
+            phone:        g.phone ?? '—',
+            email:        g.email ?? '—',
+            doNotContact: g.do_not_contact as boolean,
+          }
+        })
         .sort((a: any, b: any) => a.studentName.localeCompare(b.studentName))
     },
   })
@@ -855,6 +875,7 @@ async function exportGuardiansToExcel(data: ReturnType<typeof useReport7Data>['d
   const ws = wb.addWorksheet('Guardians')
   ws.columns = [
     { header: 'Student',        key: 'studentName',  width: 22 },
+    { header: 'Class',          key: 'className',    width: 14 },
     { header: 'Guardian',       key: 'guardianName', width: 22 },
     { header: 'Relationship',   key: 'relationship', width: 14 },
     { header: 'Phone',          key: 'phone',        width: 16 },
@@ -874,8 +895,21 @@ async function exportGuardiansToExcel(data: ReturnType<typeof useReport7Data>['d
 function Report7Content() {
   const { data, isLoading } = useReport7Data()
   const [busy, setBusy] = useState(false)
+  const [classFilter, setClassFilter] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   if (isLoading) return <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading…</div>
-  const rows = data ?? []
+  const allRows = data ?? []
+
+  const classPills = Array.from(new Set(allRows.map(g => g.className)))
+    .sort((a, b) => a.localeCompare(b))
+
+  const rows = allRows
+    .filter(g => !classFilter || g.className === classFilter)
+    .slice()
+    .sort((a, b) => sortDir === 'asc'
+      ? a.studentName.localeCompare(b.studentName)
+      : b.studentName.localeCompare(a.studentName))
+
   return (
     <div id="rpt-7">
       <div className="rpt-actions" style={{ display: 'flex', gap: 8, marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
@@ -919,21 +953,63 @@ function Report7Content() {
         </button>
       </div>
       <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 20 }}>Guardian Contact List</h2>
-      <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 16 }}>
+      <div style={{ fontSize: 12, color: 'var(--txt2)', marginBottom: 12 }}>
         {rows.length} guardian records · {new Date().toLocaleDateString('en-GB')}
       </div>
+
+      <div className="print-hide" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
+          <button
+            onClick={() => setClassFilter(null)}
+            style={{
+              padding: '5px 12px', borderRadius: 999, border: '1px solid var(--border)',
+              background: classFilter === null ? C.brand : 'var(--surface)',
+              color: classFilter === null ? '#fff' : 'var(--txt)',
+              fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            All Classes
+          </button>
+          {classPills.map(cn => (
+            <button
+              key={cn}
+              onClick={() => setClassFilter(cn)}
+              style={{
+                padding: '5px 12px', borderRadius: 999, border: '1px solid var(--border)',
+                background: classFilter === cn ? C.brand : 'var(--surface)',
+                color: classFilter === cn ? '#fff' : 'var(--txt)',
+                fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              {cn}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
+            border: '1px solid var(--border)', background: 'var(--surface)',
+            fontSize: 11.5, fontWeight: 700, color: 'var(--txt)', cursor: 'pointer', whiteSpace: 'nowrap',
+          }}
+        >
+          Student {sortDir === 'asc' ? 'A→Z' : 'Z→A'}
+        </button>
+      </div>
+
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ background: '#f8fafc' }}>
-            {['Student', 'Guardian', 'Relationship', 'Phone', 'Email', 'Do Not Contact'].map(h => (
+            {['Student', 'Class', 'Guardian', 'Relationship', 'Phone', 'Email', 'Do Not Contact'].map(h => (
               <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 10, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: '#94a3b8', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.length === 0 ? <EmptyRow cols={6} /> : rows.map((g, i) => (
+          {rows.length === 0 ? <EmptyRow cols={7} /> : rows.map((g, i) => (
             <tr key={g.id} style={{ background: i % 2 === 0 ? 'transparent' : '#f8fafc' }}>
               <td style={{ padding: '7px 10px', fontSize: 12, fontWeight: 600 }}>{g.studentName}</td>
+              <td style={{ padding: '7px 10px', fontSize: 12, color: 'var(--txt2)' }}>{g.className}</td>
               <td style={{ padding: '7px 10px', fontSize: 12 }}>{g.guardianName}</td>
               <td style={{ padding: '7px 10px', fontSize: 12, textTransform: 'capitalize' }}>{g.relationship}</td>
               <td style={{ padding: '7px 10px', fontSize: 12, fontFamily: 'monospace' }}>{g.phone}</td>

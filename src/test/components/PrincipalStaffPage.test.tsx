@@ -62,7 +62,7 @@ const STAFF_LIST = [
     isActive: true, departmentId: 'd1',
     phone: '+256700000001', email: 'alice@k.ug',
     photoUrl: null, classes: ['c1'],
-    employmentType: 'permanent', joinDate: '2024-01-15',
+    employmentType: 'full_time', joinDate: '2024-01-15',
   },
   {
     id: 'st2', authUserId: 'auth-st2',
@@ -80,7 +80,7 @@ const STAFF_LIST = [
     isActive: true, departmentId: 'd1',
     phone: null, email: null,
     photoUrl: null, classes: ['c1', 'c2'],
-    employmentType: 'permanent', joinDate: '2023-08-01',
+    employmentType: 'full_time', joinDate: '2023-08-01',
   },
 ]
 

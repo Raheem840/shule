@@ -401,6 +401,7 @@ function StaffEditModal({ staff, depts, onClose }: {
                 <select value={form.employmentType} onChange={e => set('employmentType', e.target.value)} style={sel}>
                   <option value="full_time">Full Time</option>
                   <option value="part_time">Part Time</option>
+                  <option value="intern">Intern</option>
                   <option value="contract">Contract</option>
                 </select>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>

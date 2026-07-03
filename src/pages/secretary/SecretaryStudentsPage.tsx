@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { StudentsPage } from './StudentsPage'
 import { StudentRegistrationWizard } from './StudentRegistrationWizard'
-import { ImportWizard, type ColumnSpec, type ParsedRow, type ImportResult, type ConflictStrategy } from '../../components/shared/ImportWizard'
+import { ImportWizard, type ParsedRow, type ImportResult, type ConflictStrategy } from '../../components/shared/ImportWizard'
 import { PromoteStudentsSection } from '../../components/shared/PromoteStudentsSection'
 import { Modal } from '../../components/ui/Modal'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useAuth } from '../../store/AuthContext'
-import { supabase } from '../../lib/supabase'
 import { useStudentById } from '../../hooks/useStudents'
 import { Avatar } from '../../components/shared/Avatar'
+import { importStudentsFromCsv, STUDENT_IMPORT_REQUIRED, STUDENT_IMPORT_OPTIONAL } from '../../lib/studentImport'
 import type { Student } from '../../types/app'
 
 // ── Class level accent colours ────────────────────────────────
@@ -103,12 +104,12 @@ function StudentProfileModal({ student, classes, streams, onClose, onEdit }: {
           )}
 
           {/* Guardians */}
-          {detail?.guardians && detail.guardians.length > 0 && (
+          {detail && (
             <div style={{ marginTop: 20 }}>
               <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 12, color: accent, textTransform: 'uppercase', letterSpacing: .8, marginBottom: 10 }}>
-                Guardian{detail.guardians.length > 1 ? 's' : ''}
+                Guardian{detail.guardians.length !== 1 ? 's' : ''}
               </div>
-              {detail.guardians.map(g => (
+              {detail.guardians.length > 0 ? detail.guardians.map(g => (
                 <div key={g.id} style={{ background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--txt)' }}>{g.fullName}</span>
@@ -121,7 +122,11 @@ function StudentProfileModal({ student, classes, streams, onClose, onEdit }: {
                     {g.doNotContact && <span style={{ fontSize: 11, color: 'var(--danger)', fontWeight: 700 }}>Do Not Contact</span>}
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div style={{ padding: '14px', textAlign: 'center', color: 'var(--txt3)', fontSize: 12.5, background: 'var(--surface2)', border: '.5px dashed var(--border)', borderRadius: 10 }}>
+                  No guardians on file yet — add one from Edit Student.
+                </div>
+              )}
             </div>
           )}
 
@@ -145,36 +150,17 @@ function StudentProfileModal({ student, classes, streams, onClose, onEdit }: {
 }
 
 // ── Student import field specs ────────────────────────────────
-const REQUIRED: ColumnSpec[] = [
-  { key: 'first_name',       label: 'First Name',    required: true },
-  { key: 'last_name',        label: 'Last Name',     required: true },
-  { key: 'admission_number', label: 'Admission No.', required: true },
-  { key: 'class',            label: 'Class',         required: true },
-]
-
-const OPTIONAL: ColumnSpec[] = [
-  {
-    key: 'gender', label: 'Gender', required: false,
-    validate: v => ['male','female','m','f'].includes(v.toLowerCase()) ? null : 'Must be Male or Female',
-  },
-  {
-    key: 'student_type', label: 'Student Type', required: false,
-    validate: v => ['day','boarder'].includes(v.toLowerCase()) ? null : 'Must be Day or Boarder',
-  },
-  { key: 'dob',             label: 'Date of Birth',   required: false },
-  { key: 'stream',          label: 'Stream',           required: false },
-  { key: 'nationality',     label: 'Nationality',      required: false },
-  { key: 'religion',        label: 'Religion',         required: false },
-  { key: 'enrolled_at',     label: 'Enrolment Date',   required: false },
-  { key: 'previous_school', label: 'Previous School',  required: false },
-]
+// Shared with ImportDataPage.tsx so both import entry points behave
+// identically — same columns, same match/overwrite rule, same guardians.
+const REQUIRED = STUDENT_IMPORT_REQUIRED
+const OPTIONAL = STUDENT_IMPORT_OPTIONAL
 
 // ── Orchestrator ──────────────────────────────────────────────
 export function SecretaryStudentsPage() {
+  const navigate = useNavigate()
   const [wizardOpen, setWizardOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [viewed,     setViewed]     = useState<Student | null>(null)
-  const [editing,    setEditing]    = useState<Student | null>(null)
   const [showPromote, setShowPromote] = useState(false)
 
   const qc                     = useQueryClient()
@@ -183,94 +169,19 @@ export function SecretaryStudentsPage() {
   const { data: streams = [] } = useStreams()
 
   // ── Import handler ────────────────────────────────────────
-  // Resolves class/stream names → IDs, then batch-upserts into students table.
+  // Delegates to the shared importStudentsFromCsv() — see src/lib/studentImport.ts.
   async function handleImportComplete(
     rows: ParsedRow[],
     strategy: ConflictStrategy,
   ): Promise<ImportResult> {
     if (!user) throw new Error('Not authenticated')
-    const result: ImportResult = { imported: 0, updated: 0, skipped: 0, failed: [] }
-    if (rows.length === 0) return result
+    const outcome = await importStudentsFromCsv(rows, user.schoolId, new Date().getFullYear(), strategy)
 
-    const classMap  = new Map(classes.map(c => [c.name.toLowerCase().trim(), c.id]))
-    // Key: `${classId}::${streamName}` to avoid collision when multiple classes share a stream name
-    const streamMap = new Map(streams.map(s => [`${s.classId ?? ''}::${s.name.toLowerCase().trim()}`, s.id]))
-    const today     = new Date().toISOString().slice(0, 10)
-
-    // Resolve active academic year for the import
-    const { data: ayData } = await supabase
-      .from('academic_years')
-      .select('id')
-      .eq('school_id', user!.schoolId)
-      .eq('is_active', true)
-      .maybeSingle()
-    const activeYearId = (ayData as { id: string } | null)?.id ?? null
-
-    // A student must belong to a class — reject rows whose class doesn't resolve
-    // to a real class rather than silently importing with class_id: null.
-    const validRows: Array<{ row: ParsedRow; classId: string }> = []
-    rows.forEach((row, i) => {
-      const classId = classMap.get(row.class?.toLowerCase().trim() ?? '')
-      if (!classId) {
-        result.failed.push({
-          row: i + 1,
-          reason: row.class?.trim()
-            ? `Class "${row.class.trim()}" does not match any existing class`
-            : 'Class is required',
-        })
-      } else {
-        validRows.push({ row, classId })
-      }
-    })
-
-    const BATCH = 50
-    for (let offset = 0; offset < validRows.length; offset += BATCH) {
-      const batch = validRows.slice(offset, offset + BATCH)
-
-      const insertRows = batch.map(({ row, classId }) => ({
-        school_id:        user!.schoolId,
-        admission_number: row.admission_number,
-        first_name:       row.first_name,
-        last_name:        row.last_name,
-        dob:              row.dob?.trim() || null,
-        gender:           (['m','male'].includes((row.gender ?? '').toLowerCase().trim()))
-                            ? 'male'
-                            : (['f','female'].includes((row.gender ?? '').toLowerCase().trim()))
-                            ? 'female'
-                            : null,
-        nationality:      row.nationality?.trim() || null,
-        religion:         row.religion?.trim() || null,
-        class_id:         classId,
-        stream_id:        streamMap.get(`${classId}::${row.stream?.toLowerCase().trim() ?? ''}`) ?? null,
-        academic_year_id: activeYearId,
-        student_type:     (['day','boarder'].includes((row.student_type ?? '').toLowerCase().trim()))
-                            ? row.student_type!.toLowerCase().trim()
-                            : null,
-        previous_school:  row.previous_school?.trim() || null,
-        enrolled_at:      row.enrolled_at?.trim() || today,
-        status:           'active',
-      }))
-
-      const { error } = await supabase.from('students').upsert(insertRows, {
-        onConflict:       'school_id,admission_number',
-        ignoreDuplicates: strategy === 'skip',
-      })
-
-      if (error) {
-        batch.forEach((_, bi) =>
-          result.failed.push({ row: offset + bi + 1, reason: error.message })
-        )
-      } else {
-        result.imported += batch.length
-      }
+    if (outcome.imported > 0 || outcome.updated > 0) {
+      qc.invalidateQueries({ queryKey: ['students', user.schoolId] })
     }
 
-    // Bust the students cache so the list re-fetches immediately
-    if (result.imported > 0 || result.updated > 0) {
-      qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
-    }
-
-    return result
+    return { imported: outcome.imported, updated: outcome.updated, skipped: outcome.skipped, failed: outcome.failed }
   }
 
   return (
@@ -301,14 +212,14 @@ export function SecretaryStudentsPage() {
           classes={classes}
           streams={streams}
           onClose={() => setViewed(null)}
-          onEdit={() => { setEditing(viewed); setViewed(null) }}
+          onEdit={() => { setViewed(null); navigate(`/secretary/students/${viewed.id}`) }}
         />
       )}
 
       {/* ── Registration wizard ───────────────────────────── */}
       <StudentRegistrationWizard
-        open={wizardOpen || !!editing}
-        onClose={() => { setWizardOpen(false); setEditing(null) }}
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
       />
 
       {/* ── Import wizard ─────────────────────────────────── */}

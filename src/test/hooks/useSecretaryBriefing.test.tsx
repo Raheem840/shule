@@ -98,6 +98,71 @@ describe('useSecretaryBriefing', () => {
     expect(data.feeStatusCounts.unpaid).toBe(1)
   })
 
+  it('matches the academic year row by selected year, not just is_active', async () => {
+    setResponse('academic_years', { data: [
+      {
+        id: 'ay-2026', name: '2026', label: '2026', start_date: '2026-01-01',
+        term1_start: '2026-01-01', term1_end: '2026-04-30',
+        term2_start: '2026-05-01', term2_end: '2026-08-31',
+        term3_start: '2026-09-01', term3_end: '2026-12-31',
+        is_active: true,
+      },
+      {
+        id: 'ay-2025', name: '2025', label: '2025', start_date: '2025-01-01',
+        term1_start: '2025-01-01', term1_end: '2025-04-30',
+        term2_start: '2025-05-01', term2_end: '2025-08-31',
+        term3_start: '2025-09-01', term3_end: '2025-12-31',
+        is_active: false,
+      },
+    ], error: null })
+    setResponse('students',     { data: [], error: null })
+    setResponse('staff',        { data: [], error: null })
+    setResponse('exam_results', { data: [], error: null })
+    setResponse('exam_journal', { data: [], error: null })
+    setResponse('subjects',     { data: [], error: null })
+    setResponse('fee_payments', { data: [], error: null })
+    setResponse('attendance',   { data: [], error: null })
+    setResponse('classes',      { data: [], error: null })
+    setResponse('report_cards', { data: [], error: null })
+
+    // Selecting term 1 of 2025 (a past, non-active year) must use ay-2025's
+    // term dates, not silently fall back to the currently active 2026 year.
+    const { result } = renderHook(() => useSecretaryBriefing(1, 2025), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const attendanceCall = mockFrom.mock.results.find((_r: any, i: number) => mockFrom.mock.calls[i][0] === 'attendance')
+    expect(attendanceCall).toBeDefined()
+    expect(attendanceCall!.value.gte).toHaveBeenCalledWith('date', '2025-01-01')
+    expect(attendanceCall!.value.lte).toHaveBeenCalledWith('date', '2025-04-30')
+  })
+
+  it('scopes student totals to enrollment by the selected term end date', async () => {
+    setResponse('academic_years', { data: [{
+      id: 'ay-1', name: '2025', label: '2025', start_date: '2025-01-01',
+      term1_start: '2025-01-01', term1_end: '2025-04-30',
+      term2_start: '2025-05-01', term2_end: '2025-08-31',
+      term3_start: '2025-09-01', term3_end: '2025-12-31',
+      is_active: true,
+    }], error: null })
+    setResponse('students', { data: [
+      { id: 'stu-1', status: 'active', enrolled_at: '2025-02-01T00:00:00Z' }, // within term 1
+      { id: 'stu-2', status: 'active', enrolled_at: '2025-06-01T00:00:00Z' }, // enrolled in term 2, after term 1 ended
+    ], error: null })
+    setResponse('staff',        { data: [], error: null })
+    setResponse('exam_results', { data: [], error: null })
+    setResponse('exam_journal', { data: [], error: null })
+    setResponse('subjects',     { data: [], error: null })
+    setResponse('fee_payments', { data: [], error: null })
+    setResponse('attendance',   { data: [], error: null })
+    setResponse('classes',      { data: [], error: null })
+    setResponse('report_cards', { data: [], error: null })
+
+    const { result } = renderHook(() => useSecretaryBriefing(1, 2025), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data!.studentSummary.total).toBe(1)
+  })
+
   it('returns zero counts when all data is empty', async () => {
     setResponse('academic_years', { data: [], error: null })
     setResponse('students',     { data: [], error: null })

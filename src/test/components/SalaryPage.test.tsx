@@ -73,7 +73,7 @@ vi.mock('../../lib/supabase', () => ({
 import { SalaryPage } from '../../pages/bursar/SalaryPage'
 
 const STAFF_DATA = [
-  { id: 'st1', first_name: 'Grace', last_name: 'Apio',   role: 'teacher',    employment_type: 'permanent', join_date: '2020-01-10', photo_url: null, salary_band: 'Band A' },
+  { id: 'st1', first_name: 'Grace', last_name: 'Apio',   role: 'teacher',    employment_type: 'full_time', join_date: '2020-01-10', photo_url: null, salary_band: 'Band A' },
   { id: 'st2', first_name: 'John',  last_name: 'Ochieng', role: 'principal', employment_type: 'contract',  join_date: '2019-05-01', photo_url: null, salary_band: 'Band S' },
 ]
 
@@ -110,10 +110,10 @@ describe('SalaryPage', () => {
     })
   })
 
-  it('shows employment type badges', async () => {
+  it('shows employment type badges, formatting snake_case as Title Case', async () => {
     render(<SalaryPage />)
     await waitFor(() => {
-      expect(screen.getAllByText('Permanent').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Full Time').length).toBeGreaterThan(0)
       expect(screen.getAllByText('Contract').length).toBeGreaterThan(0)
     })
   })

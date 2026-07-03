@@ -128,7 +128,7 @@ export type Staff = {
   email: string | null
   nationalId: string | null
   joinDate: string | null
-  employmentType: 'permanent' | 'contract' | 'volunteer' | null
+  employmentType: 'full_time' | 'part_time' | 'intern' | 'contract' | null
   photoUrl: string | null
   isActive: boolean
   address: string | null

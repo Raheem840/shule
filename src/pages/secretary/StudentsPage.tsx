@@ -684,15 +684,6 @@ function StudentCard({ student, classes, streams, onView, onCredentials, selecte
               <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: 'var(--surface)' }}>
                 <Avatar photoPath={student.photoUrl} bucket="student-photos" name={`${student.firstName} ${student.lastName}`} size="md" />
               </div>
-          </div>
-          <div>
-            <div style={{ fontWeight: 700, color: 'var(--txt)', fontSize: 13, lineHeight: 1.3 }}>
-              {student.firstName} {student.lastName}
-            </div>
-            <div style={{ fontSize: 10.5, color: 'var(--txt3)', marginTop: 1 }}>
-              {student.gender ? student.gender.charAt(0).toUpperCase() + student.gender.slice(1) : '—'}
-              {student.dob ? ` · ${new Date(student.dob).getFullYear()}` : ''}
-            </div>
             </div>
             {/* Login dot */}
             <div style={{
@@ -960,6 +951,39 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
               Import Excel
             </button>
             <button
+              onClick={() => {
+                const header = 'Name,Admission No,Class,Stream,Gender,Type,Status\n'
+                const csv = students.map(s => {
+                  const cls = classes.find(c => c.id === s.classId)?.name ?? ''
+                  const strm = streams.find(st => st.id === s.streamId)?.name ?? ''
+                  return `"${s.firstName} ${s.lastName}","${s.admissionNumber}","${cls}","${strm}","${s.gender}","${s.studentType ?? ''}","${s.status}"`
+                }).join('\n')
+                const blob = new Blob([header + csv], { type: 'text/csv' })
+                const a = document.createElement('a')
+                a.href = URL.createObjectURL(blob)
+                a.download = `students-${new Date().toISOString().slice(0, 10)}.csv`
+                a.click()
+                URL.revokeObjectURL(a.href)
+              }}
+              disabled={students.length === 0}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 11,
+                border: '1.5px solid rgba(255,255,255,.55)', background: 'rgba(255,255,255,.12)',
+                backdropFilter: 'blur(8px)', color: '#fff', fontWeight: 700, fontSize: 13,
+                cursor: students.length === 0 ? 'default' : 'pointer', opacity: students.length === 0 ? .5 : 1,
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { if (students.length > 0) e.currentTarget.style.background = 'rgba(255,255,255,.22)' }}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,.12)')}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Export CSV
+            </button>
+            <button
               onClick={onRegister}
               style={{
                 display: 'flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 11,
@@ -980,6 +1004,37 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ── Class filter pills — alphabetically ordered ──────────────── */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <button
+          onClick={() => handleClassChange('')}
+          style={{
+            padding: '6px 14px', borderRadius: 99, fontSize: 12, fontWeight: 700,
+            fontFamily: 'var(--font2)', cursor: 'pointer', transition: 'all .15s',
+            border: `1px solid ${classId === '' ? 'var(--brand)' : 'var(--border)'}`,
+            background: classId === '' ? 'var(--brand)' : 'var(--surface)',
+            color: classId === '' ? '#fff' : 'var(--txt2)',
+          }}
+        >
+          All Classes
+        </button>
+        {[...classes].sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+          <button
+            key={c.id}
+            onClick={() => handleClassChange(c.id)}
+            style={{
+              padding: '6px 14px', borderRadius: 99, fontSize: 12, fontWeight: 700,
+              fontFamily: 'var(--font2)', cursor: 'pointer', transition: 'all .15s',
+              border: `1px solid ${classId === c.id ? 'var(--brand)' : 'var(--border)'}`,
+              background: classId === c.id ? 'var(--brand)' : 'var(--surface)',
+              color: classId === c.id ? '#fff' : 'var(--txt2)',
+            }}
+          >
+            {c.name}
+          </button>
+        ))}
       </div>
 
       {/* ── Filter Bar ────────────────────────────────────────────── */}
@@ -1011,12 +1066,8 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
           )}
         </div>
 
-        {/* Class / Stream / Status selects */}
+        {/* Stream / Status selects */}
         {[
-          {
-            value: classId, fn: handleClassChange,
-            opts: [{ value: '', label: 'All Classes' }, ...classes.map(c => ({ value: c.id, label: c.name }))],
-          },
           {
             value: streamId, fn: setStreamId,
             opts: [{ value: '', label: 'All Streams' }, ...streams.filter(s => !classId || s.classId === classId).map(s => ({ value: s.id, label: s.name }))],

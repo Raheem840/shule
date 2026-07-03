@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useStudentById, useUpdateStudent, useCreateStudentLogin } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useStudentGuardians } from '../../hooks/useParentPortal'
 import { supabase } from '../../lib/supabase'
+import { uploadFile, BUCKETS } from '../../lib/storage'
+import { compressToJpeg } from '../../lib/fileValidation'
 import { useAuth } from '../../store/AuthContext'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { Avatar } from '../../components/shared/Avatar'
 import type { Student } from '../../types/app'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -54,6 +57,10 @@ export function SecretaryStudentEditPage() {
   const [guardianSaving, setGuardianSaving] = useState(false)
   const [guardianError, setGuardianError] = useState<string | null>(null)
   const [guardianSaved, setGuardianSaved] = useState(false)
+  // editingGuardianId !== null → that guardian's row shows an inline edit form
+  const [editingGuardianId, setEditingGuardianId] = useState<string | null>(null)
+  const [editGuardianForm, setEditGuardianForm] = useState({ fullName: '', relationship: '', phone: '', email: '', doNotContact: false })
+  const [guardianDeletingId, setGuardianDeletingId] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', dob: '', gender: '' as Student['gender'] | '',
@@ -63,6 +70,11 @@ export function SecretaryStudentEditPage() {
   const [dirty, setDirty] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Photo upload state
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null)
+  const [photoError, setPhotoError] = useState<string | null>(null)
 
   // Activation state
   const [activationState, setActivationState] = useState<
@@ -93,10 +105,36 @@ export function SecretaryStudentEditPage() {
     }
   }
 
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !file.type.startsWith('image/')) return
+    setPhotoError(null)
+    try {
+      const dataUrl = await compressToJpeg(file, 200 * 1024)
+      setPhotoDataUrl(dataUrl)
+      setDirty(true); setSaved(false)
+    } catch {
+      setPhotoError('Could not process that image — try a different file.')
+    }
+  }
+
   async function handleSave() {
-    if (!studentId) return
+    if (!studentId || !user?.schoolId) return
     setSaveError(null)
     try {
+      let photoUrl: string | undefined
+      if (photoDataUrl) {
+        const base64 = photoDataUrl.split(',')[1]
+        const binary = atob(base64)
+        const ua     = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) ua[i] = binary.charCodeAt(i)
+        const blob = new Blob([ua], { type: 'image/jpeg' })
+        const path = `${user.schoolId}/${studentId}.jpg`
+        // Store path (not public URL) — student-photos is private, display via signed URL
+        photoUrl = await uploadFile(BUCKETS.STUDENT_PHOTOS, path, blob, { upsert: true })
+      }
+
       await updateStudent.mutateAsync({
         id: studentId, firstName: form.firstName, lastName: form.lastName,
         dob: form.dob || null, gender: (form.gender as Student['gender']) || null,
@@ -104,7 +142,9 @@ export function SecretaryStudentEditPage() {
         classId: form.classId || undefined, streamId: form.streamId || null,
         studentType: (form.studentType as Student['studentType']) || null,
         previousSchool: form.previousSchool || null, medicalNotes: form.medicalNotes || null,
+        ...(photoUrl !== undefined ? { photoUrl } : {}),
       })
+      setPhotoDataUrl(null)
       setDirty(false); setSaved(true)
     } catch (err: unknown) { setSaveError(err instanceof Error ? err.message : 'Save failed') }
   }
@@ -138,6 +178,55 @@ export function SecretaryStudentEditPage() {
     }
   }
 
+  function startEditGuardian(g: { id: string; fullName: string; relationship: string; phone: string | null; email: string | null; doNotContact: boolean }) {
+    setEditingGuardianId(g.id)
+    setEditGuardianForm({
+      fullName: g.fullName, relationship: g.relationship,
+      phone: g.phone ?? '', email: g.email ?? '', doNotContact: g.doNotContact,
+    })
+    setGuardianError(null)
+  }
+
+  async function handleSaveGuardianEdit() {
+    if (!editingGuardianId) return
+    const name = editGuardianForm.fullName.trim()
+    if (!name) { setGuardianError('Full name is required'); return }
+    setGuardianSaving(true); setGuardianError(null)
+    try {
+      const { error } = await supabase.from('student_guardians').update({
+        full_name:      name,
+        relationship:   editGuardianForm.relationship.trim() || 'Parent',
+        phone:          editGuardianForm.phone.trim() || null,
+        email:          editGuardianForm.email.trim() || null,
+        do_not_contact: editGuardianForm.doNotContact,
+      }).eq('id', editingGuardianId).eq('school_id', user!.schoolId)
+      if (error) throw error
+      setEditingGuardianId(null)
+      await refetchGuardians()
+      void qc.invalidateQueries({ queryKey: ['student-guardians', studentId] })
+    } catch (e) {
+      setGuardianError(e instanceof Error ? e.message : 'Failed to update guardian')
+    } finally {
+      setGuardianSaving(false)
+    }
+  }
+
+  async function handleDeleteGuardian(guardianId: string) {
+    setGuardianDeletingId(guardianId)
+    setGuardianError(null)
+    try {
+      const { error } = await supabase.from('student_guardians').delete()
+        .eq('id', guardianId).eq('school_id', user!.schoolId)
+      if (error) throw error
+      await refetchGuardians()
+      void qc.invalidateQueries({ queryKey: ['student-guardians', studentId] })
+    } catch (e) {
+      setGuardianError(e instanceof Error ? e.message : 'Failed to remove guardian')
+    } finally {
+      setGuardianDeletingId(null)
+    }
+  }
+
   async function handleActivate() {
     if (!studentId) return
     setActivationState({ phase: 'running' })
@@ -159,8 +248,23 @@ export function SecretaryStudentEditPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle,rgba(14,165,233,.15),transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 46, height: 46, borderRadius: 15, background: 'linear-gradient(145deg,#0ea5e9,#0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 5px 18px rgba(14,165,233,.4)', flexShrink: 0 }}>
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div style={{ width: 52, height: 52, borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--surface)', boxShadow: '0 5px 18px rgba(14,165,233,.35)' }}>
+              {photoDataUrl ? (
+                <img src={photoDataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <Avatar photoPath={student.photoUrl} bucket="student-photos" name={`${student.firstName} ${student.lastName}`} size="lg" />
+              )}
+            </div>
+            <button
+              onClick={() => photoInputRef.current?.click()}
+              aria-label="Change photo"
+              title="Change photo"
+              style={{ position: 'absolute', bottom: -2, right: -2, width: 22, height: 22, borderRadius: '50%', border: '2px solid var(--surface)', background: 'linear-gradient(145deg,#0ea5e9,#0284c7)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
+            <input ref={photoInputRef} type="file" accept="image/*" aria-label="Upload student photo" style={{ display: 'none' }} onChange={handlePhotoChange} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -181,6 +285,7 @@ export function SecretaryStudentEditPage() {
 
       {saved && <div style={{ padding: '10px 16px', borderRadius: 10, background: 'rgba(16,185,129,.08)', color: '#065f46', fontSize: 13, fontWeight: 700, border: '.5px solid rgba(16,185,129,.3)' }}>Changes saved successfully.</div>}
       {saveError && <div style={{ padding: '10px 16px', borderRadius: 10, background: 'rgba(244,63,94,.08)', color: 'var(--danger)', fontSize: 13, fontWeight: 700, border: '.5px solid rgba(244,63,94,.3)' }}>{saveError}</div>}
+      {photoError && <div style={{ padding: '10px 16px', borderRadius: 10, background: 'rgba(244,63,94,.08)', color: 'var(--danger)', fontSize: 13, fontWeight: 700, border: '.5px solid rgba(244,63,94,.3)' }}>{photoError}</div>}
 
       {/* ── Portal Account Section ──────────────────────────────── */}
       {!student.authUserId && (
@@ -339,25 +444,74 @@ export function SecretaryStudentEditPage() {
             {guardians.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {guardians.map(g => (
-                  <div key={g.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'flex-start', padding: '10px 14px', background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10 }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{g.fullName}</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: 'var(--surface)', border: '.5px solid var(--border)', color: 'var(--txt3)' }}>
-                          {g.relationship}
-                        </span>
-                        {g.isPrimary && (
-                          <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 5, background: 'rgba(13,148,136,.12)', color: 'var(--brand)' }}>
-                            Primary
-                          </span>
-                        )}
+                  editingGuardianId === g.id ? (
+                    <div key={g.id} style={{ padding: '14px', background: 'var(--surface2)', border: '.5px solid var(--brand)', borderRadius: 10 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px' }}>
+                        <Field label="Full Name *">
+                          <input value={editGuardianForm.fullName} onChange={e => setEditGuardianForm(f => ({ ...f, fullName: e.target.value }))} style={inputStyle} />
+                        </Field>
+                        <Field label="Relationship">
+                          <input value={editGuardianForm.relationship} onChange={e => setEditGuardianForm(f => ({ ...f, relationship: e.target.value }))} style={inputStyle} />
+                        </Field>
+                        <Field label="Phone">
+                          <input value={editGuardianForm.phone} onChange={e => setEditGuardianForm(f => ({ ...f, phone: e.target.value }))} style={inputStyle} />
+                        </Field>
+                        <Field label="Email">
+                          <input value={editGuardianForm.email} onChange={e => setEditGuardianForm(f => ({ ...f, email: e.target.value }))} style={inputStyle} />
+                        </Field>
                       </div>
-                      <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 3, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                        {g.phone && <span>{g.phone}</span>}
-                        {g.email && <span>{g.email}</span>}
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={editGuardianForm.doNotContact} onChange={e => setEditGuardianForm(f => ({ ...f, doNotContact: e.target.checked }))} />
+                        <span style={{ fontSize: 12, color: 'var(--txt2)' }}>Do not contact</span>
+                      </label>
+                      {guardianError && <div style={{ marginTop: 10, fontSize: 12, color: 'var(--danger)', fontWeight: 600 }}>{guardianError}</div>}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <button onClick={() => void handleSaveGuardianEdit()} disabled={guardianSaving}
+                          style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: 'linear-gradient(145deg,var(--brand),var(--brand-dark))', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: guardianSaving ? 'wait' : 'pointer', opacity: guardianSaving ? .7 : 1 }}>
+                          {guardianSaving ? 'Saving…' : 'Save'}
+                        </button>
+                        <button onClick={() => { setEditingGuardianId(null); setGuardianError(null) }}
+                          style={{ padding: '8px 16px', borderRadius: 9, border: '.5px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>
+                          Cancel
+                        </button>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div key={g.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'flex-start', padding: '10px 14px', background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10 }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>{g.fullName}</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: 'var(--surface)', border: '.5px solid var(--border)', color: 'var(--txt3)' }}>
+                            {g.relationship}
+                          </span>
+                          {g.isPrimary && (
+                            <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 5, background: 'rgba(13,148,136,.12)', color: 'var(--brand)' }}>
+                              Primary
+                            </span>
+                          )}
+                          {g.doNotContact && (
+                            <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 5, background: 'rgba(244,63,94,.1)', color: 'var(--danger)' }}>
+                              Do Not Contact
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 3, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                          {g.phone && <span>{g.phone}</span>}
+                          {g.email && <span>{g.email}</span>}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => startEditGuardian(g)} aria-label={`Edit ${g.fullName}`}
+                          style={{ width: 28, height: 28, borderRadius: 8, border: '.5px solid var(--border)', background: 'var(--surface)', color: 'var(--txt3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                        <button onClick={() => void handleDeleteGuardian(g.id)} disabled={guardianDeletingId === g.id} aria-label={`Remove ${g.fullName}`}
+                          style={{ width: 28, height: 28, borderRadius: 8, border: '.5px solid rgba(244,63,94,.3)', background: 'rgba(244,63,94,.06)', color: 'var(--danger)', cursor: guardianDeletingId === g.id ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: guardianDeletingId === g.id ? .6 : 1 }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                  )
                 ))}
               </div>
             )}

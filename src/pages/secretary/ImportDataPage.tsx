@@ -4,31 +4,13 @@ import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ImportWizard } from '../../components/shared/ImportWizard'
 import { generateImportTemplate } from '../../lib/importTemplates'
-import type { ColumnSpec, ParsedRow, ImportResult } from '../../components/shared/ImportWizard'
+import type { ColumnSpec, ParsedRow, ImportResult, ConflictStrategy } from '../../components/shared/ImportWizard'
 import { validateStudentRow, validateStaffRow } from '../../lib/validators'
+import { importStudentsFromCsv, STUDENT_IMPORT_REQUIRED, STUDENT_IMPORT_OPTIONAL, type YearMismatchIssue } from '../../lib/studentImport'
 
 // ── Column specs ─────────────────────────────────────────────────────────────
-// admission_number is OPTIONAL — the DB trigger auto-generates it when blank
-const STUDENT_REQUIRED: ColumnSpec[] = [
-  { key: 'first_name', label: 'First Name', required: true },
-  { key: 'last_name',  label: 'Last Name',  required: true },
-  { key: 'class_name', label: 'Class Name', required: true },
-]
-const STUDENT_OPTIONAL: ColumnSpec[] = [
-  { key: 'admission_number', label: 'Admission Number' },
-  { key: 'dob',              label: 'Date of Birth'    },
-  { key: 'gender',           label: 'Gender'           },
-  { key: 'stream_name',      label: 'Stream Name'      },
-  { key: 'student_type',     label: 'Student Type'     },
-  { key: 'nationality',      label: 'Nationality'      },
-  { key: 'religion',         label: 'Religion'         },
-  { key: 'previous_school',  label: 'Previous School'  },
-  // Parent / guardian contact
-  { key: 'parent_name',         label: 'Parent Name'         },
-  { key: 'parent_phone',        label: 'Parent Phone'        },
-  { key: 'parent_email',        label: 'Parent Email'        },
-  { key: 'parent_relationship', label: 'Parent Relationship' },
-]
+const STUDENT_REQUIRED = STUDENT_IMPORT_REQUIRED
+const STUDENT_OPTIONAL = STUDENT_IMPORT_OPTIONAL
 
 const STAFF_REQUIRED: ColumnSpec[] = [
   { key: 'first_name', label: 'First Name', required: true },
@@ -36,7 +18,6 @@ const STAFF_REQUIRED: ColumnSpec[] = [
 ]
 const STAFF_OPTIONAL: ColumnSpec[] = [
   { key: 'role',                 label: 'Role'                },  // defaults to 'teacher' if blank
-  { key: 'staff_number',         label: 'Staff Number'        },
   { key: 'email',                label: 'Email'               },
   { key: 'phone',                label: 'Phone'               },
   { key: 'national_id',          label: 'National ID'         },
@@ -144,225 +125,33 @@ export function ImportDataPage() {
   const [importSuccess, setImportSuccess]         = useState<{ count: number; type: 'students' | 'staff' } | null>(null)
 
   // Non-blocking year mismatch notice — shown after import, import proceeds regardless.
-  type YearMismatchIssue = { className: string; level: number; selectedYear: number; expectedYear: number }
   const [yearMismatchNotice, setYearMismatchNotice] = useState<YearMismatchIssue[]>([])
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
-  const normCls = (s: string) => s.toLowerCase().replace(/\s+/g,'').replace(/\./g,'').replace(/-/g,'').replace(/^senior/,'s').replace(/^form/,'s')
-
-  function extractLevel(name: string): number | null {
-    const n = normCls(name)
-    const m = n.match(/^[spf](\d)/)
-    return m ? parseInt(m[1]) : null
-  }
-
   // ── Student import handler ──────────────────────────────────────────────────
-  // Rule: same first_name + last_name + same class → UPDATE existing student
-  //       anything else (different class, or new name) → INSERT
-  //       admission number year = importYear state (default = current year)
-  async function handleStudentImport(rows: ParsedRow[]): Promise<ImportResult> {
+  // Delegates to the shared importStudentsFromCsv() — SecretaryStudentsPage's
+  // dedicated import calls the exact same function so both entry points behave
+  // identically (same matching rule, same overwrite-on-update, same guardians).
+  async function handleStudentImport(rows: ParsedRow[], strategy: ConflictStrategy): Promise<ImportResult> {
     if (!user) throw new Error('Not authenticated')
-    const failedItems: Array<{ row: number; reason: string }> = []
-    let imported = 0
-    let updated  = 0
-    const newStudentResults: ImportedStudent[] = []
+    const outcome = await importStudentsFromCsv(rows, user.schoolId, importYear, strategy)
 
-    // ── Year mismatch check ─────────────────────────────────────────────────
-    // For each unique class in the CSV, check whether importYear aligns with
-    // the expected enrollment year (when they would have been in S.1).
-    const currentCalYear = new Date().getFullYear()
-    const uniqueClasses  = [...new Set(rows.map(r => String(r.class_name ?? '').trim()).filter(Boolean))]
-    const mismatchIssues: Array<{ className: string; level: number; selectedYear: number; expectedYear: number }> = []
-
-    for (const className of uniqueClasses) {
-      const level = extractLevel(className)
-      if (level === null) continue
-      const expectedYear = currentCalYear - (level - 1)  // year they would have enrolled in S.1
-      if (importYear !== expectedYear) {
-        mismatchIssues.push({ className, level, selectedYear: importYear, expectedYear })
-      }
-    }
-
-    if (mismatchIssues.length > 0) {
-      // Non-blocking — record the warning and continue importing
-      setYearMismatchNotice(mismatchIssues)
-    }
-
-    // ── Pre-fetch everything needed in parallel ─────────────────────────────
-    const firstNames = [...new Set(rows.map(r => String(r.first_name ?? '').trim()).filter(Boolean))]
-    const [classesRes, streamsRes, yearRes, existingRes, schoolRes] = await Promise.all([
-      supabase.from('classes').select('id, name').eq('school_id', user!.schoolId),
-      supabase.from('streams').select('id, name, class_id').eq('school_id', user!.schoolId),
-      supabase.from('academic_years').select('id').eq('school_id', user!.schoolId).eq('is_active', true).maybeSingle(),
-      firstNames.length > 0
-        ? supabase.from('students').select('id, first_name, last_name, admission_number, class_id').eq('school_id', user!.schoolId).in('first_name', firstNames)
-        : Promise.resolve({ data: [] }),
-      supabase.from('school_profile').select('short_name').eq('id', user!.schoolId).single(),
-    ])
-
-    const activeYearId = (yearRes.data as any)?.id as string | null
-    const shortName    = ((schoolRes as any).data?.short_name as string | null) ?? 'SCHOOL'
-    const classMap     = new Map<string, string>((classesRes.data ?? []).map((c: any) => [normCls(c.name as string), c.id as string]))
-    const streamMap    = new Map<string, string>()
-    ;(streamsRes.data ?? []).forEach((s: any) => streamMap.set(`${s.class_id}::${(s.name as string).toLowerCase().trim()}`, s.id as string))
-
-    // For historical import years, pre-compute admission number sequence
-    // (the DB trigger uses NOW() year — for other years we supply the number ourselves)
-    let admSeqOffset = 0
-    const useHistoricalYear = importYear !== currentCalYear
-    if (useHistoricalYear) {
-      const { count } = await supabase
-        .from('students')
-        .select('id', { count: 'exact', head: true })
-        .eq('school_id', user!.schoolId)
-        .like('admission_number', `${shortName}/${importYear}/%`)
-      admSeqOffset = count ?? 0
-    }
-    let newStudentSeq = admSeqOffset
-
-    // Build lookup: "firstName|lastName|classId" → existing student
-    const existingMap = new Map<string, { id: string; admissionNumber: string }>()
-    ;((existingRes as any).data ?? []).forEach((e: any) => {
-      const key = `${(e.first_name as string).toLowerCase().trim()}|${(e.last_name as string).toLowerCase().trim()}|${e.class_id ?? ''}`
-      existingMap.set(key, { id: e.id as string, admissionNumber: e.admission_number as string })
-    })
-
-    for (let i = 0; i < rows.length; i++) {
-      const r         = rows[i]
-      const firstName = String(r.first_name ?? '').trim()
-      const lastName  = String(r.last_name  ?? '').trim()
-      if (!firstName || !lastName) {
-        failedItems.push({ row: i + 2, reason: 'First name and last name are required' })
-        continue
-      }
-
-      // Normalise gender
-      const rawGender = r.gender ? String(r.gender).trim().toLowerCase() : null
-      const gender    = rawGender === 'male' || rawGender === 'female' ? rawGender : null
-
-      // Resolve class + stream IDs
-      const rawClassName  = r.class_name  ? String(r.class_name).trim()  : ''
-      const rawStreamName = r.stream_name ? String(r.stream_name).trim() : ''
-      const classId  = rawClassName  ? (classMap.get(normCls(rawClassName))  ?? null) : null
-      const streamId = (classId && rawStreamName) ? (streamMap.get(`${classId}::${rawStreamName.toLowerCase()}`) ?? null) : null
-
-      // Match rule: same name + same class → update existing
-      const matchKey  = `${firstName.toLowerCase()}|${lastName.toLowerCase()}|${classId ?? ''}`
-      const existing  = existingMap.get(matchKey)
-
-      if (existing) {
-        // UPDATE — student with same name already in the same class
-        const patch: Record<string, unknown> = {
-          first_name:   firstName,
-          last_name:    lastName,
-          dob:          r.dob ? String(r.dob) : undefined,
-          gender,
-          student_type: r.student_type ? String(r.student_type).toLowerCase() : undefined,
-          nationality:  r.nationality  ? String(r.nationality)  : undefined,
-          religion:     r.religion     ? String(r.religion)     : undefined,
-          previous_school: r.previous_school ? String(r.previous_school) : undefined,
-        }
-        if (streamId)              patch.stream_id        = streamId
-        if (activeYearId && classId) patch.academic_year_id = activeYearId
-        const { error } = await supabase.from('students').update(patch).eq('id', existing.id).eq('school_id', user!.schoolId)
-        if (error) {
-          failedItems.push({ row: i + 2, reason: error.message })
-        } else {
-          updated++
-          newStudentResults.push({ name: `${firstName} ${lastName}`, admission_number: existing.admissionNumber })
-          // Upsert guardian if parent columns provided
-          await upsertGuardian(existing.id, r)
-        }
-      } else if (!classId) {
-        // A student must belong to a class — reject rather than silently insert with class_id: null
-        failedItems.push({
-          row: i + 2,
-          reason: rawClassName
-            ? `Class "${rawClassName}" does not match any existing class`
-            : 'Class is required',
-        })
-      } else {
-        // INSERT — new student
-        // For current year: leave admission_number null → DB trigger auto-generates SCHOOL/YEAR/NNNN
-        // For historical years: pre-compute the number with the correct year
-        const insertData: Record<string, unknown> = {
-          school_id:    user!.schoolId,
-          first_name:   firstName,
-          last_name:    lastName,
-          dob:          r.dob ? String(r.dob) : null,
-          gender,
-          student_type: r.student_type ? String(r.student_type).toLowerCase() : 'day',
-          status:       'active',
-          enrolled_at:  new Date(importYear, 0, 1).toISOString(),
-          nationality:  r.nationality  ? String(r.nationality)  : 'Ugandan',
-          religion:     r.religion     ? String(r.religion)     : null,
-          previous_school: r.previous_school ? String(r.previous_school) : null,
-        }
-        if (classId)               insertData.class_id         = classId
-        if (streamId)              insertData.stream_id        = streamId
-        if (activeYearId && classId) insertData.academic_year_id = activeYearId
-        if (useHistoricalYear) {
-          const seq = String(++newStudentSeq).padStart(4, '0')
-          insertData.admission_number = `${shortName}/${importYear}/${seq}`
-        }
-        // Allow CSV-supplied admission_number to override the auto-generated one
-        if (r.admission_number && String(r.admission_number).trim()) {
-          insertData.admission_number = String(r.admission_number).trim()
-        }
-
-        const { data: inserted, error } = await supabase
-          .from('students').insert(insertData)
-          .select('id, first_name, last_name, admission_number').single()
-
-        if (error) {
-          failedItems.push({ row: i + 2, reason: error.message })
-        } else {
-          imported++
-          if (inserted) {
-            newStudentResults.push({
-              name:             `${inserted.first_name} ${inserted.last_name}`,
-              admission_number: inserted.admission_number as string,
-            })
-            // Insert guardian if parent columns provided
-            await upsertGuardian(inserted.id as string, r)
-          }
-        }
-      }
-    }
-
-    // ── Helper: insert a student_guardians row from CSV parent columns ───────
-    async function upsertGuardian(studentId: string, r: ParsedRow): Promise<void> {
-      const parentName = r.parent_name ? String(r.parent_name).trim() : ''
-      if (!parentName) return
-
-      await supabase.from('student_guardians').insert({
-        school_id:       user!.schoolId,
-        student_id:      studentId,
-        full_name:       parentName,
-        relationship:    r.parent_relationship ? String(r.parent_relationship).trim() : 'Parent',
-        phone:           r.parent_phone  ? String(r.parent_phone).trim()  : null,
-        email:           r.parent_email  ? String(r.parent_email).trim()  : null,
-        is_primary:      true,
-        comms_preference:'sms',
-        do_not_contact:  false,
-      })
-      // Silently ignore errors (e.g. duplicate) — guardian is supplemental
+    if (outcome.yearMismatchIssues.length > 0) {
+      setYearMismatchNotice(outcome.yearMismatchIssues)
     }
 
     void qc.invalidateQueries({ queryKey: ['students', user.schoolId] })
-    setImportedStudents(newStudentResults)
+    setImportedStudents(outcome.newStudentResults)
 
-    // Set activation flag and success metadata
-    if (imported > 0) {
+    if (outcome.imported > 0) {
       localStorage.setItem('shule_pending_activations', JSON.stringify({
         type:       'students',
-        count:      imported,
+        count:      outcome.imported,
         importedAt: new Date().toISOString(),
       }))
     }
-    setImportSuccess({ count: imported + updated, type: 'students' })
+    setImportSuccess({ count: outcome.imported + outcome.updated, type: 'students' })
 
-    return { imported, updated, skipped: 0, failed: failedItems }
+    return { imported: outcome.imported, updated: outcome.updated, skipped: outcome.skipped, failed: outcome.failed }
   }
 
   // ── Staff import handler ────────────────────────────────────────────────────
@@ -431,7 +220,13 @@ export function ImportDataPage() {
           email:           r.email ? String(r.email).trim() : null,
           phone:           r.phone ? String(r.phone).trim() : null,
           national_id:     r.national_id ? String(r.national_id).trim() : null,
-          employment_type: r.employment_type ? String(r.employment_type).trim() : 'full_time',
+          // Must match the staff_employment_type_check DB constraint exactly —
+          // normalize common CSV spellings, default to full_time otherwise.
+          employment_type: (() => {
+            const raw = String(r.employment_type ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_')
+            const valid = ['full_time', 'part_time', 'intern', 'contract']
+            return valid.includes(raw) ? raw : 'full_time'
+          })(),
           qualification_level: r.qualification_level ? String(r.qualification_level).trim() : null,
           qualification_title: r.qualification_title ? String(r.qualification_title).trim() : null,
           gender:          r.gender ? String(r.gender).trim().toLowerCase() : null,
@@ -442,10 +237,10 @@ export function ImportDataPage() {
         }
         if (subjectsArr.length > 0) data.subjects = subjectsArr
         if (departmentId)           data.department_id = departmentId
-        // Include staff_number only if provided
-        if (r.staff_number && String(r.staff_number).trim()) {
-          data.staff_number = String(r.staff_number).trim()
-        }
+        // staff_number is always left blank — the DB trigger generates it as
+        // {short_name}/STAFF/{year}/{seq}, same as manual registration. A CSV
+        // column was previously allowed to override it with an arbitrary
+        // value, which is exactly what made staff numbers inconsistent.
         return data
       })
 

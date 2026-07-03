@@ -12,40 +12,12 @@ import { useClasses, useSubjects, useDepartments } from '../../hooks/useClasses'
 import { supabase } from '../../lib/supabase'
 import { uploadDocument } from '../../lib/storage'
 import { uploadStaffPhoto } from '../../lib/uploadStaffPhoto'
-import { validateFile } from '../../lib/fileValidation'
+import { validateFile, compressToJpeg } from '../../lib/fileValidation'
 import { useAuth } from '../../store/AuthContext'
 import { capitalizeName, normalizeEmail, normalizePhone } from '../../lib/validators'
 import type { UserRole } from '../../types/app'
 
 // ── Image compression ─────────────────────────────────────────
-async function compressToJpeg(file: File, maxBytes: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      let { naturalWidth: w, naturalHeight: h } = img
-      const MAX = 800
-      if (w > MAX || h > MAX) {
-        const r = Math.min(MAX / w, MAX / h)
-        w = Math.round(w * r); h = Math.round(h * r)
-      }
-      const canvas = document.createElement('canvas')
-      canvas.width = w; canvas.height = h
-      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
-      let q = 0.85
-      let result = canvas.toDataURL('image/jpeg', q)
-      while (result.length * 0.75 > maxBytes && q > 0.15) {
-        q = Math.max(0.15, q - 0.1)
-        result = canvas.toDataURL('image/jpeg', q)
-      }
-      resolve(result)
-    }
-    img.onerror = reject
-    img.src = url
-  })
-}
-
 // ── Uganda MoES qualification levels (exact spec) ─────────────
 export const QUAL_LEVELS = [
   { value: 1, label: 'Certificate in Education (Grade III)' },
@@ -329,7 +301,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
       role:               values.role as UserRole,
       staffNumber:        values.staffNumber,
       departmentId:       n(values.departmentId),
-      employmentType:     (values.employmentType as 'permanent' | 'contract' | 'volunteer') || null,
+      employmentType:     (values.employmentType as 'full_time' | 'part_time' | 'intern' | 'contract') || null,
       joinDate:           n(values.employmentDate),
       subjects:           values.subjects,
       classes:            values.classes,
@@ -631,17 +603,19 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
                 <Input label="Employment Date" type="date" {...register('employmentDate')} />
                 <Select label="Employment Type" {...register('employmentType')} placeholder="Select type"
                   options={[
-                    { value: 'permanent',  label: 'Permanent' },
+                    { value: 'full_time',  label: 'Full Time' },
+                    { value: 'part_time',  label: 'Part Time' },
+                    { value: 'intern',     label: 'Intern' },
                     { value: 'contract',   label: 'Contract' },
-                    { value: 'volunteer',  label: 'Volunteer' },
                   ]} />
               </div>
             ) : (
               <Select label="Employment Type" {...register('employmentType')} placeholder="Select type (optional)"
                 options={[
-                  { value: 'permanent',  label: 'Permanent' },
+                  { value: 'full_time',  label: 'Full Time' },
+                  { value: 'part_time',  label: 'Part Time' },
+                  { value: 'intern',     label: 'Intern' },
                   { value: 'contract',   label: 'Contract' },
-                  { value: 'volunteer',  label: 'Volunteer' },
                 ]} />
             )}
 

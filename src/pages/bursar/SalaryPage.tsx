@@ -146,9 +146,13 @@ function StaffAvatar({ row }: { row: SalaryRow }) {
 
 // ── Employment type badge ─────────────────────────────────────
 const EMP_COLORS: Record<string, string> = {
-  permanent: 'green',
+  full_time: 'green',
+  part_time: 'blue',
+  intern:    'muted',
   contract:  'amber',
-  volunteer: 'muted',
+}
+function employmentTypeLabel(v: string): string {
+  return v.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 }
 
 // ── Main page ─────────────────────────────────────────────────
@@ -216,7 +220,7 @@ export function SalaryPage() {
           r.id.slice(0, 8).toUpperCase(),
           `${r.firstName} ${r.lastName}`,
           ROLE_LABEL[r.role] ?? r.role,
-          r.employmentType ? r.employmentType.charAt(0).toUpperCase() + r.employmentType.slice(1) : '—',
+          r.employmentType ? employmentTypeLabel(r.employmentType) : '—',
           r.salaryBand ?? '—',
           r.joinDate ? new Date(r.joinDate).toLocaleDateString('en-GB') : '—',
         ])
@@ -289,7 +293,7 @@ export function SalaryPage() {
         <select style={selectStyle} value={empFilter} onChange={e => setEmpFilter(e.target.value)}>
           <option value="">All Employment Types</option>
           {empTypes.map(e => (
-            <option key={e!} value={e!}>{e!.charAt(0).toUpperCase() + e!.slice(1)}</option>
+            <option key={e!} value={e!}>{employmentTypeLabel(e!)}</option>
           ))}
         </select>
         <span style={{ fontSize: 12, color: 'var(--txt3)', marginLeft: 4 }}>
@@ -347,7 +351,7 @@ export function SalaryPage() {
                   <td style={tdStyle}>
                     {row.employmentType ? (
                       <Badge variant={(EMP_COLORS[row.employmentType] ?? 'muted') as any} size="sm">
-                        {row.employmentType.charAt(0).toUpperCase() + row.employmentType.slice(1)}
+                        {employmentTypeLabel(row.employmentType)}
                       </Badge>
                     ) : (
                       <span style={{ fontSize: 12, color: 'var(--txt3)' }}>—</span>

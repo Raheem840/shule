@@ -164,13 +164,17 @@ export function useNextStaffNumber() {
     enabled:  !!user?.schoolId,
     staleTime: 0,
     queryFn: async () => {
+      // Preview only — the DB trigger (generate_staff_number) is authoritative
+      // and does the real, year-scoped MAX(seq)+1 at INSERT time. Mirror the
+      // same {short_name}/STAFF/{year}/{seq} pattern here so the preview
+      // shown before submission actually matches what gets assigned.
+      const year = new Date().getFullYear()
       const [staffRes, schoolRes] = await Promise.all([
         supabase
           .from('staff')
           .select('staff_number')
           .eq('school_id', user!.schoolId)
-          .order('staff_number', { ascending: false })
-          .limit(1),
+          .like('staff_number', `%/STAFF/${year}/%`),
         supabase
           .from('school_profile')
           .select('short_name')
@@ -181,10 +185,17 @@ export function useNextStaffNumber() {
       if (staffRes.error) throw staffRes.error
 
       const prefix = (schoolRes.data?.short_name as string | null) ?? 'STF'
-      const last   = staffRes.data?.[0]?.staff_number as string | undefined
-      const seq    = last ? parseInt(last.split('/').pop() ?? '0', 10) : 0
-      const next   = isNaN(seq) ? 1 : seq + 1
-      return `${prefix}/STAFF/${String(next).padStart(3, '0')}`
+      // Escape regex metacharacters in the school short_name — mirrors the
+      // DB trigger (generate_staff_number) which does the same, so the
+      // preview shown here matches what will actually be assigned on submit.
+      const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const pattern = new RegExp(`^${escapedPrefix}/STAFF/${year}/(\\d+)$`)
+      const maxSeq = (staffRes.data ?? []).reduce((max, r) => {
+        const m = (r.staff_number as string | null)?.match(pattern)
+        const n = m ? parseInt(m[1], 10) : 0
+        return n > max ? n : max
+      }, 0)
+      return `${prefix}/STAFF/${year}/${String(maxSeq + 1).padStart(3, '0')}`
     },
   })
 }

@@ -71,13 +71,20 @@ export function useSecretaryBriefing(term: number, year: number) {
       const sid = user!.schoolId
 
       // Step 1: get academic year for term date range
+      // Matched to the selected `year` (not just "whichever is active") so that
+      // choosing a past/future year in the toolbar actually changes term dates,
+      // attendance range, and fee/exam/report-card scoping below.
       const { data: ayRows } = await supabase
         .from('academic_years')
-        .select('id, label, term1_start, term1_end, term2_start, term2_end, term3_start, term3_end, is_active')
+        .select('id, label, start_date, term1_start, term1_end, term2_start, term2_end, term3_start, term3_end, is_active')
         .eq('school_id', sid)
         .order('start_date', { ascending: false })
 
-      const activeYear = (ayRows ?? []).find((r: any) => r.is_active) ?? (ayRows ?? [])[0] ?? null
+      const activeYear =
+        (ayRows ?? []).find((r: any) => r.start_date && new Date(r.start_date).getFullYear() === year) ??
+        (ayRows ?? []).find((r: any) => r.is_active) ??
+        (ayRows ?? [])[0] ??
+        null
       const termDates = getTermDates(activeYear, term)
 
       // Step 2: parallel queries
@@ -132,7 +139,14 @@ export function useSecretaryBriefing(term: number, year: number) {
       ])
 
       // ── Student summary ──────────────────────────────────────
-      const students = studentsRes.data ?? []
+      // Scope to students enrolled by the selected term's end date, so picking
+      // a past/future term doesn't just show today's raw enrollment count.
+      // Status (active/suspended/expelled) itself has no historical record in
+      // the schema, so it always reflects current status.
+      const allStudents = studentsRes.data ?? []
+      const students = termDates.end
+        ? allStudents.filter((s: any) => !s.enrolled_at || new Date(s.enrolled_at).getTime() <= new Date(termDates.end!).getTime())
+        : allStudents
       const total     = students.length
       const active    = students.filter((s: any) => s.status === 'active').length
       const suspended = students.filter((s: any) => s.status === 'suspended').length
