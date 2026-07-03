@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { useRequestStaffPassword } from '../../hooks/useStaffPasswordRequests'
 import type { UserRole } from '../../store/AuthContext'
 
 // ── JWT helpers ────────────────────────────────────────────────────────────────
@@ -112,10 +113,14 @@ export function LoginPage() {
   const [showPwd,  setShowPwd]  = useState(false)
   const [featIdx,  setFeatIdx]  = useState(0)
 
-  const [showForgot,    setShowForgot]    = useState(false)
-  const [forgotEmail,   setForgotEmail]   = useState('')
-  const [forgotSent,    setForgotSent]    = useState(false)
-  const [forgotLoading, setForgotLoading] = useState(false)
+  const [showForgot,      setShowForgot]      = useState(false)
+  const [forgotEmail,     setForgotEmail]     = useState('')
+  const [forgotStaffNum,  setForgotStaffNum]  = useState('')
+  const [forgotPassword,  setForgotPassword]  = useState('')
+  const [forgotSent,      setForgotSent]      = useState(false)
+  const [forgotError,     setForgotError]     = useState('')
+
+  const requestPassword = useRequestStaffPassword()
 
   const emailRef = useRef<HTMLInputElement>(null)
   useEffect(() => { emailRef.current?.focus() }, [])
@@ -127,11 +132,18 @@ export function LoginPage() {
   }, [])
 
   async function handleForgotPassword() {
-    if (!forgotEmail.trim()) return
-    setForgotLoading(true)
-    try { await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), { redirectTo:`${window.location.origin}/reset-password` }) }
-    catch { /* success regardless */ }
-    finally { setForgotLoading(false); setForgotSent(true) }
+    if (!forgotEmail.trim() || !forgotStaffNum.trim() || forgotPassword.length < 8) return
+    setForgotError('')
+    try {
+      await requestPassword.mutateAsync({
+        email:        forgotEmail.trim(),
+        staffNumber:  forgotStaffNum.trim(),
+        newPassword:  forgotPassword,
+      })
+      setForgotSent(true)
+    } catch (e) {
+      setForgotError(e instanceof Error ? e.message : 'Something went wrong — please try again')
+    }
   }
 
   async function handleLogin(e: React.FormEvent) {
@@ -339,11 +351,11 @@ export function LoginPage() {
                 <label style={{ display:'flex', justifyContent:'space-between', fontSize:11.5, fontWeight:700, color:'#475569', marginBottom:7, textTransform:'uppercase', letterSpacing:.6 }}>
                   Password
                   <button type="button"
-                    onClick={()=>{ setShowForgot(true); setForgotSent(false); setForgotEmail('') }}
+                    onClick={()=>{ setShowForgot(true); setForgotSent(false); setForgotError(''); setForgotEmail(''); setForgotStaffNum(''); setForgotPassword('') }}
                     style={{ background:'none', border:'none', cursor:'pointer', fontSize:11.5, color:'#0d9488', fontWeight:700, textTransform:'none', letterSpacing:0, fontFamily:'inherit', padding:0, transition:'color .14s' }}
                     onMouseEnter={e=>(e.currentTarget.style.color='#0f766e')}
                     onMouseLeave={e=>(e.currentTarget.style.color='#0d9488')}
-                  >Forgot password?</button>
+                  >Forgot password / new staff?</button>
                 </label>
                 <div style={{ position:'relative' }}>
                   <div style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', color:'#94a3b8' }}>
@@ -429,8 +441,8 @@ export function LoginPage() {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2.2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
               </div>
               <div>
-                <div style={{ fontFamily:'Space Grotesk,sans-serif', fontSize:17, fontWeight:900, color:'#0f172a' }}>Reset password</div>
-                <div style={{ fontSize:12, color:'#94a3b8', marginTop:2 }}>We'll send a reset link to your email</div>
+                <div style={{ fontFamily:'Space Grotesk,sans-serif', fontSize:17, fontWeight:900, color:'#0f172a' }}>Set or reset your password</div>
+                <div style={{ fontSize:12, color:'#94a3b8', marginTop:2 }}>Your IT Admin approves it — they never see the password itself</div>
               </div>
             </div>
             <div style={{ padding:'22px 24px 24px' }}>
@@ -440,10 +452,10 @@ export function LoginPage() {
                     <div style={{ width:54, height:54, borderRadius:16, background:'rgba(16,185,129,.1)', border:'1px solid rgba(16,185,129,.2)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', boxShadow:'0 4px 20px rgba(16,185,129,.15)' }}>
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
-                    <div style={{ fontFamily:'Space Grotesk,sans-serif', fontSize:17, fontWeight:900, color:'#0f172a', marginBottom:10 }}>Link sent!</div>
+                    <div style={{ fontFamily:'Space Grotesk,sans-serif', fontSize:17, fontWeight:900, color:'#0f172a', marginBottom:10 }}>Request submitted!</div>
                     <div style={{ fontSize:13, color:'#64748b', lineHeight:1.7 }}>
-                      If <strong style={{ color:'#0f172a' }}>{forgotEmail}</strong> is registered, a reset link has been sent.<br/>
-                      Not received? Contact your <strong style={{ color:'#0f172a' }}>IT Admin</strong>.
+                      Your IT Admin has been notified and will approve your password shortly.<br/>
+                      Once approved, sign in with the password you just set.
                     </div>
                   </div>
                   <button onClick={()=>setShowForgot(false)} className="lp-btn">Back to Sign In</button>
@@ -451,14 +463,29 @@ export function LoginPage() {
               ) : (
                 <>
                   <div style={{ fontSize:13, color:'#64748b', lineHeight:1.7, marginBottom:20 }}>
-                    Enter your school email. If email delivery isn't configured, ask your IT Admin to reset it directly.
+                    Enter your details and the password you want to use. Your IT Admin will approve the request — they'll see who's asking, never the password.
                   </div>
                   <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:.6, marginBottom:7 }}>Email address</label>
                   <input type="email" value={forgotEmail} onChange={e=>setForgotEmail(e.target.value)}
-                    onKeyDown={e=>{ if(e.key==='Enter') void handleForgotPassword() }}
                     placeholder="name@school.ac.ug" autoFocus
+                    className="lp-input" style={{ marginBottom:14 }}
+                  />
+                  <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:.6, marginBottom:7 }}>Staff number</label>
+                  <input type="text" value={forgotStaffNum} onChange={e=>setForgotStaffNum(e.target.value)}
+                    placeholder="e.g. GM/STAFF/2026/001"
+                    className="lp-input" style={{ marginBottom:14 }}
+                  />
+                  <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:.6, marginBottom:7 }}>New password</label>
+                  <input type="password" value={forgotPassword} onChange={e=>setForgotPassword(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==='Enter') void handleForgotPassword() }}
+                    placeholder="At least 8 characters"
                     className="lp-input" style={{ marginBottom:18 }}
                   />
+                  {forgotError && (
+                    <div style={{ marginBottom:14, padding:'10px 12px', borderRadius:10, background:'rgba(244,63,94,.05)', border:'1px solid rgba(244,63,94,.2)', color:'#be123c', fontSize:12 }}>
+                      {forgotError}
+                    </div>
+                  )}
                   <div style={{ display:'flex', gap:10 }}>
                     <button type="button" onClick={()=>setShowForgot(false)}
                       style={{ flex:1, height:46, borderRadius:12, background:'#f1f5f9', border:'1px solid #e2e8f0', color:'#475569', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit', transition:'background .14s' }}
@@ -466,9 +493,9 @@ export function LoginPage() {
                       onMouseLeave={e=>(e.currentTarget.style.background='#f1f5f9')}
                     >Cancel</button>
                     <button type="button" onClick={()=>void handleForgotPassword()}
-                      disabled={!forgotEmail.trim()||forgotLoading}
+                      disabled={!forgotEmail.trim()||!forgotStaffNum.trim()||forgotPassword.length<8||requestPassword.isPending}
                       className="lp-btn" style={{ flex:2 }}
-                    >{forgotLoading?'Sending…':'Send Reset Link'}</button>
+                    >{requestPassword.isPending?'Submitting…':'Submit for Approval'}</button>
                   </div>
                 </>
               )}

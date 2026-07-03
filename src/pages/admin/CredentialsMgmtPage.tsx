@@ -18,10 +18,14 @@ import {
   clearPendingStudentActivation,
 } from '../../hooks/useStudents'
 import { useSchoolSettings } from '../../hooks/useAdmin'
+import {
+  usePendingStaffPasswordRequests,
+  useResolveStaffPasswordRequest,
+} from '../../hooks/useStaffPasswordRequests'
 
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type TabId = 'staff' | 'students' | 'parents'
+type TabId = 'staff' | 'students' | 'parents' | 'requests'
 
 
 type StudentRow = {
@@ -1117,6 +1121,73 @@ function ParentsPanel({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// PASSWORD REQUESTS PANEL
+// ═══════════════════════════════════════════════════════════════════════════════
+const KIND_LABELS: Record<string, string> = { activation: 'New account', reset: 'Password reset' }
+
+function RequestsPanel() {
+  const { data: requests = [], isLoading } = usePendingStaffPasswordRequests()
+  const resolve = useResolveStaffPasswordRequest()
+  const { success: ok, error: err } = useToast()
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  async function handleResolve(requestId: string, action: 'approve' | 'reject') {
+    setBusyId(requestId)
+    try {
+      await resolve.mutateAsync({ requestId, action })
+      ok(action === 'approve' ? 'Password approved — the staff member can now log in' : 'Request declined')
+    } catch (e) {
+      err(e instanceof Error ? e.message : 'Failed to resolve request')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--border)', fontSize: 12, color: 'var(--txt2)', lineHeight: 1.6 }}>
+        Staff request their own password from the login page — you never see the password itself, only who is requesting and why. Approve to activate it immediately.
+      </div>
+
+      {isLoading
+        ? Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)
+        : requests.length === 0
+          ? (
+            <div style={{ padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: 'var(--txt3)' }}>
+              <IcoKey />
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt2)' }}>No pending password requests</div>
+            </div>
+          )
+          : requests.map(r => {
+            const isBusy = busyId === r.id
+            return (
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 18px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,var(--brand),var(--info))', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: '#fff' }}>{r.staffName.split(' ').map(n => n[0]?.toUpperCase()).slice(0, 2).join('')}</span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--txt)' }}>{r.staffName}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 99, background: 'var(--surface2)', color: 'var(--txt3)', border: '1px solid var(--border)' }}>{ROLE_LABELS[r.staffRole] ?? r.staffRole}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 99, background: r.kind === 'activation' ? 'rgba(13,148,136,.1)' : 'rgba(245,158,11,.1)', color: r.kind === 'activation' ? 'var(--brand)' : 'var(--warning)' }}>{KIND_LABELS[r.kind]}</span>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2 }}>
+                    {r.staffNumber} · requested {new Date(r.requestedAt).toLocaleString()}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <ActionBtn onClick={() => void handleResolve(r.id, 'approve')} disabled={isBusy} label={isBusy ? 'Working…' : 'Approve'} icon={<IcoCheck />} variant="brand" />
+                  <ActionBtn onClick={() => void handleResolve(r.id, 'reject')} disabled={isBusy} label="Decline" icon={<IcoClose />} variant="danger" />
+                </div>
+              </div>
+            )
+          })
+      }
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 export function CredentialsMgmtPage() {
@@ -1184,10 +1255,13 @@ export function CredentialsMgmtPage() {
     { label: 'Parents', total: parentCount ?? 0, active: parentActive ?? 0, icon: <IcoParent />, accent: 'var(--success)', tab: 'parents' as TabId },
   ]
 
+  const { data: pendingRequests = [] } = usePendingStaffPasswordRequests()
+
   const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     { id: 'staff',    label: 'Staff Accounts',   icon: <IcoUsers /> },
     { id: 'students', label: 'Student Accounts', icon: <IcoStudent /> },
     { id: 'parents',  label: 'Parent Accounts',  icon: <IcoParent /> },
+    { id: 'requests', label: pendingRequests.length > 0 ? `Password Requests (${pendingRequests.length})` : 'Password Requests', icon: <IcoKey /> },
   ]
 
   const handlePasswordResult = useCallback((r: PasswordResult) => setPwResult(r), [])
@@ -1273,6 +1347,9 @@ export function CredentialsMgmtPage() {
         )}
         {activeTab === 'parents' && (
           <ParentsPanel schoolId={schoolId} onPasswordResult={handlePasswordResult} />
+        )}
+        {activeTab === 'requests' && (
+          <RequestsPanel />
         )}
       </div>
 

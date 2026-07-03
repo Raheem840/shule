@@ -54,6 +54,11 @@ vi.mock('../../hooks/useStaffAuth', () => ({
   useResetStaffPassword: vi.fn(),
 }))
 
+vi.mock('../../hooks/useStaffPasswordRequests', () => ({
+  usePendingStaffPasswordRequests: vi.fn(),
+  useResolveStaffPasswordRequest:  vi.fn(),
+}))
+
 vi.mock('../../hooks/useStudents', () => ({
   useCreateStudentLogin:         vi.fn(),
   useResetStudentPassword:       vi.fn(),
@@ -77,6 +82,7 @@ import { useClasses } from '../../hooks/useClasses'
 import { useSchoolSettings } from '../../hooks/useAdmin'
 import { useActivateStaffLogin, useResetStaffPassword } from '../../hooks/useStaffAuth'
 import { useCreateStudentLogin, useResetStudentPassword } from '../../hooks/useStudents'
+import { usePendingStaffPasswordRequests, useResolveStaffPasswordRequest } from '../../hooks/useStaffPasswordRequests'
 import { CredentialsMgmtPage } from '../../pages/admin/CredentialsMgmtPage'
 
 const mockUseStaff              = useStaff              as ReturnType<typeof vi.fn>
@@ -86,6 +92,8 @@ const mockUseActivateStaffLogin = useActivateStaffLogin as ReturnType<typeof vi.
 const mockUseResetStaffPassword = useResetStaffPassword as ReturnType<typeof vi.fn>
 const mockUseCreateStudentLogin = useCreateStudentLogin as ReturnType<typeof vi.fn>
 const mockUseResetStudentPassword = useResetStudentPassword as ReturnType<typeof vi.fn>
+const mockUsePendingRequests     = usePendingStaffPasswordRequests as ReturnType<typeof vi.fn>
+const mockUseResolveRequest      = useResolveStaffPasswordRequest  as ReturnType<typeof vi.fn>
 
 const MUTATION_STUB = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }
 
@@ -113,6 +121,8 @@ function setupMocks(staffData = [STAFF_NO_LOGIN, STAFF_WITH_LOGIN], isLoading = 
   mockUseResetStaffPassword.mockReturnValue(MUTATION_STUB)
   mockUseCreateStudentLogin.mockReturnValue(MUTATION_STUB)
   mockUseResetStudentPassword.mockReturnValue(MUTATION_STUB)
+  mockUsePendingRequests.mockReturnValue({ data: [], isLoading: false })
+  mockUseResolveRequest.mockReturnValue(MUTATION_STUB)
 }
 
 beforeEach(() => {
@@ -290,5 +300,71 @@ describe('CredentialsMgmtPage', () => {
   it('renders the footer audit log note', () => {
     render(<CredentialsMgmtPage />)
     expect(screen.getByText(/all credential actions are recorded in the audit log/i)).toBeInTheDocument()
+  })
+
+  // ── Password Requests tab ─────────────────────────────────────────────────
+  describe('Password Requests tab', () => {
+    it('shows a pending-count badge on the tab when there are pending requests', () => {
+      mockUsePendingRequests.mockReturnValue({
+        data: [{ id: 'req-1', staffId: 'sf1', kind: 'activation', status: 'pending', requestedAt: '2026-07-01T00:00:00Z', staffName: 'Alice Nakato', staffNumber: 'NYS/STAFF/001', staffRole: 'teacher' }],
+        isLoading: false,
+      })
+      render(<CredentialsMgmtPage />)
+      expect(screen.getByRole('button', { name: /password requests \(1\)/i })).toBeInTheDocument()
+    })
+
+    it('lists a pending request with staff name and kind, and no password anywhere', async () => {
+      mockUsePendingRequests.mockReturnValue({
+        data: [{ id: 'req-1', staffId: 'sf1', kind: 'reset', status: 'pending', requestedAt: '2026-07-01T00:00:00Z', staffName: 'Alice Nakato', staffNumber: 'NYS/STAFF/001', staffRole: 'teacher' }],
+        isLoading: false,
+      })
+      const user = userEvent.setup()
+      render(<CredentialsMgmtPage />)
+
+      await user.click(screen.getByRole('button', { name: /password requests/i }))
+      expect(screen.getByText('Alice Nakato')).toBeInTheDocument()
+      expect(screen.getByText('Password reset')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /approve/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /decline/i })).toBeInTheDocument()
+    })
+
+    it('calls resolve with action "approve" when Approve is clicked', async () => {
+      mockUsePendingRequests.mockReturnValue({
+        data: [{ id: 'req-1', staffId: 'sf1', kind: 'activation', status: 'pending', requestedAt: '2026-07-01T00:00:00Z', staffName: 'Alice Nakato', staffNumber: 'NYS/STAFF/001', staffRole: 'teacher' }],
+        isLoading: false,
+      })
+      const resolveMutate = vi.fn().mockResolvedValue({ success: true, action: 'approved' })
+      mockUseResolveRequest.mockReturnValue({ ...MUTATION_STUB, mutateAsync: resolveMutate })
+
+      const user = userEvent.setup()
+      render(<CredentialsMgmtPage />)
+      await user.click(screen.getByRole('button', { name: /password requests/i }))
+      await user.click(screen.getByRole('button', { name: /approve/i }))
+
+      expect(resolveMutate).toHaveBeenCalledWith({ requestId: 'req-1', action: 'approve' })
+    })
+
+    it('calls resolve with action "reject" when Decline is clicked', async () => {
+      mockUsePendingRequests.mockReturnValue({
+        data: [{ id: 'req-1', staffId: 'sf1', kind: 'activation', status: 'pending', requestedAt: '2026-07-01T00:00:00Z', staffName: 'Alice Nakato', staffNumber: 'NYS/STAFF/001', staffRole: 'teacher' }],
+        isLoading: false,
+      })
+      const resolveMutate = vi.fn().mockResolvedValue({ success: true, action: 'rejected' })
+      mockUseResolveRequest.mockReturnValue({ ...MUTATION_STUB, mutateAsync: resolveMutate })
+
+      const user = userEvent.setup()
+      render(<CredentialsMgmtPage />)
+      await user.click(screen.getByRole('button', { name: /password requests/i }))
+      await user.click(screen.getByRole('button', { name: /decline/i }))
+
+      expect(resolveMutate).toHaveBeenCalledWith({ requestId: 'req-1', action: 'reject' })
+    })
+
+    it('shows "No pending password requests" when the queue is empty', async () => {
+      const user = userEvent.setup()
+      render(<CredentialsMgmtPage />)
+      await user.click(screen.getByRole('button', { name: /password requests/i }))
+      expect(screen.getByText(/no pending password requests/i)).toBeInTheDocument()
+    })
   })
 })

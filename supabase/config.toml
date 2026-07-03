@@ -53,3 +53,17 @@ entrypoint = "./functions/reset-student-password/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/reset-student-password/*.html" ]
+
+[functions.request-staff-password]
+enabled = true
+# Public — called by a staff member with no session (forgot password / never
+# had an account). Identity is verified by email + staff_number match instead.
+verify_jwt = false
+import_map = "./functions/request-staff-password/deno.json"
+entrypoint = "./functions/request-staff-password/index.ts"
+
+[functions.resolve-staff-password-request]
+enabled = true
+verify_jwt = true
+import_map = "./functions/resolve-staff-password-request/deno.json"
+entrypoint = "./functions/resolve-staff-password-request/index.ts"

@@ -14,6 +14,7 @@ vi.mock('../../lib/supabase', () => ({
       signOut: vi.fn(),
     },
     from: vi.fn(),
+    functions: { invoke: vi.fn() },
   },
 }))
 
@@ -21,6 +22,7 @@ import { LoginPage } from '../../pages/auth/LoginPage'
 import { supabase } from '../../lib/supabase'
 
 const mockSignIn = supabase.auth.signInWithPassword as ReturnType<typeof vi.fn>
+const mockInvoke = supabase.functions.invoke as ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -110,5 +112,67 @@ describe('LoginPage', () => {
         password: 'mypassword',
       })
     })
+  })
+})
+
+// The modal reuses the same email placeholder as the main login form, so
+// scope queries to the LAST match (the modal renders after the form in DOM order).
+function lastOf<T>(matches: T[]): T { return matches[matches.length - 1] }
+const modalScope = {
+  getByPlaceholderText: (t: any) => lastOf(screen.getAllByPlaceholderText(t)),
+  getByRole: (role: any, opts: any) => lastOf(screen.getAllByRole(role, opts)),
+}
+
+describe('LoginPage — password request modal', () => {
+  it('submits a request with email, staff number, and new password', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: { success: true, message: 'ok' }, error: null })
+    const user = userEvent.setup()
+    render(<LoginPage />)
+
+    await user.click(screen.getByText(/forgot password \/ new staff/i))
+    await screen.findByText(/set or reset your password/i)
+    const modal = modalScope
+    await user.type(modal.getByPlaceholderText('name@school.ac.ug'), 'teacher@school.ac.ug')
+    await user.type(modal.getByPlaceholderText(/GM\/STAFF/i), 'GM/STAFF/2026/001')
+    await user.type(modal.getByPlaceholderText(/at least 8 characters/i), 'mynewpassword1')
+    await user.click(modal.getByRole('button', { name: /submit for approval/i }))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('request-staff-password', {
+        body: { email: 'teacher@school.ac.ug', staffNumber: 'GM/STAFF/2026/001', newPassword: 'mynewpassword1' },
+      })
+    })
+    expect(await screen.findByText(/request submitted/i)).toBeInTheDocument()
+  })
+
+  it('shows an error message if the request fails', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: { error: 'No matching staff record' }, error: { message: 'No matching staff record' } })
+    const user = userEvent.setup()
+    render(<LoginPage />)
+
+    await user.click(screen.getByText(/forgot password \/ new staff/i))
+    await screen.findByText(/set or reset your password/i)
+    const modal = modalScope
+    await user.type(modal.getByPlaceholderText('name@school.ac.ug'), 'x@y.ug')
+    await user.type(modal.getByPlaceholderText(/GM\/STAFF/i), 'BAD-NUM')
+    await user.type(modal.getByPlaceholderText(/at least 8 characters/i), 'mynewpassword1')
+    await user.click(modal.getByRole('button', { name: /submit for approval/i }))
+
+    expect(await screen.findByText('No matching staff record')).toBeInTheDocument()
+  })
+
+  it('disables submit until email, staff number, and an 8+ char password are all filled', async () => {
+    const user = userEvent.setup()
+    render(<LoginPage />)
+
+    await user.click(screen.getByText(/forgot password \/ new staff/i))
+    await screen.findByText(/set or reset your password/i)
+    const modal = modalScope
+    expect(modal.getByRole('button', { name: /submit for approval/i })).toBeDisabled()
+
+    await user.type(modal.getByPlaceholderText('name@school.ac.ug'), 'x@y.ug')
+    await user.type(modal.getByPlaceholderText(/GM\/STAFF/i), 'GM/STAFF/2026/001')
+    await user.type(modal.getByPlaceholderText(/at least 8 characters/i), 'short')
+    expect(modal.getByRole('button', { name: /submit for approval/i })).toBeDisabled()
   })
 })
