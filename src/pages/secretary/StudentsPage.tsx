@@ -7,6 +7,7 @@ import { useSendCredentialsSms } from '../../hooks/useStaffAuth'
 import { Avatar } from '../../components/shared/Avatar'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
+import { generateTempPassword } from '../../lib/passwords'
 import type { Student, StudentGuardian } from '../../types/app'
 
 // ── Print credential slip ─────────────────────────────────────────────────────
@@ -489,7 +490,7 @@ function BatchActivationBar({
       setState({ phase: 'running', current: i + 1, total: toActivate.length })
       try {
         const { error } = await supabase.functions.invoke('create-student-auth-user', {
-          body: { studentId: s.id, schoolId: user.schoolId },
+          body: { studentId: s.id, schoolId: user.schoolId, password: generateTempPassword() },
         })
         if (error) throw new Error(error.message)
         activated++
@@ -653,6 +654,7 @@ function StudentCard({ student, classes, streams, onView, onCredentials, selecte
       {/* Selection checkbox */}
       {onToggleSelect && (
         <div
+          data-testid={`select-student-${student.id}`}
           style={{ position: 'absolute', top: 10, right: 10, zIndex: 10 }}
           onClick={e => { e.stopPropagation(); onToggleSelect(student.id) }}
         >

@@ -695,14 +695,18 @@ export function useGenerateParentAccess() {
         // Always sync auth claims so the JWT has up-to-date student_ids.
         // Use stored temp_password (no credential change if they already have an account).
         const password = (existing.temp_password as string) || TEMP_PASSWORD
-        await supabase.functions.invoke('create-parent-auth-user', {
+        const { error: fnError, data: fnData } = await supabase.functions.invoke('create-parent-auth-user', {
           body: {
             parentAccountId: existing.id as string,
             email:           loginEmail,
             schoolId:        user!.schoolId,
             password,
           },
-        }).catch(() => { /* Edge Function not deployed — auth_user_id stays null */ })
+        })
+        if (fnError) {
+          const detail = (fnData as { error?: string } | null)?.error ?? fnError.message
+          throw new Error(`Failed to activate parent login: ${detail}`)
+        }
 
         return {
           email:        loginEmail,
@@ -748,14 +752,18 @@ export function useGenerateParentAccess() {
       if (insertError) throw insertError
 
       // ── 7. Create Supabase auth user via Edge Function ───────
-      await supabase.functions.invoke('create-parent-auth-user', {
+      const { error: fnError, data: fnData } = await supabase.functions.invoke('create-parent-auth-user', {
         body: {
           parentAccountId: (newAccount as AnyRow).id as string,
           email:           loginEmail,
           schoolId:        user!.schoolId,
           password:        TEMP_PASSWORD,
         },
-      }).catch(() => { /* Edge Function not deployed — auth_user_id stays null for now */ })
+      })
+      if (fnError) {
+        const detail = (fnData as { error?: string } | null)?.error ?? fnError.message
+        throw new Error(`Failed to activate parent login: ${detail}`)
+      }
 
       return {
         email:        loginEmail,
