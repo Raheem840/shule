@@ -635,6 +635,9 @@ export function FeeLedgerPage() {
                       const row = allRows[vr.index]
                       const liveBalance = row.balance
                       const liveStatus  = calcFeeStatus(row.amountPaid, liveBalance)
+                      // balance is clamped to 0 at write-time — derive any overpayment
+                      // from the raw due/paid amounts, which are stored unclamped.
+                      const overpaid = Math.max(0, row.amountPaid - row.amountDue)
                       return (
                         <tr
                           key={row.id}
@@ -667,6 +670,11 @@ export function FeeLedgerPage() {
                             fontWeight: 600,
                           }}>
                             {ugx(Math.max(0, liveBalance))}
+                            {overpaid > 0 && (
+                              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--info)', marginTop: 2 }}>
+                                Overpaid {ugx(overpaid)}
+                              </div>
+                            )}
                           </td>
                           <td style={tdStyle}>
                             <Badge variant={STATUS_VARIANT[liveStatus]} size="sm">

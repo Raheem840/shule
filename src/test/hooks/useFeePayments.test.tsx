@@ -231,8 +231,21 @@ describe('useSmsCount', () => {
 })
 
 describe('useAddPayment', () => {
-  it('calls supabase insert and returns the new payment id', async () => {
-    setResponse('fee_payments', { data: { id: 'new-pay-id' }, error: null })
+  it('inserts a new row (with balance = amountDue - amountPaid) when no existing record is found', async () => {
+    // The existence-check (.maybeSingle()) must resolve to "not found" while the
+    // subsequent insert's own .select().single() resolves to the new row — two
+    // different calls against the same table. Use mockImplementationOnce (not
+    // mockImplementation) so this doesn't leak into later tests in this file.
+    const notFoundBuilder: any = {
+      select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    }
+    const insertBuilder: any = {
+      select: vi.fn().mockReturnThis(), insert: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: { id: 'new-pay-id' }, error: null }),
+    }
+    mockFrom.mockImplementationOnce(() => notFoundBuilder)
+    mockFrom.mockImplementationOnce(() => insertBuilder)
 
     const { result } = renderHook(() => useAddPayment(), { wrapper: createWrapper() })
 
@@ -247,25 +260,39 @@ describe('useAddPayment', () => {
     })
 
     expect(returnedId).toBe('new-pay-id')
-    expect(mockFrom).toHaveBeenCalledWith('fee_payments')
+    expect(insertBuilder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ amount_due: 400_000, amount_paid: 200_000, balance: 200_000 })
+    )
   })
 
-  it('computes balance = amountDue - amountPaid before inserting', async () => {
-    setResponse('fee_payments', { data: { id: 'pay-x' }, error: null })
+  it('updates (increments amount_paid) an existing record instead of inserting a duplicate row', async () => {
+    // maybeSingle() resolves the existence-check query with a pre-existing row.
+    setResponse('fee_payments', {
+      data: { id: 'existing-row-1', amount_paid: 100_000, amount_due: 400_000 },
+      error: null,
+    })
 
     const { result } = renderHook(() => useAddPayment(), { wrapper: createWrapper() })
 
     await act(async () => {
       await result.current.mutateAsync({
-        studentId: 'stu-1', feeStructureId: null, academicYearId: null,
-        amountDue: 500_000, amountPaid: 150_000,
+        studentId: 'stu-1', feeStructureId: null, academicYearId: 'year-1',
+        amountDue: 400_000, amountPaid: 150_000,
         paymentDate: '2025-06-01', receiptNumber: null,
         notes: null, term: 1,
       })
     })
 
-    // Just verify the mutation resolved (balance computation is internal)
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    const feePaymentsBuilders = mockFrom.mock.calls
+      .map((_, i) => mockFrom.mock.results[i].value)
+      .filter((_, i) => mockFrom.mock.calls[i][0] === 'fee_payments')
+    const updatingBuilder = feePaymentsBuilders.find(b => (b.update as ReturnType<typeof vi.fn>).mock.calls.length > 0)
+    expect(updatingBuilder).toBeDefined()
+    // 100_000 (existing) + 150_000 (new) = 250_000 — never a bare re-insert of 150_000.
+    expect(updatingBuilder!.update).toHaveBeenCalledWith(
+      expect.objectContaining({ amount_paid: 250_000, balance: 150_000 })
+    )
+    expect(feePaymentsBuilders.some(b => (b.insert as ReturnType<typeof vi.fn>).mock.calls.length > 0)).toBe(false)
   })
 })
 

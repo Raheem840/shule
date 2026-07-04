@@ -339,15 +339,33 @@ function useUpdatePaymentAmount() {
     mutationFn: async (input: {
       id:        string
       amountDue: number
+      oldPaid:   number
       newPaid:   number
     }) => {
       if (!user) throw new Error('Not authenticated')
       if (!['bursar', 'principal'].includes(user.role ?? '')) throw new Error('Forbidden')
+      const newBalance = Math.max(0, input.amountDue - input.newPaid)
       const { error } = await supabase.from('fee_payments')
-        .update({ amount_paid: input.newPaid, balance: Math.max(0, input.amountDue - input.newPaid) })
+        .update({ amount_paid: input.newPaid, balance: newBalance })
         .eq('id', input.id)
         .eq('school_id', user!.schoolId)
       if (error) throw error
+
+      // Write audit trail — matches useUpdatePayment's convention on the Fee
+      // Ledger page's own inline-edit path; this modal's inline edit was
+      // previously silent, an inconsistency for the same conceptual action.
+      const oldBalance = input.amountDue - input.oldPaid
+      await supabase.from('audit_log').insert({
+        school_id:  user!.schoolId,
+        table_name: 'fee_payments',
+        record_id:  input.id,
+        action:     'UPDATE',
+        old_value:  { amount_paid: input.oldPaid, balance: oldBalance },
+        new_value:  { amount_paid: input.newPaid, balance: newBalance },
+        user_id:    user!.id,
+        role:       user!.role,
+      })
+      // Intentionally not throwing on audit error — payment is already saved.
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['bursar-student-fees', user?.schoolId] })
@@ -588,7 +606,7 @@ function EditablePaidCell({
   row, onSave,
 }: {
   row:    PaymentDetailRow
-  onSave: (id: string, amountDue: number, newPaid: number) => void
+  onSave: (id: string, amountDue: number, oldPaid: number, newPaid: number) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [draft,   setDraft]   = useState(String(row.amountPaid))
@@ -604,7 +622,7 @@ function EditablePaidCell({
     setEditing(false)
     const v = parseFloat(draft)
     if (isNaN(v) || v === row.amountPaid || v < 0) return
-    onSave(row.id, row.amountDue, v)
+    onSave(row.id, row.amountDue, row.amountPaid, v)
   }
 
   if (editing) {
@@ -665,9 +683,9 @@ function PaymentHistoryModal({
   const totalPaid = rows.reduce((s, r) => s + r.amountPaid, 0)
   const totalBal  = rows.reduce((s, r) => s + r.balance,    0)
 
-  function handleSave(id: string, amountDue: number, newPaid: number) {
+  function handleSave(id: string, amountDue: number, oldPaid: number, newPaid: number) {
     updatePaid.mutate(
-      { id, amountDue, newPaid },
+      { id, amountDue, oldPaid, newPaid },
       {
         onSuccess: () => toast.success('Payment updated'),
         onError:   (err) => toast.error((err as Error).message),
@@ -892,6 +910,11 @@ function StudentCard({
                 <div style={{ fontFamily: 'var(--font3)', fontWeight: 700, fontSize: 13.5, color }}>
                   {value}
                 </div>
+                {label === 'Balance' && student.amountPaid > student.amountDue && (
+                  <div style={{ fontFamily: 'var(--font3)', fontWeight: 700, fontSize: 10.5, color: 'var(--info)' }}>
+                    Overpaid {ugx(student.amountPaid - student.amountDue)}
+                  </div>
+                )}
               </div>
             ))}
             <div>

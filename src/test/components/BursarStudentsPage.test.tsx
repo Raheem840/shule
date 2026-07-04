@@ -2,11 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '../utils'
 import userEvent from '@testing-library/user-event'
 
-// ── Virtualiser (avoids DOM measurement issues in jsdom) ───────
+// ── Virtualiser (avoids DOM measurement issues in jsdom) — renders every
+// row instead of none, so tests can interact with actual student cards.
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: () => ({
-    getTotalSize:    () => 0,
-    getVirtualItems: () => [],
+  useVirtualizer: (opts: { count: number }) => ({
+    getTotalSize:    () => opts.count * 178,
+    getVirtualItems: () => Array.from({ length: opts.count }, (_, index) => ({ index, start: index * 178, size: 178 })),
     measureElement:  () => {},
   }),
 }))
@@ -37,6 +38,8 @@ const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
       eq:          vi.fn().mockReturnThis(),
       in:          vi.fn().mockReturnThis(),
       order:       vi.fn().mockReturnThis(),
+      insert:      vi.fn().mockImplementation(() => Promise.resolve(tableData[`${table}_insert`] ?? { error: null })),
+      update:      vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockImplementation(() => Promise.resolve(tableData[table] ?? { data: null, error: null })),
       then:        (resolve: any, reject?: any) =>
         Promise.resolve(tableData[table] ?? { data: [], error: null }).then(resolve, reject),
@@ -168,6 +171,67 @@ describe('BursarStudentsPage — All Classes view', () => {
         (c.builder.eq as ReturnType<typeof vi.fn>).mock.calls.some(args => args[0] === 'student_type' && args[1] === 'boarder')
       )
       expect(scopedCall).toBe(true)
+    })
+  })
+})
+
+describe('BursarStudentsPage — Payment History inline edit', () => {
+  it('shows an "Overpaid" hint on the card when amountPaid exceeds amountDue', async () => {
+    setResponse('students', {
+      data: [{ id: 'stu-1', admission_number: 'A1', first_name: 'Grace', last_name: 'Apio', gender: 'female', student_type: 'day', class_id: 'cls-1', stream_id: null, classes: { name: 'S.1' }, streams: null }],
+      error: null,
+    })
+    setResponse('fee_payments', {
+      data: [{ id: 'pay-1', student_id: 'stu-1', fee_structure_id: null, amount_due: 100_000, amount_paid: 150_000, balance: 0, term: 1, payment_date: '2025-06-01', receipt_number: null, notes: null }],
+      error: null,
+    })
+    setResponse('fee_structure', { data: [], error: null })
+    setResponse('school_profile', { data: null, error: null })
+
+    render(<BursarStudentsPage />)
+
+    await waitFor(() => expect(screen.getByText(/overpaid/i)).toBeInTheDocument())
+  })
+
+  it('writes an audit_log entry when a payment amount is edited from the Payment History modal', async () => {
+    setResponse('students', {
+      data: [{ id: 'stu-1', admission_number: 'A1', first_name: 'Grace', last_name: 'Apio', gender: 'female', student_type: 'day', class_id: 'cls-1', stream_id: null, classes: { name: 'S.1' }, streams: null }],
+      error: null,
+    })
+    setResponse('fee_payments', {
+      data: [{ id: 'pay-1', student_id: 'stu-1', fee_structure_id: null, amount_due: 400_000, amount_paid: 100_000, balance: 300_000, term: 1, payment_date: '2025-06-01', receipt_number: null, notes: null }],
+      error: null,
+    })
+    setResponse('fee_structure', { data: [], error: null })
+    setResponse('school_profile', { data: null, error: null })
+
+    const user = userEvent.setup()
+    render(<BursarStudentsPage />)
+
+    await waitFor(() => expect(screen.getByText('View History')).toBeInTheDocument())
+    await user.click(screen.getByText('View History'))
+
+    await waitFor(() => expect(screen.getByText('Payment History — Grace Apio')).toBeInTheDocument())
+
+    // Click the paid-amount cell to enter edit mode, then commit a new value.
+    await user.click(screen.getByTitle('Click to edit'))
+    const input = screen.getByLabelText('Edit amount paid')
+    await user.clear(input)
+    await user.type(input, '250000')
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => {
+      const auditCalls = mockFrom.mock.calls
+        .map((c, i) => ({ table: c[0], builder: mockFrom.mock.results[i].value }))
+        .filter(c => c.table === 'audit_log')
+      expect(auditCalls.length).toBeGreaterThan(0)
+      const insertedWith = (auditCalls[0].builder.insert as ReturnType<typeof vi.fn>).mock.calls[0][0]
+      expect(insertedWith).toMatchObject({
+        table_name: 'fee_payments',
+        record_id:  'pay-1',
+        old_value:  { amount_paid: 100_000 },
+        new_value:  { amount_paid: 250_000 },
+      })
     })
   })
 })

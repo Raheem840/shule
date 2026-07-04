@@ -499,6 +499,38 @@ export function useAddPayment() {
     mutationFn: async (input: AddPaymentInput) => {
       if (!user) throw new Error('Not authenticated')
       if (!isFinanceRole(user.role)) throw new Error('Forbidden')
+
+      // Look up an existing record for this student/term/year(/fee item) first —
+      // this modal previously always inserted, so recording a second payment for
+      // a student who already had a row created a duplicate that double-counts
+      // in every KPI/ledger aggregate. Match useRecordPayment's own convention.
+      let existQ = supabase
+        .from('fee_payments')
+        .select('id, amount_paid, amount_due')
+        .eq('school_id', user!.schoolId)
+        .eq('student_id', input.studentId)
+        .eq('term', input.term)
+      if (input.academicYearId) existQ = existQ.eq('academic_year_id', input.academicYearId)
+      if (input.feeStructureId) existQ = existQ.eq('fee_structure_id', input.feeStructureId)
+      const { data: existing } = await existQ.maybeSingle()
+
+      if (existing) {
+        const ex      = existing as { id: string; amount_paid: number; amount_due: number }
+        const newPaid = Number(ex.amount_paid) + input.amountPaid
+        const { error } = await supabase
+          .from('fee_payments')
+          .update({
+            amount_paid:    newPaid,
+            balance:        Math.max(0, Number(ex.amount_due) - newPaid),
+            payment_date:   input.paymentDate || null,
+            receipt_number: input.receiptNumber || null,
+            notes:          input.notes || null,
+          })
+          .eq('id', ex.id)
+        if (error) throw error
+        return ex.id
+      }
+
       const { data, error } = await supabase
         .from('fee_payments')
         .insert({
