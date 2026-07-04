@@ -702,7 +702,7 @@ export function FeeLedgerPage() {
       {showAdd && (
         <AddPaymentModal
           term={filters.term ?? 1}
-          academicYearId={activeAcademicYearId}
+          academicYearId={filters.academicYearId ?? activeAcademicYearId}
           onClose={() => setShowAdd(false)}
         />
       )}

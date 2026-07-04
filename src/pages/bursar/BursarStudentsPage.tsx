@@ -277,7 +277,10 @@ function useRecordPayment() {
     }) => {
       if (!user) throw new Error('Not authenticated')
       if (!['bursar', 'principal'].includes(user.role ?? '')) throw new Error('Forbidden')
-      // Check for existing record this student/term/academic_year
+      // Check for existing record this student/term/academic_year — fee_structure_id
+      // must always be part of the match (via .is() for null, never skipped),
+      // otherwise a payment with no fee item selected can match and silently
+      // overwrite an unrelated existing row tied to a specific fee item.
       let existQ = supabase
         .from('fee_payments')
         .select('id, amount_paid, amount_due')
@@ -285,8 +288,10 @@ function useRecordPayment() {
         .eq('student_id', input.studentId)
         .eq('term', input.term)
       if (input.academicYearId)  existQ = existQ.eq('academic_year_id', input.academicYearId)
-      if (input.feeStructureId)  existQ = existQ.eq('fee_structure_id', input.feeStructureId)
-      const { data: existing } = await existQ.maybeSingle()
+      existQ = input.feeStructureId
+        ? existQ.eq('fee_structure_id', input.feeStructureId)
+        : existQ.is('fee_structure_id', null)
+      const { data: existing } = await existQ.limit(1).maybeSingle()
 
       if (existing) {
         type Ex = { id: string; amount_paid: number; amount_due: number }

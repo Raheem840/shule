@@ -14,6 +14,7 @@ const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
     const b: any = {
       select:      vi.fn().mockReturnThis(),
       eq:          vi.fn().mockReturnThis(),
+      is:          vi.fn().mockReturnThis(),
       order:       vi.fn().mockReturnThis(),
       limit:       vi.fn().mockReturnThis(),
       insert:      vi.fn().mockReturnThis(),
@@ -285,6 +286,28 @@ describe('useFeeCollectionByStudentType', () => {
       boarder: { collected: 400_000, outstanding: 0 },
     })
   })
+
+  it('excludes payments for students not in the active-students query (e.g. suspended/expelled) — matches useTopDefaulters scope', async () => {
+    setResponse('fee_payments', {
+      data: [
+        { student_id: 'stu-1', amount_paid: 100_000, balance: 300_000 },  // active day student
+        { student_id: 'stu-9', amount_paid: 999_000, balance: 999_000 }, // not returned by the (active-only) students query
+      ],
+      error: null,
+    })
+    setResponse('students', { data: [{ id: 'stu-1', student_type: 'day' }], error: null })
+
+    const { result } = renderHook(() => useFeeCollectionByStudentType(1, 'year-1'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toEqual({
+      day:     { collected: 100_000, outstanding: 300_000 },
+      boarder: { collected: 0, outstanding: 0 },
+    })
+    const studentsCallIdx = mockFrom.mock.calls.findIndex(c => c[0] === 'students')
+    const builder = mockFrom.mock.results[studentsCallIdx].value
+    expect(builder.eq).toHaveBeenCalledWith('status', 'active')
+  })
 })
 
 describe('useAddPayment', () => {
@@ -295,6 +318,7 @@ describe('useAddPayment', () => {
     // mockImplementation) so this doesn't leak into later tests in this file.
     const notFoundBuilder: any = {
       select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     }
     const insertBuilder: any = {
@@ -350,6 +374,37 @@ describe('useAddPayment', () => {
       expect.objectContaining({ amount_paid: 250_000, balance: 150_000 })
     )
     expect(feePaymentsBuilders.some(b => (b.insert as ReturnType<typeof vi.fn>).mock.calls.length > 0)).toBe(false)
+  })
+
+  it('always includes fee_structure_id in the existence match (via .is() when null) — never matches an unrelated fee item', async () => {
+    // A payment with no fee item selected must not silently match/overwrite an
+    // existing row tied to a specific fee_structure_id (e.g. a Tuition row).
+    const notFoundBuilder2: any = {
+      select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    }
+    const insertBuilder2: any = {
+      select: vi.fn().mockReturnThis(), insert: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: { id: 'new-pay-id-2' }, error: null }),
+    }
+    mockFrom.mockImplementationOnce(() => notFoundBuilder2)
+    mockFrom.mockImplementationOnce(() => insertBuilder2)
+
+    const { result } = renderHook(() => useAddPayment(), { wrapper: createWrapper() })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        studentId: 'stu-1', feeStructureId: null, academicYearId: 'year-1',
+        amountDue: 100_000, amountPaid: 50_000,
+        paymentDate: '2025-06-01', receiptNumber: null,
+        notes: null, term: 1,
+      })
+    })
+
+    expect(notFoundBuilder2.is).toHaveBeenCalledWith('fee_structure_id', null)
+    // Never falls back to skipping the fee_structure_id filter entirely.
+    expect(notFoundBuilder2.eq).not.toHaveBeenCalledWith('fee_structure_id', expect.anything())
   })
 })
 

@@ -358,15 +358,23 @@ export function BursarImportPage() {
       const balance    = Math.max(0, amountDue - amountPaid)
       const termNum    = Number(r.term ?? 1)
       const key        = `${m.chosenId}::${termNum}::${m.feeStructureId ?? 'null'}`
-      const existing   = existingMap.get(key)
+      // Earlier imports (before the fee_type column existed) always wrote
+      // fee_structure_id=null. If this row now resolves a real fee_structure_id
+      // but no row exists under that exact key, fall back to the legacy
+      // null-keyed row for the same student/term — otherwise re-importing a
+      // corrected file (now with fee_type populated) can never find the
+      // original record and inserts a duplicate instead of updating it.
+      const legacyKey  = `${m.chosenId}::${termNum}::null`
+      const existing   = existingMap.get(key) ?? (m.feeStructureId ? existingMap.get(legacyKey) : undefined)
 
       if (existing) {
         const { error } = await supabase
           .from('fee_payments')
           .update({
-            amount_due:  amountDue,
-            amount_paid: amountPaid,
+            amount_due:       amountDue,
+            amount_paid:      amountPaid,
             balance,
+            fee_structure_id: m.feeStructureId,
             payment_date:   r.payment_date ? String(r.payment_date) : (amountPaid > 0 ? new Date().toISOString().slice(0, 10) : null),
             receipt_number: r.receipt_number ? String(r.receipt_number) : null,
             notes:          r.notes ? String(r.notes) : null,

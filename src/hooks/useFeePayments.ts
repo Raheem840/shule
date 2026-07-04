@@ -267,7 +267,8 @@ export function useFeeCollectionByStudentType(term: number, academicYearId: stri
         supabase
           .from('students')
           .select('id, student_type')
-          .eq('school_id', sid),
+          .eq('school_id', sid)
+          .eq('status', 'active'),
       ])
 
       if (paymentsRes.error) throw paymentsRes.error
@@ -280,7 +281,11 @@ export function useFeeCollectionByStudentType(term: number, academicYearId: stri
 
       const split: StudentTypeSplit = { day: { collected: 0, outstanding: 0 }, boarder: { collected: 0, outstanding: 0 } }
       for (const p of paymentsRes.data ?? []) {
-        const type = typeMap.get(p.student_id as string) ?? 'day'
+        // Skip payments for students not in typeMap (inactive/suspended/expelled) —
+        // matches useTopDefaulters' active-only convention so the two Fee Reports
+        // panels shown side by side don't silently disagree on scope.
+        const type = typeMap.get(p.student_id as string)
+        if (!type) continue
         split[type].collected   += Number(p.amount_paid) || 0
         split[type].outstanding += Math.max(0, Number(p.balance) || 0)
       }
@@ -629,10 +634,15 @@ export function useAddPayment() {
       if (!user) throw new Error('Not authenticated')
       if (!isFinanceRole(user.role)) throw new Error('Forbidden')
 
-      // Look up an existing record for this student/term/year(/fee item) first —
+      // Look up an existing record for this student/term/year/fee item first —
       // this modal previously always inserted, so recording a second payment for
       // a student who already had a row created a duplicate that double-counts
       // in every KPI/ledger aggregate. Match useRecordPayment's own convention.
+      // fee_structure_id must ALWAYS be part of the match (via .is() for null,
+      // not skipped) — otherwise a manual/general payment with no fee item
+      // selected can match (and silently overwrite) an unrelated existing row
+      // for a specific fee item, e.g. merging a general payment into a Tuition
+      // row and discarding that row's own receipt/date/amountDue.
       let existQ = supabase
         .from('fee_payments')
         .select('id, amount_paid, amount_due')
@@ -640,8 +650,10 @@ export function useAddPayment() {
         .eq('student_id', input.studentId)
         .eq('term', input.term)
       if (input.academicYearId) existQ = existQ.eq('academic_year_id', input.academicYearId)
-      if (input.feeStructureId) existQ = existQ.eq('fee_structure_id', input.feeStructureId)
-      const { data: existing } = await existQ.maybeSingle()
+      existQ = input.feeStructureId
+        ? existQ.eq('fee_structure_id', input.feeStructureId)
+        : existQ.is('fee_structure_id', null)
+      const { data: existing } = await existQ.limit(1).maybeSingle()
 
       if (existing) {
         const ex      = existing as { id: string; amount_paid: number; amount_due: number }
