@@ -175,9 +175,20 @@ export function TeacherEventsPage() {
   const { user } = useAuth()
   const isDos = user?.role === 'dos' || user?.role === 'principal'
   const canToggleParents = isDos || user?.role === 'deputy'
+  const isTeacherRole = user?.role === 'teacher' || user?.role === 'class_teacher'
 
-  const allQ      = useAllSchoolEvents()
-  const events    = allQ.data ?? []
+  const allQ         = useAllSchoolEvents()
+  const myClasses     = useMyAssignedClasses()
+  const myClassIdSet  = new Set(myClasses.map(c => c.id))
+  const rawEvents     = allQ.data ?? []
+  // DOS/principal need full oversight visibility. A teacher should see: general
+  // events (no specific class — e.g. a holiday or assembly, meant for everyone),
+  // their own events regardless of class, and any event tied to a class they're
+  // actually assigned to — but NOT another teacher's event on a class that
+  // isn't theirs.
+  const events = isTeacherRole
+    ? rawEvents.filter(e => e.classId === null || e.createdBy === user?.staffId || myClassIdSet.has(e.classId))
+    : rawEvents
   const isLoading = allQ.isLoading
 
   const createMut = useCreateEvent()

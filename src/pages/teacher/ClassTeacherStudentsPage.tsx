@@ -81,6 +81,103 @@ function useClassStudents(streamId: string | null | undefined, classId: string |
   })
 }
 
+// ── useClassAnalytics ───────────────────────────────────────────────────────
+// Class-wide (not per-student) academic + attendance analytics for "the class
+// at large" — overall attendance rate, per-subject class averages (published
+// exam results only, same convention as DOS's own analytics), and a
+// needs-attention list (low attendance or low average score).
+function useClassAnalytics(streamId: string | null | undefined, studentIds: string[]) {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['class-teacher-analytics', user?.schoolId, streamId, studentIds.join(',')],
+    enabled:  !!streamId && !!user?.schoolId && studentIds.length > 0,
+    staleTime: 3 * 60_000,
+    queryFn: async () => {
+      const sid = user!.schoolId
+
+      const [attendanceRes, journalRes, resultsRes] = await Promise.all([
+        supabase
+          .from('attendance')
+          .select('student_id, status')
+          .eq('school_id', sid)
+          .in('student_id', studentIds),
+        supabase
+          .from('exam_journal')
+          .select('id')
+          .eq('school_id', sid)
+          .eq('status', 'published'),
+        supabase
+          .from('exam_results')
+          .select('student_id, score, subject_id, exam_journal_id, subjects(name)')
+          .eq('school_id', sid)
+          .in('student_id', studentIds)
+          .not('score', 'is', null),
+      ])
+
+      // ── Attendance ──────────────────────────────────────────────
+      const attendRows = (attendanceRes.data ?? []) as any[]
+      const perStudentAttend = new Map<string, { present: number; total: number }>()
+      for (const r of attendRows) {
+        const sid2 = r.student_id as string
+        if (!perStudentAttend.has(sid2)) perStudentAttend.set(sid2, { present: 0, total: 0 })
+        const a = perStudentAttend.get(sid2)!
+        a.total++
+        if (r.status === 'present' || r.status === 'late') a.present++
+      }
+      const classPresent = attendRows.filter(r => r.status === 'present' || r.status === 'late').length
+      const classAttendRate = attendRows.length > 0 ? Math.round((classPresent / attendRows.length) * 100) : null
+
+      // ── Academic — published journals only ───────────────────────
+      const publishedIds = new Set((journalRes.data ?? []).map((j: any) => j.id as string))
+      const results = ((resultsRes.data ?? []) as any[]).filter(r => publishedIds.has(r.exam_journal_id))
+
+      const perSubject = new Map<string, { name: string; scores: number[] }>()
+      const perStudentScores = new Map<string, number[]>()
+      for (const r of results) {
+        const subjId = r.subject_id as string
+        const name   = r.subjects?.name as string ?? subjId
+        if (!perSubject.has(subjId)) perSubject.set(subjId, { name, scores: [] })
+        perSubject.get(subjId)!.scores.push(Number(r.score))
+
+        const studId = r.student_id as string
+        if (!perStudentScores.has(studId)) perStudentScores.set(studId, [])
+        perStudentScores.get(studId)!.push(Number(r.score))
+      }
+
+      const subjectAverages = Array.from(perSubject.values())
+        .map(({ name, scores }) => ({
+          subject: name.length > 12 ? name.slice(0, 12) + '…' : name,
+          avg:     Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
+          count:   scores.length,
+        }))
+        .sort((a, b) => b.avg - a.avg)
+
+      const allScores = results.map(r => Number(r.score))
+      const classAvgScore = allScores.length > 0
+        ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
+        : null
+
+      // ── Needs attention: attendance < 80% or average score < 50% ─
+      const needsAttention = new Set<string>()
+      for (const [studId, a] of perStudentAttend) {
+        if (a.total > 0 && Math.round((a.present / a.total) * 100) < 80) needsAttention.add(studId)
+      }
+      for (const [studId, scores] of perStudentScores) {
+        const avg = scores.reduce((a, b) => a + b, 0) / scores.length
+        if (avg < 50) needsAttention.add(studId)
+      }
+
+      return {
+        classAttendRate,
+        classAvgScore,
+        subjectAverages,
+        needsAttentionIds: needsAttention,
+        assessedCount: perSubject.size,
+      }
+    },
+  })
+}
+
 function useStudentSubjectScores(studentId: string | null | undefined, schoolId: string | undefined) {
   return useQuery({
     queryKey: ['student-subject-scores', schoolId, studentId],
@@ -271,11 +368,12 @@ function StudentProfileModal({ student, streamName, className, onClose }: {
 
 // ── Student card (same design pattern as secretary page) ──────────────────────
 
-function StudentCard({ student, streamName: _streamName, className, onClick }: {
+function StudentCard({ student, streamName: _streamName, className, onClick, needsAttention }: {
   student: { id: string; firstName: string; lastName: string; admissionNumber: string; photoUrl: string | null; gender: string | null; dob: string | null; studentType: string; status: string }
   streamName: string
   className: string
   onClick: () => void
+  needsAttention?: boolean
 }) {
   const fullName = `${student.firstName} ${student.lastName}`
 
@@ -286,6 +384,11 @@ function StudentCard({ student, streamName: _streamName, className, onClick }: {
       {/* Card top gradient */}
       <div style={{ background: 'linear-gradient(135deg,#0d9488 0%,#0f766e 100%)', padding: '18px 20px 14px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -20, right: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,.08)', pointerEvents: 'none' }} />
+        {needsAttention && (
+          <div title="Needs attention — low attendance or average score" style={{ position: 'absolute', top: 10, left: 10, width: 22, height: 22, borderRadius: '50%', background: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(244,63,94,.5)' }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M12 9v4M12 17h.01" /><circle cx="12" cy="12" r="10" /></svg>
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
           <Avatar photoPath={student.photoUrl} bucket="student-photos" name={fullName} size="lg" />
         </div>
@@ -318,10 +421,14 @@ function StudentCard({ student, streamName: _streamName, className, onClick }: {
 export function ClassTeacherStudentsPage() {
   const streamQ   = useMyStream()
   const studentsQ = useClassStudents(streamQ.data?.streamId, streamQ.data?.classId)
+  const studentIds = (studentsQ.data ?? []).map(s => s.id)
+  const analyticsQ = useClassAnalytics(streamQ.data?.streamId, studentIds)
   const [selected, setSelected] = useState<NonNullable<typeof studentsQ.data>[number] | null>(null)
   const [search, setSearch] = useState('')
 
   const stream = streamQ.data
+  const gradeColor = (avg: number) =>
+    avg >= 80 ? '#10b981' : avg >= 70 ? '#0ea5e9' : avg >= 60 ? '#f59e0b' : avg >= 50 ? '#f97316' : '#f43f5e'
 
   const filtered = (studentsQ.data ?? []).filter(s => {
     const q = search.toLowerCase()
@@ -359,6 +466,66 @@ export function ClassTeacherStudentsPage() {
         </div>
       </div>
 
+      {/* ── Class-wide analytics ("the class at large") ──────────────────── */}
+      <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 18, padding: 18, boxShadow: '0 2px 14px rgba(0,0,0,.04)' }}>
+        <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: 'var(--txt)', marginBottom: 14 }}>Class Overview</div>
+
+        {/* KPI row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12, marginBottom: analyticsQ.data?.subjectAverages.length ? 18 : 0 }}>
+          <div style={{ padding: '12px 16px', background: 'var(--surface2)', borderRadius: 14, border: '.5px solid var(--border)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 4 }}>Class Attendance</div>
+            {analyticsQ.isLoading ? <div className="shule-skeleton" style={{ height: 26, borderRadius: 8 }} /> : (
+              <div style={{ fontSize: 24, fontWeight: 900, fontFamily: 'var(--font2)', color: analyticsQ.data?.classAttendRate == null ? 'var(--txt3)' : analyticsQ.data.classAttendRate >= 80 ? 'var(--success)' : analyticsQ.data.classAttendRate >= 60 ? 'var(--warning)' : 'var(--danger)' }}>
+                {analyticsQ.data?.classAttendRate == null ? '—' : `${analyticsQ.data.classAttendRate}%`}
+              </div>
+            )}
+          </div>
+          <div style={{ padding: '12px 16px', background: 'var(--surface2)', borderRadius: 14, border: '.5px solid var(--border)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 4 }}>Class Avg Score</div>
+            {analyticsQ.isLoading ? <div className="shule-skeleton" style={{ height: 26, borderRadius: 8 }} /> : (
+              <div style={{ fontSize: 24, fontWeight: 900, fontFamily: 'var(--font2)', color: analyticsQ.data?.classAvgScore == null ? 'var(--txt3)' : gradeColor(analyticsQ.data.classAvgScore) }}>
+                {analyticsQ.data?.classAvgScore == null ? '—' : `${analyticsQ.data.classAvgScore}%`}
+              </div>
+            )}
+          </div>
+          <div style={{ padding: '12px 16px', background: 'var(--surface2)', borderRadius: 14, border: '.5px solid var(--border)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 4 }}>Needs Attention</div>
+            {analyticsQ.isLoading ? <div className="shule-skeleton" style={{ height: 26, borderRadius: 8 }} /> : (
+              <div style={{ fontSize: 24, fontWeight: 900, fontFamily: 'var(--font2)', color: (analyticsQ.data?.needsAttentionIds.size ?? 0) > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                {analyticsQ.data?.needsAttentionIds.size ?? 0}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Per-subject class average chart */}
+        {!analyticsQ.isLoading && (analyticsQ.data?.subjectAverages.length ?? 0) > 0 && (
+          <div style={{ background: 'var(--surface2)', borderRadius: 14, border: '.5px solid var(--border)', padding: '16px 8px' }}>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={analyticsQ.data!.subjectAverages} margin={{ top: 4, right: 8, left: -12, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="subject" tick={{ fontSize: 10, fill: 'var(--txt3)' }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--txt3)' }} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 10, fontSize: 12 }}
+                  formatter={(v: any) => [`${v}%`, 'Class avg']}
+                />
+                <Bar dataKey="avg" radius={[6, 6, 0, 0]}>
+                  {analyticsQ.data!.subjectAverages.map((s, i) => (
+                    <Cell key={i} fill={gradeColor(s.avg)} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        {!analyticsQ.isLoading && (analyticsQ.data?.subjectAverages.length ?? 0) === 0 && (
+          <div style={{ padding: '20px', textAlign: 'center', background: 'var(--surface2)', borderRadius: 14, border: '.5px solid var(--border)', color: 'var(--txt3)', fontSize: 12.5 }}>
+            No published exam marks for this class yet.
+          </div>
+        )}
+      </div>
+
       {/* Search */}
       <div style={{ position: 'relative' }}>
         <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--txt3)' }} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -392,6 +559,7 @@ export function ClassTeacherStudentsPage() {
               streamName={stream.streamName}
               className={stream.className}
               onClick={() => setSelected(s)}
+              needsAttention={analyticsQ.data?.needsAttentionIds.has(s.id)}
             />
           ))}
         </div>

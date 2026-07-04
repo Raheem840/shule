@@ -63,12 +63,14 @@ vi.mock('../../components/shared/EventTimeline', () => ({
 }))
 
 import { useAllSchoolEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '../../hooks/useTeacherEvents'
+import { useMyAssignedClasses } from '../../hooks/useClasses'
 import { TeacherEventsPage } from '../../pages/teacher/TeacherEventsPage'
 
 const mockAllEvents  = useAllSchoolEvents as ReturnType<typeof vi.fn>
 const mockCreate     = useCreateEvent      as ReturnType<typeof vi.fn>
 const mockUpdate     = useUpdateEvent      as ReturnType<typeof vi.fn>
 const mockDelete     = useDeleteEvent      as ReturnType<typeof vi.fn>
+const mockMyClasses  = useMyAssignedClasses as ReturnType<typeof vi.fn>
 
 // A future date so it appears in "upcoming" filter
 const FUTURE_DATE = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
@@ -196,5 +198,58 @@ describe('TeacherEventsPage', () => {
     setupMocks({ isLoading: true })
     render(<TeacherEventsPage />)
     expect(screen.getByTestId('timeline-loading')).toBeInTheDocument()
+  })
+})
+
+describe('TeacherEventsPage — visibility scoping', () => {
+  const OTHER_TEACHER_UNASSIGNED_CLASS_EVENT = {
+    ...SAMPLE_EVENTS[0],
+    id: 'ev-other',
+    title: 'Other Teacher Quiz',
+    classId: 'c-not-mine',
+    createdBy: 'st-other-teacher',
+    createdByName: 'Bob Other',
+  }
+  const GENERAL_EVENT = {
+    ...SAMPLE_EVENTS[0],
+    id: 'ev-general',
+    title: 'School Assembly',
+    classId: null,
+    createdBy: 'st-principal',
+    createdByName: 'The Principal',
+  }
+  const MY_ASSIGNED_CLASS_EVENT = {
+    ...SAMPLE_EVENTS[0],
+    id: 'ev-assigned',
+    title: 'DOS Test For My Class',
+    classId: 'c-mine',
+    createdBy: 'st-dos',
+    createdByName: 'The DOS',
+  }
+
+  it('hides another teacher\'s event on a class I am not assigned to', () => {
+    setupMocks({ events: [OTHER_TEACHER_UNASSIGNED_CLASS_EVENT] })
+    render(<TeacherEventsPage />)
+    expect(screen.queryByText('Other Teacher Quiz')).not.toBeInTheDocument()
+  })
+
+  it('shows a general event (no class attached) regardless of who created it', () => {
+    setupMocks({ events: [GENERAL_EVENT] })
+    render(<TeacherEventsPage />)
+    expect(screen.getByText('School Assembly')).toBeInTheDocument()
+  })
+
+  it('shows my own event even on a class I am not assigned to', () => {
+    setupMocks({ events: [{ ...OTHER_TEACHER_UNASSIGNED_CLASS_EVENT, id: 'ev-mine-elsewhere', title: 'My Own Event Elsewhere', createdBy: 'st-teacher-1' }] })
+    render(<TeacherEventsPage />)
+    expect(screen.getByText('My Own Event Elsewhere')).toBeInTheDocument()
+  })
+
+  it('shows another staff member\'s event on a class I AM assigned to', () => {
+    mockMyClasses.mockReturnValue([{ id: 'c-mine', name: 'S.1' }])
+    setupMocks({ events: [MY_ASSIGNED_CLASS_EVENT] })
+    render(<TeacherEventsPage />)
+    expect(screen.getByText('DOS Test For My Class')).toBeInTheDocument()
+    mockMyClasses.mockReturnValue([])
   })
 })

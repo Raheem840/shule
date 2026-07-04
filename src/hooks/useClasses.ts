@@ -367,7 +367,8 @@ export function useMyAssignedClasses() {
   })
 
   if (!['teacher', 'class_teacher'].includes(user?.role ?? '')) return allClasses
-  if (!assignedIds.length) return allClasses
+  // No fallback to "all classes" when unassigned — an unassigned teacher
+  // should see zero classes, not the whole school's roster.
   return allClasses.filter(c => assignedIds.includes(c.id))
 }
 
@@ -394,7 +395,7 @@ export function useMyAssignedSubjects() {
   })
 
   if (!['teacher', 'class_teacher'].includes(user?.role ?? '')) return allSubjects
-  if (!assignedIds.length) return allSubjects
+  // No fallback to "all subjects" when unassigned — see useMyAssignedClasses.
   return allSubjects.filter(s => assignedIds.includes(s.id))
 }
 

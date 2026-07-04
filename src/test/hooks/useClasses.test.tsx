@@ -44,7 +44,7 @@ vi.mock('../../store/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }))
 
-import { useClasses, useStreams, useDepartments, useSubjects } from '../../hooks/useClasses'
+import { useClasses, useStreams, useDepartments, useSubjects, useMyAssignedClasses, useMyAssignedSubjects } from '../../hooks/useClasses'
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -147,5 +147,68 @@ describe('useSubjects', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data![0].isActive).toBe(true)
     expect(result.current.data![0].departmentId).toBeNull()
+  })
+})
+
+// ── useMyAssignedClasses ──────────────────────────────────────────
+describe('useMyAssignedClasses', () => {
+  it('returns only classes in staff.classes[], not every class in the school', async () => {
+    setResponse('classes', { data: [
+      { id: 'c1', school_id: 'school-1', name: 'S1', level: 1, academic_year_id: 'ay1' },
+      { id: 'c2', school_id: 'school-1', name: 'S2', level: 2, academic_year_id: 'ay1' },
+    ], error: null })
+    setResponse('staff', { data: { classes: ['c1'] }, error: null })
+
+    const { result } = renderHook(() => useMyAssignedClasses(), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.length).toBe(1))
+    expect(result.current[0].id).toBe('c1')
+  })
+
+  it('returns an empty array (not every class) when the teacher has no assigned classes', async () => {
+    setResponse('classes', { data: [
+      { id: 'c1', school_id: 'school-1', name: 'S1', level: 1, academic_year_id: 'ay1' },
+    ], error: null })
+    setResponse('staff', { data: { classes: [] }, error: null })
+
+    const { result } = renderHook(() => useMyAssignedClasses(), { wrapper: createWrapper() })
+    await waitFor(() => expect(Array.isArray(result.current)).toBe(true))
+    expect(result.current).toEqual([])
+  })
+
+  it('returns an empty array when staff.classes is null', async () => {
+    setResponse('classes', { data: [
+      { id: 'c1', school_id: 'school-1', name: 'S1', level: 1, academic_year_id: 'ay1' },
+    ], error: null })
+    setResponse('staff', { data: { classes: null }, error: null })
+
+    const { result } = renderHook(() => useMyAssignedClasses(), { wrapper: createWrapper() })
+    await waitFor(() => expect(Array.isArray(result.current)).toBe(true))
+    expect(result.current).toEqual([])
+  })
+})
+
+// ── useMyAssignedSubjects ─────────────────────────────────────────
+describe('useMyAssignedSubjects', () => {
+  it('returns only subjects in staff.subjects[], not every subject in the school', async () => {
+    setResponse('subjects', { data: [
+      { id: 's1', name: 'Math',    curriculum_code: null, level: null, department_id: null, is_active: true },
+      { id: 's2', name: 'English', curriculum_code: null, level: null, department_id: null, is_active: true },
+    ], error: null })
+    setResponse('staff', { data: { subjects: ['s1'] }, error: null })
+
+    const { result } = renderHook(() => useMyAssignedSubjects(), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.length).toBe(1))
+    expect(result.current[0].id).toBe('s1')
+  })
+
+  it('returns an empty array (not every subject) when the teacher has no assigned subjects', async () => {
+    setResponse('subjects', { data: [
+      { id: 's1', name: 'Math', curriculum_code: null, level: null, department_id: null, is_active: true },
+    ], error: null })
+    setResponse('staff', { data: { subjects: [] }, error: null })
+
+    const { result } = renderHook(() => useMyAssignedSubjects(), { wrapper: createWrapper() })
+    await waitFor(() => expect(Array.isArray(result.current)).toBe(true))
+    expect(result.current).toEqual([])
   })
 })

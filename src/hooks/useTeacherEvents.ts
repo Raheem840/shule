@@ -172,6 +172,19 @@ export function useCreateEvent() {
             for (const s of studs ?? []) {
               if (s.auth_user_id) recipients.push(s.auth_user_id as string)
             }
+          } else if (['principal', 'deputy', 'dos'].includes(user.role ?? '')) {
+            // No class attached — a genuinely school-wide event (assembly, holiday,
+            // etc.), but only when created by senior staff. A random teacher leaving
+            // the class field blank shouldn't be able to broadcast to every student.
+            const { data: allStuds } = await supabase
+              .from('students')
+              .select('auth_user_id')
+              .eq('school_id', user.schoolId)
+              .eq('status', 'active')
+              .not('auth_user_id', 'is', null)
+            for (const s of allStuds ?? []) {
+              if (s.auth_user_id) recipients.push(s.auth_user_id as string)
+            }
           }
 
           // DoS and Principal

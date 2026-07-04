@@ -364,8 +364,11 @@ export function TeacherCurriculumPage() {
 
   const mySubjectIds = staffRecord?.subjects ?? []
   const myClassIds   = staffRecord?.classes  ?? []
-  const mySubjects   = mySubjectIds.length > 0 ? allSubjects.filter(s => mySubjectIds.includes(s.id)) : allSubjects
-  const myClasses    = myClassIds.length  > 0 ? allClasses.filter(c => myClassIds.includes(c.id))   : allClasses
+  // No "fall back to everything when unassigned" — a teacher with no
+  // assignments yet should see the "ask the DoS" warning below, not every
+  // subject/class in the school.
+  const mySubjects   = allSubjects.filter(s => mySubjectIds.includes(s.id))
+  const myClasses    = allClasses.filter(c => myClassIds.includes(c.id))
 
   const [subjectId, setSubjectId] = useState('')
   const [classId,   setClassId]   = useState('')

@@ -36,9 +36,10 @@ vi.mock('../../lib/supabase', () => ({
   },
 }))
 
+const authState: { role: string } = { role: 'teacher' }
 vi.mock('../../store/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 'teacher-auth-1', role: 'teacher', schoolId: 'school-1', name: 'T', email: 't@k.ug' },
+    user: { id: 'teacher-auth-1', role: authState.role, schoolId: 'school-1', name: 'T', email: 't@k.ug' },
     loading: false, signOut: vi.fn(),
   }),
   AuthProvider: ({ children }: any) => children,
@@ -53,7 +54,7 @@ function createWrapper() {
   )
 }
 
-beforeEach(() => { vi.clearAllMocks(); clearResponses() })
+beforeEach(() => { vi.clearAllMocks(); clearResponses(); authState.role = 'teacher' })
 
 describe('useTeacherEvents', () => {
   it('returns empty array when staff row not found', async () => {
@@ -134,5 +135,46 @@ describe('useCreateEvent', () => {
         }),
       ).rejects.toThrow('Events table not yet created')
     })
+  })
+
+  it('notifies every active student (not just DoS/Principal) for a general (no-class) event created by the principal', async () => {
+    authState.role = 'principal'
+    setResponse('staff', { data: { id: 'staff-principal' }, error: null })
+    setResponse('school_events', { data: null, error: null })
+    setResponse('students', { data: [
+      { auth_user_id: 'stu-auth-1' }, { auth_user_id: 'stu-auth-2' },
+    ], error: null })
+    setResponse('staff', { data: { id: 'staff-principal' }, error: null }) // re-set: also read for DoS/Principal lookup
+
+    const { result } = renderHook(() => useCreateEvent(), { wrapper: createWrapper() })
+    await act(async () => {
+      await result.current.mutateAsync({
+        title: 'School Assembly', eventType: 'general', subjectId: null, classId: null, streamId: null,
+        eventDate: '2025-03-20', totalMarks: null, passMark: null,
+        description: null, term: null, year: null,
+      })
+    })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    // students table must have been queried (school-wide broadcast) when classId is null and role is principal
+    expect(mockFrom).toHaveBeenCalledWith('students')
+  })
+
+  it('does NOT broadcast to every student for a general (no-class) event created by a regular teacher', async () => {
+    authState.role = 'teacher'
+    setResponse('staff', { data: { id: 'staff-1' }, error: null })
+    setResponse('school_events', { data: null, error: null })
+
+    const { result } = renderHook(() => useCreateEvent(), { wrapper: createWrapper() })
+    await act(async () => {
+      await result.current.mutateAsync({
+        title: 'Random note', eventType: 'general', subjectId: null, classId: null, streamId: null,
+        eventDate: '2025-03-20', totalMarks: null, passMark: null,
+        description: null, term: null, year: null,
+      })
+    })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    // A regular teacher leaving classId blank must not trigger a school-wide student broadcast.
+    const studentsCalls = mockFrom.mock.calls.filter(c => c[0] === 'students')
+    expect(studentsCalls.length).toBe(0)
   })
 })
