@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '../utils'
+import { render as rtlRender } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('../../lib/supabase', () => ({
@@ -24,9 +27,12 @@ vi.mock('../../hooks/useExamJournal', () => ({
 vi.mock('../../hooks/useClasses', () => ({
   useClasses:            () => ({ data: [], isLoading: false }),
   useStreams:            () => ({ data: [], isLoading: false }),
-  useSubjects:          () => ({ data: [], isLoading: false }),
-  useMyAssignedClasses:  () => [],
-  useMyAssignedSubjects: () => [],
+  useSubjects:          () => ({ data: [{ id: 'sub-1', name: 'Maths' }], isLoading: false }),
+  useMyAssignedClasses:  () => [{ id: 'cls-1', name: 'S1' }],
+  useMyAssignedSubjects: () => [{ id: 'sub-1', name: 'Maths' }],
+}))
+vi.mock('../../hooks/useTeacherEvents', () => ({
+  useJournalEvent: () => ({ mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false }),
 }))
 
 import { ExamJournalPage, journalSchema } from '../../pages/teacher/ExamJournalPage'
@@ -164,6 +170,52 @@ describe('ExamJournalPage', () => {
       await waitFor(() => {
         expect(within(dialog).getByText(/report cards score the end-of-term exam out of 80/i)).toBeInTheDocument()
       })
+    })
+  })
+
+  describe('Opening via a past event (state.prefill from EventTimeline)', () => {
+    function renderWithPrefill(prefill: Record<string, unknown>) {
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+      return rtlRender(
+        <QueryClientProvider client={qc}>
+          <MemoryRouter initialEntries={[{ pathname: '/teacher/exams', state: { prefill } }]}>
+            <ExamJournalPage />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+    }
+
+    const prefillEvent = {
+      id: 'ev-1', title: 'Mid Term Test', eventDate: '2025-05-10', eventType: 'test',
+      description: null, subjectId: 'sub-1', subjectName: 'Maths', classId: 'cls-1', className: 'S1',
+      streamId: null, streamName: null, totalMarks: 100, passMark: 50, journaled: false, journalId: null,
+      createdBy: 'staff-1', creatorName: 'Mr T', term: '1', year: 2025, createdAt: '2025-05-01T00:00:00Z',
+      visibleToParents: false,
+    }
+
+    it('auto-opens the create modal, prefilled from the clicked event, when landing with state.prefill', async () => {
+      renderWithPrefill(prefillEvent)
+
+      await waitFor(() => expect(screen.getByText('Assessment Type')).toBeInTheDocument())
+
+      const dialog = screen.getByText('Assessment Type').closest('[data-testid="journal-create-modal"]') as HTMLElement
+      // eventType 'test' maps to assessmentType 'mid_term' — a non-CA type, so
+      // the Total Marks field prefilled from the event (100) should be visible.
+      await waitFor(() => {
+        const input = within(dialog).getAllByRole('spinbutton')[0] as HTMLInputElement
+        expect(input.value).toBe('100')
+      })
+    })
+
+    it('does not reopen the modal on a subsequent render once state.prefill has been consumed', async () => {
+      renderWithPrefill(prefillEvent)
+      await waitFor(() => expect(screen.getByText('Assessment Type')).toBeInTheDocument())
+
+      // Closing manually should not leave it able to reopen from stale state
+      const user = userEvent.setup()
+      const dialog = screen.getByText('Assessment Type').closest('[data-testid="journal-create-modal"]') as HTMLElement
+      await user.click(within(dialog).getByRole('button', { name: '' }))
+      await waitFor(() => expect(screen.queryByText('Assessment Type')).not.toBeInTheDocument())
     })
   })
 })

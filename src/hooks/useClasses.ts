@@ -356,13 +356,29 @@ export function useMyAssignedClasses() {
     enabled: !!user && ['teacher', 'class_teacher'].includes(user.role ?? ''),
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data: staffRow } = await supabase
         .from('staff')
-        .select('classes')
+        .select('id, classes')
         .eq('auth_user_id', user!.id)
         .eq('school_id', user!.schoolId)
         .maybeSingle()
-      return ((data as any)?.classes ?? []) as string[]
+      const fromStaff = ((staffRow as any)?.classes ?? []) as string[]
+
+      // A homeroom class_teacher's assignment lives in streams.class_teacher_id,
+      // not necessarily in staff.classes[] — union both, matching the same
+      // "my classes" definition used by messaging scoping and the attendance RLS.
+      const staffId = (staffRow as any)?.id as string | undefined
+      let fromStreams: string[] = []
+      if (staffId) {
+        const { data: streamRows } = await supabase
+          .from('streams')
+          .select('class_id')
+          .eq('school_id', user!.schoolId)
+          .eq('class_teacher_id', staffId)
+        fromStreams = ((streamRows ?? []) as any[]).map(r => r.class_id as string)
+      }
+
+      return Array.from(new Set([...fromStaff, ...fromStreams]))
     },
   })
 

@@ -185,6 +185,21 @@ describe('useMyAssignedClasses', () => {
     await waitFor(() => expect(Array.isArray(result.current)).toBe(true))
     expect(result.current).toEqual([])
   })
+
+  it('includes classes where the teacher is streams.class_teacher_id, even with an empty staff.classes[]', async () => {
+    // A homeroom class_teacher's assignment can live purely in streams.class_teacher_id
+    // (not staff.classes[]) — this must not be treated as "unassigned".
+    setResponse('classes', { data: [
+      { id: 'c1', school_id: 'school-1', name: 'S1', level: 1, academic_year_id: 'ay1' },
+      { id: 'c2', school_id: 'school-1', name: 'S2', level: 2, academic_year_id: 'ay1' },
+    ], error: null })
+    setResponse('staff', { data: { id: 'staff-1', classes: [] }, error: null })
+    setResponse('streams', { data: [{ class_id: 'c2' }], error: null })
+
+    const { result } = renderHook(() => useMyAssignedClasses(), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.length).toBe(1))
+    expect(result.current[0].id).toBe('c2')
+  })
 })
 
 // ── useMyAssignedSubjects ─────────────────────────────────────────

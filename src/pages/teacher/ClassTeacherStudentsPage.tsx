@@ -8,6 +8,9 @@ import { useStudentAttendanceHistory } from '../../hooks/useAttendance'
 import { Avatar } from '../../components/shared/Avatar'
 import type { Student } from '../../types/app'
 
+const gradeColor = (avg: number) =>
+  avg >= 80 ? '#10b981' : avg >= 70 ? '#0ea5e9' : avg >= 60 ? '#f59e0b' : avg >= 50 ? '#f97316' : '#f43f5e'
+
 // ── Hooks ─────────────────────────────────────────────────────────────────────
 
 function useMyStream() {
@@ -86,11 +89,11 @@ function useClassStudents(streamId: string | null | undefined, classId: string |
 // at large" — overall attendance rate, per-subject class averages (published
 // exam results only, same convention as DOS's own analytics), and a
 // needs-attention list (low attendance or low average score).
-function useClassAnalytics(streamId: string | null | undefined, studentIds: string[]) {
+function useClassAnalytics(streamId: string | null | undefined, classId: string | null | undefined, studentIds: string[]) {
   const { user } = useAuth()
   return useQuery({
     queryKey: ['class-teacher-analytics', user?.schoolId, streamId, studentIds.join(',')],
-    enabled:  !!streamId && !!user?.schoolId && studentIds.length > 0,
+    enabled:  !!streamId && !!classId && !!user?.schoolId && studentIds.length > 0,
     staleTime: 3 * 60_000,
     queryFn: async () => {
       const sid = user!.schoolId
@@ -101,10 +104,13 @@ function useClassAnalytics(streamId: string | null | undefined, studentIds: stri
           .select('student_id, status')
           .eq('school_id', sid)
           .in('student_id', studentIds),
+        // Scoped to this class — the same convention as useDosClassPerformance —
+        // rather than every published journal in the school.
         supabase
           .from('exam_journal')
           .select('id')
           .eq('school_id', sid)
+          .eq('class_id', classId!)
           .eq('status', 'published'),
         supabase
           .from('exam_results')
@@ -124,8 +130,11 @@ function useClassAnalytics(streamId: string | null | undefined, studentIds: stri
         a.total++
         if (r.status === 'present' || r.status === 'late') a.present++
       }
-      const classPresent = attendRows.filter(r => r.status === 'present' || r.status === 'late').length
-      const classAttendRate = attendRows.length > 0 ? Math.round((classPresent / attendRows.length) * 100) : null
+      // Derived from perStudentAttend (not a second independent pass over attendRows)
+      // so "present" can never be defined one way per-student and another class-wide.
+      let classPresentTotal = 0, classAttendTotal = 0
+      for (const a of perStudentAttend.values()) { classPresentTotal += a.present; classAttendTotal += a.total }
+      const classAttendRate = classAttendTotal > 0 ? Math.round((classPresentTotal / classAttendTotal) * 100) : null
 
       // ── Academic — published journals only ───────────────────────
       const publishedIds = new Set((journalRes.data ?? []).map((j: any) => j.id as string))
@@ -230,9 +239,6 @@ function StudentProfileModal({ student, streamName, className, onClose }: {
     const present = records.filter(r => r.status === 'present' || r.status === 'late').length
     return Math.round((present / records.length) * 100)
   })()
-
-  const gradeColor = (avg: number) =>
-    avg >= 80 ? '#10b981' : avg >= 70 ? '#0ea5e9' : avg >= 60 ? '#f59e0b' : avg >= 50 ? '#f97316' : '#f43f5e'
 
   const portal = (document.querySelector('.ar') as HTMLElement) ?? document.body
 
@@ -422,13 +428,11 @@ export function ClassTeacherStudentsPage() {
   const streamQ   = useMyStream()
   const studentsQ = useClassStudents(streamQ.data?.streamId, streamQ.data?.classId)
   const studentIds = (studentsQ.data ?? []).map(s => s.id)
-  const analyticsQ = useClassAnalytics(streamQ.data?.streamId, studentIds)
+  const analyticsQ = useClassAnalytics(streamQ.data?.streamId, streamQ.data?.classId, studentIds)
   const [selected, setSelected] = useState<NonNullable<typeof studentsQ.data>[number] | null>(null)
   const [search, setSearch] = useState('')
 
   const stream = streamQ.data
-  const gradeColor = (avg: number) =>
-    avg >= 80 ? '#10b981' : avg >= 70 ? '#0ea5e9' : avg >= 60 ? '#f59e0b' : avg >= 50 ? '#f97316' : '#f43f5e'
 
   const filtered = (studentsQ.data ?? []).filter(s => {
     const q = search.toLowerCase()

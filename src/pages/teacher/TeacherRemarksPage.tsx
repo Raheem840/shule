@@ -64,7 +64,12 @@ export function TeacherRemarksPage() {
   // given CBC performance band, in a single action.
   const [bulkMode, setBulkMode] = useState<'individual' | 'whole-class' | 'band'>('individual')
   const [bulkBand, setBulkBand] = useState<PerformanceBand>('moderate')
-  const [bulkText, setBulkText] = useState('')
+  // Separate text per mode — switching tabs to check band counts must never
+  // silently overwrite a whole-class remark the teacher already typed.
+  const [wholeClassText, setWholeClassText] = useState('')
+  const [bandText, setBandText] = useState('')
+  const bulkText    = bulkMode === 'band' ? bandText : wholeClassText
+  const setBulkText = bulkMode === 'band' ? setBandText : setWholeClassText
 
   const classes                = useMyAssignedClasses()
   const { data: streams = [] } = useStreams(classId || null)
@@ -91,10 +96,12 @@ export function TeacherRemarksPage() {
     })
   }
 
-  // Pre-fill the bulk textarea with that band's template whenever the
+  // Pre-fill the band textarea with that band's template whenever the
   // teacher switches into band mode or changes which band they're targeting.
+  // Only touches bandText — never clobbers a whole-class remark already typed.
   useEffect(() => {
-    if (bulkMode === 'band') setBulkText(BAND_REMARK_TEMPLATES[bulkBand])
+    if (bulkMode === 'band') setBandText(BAND_REMARK_TEMPLATES[bulkBand])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bulkMode, bulkBand])
 
   useEffect(() => {

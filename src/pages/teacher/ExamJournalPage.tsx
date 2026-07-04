@@ -1,7 +1,7 @@
 import { useSubjects, useStreams, useMyAssignedClasses, useMyAssignedSubjects } from '../../hooks/useClasses'
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -12,11 +12,21 @@ import {
   ResponsiveContainer, Cell,
 } from 'recharts'
 import { useExamJournals, useCreateJournal, useNextCALabel } from '../../hooks/useExamJournal'
+import { useJournalEvent } from '../../hooks/useTeacherEvents'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { calculateCBCGrade } from '../../types/app'
 import type { AssessmentType, ExamJournal } from '../../types/app'
 import type { JournalFilters } from '../../hooks/useExamJournal'
+import type { SchoolEvent } from '../../types/week9'
+
+// A past school event's eventType (test/exam/ca/aoi/...) doesn't share the
+// exact same vocabulary as AssessmentType — map the common ones, default to
+// 'ca' (which requires the least prefilled data) for anything unrecognised.
+const EVENT_TYPE_TO_ASSESSMENT: Partial<Record<string, AssessmentType>> = {
+  ca: 'ca', aoi: 'aoi', dit: 'dit', practical: 'practical', assignment: 'assignment',
+  test: 'mid_term', exam: 'end_of_term',
+}
 
 const ASSESSMENT_OPTIONS: { value: AssessmentType; label: string }[] = [
   { value: 'aoi',               label: 'Activity of Integration' },
@@ -176,22 +186,28 @@ function SelectWrap({ label, value, onChange, options, disabled, error }: {
 }
 
 // ── Create Journal Modal ───────────────────────────────────────
-function CreateJournalModal({ onClose }: { onClose: () => void }) {
+function CreateJournalModal({ onClose, prefillEvent }: { onClose: () => void; prefillEvent?: SchoolEvent | null }) {
   const { user: _user }  = useAuth()
   const navigate         = useNavigate()
   const create           = useCreateJournal()
+  const journalEvent     = useJournalEvent()
   const classes          = useMyAssignedClasses()
   const subjects         = useMyAssignedSubjects()
+
+  const prefillAssessmentType = prefillEvent ? (EVENT_TYPE_TO_ASSESSMENT[prefillEvent.eventType] ?? 'ca') : 'ca'
 
   const { control, register, watch, setValue, handleSubmit, formState: { errors } } =
     useForm<JournalFormValues>({
       resolver: zodResolver(journalSchema) as any,
       defaultValues: {
-        assessmentType: 'ca',
-        streamId: null,
-        date: new Date().toISOString().slice(0, 10),
-        totalMarks: 100,
-        passMark: 50,
+        assessmentType: prefillAssessmentType,
+        subjectId: prefillEvent?.subjectId ?? '',
+        classId:   prefillEvent?.classId ?? '',
+        streamId:  prefillEvent?.streamId ?? null,
+        term:      prefillEvent?.term ?? '',
+        date: prefillEvent?.eventDate.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+        totalMarks: prefillEvent?.totalMarks ?? (prefillAssessmentType === 'end_of_term' ? 80 : 100),
+        passMark:   prefillEvent?.passMark   ?? 50,
         notes: null,
       },
     })
@@ -243,6 +259,9 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
       caWeighting:      isCA  ? (values.caWeighting ?? null) : null,
       caLabel:          isCA  ? (caLabel ?? 'C1') : undefined,
     })
+    if (prefillEvent) {
+      await journalEvent.mutateAsync({ eventId: prefillEvent.id, journalId })
+    }
     onClose()
     // Go straight to mark entry after creation — user picks manual entry or import there
     navigate(`/teacher/exams/${journalId}/marks`)
@@ -956,9 +975,24 @@ function MyAnalyticsPanel({
 // ── Main page ──────────────────────────────────────────────────
 export function ExamJournalPage() {
   const navigate   = useNavigate()
+  const location   = useLocation()
   const isMobile   = useIsMobile()
-  const [creating, setCreating] = useState(false)
+  const [creating, setCreating]         = useState(false)
+  const [prefillEvent, setPrefillEvent] = useState<SchoolEvent | null>(null)
   const [filters,  setFilters]  = useState<JournalFilters>({})
+
+  // A past, unjournaled event clicked on the Events timeline lands here with
+  // `state: { prefill }` — open the create modal pre-populated from it, then
+  // clear the router state so a page refresh/back-nav doesn't re-trigger it.
+  useEffect(() => {
+    const prefill = (location.state as { prefill?: SchoolEvent } | null)?.prefill
+    if (prefill) {
+      setPrefillEvent(prefill)
+      setCreating(true)
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state])
 
   const { data: journals = [], isLoading } = useExamJournals(filters)
   const { data: subjects = [] } = useSubjects()
@@ -1119,7 +1153,12 @@ export function ExamJournalPage() {
         />
       )}
 
-      {creating && <CreateJournalModal onClose={() => setCreating(false)} />}
+      {creating && (
+        <CreateJournalModal
+          onClose={() => { setCreating(false); setPrefillEvent(null) }}
+          prefillEvent={prefillEvent}
+        />
+      )}
     </div>
   )
 }

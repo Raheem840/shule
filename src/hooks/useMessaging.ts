@@ -23,28 +23,26 @@ async function resolveTeacherClassIds(user: { id: string; schoolId: string; role
   if (!user || (user.role !== 'teacher' && user.role !== 'class_teacher')) return null
 
   let staffId = user.staffId ?? null
+  let fromStaff: string[] = []
   if (!staffId) {
     const { data: s } = await supabase
       .from('staff').select('id, classes')
       .eq('auth_user_id', user.id).eq('school_id', user.schoolId).maybeSingle()
-    staffId = (s as any)?.id ?? null
-    if (s) {
-      const [streamsRes] = await Promise.all([
-        supabase.from('streams').select('class_id').eq('school_id', user.schoolId).eq('class_teacher_id', staffId!),
-      ])
-      const fromStaff = ((s as any).classes ?? []) as string[]
-      const fromStreams = (streamsRes.data ?? []).map((r: any) => r.class_id as string)
-      return Array.from(new Set([...fromStaff, ...fromStreams]))
-    }
-    return []
+    if (!s) return []
+    staffId   = (s as any).id ?? null
+    fromStaff = ((s as any).classes ?? []) as string[]
+  } else {
+    const { data: s } = await supabase
+      .from('staff').select('classes').eq('id', staffId).eq('school_id', user.schoolId).maybeSingle()
+    fromStaff = ((s as any)?.classes ?? []) as string[]
   }
+  if (!staffId) return fromStaff
 
-  const [staffRes, streamsRes] = await Promise.all([
-    supabase.from('staff').select('classes').eq('id', staffId).eq('school_id', user.schoolId).maybeSingle(),
-    supabase.from('streams').select('class_id').eq('school_id', user.schoolId).eq('class_teacher_id', staffId),
-  ])
-  const fromStaff   = ((staffRes.data as any)?.classes ?? []) as string[]
-  const fromStreams = (streamsRes.data ?? []).map((r: any) => r.class_id as string)
+  // A homeroom class_teacher's assignment lives in streams.class_teacher_id,
+  // not necessarily in staff.classes[] — union both, resolved in one pass.
+  const { data: streamRows } = await supabase
+    .from('streams').select('class_id').eq('school_id', user.schoolId).eq('class_teacher_id', staffId)
+  const fromStreams = (streamRows ?? []).map((r: any) => r.class_id as string)
   return Array.from(new Set([...fromStaff, ...fromStreams]))
 }
 
@@ -461,15 +459,19 @@ export function useParentConversations() {
     queryFn: async (): Promise<ParentConversation[]> => {
       if (!user) return []
 
-      // 1. All messages where this staff member is the recipient
-      const { data: msgs, error: msgErr } = await supabase
-        .from('messages')
-        .select('id, from_user_id, body, sent_at, read_at')
-        .eq('school_id', user.schoolId)
-        .eq('to_user_id', user.id)
-        .eq('is_announcement', false)
-        .order('sent_at', { ascending: false })
-        .limit(500)
+      // 1. All messages where this staff member is the recipient — run alongside
+      // resolveTeacherClassIds since it only depends on `user`, not on this result.
+      const [{ data: msgs, error: msgErr }, myClassIds] = await Promise.all([
+        supabase
+          .from('messages')
+          .select('id, from_user_id, body, sent_at, read_at')
+          .eq('school_id', user.schoolId)
+          .eq('to_user_id', user.id)
+          .eq('is_announcement', false)
+          .order('sent_at', { ascending: false })
+          .limit(500),
+        resolveTeacherClassIds(user),
+      ])
 
       if (msgErr) throw new Error(msgErr.message)
 
@@ -506,8 +508,6 @@ export function useParentConversations() {
       // Teachers only receive from parents of students in their own class(es)
       // — a parent who messages a teacher whose child isn't (or is no longer)
       // in that teacher's class shouldn't show up in the teacher's inbox.
-      const myClassIds = await resolveTeacherClassIds(user)
-
       const parentList = (parents ?? []) as Array<{
         auth_user_id: string; full_name: string; student_ids: string[] | null
       }>
@@ -772,17 +772,20 @@ export function useSearchStudentsForMessaging(query: string) {
       // 1. Find matching active students — broad candidate set (any word/field
       // matches), then require every word to appear somewhere in the full name
       // client-side (ilike alone can't express "AND across OR" in one call).
-      const { data: candidates, error: stuErr } = await supabase
-        .from('students')
-        .select('id, first_name, last_name, admission_number, class_id')
-        .eq('school_id', user!.schoolId)
-        .eq('status', 'active')
-        .or(orFilter)
-        .limit(50)
+      // resolveTeacherClassIds only depends on `user`, so run it alongside the
+      // students query rather than after it.
+      const [{ data: candidates, error: stuErr }, myClassIds] = await Promise.all([
+        supabase
+          .from('students')
+          .select('id, first_name, last_name, admission_number, class_id')
+          .eq('school_id', user!.schoolId)
+          .eq('status', 'active')
+          .or(orFilter)
+          .limit(50),
+        resolveTeacherClassIds(user),
+      ])
       if (stuErr) throw stuErr
       if (!candidates?.length) return []
-
-      const myClassIds = await resolveTeacherClassIds(user)
 
       const students = candidates.filter((s: any) => {
         // Teachers only find students in their own class(es).
