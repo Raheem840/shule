@@ -7,6 +7,7 @@ import {
 import { useStudents } from '../../hooks/useStudents'
 import { useClasses } from '../../hooks/useClasses'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { Modal } from '../../components/ui/Modal'
 import type { DisciplineRecord, DisciplineNature } from '../../types/week9'
 
 const NATURES: DisciplineNature[] = ['lateness', 'absenteeism', 'misconduct', 'violence', 'other']
@@ -130,123 +131,100 @@ function RecordModal({ initial, onClose }: { initial: DisciplineRecord | null; o
     } catch (ex: any) { setErr(ex.message ?? 'Failed to save') }
   }
 
-  const selectedNatureMeta = NATURE_META[nature]
-
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 16 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <form
-        onSubmit={e => { void submit(e) }}
-        style={{ width: '100%', maxWidth: 540, borderRadius: 20, background: 'var(--surface)', boxShadow: '0 20px 60px rgba(0,0,0,.22)', display: 'flex', flexDirection: 'column', maxHeight: 'min(90dvh,680px)' }}
-      >
-        {/* ── 1. Header ── */}
-        <div style={{ flexShrink: 0, padding: '24px 24px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(145deg,${selectedNatureMeta.color},${selectedNatureMeta.color}99)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 16px ${selectedNatureMeta.color}36`, flexShrink: 0 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><path d={selectedNatureMeta.icon} /></svg>
-            </div>
-            <div>
-              <div style={{ fontWeight: 900, fontSize: 17, color: 'var(--txt)', fontFamily: 'var(--font2)', letterSpacing: -.3 }}>
-                {isEdit ? 'Edit Record' : 'Add Discipline Record'}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 1 }}>
-                {isEdit ? `Editing ${initial?.studentName ?? 'record'}` : 'Fill in the details below'}
-              </div>
-            </div>
-            <button type="button" onClick={onClose} style={{ marginLeft: 'auto', width: 32, height: 32, borderRadius: 10, border: 'none', background: 'var(--surface2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt3)', flexShrink: 0 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-            </button>
-          </div>
-        </div>
-
-        {/* ── 2. Scrollable body ── */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 12px', display: 'flex', flexDirection: 'column', gap: 18, marginTop: 20 }}>
-
-          {/* Student */}
-          <div>
-            <Lbl required>Student</Lbl>
-            {isEdit ? (
-              <div className="sui-input" style={{ color: 'var(--txt2)', cursor: 'default', opacity: .8 }}>{initial?.studentName ?? initial?.studentId}</div>
-            ) : (
-              <StudentTypeahead value={student} onChange={s => { setStudent(s); if (s?.classId) setClassId(s.classId) }} />
-            )}
-          </div>
-
-          {/* Nature selector — pill buttons */}
-          <div>
-            <Lbl required>Nature of Incident</Lbl>
-            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-              {NATURES.map(n => {
-                const m = NATURE_META[n]
-                const active = nature === n
-                return (
-                  <button key={n} type="button" onClick={() => setNature(n)} style={{
-                    padding: '6px 13px', borderRadius: 99, border: `.5px solid ${active ? m.color : 'var(--border)'}`,
-                    background: active ? m.bg : 'var(--surface2)',
-                    color: active ? m.color : 'var(--txt3)',
-                    fontSize: 12.5, fontWeight: active ? 700 : 600,
-                    cursor: 'pointer', transition: 'all .14s',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}>
-                    {m.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Date + class */}
-          <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <Lbl required>Incident Date</Lbl>
-              <input type="date" className="sui-input" value={incidentDate} onChange={e => setIncidentDate(e.target.value)} style={{ width: '100%' }} />
-            </div>
-            {!isEdit && (
-              <div>
-                <Lbl>Class</Lbl>
-                <select className="sui-input" value={classId} onChange={e => setClassId(e.target.value)} style={{ width: '100%' }}>
-                  <option value="">Auto from student</option>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-            )}
-          </div>
-
-          {/* Resolution */}
-          <div>
-            <Lbl required>Resolution / Action Taken</Lbl>
-            <textarea className="sui-input" value={resolution} onChange={e => setResolution(e.target.value)} rows={3} placeholder="E.g. Parent notified, detention issued, counselling referral…" style={{ width: '100%', resize: 'vertical' }} />
-          </div>
-
-          {/* Notes */}
-          <div>
-            <Lbl>Additional Notes</Lbl>
-            <textarea className="sui-input" value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Optional context or follow-up notes…" style={{ width: '100%', resize: 'vertical' }} />
-          </div>
-
-          {err && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(244,63,94,.08)', border: '.5px solid rgba(244,63,94,.22)', color: 'var(--danger)', fontSize: 12.5, fontWeight: 600 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-              {err}
-            </div>
-          )}
-        </div>
-
-        {/* ── 3. Sticky footer ── */}
-        <div style={{ flexShrink: 0, padding: '12px 24px 20px', display: 'flex', gap: 10, borderTop: '.5px solid var(--border)' }}>
+    <Modal
+      open
+      onClose={onClose}
+      title={isEdit ? 'Edit Record' : 'Add Discipline Record'}
+      size="md"
+      footer={
+        <>
           <button type="button" onClick={onClose} style={{ flex: 1, padding: '11px 0', background: 'var(--surface2)', color: 'var(--txt2)', border: '.5px solid var(--border)', borderRadius: 12, fontWeight: 600, fontSize: 13.5, cursor: 'pointer', transition: 'all .14s' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--border)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface2)')}>
             Cancel
           </button>
-          <button type="submit" disabled={isPending} style={{ flex: 2, padding: '11px 0', background: isPending ? 'var(--border)' : 'linear-gradient(145deg,var(--brand),var(--brand-dark))', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13.5, cursor: isPending ? 'default' : 'pointer', transition: 'all .18s', boxShadow: isPending ? 'none' : '0 4px 14px rgba(13,148,136,.4)' }}>
+          <button type="submit" form="discipline-record-form" disabled={isPending} style={{ flex: 2, padding: '11px 0', background: isPending ? 'var(--border)' : 'linear-gradient(145deg,var(--brand),var(--brand-dark))', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13.5, cursor: isPending ? 'default' : 'pointer', transition: 'all .18s', boxShadow: isPending ? 'none' : '0 4px 14px rgba(13,148,136,.4)' }}>
             {isPending ? 'Saving…' : isEdit ? 'Update Record' : 'Save Record'}
           </button>
+        </>
+      }
+    >
+      <form id="discipline-record-form" onSubmit={e => { void submit(e) }} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {isEdit && (
+          <div style={{ fontSize: 12, color: 'var(--txt3)' }}>Editing {initial?.studentName ?? 'record'}</div>
+        )}
+
+        {/* Student */}
+        <div>
+          <Lbl required>Student</Lbl>
+          {isEdit ? (
+            <div className="sui-input" style={{ color: 'var(--txt2)', cursor: 'default', opacity: .8 }}>{initial?.studentName ?? initial?.studentId}</div>
+          ) : (
+            <StudentTypeahead value={student} onChange={s => { setStudent(s); if (s?.classId) setClassId(s.classId) }} />
+          )}
         </div>
+
+        {/* Nature selector — pill buttons */}
+        <div>
+          <Lbl required>Nature of Incident</Lbl>
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+            {NATURES.map(n => {
+              const m = NATURE_META[n]
+              const active = nature === n
+              return (
+                <button key={n} type="button" onClick={() => setNature(n)} style={{
+                  padding: '6px 13px', borderRadius: 99, border: `.5px solid ${active ? m.color : 'var(--border)'}`,
+                  background: active ? m.bg : 'var(--surface2)',
+                  color: active ? m.color : 'var(--txt3)',
+                  fontSize: 12.5, fontWeight: active ? 700 : 600,
+                  cursor: 'pointer', transition: 'all .14s',
+                  WebkitTapHighlightColor: 'transparent',
+                }}>
+                  {m.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Date + class */}
+        <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <Lbl required>Incident Date</Lbl>
+            <input type="date" className="sui-input" value={incidentDate} onChange={e => setIncidentDate(e.target.value)} style={{ width: '100%' }} />
+          </div>
+          {!isEdit && (
+            <div>
+              <Lbl>Class</Lbl>
+              <select className="sui-input" value={classId} onChange={e => setClassId(e.target.value)} style={{ width: '100%' }}>
+                <option value="">Auto from student</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Resolution */}
+        <div>
+          <Lbl required>Resolution / Action Taken</Lbl>
+          <textarea className="sui-input" value={resolution} onChange={e => setResolution(e.target.value)} rows={3} placeholder="E.g. Parent notified, detention issued, counselling referral…" style={{ width: '100%', resize: 'vertical' }} />
+        </div>
+
+        {/* Notes */}
+        <div>
+          <Lbl>Additional Notes</Lbl>
+          <textarea className="sui-input" value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Optional context or follow-up notes…" style={{ width: '100%', resize: 'vertical' }} />
+        </div>
+
+        {err && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(244,63,94,.08)', border: '.5px solid rgba(244,63,94,.22)', color: 'var(--danger)', fontSize: 12.5, fontWeight: 600 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+            {err}
+          </div>
+        )}
       </form>
-    </div>
+    </Modal>
   )
 }
 
@@ -261,39 +239,31 @@ function DeleteModal({ record, onClose }: { record: DisciplineRecord; onClose: (
   }
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 16 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div style={{ width: '100%', maxWidth: 440, borderRadius: 20, background: 'var(--surface)', boxShadow: '0 20px 60px rgba(0,0,0,.22)', display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
-        <div style={{ flexShrink: 0, padding: '24px 24px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(244,63,94,.1)', border: '.5px solid rgba(244,63,94,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.2"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" /></svg>
-            </div>
-            <div>
-              <div style={{ fontWeight: 900, fontSize: 16, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>Delete Record?</div>
-              <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 1 }}>This action cannot be undone</div>
-            </div>
-          </div>
-        </div>
-        {/* Body */}
-        <div style={{ flex: 1, padding: '16px 24px 8px' }}>
-          <p style={{ fontSize: 13.5, color: 'var(--txt2)', lineHeight: 1.6, margin: 0 }}>
-            Permanently delete the discipline record for <strong style={{ color: 'var(--txt)' }}>{record.studentName ?? record.studentId}</strong> on {new Date(record.incidentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}.
-          </p>
-          {err && <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 10 }}>{err}</div>}
-        </div>
-        {/* Footer */}
-        <div style={{ flexShrink: 0, padding: '12px 24px 20px', display: 'flex', gap: 10, borderTop: '.5px solid var(--border)' }}>
+    <Modal
+      open
+      onClose={onClose}
+      title="Delete Record?"
+      size="sm"
+      footer={
+        <>
           <button onClick={onClose} style={{ flex: 1, padding: '11px 0', background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 12, fontWeight: 600, fontSize: 13.5, cursor: 'pointer', color: 'var(--txt2)' }}>Cancel</button>
           <button disabled={deleteMut.isPending} onClick={() => { void confirm() }} style={{ flex: 1, padding: '11px 0', background: 'linear-gradient(145deg,#f43f5e,#e11d48)', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(244,63,94,.4)' }}>
             {deleteMut.isPending ? 'Deleting…' : 'Delete'}
           </button>
+        </>
+      }
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(244,63,94,.1)', border: '.5px solid rgba(244,63,94,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.2"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" /></svg>
         </div>
+        <div style={{ fontSize: 12, color: 'var(--txt3)' }}>This action cannot be undone</div>
       </div>
-    </div>
+      <p style={{ fontSize: 13.5, color: 'var(--txt2)', lineHeight: 1.6, margin: 0 }}>
+        Permanently delete the discipline record for <strong style={{ color: 'var(--txt)' }}>{record.studentName ?? record.studentId}</strong> on {new Date(record.incidentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}.
+      </p>
+      {err && <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 10 }}>{err}</div>}
+    </Modal>
   )
 }
 

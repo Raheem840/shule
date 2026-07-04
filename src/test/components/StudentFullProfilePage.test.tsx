@@ -65,6 +65,7 @@ function renderAt(path: string) {
       <Routes>
         <Route path="/principal/students/:studentId" element={<StudentFullProfilePage />} />
         <Route path="/deputy/students/:studentId" element={<StudentFullProfilePage />} />
+        <Route path="/dos/students/:studentId" element={<StudentFullProfilePage />} />
       </Routes>
     </MemoryRouter>
   )
@@ -111,5 +112,29 @@ describe('StudentFullProfilePage — as deputy', () => {
     renderAt('/deputy/students/stu-1')
     expect(screen.queryByText('Fee Status')).not.toBeInTheDocument()
     expect(screen.queryByText(/200,000/)).not.toBeInTheDocument()
+  })
+})
+
+describe('StudentFullProfilePage — as DOS (pure academics only)', () => {
+  it('shows profile, attendance, and academic performance sections', () => {
+    authState.role = 'dos'
+    renderAt('/dos/students/stu-1')
+    expect(screen.getByText('Personal Information')).toBeInTheDocument()
+    expect(screen.getByText('Academic Performance')).toBeInTheDocument()
+    expect(screen.getByText('Attendance Summary')).toBeInTheDocument()
+  })
+
+  it('does not show the Fee Status section', () => {
+    authState.role = 'dos'
+    renderAt('/dos/students/stu-1')
+    expect(screen.queryByText('Fee Status')).not.toBeInTheDocument()
+    expect(screen.queryByText(/200,000/)).not.toBeInTheDocument()
+  })
+
+  it('does not show Suspend/Expel action buttons', () => {
+    authState.role = 'dos'
+    renderAt('/dos/students/stu-1')
+    expect(screen.queryByText('Suspend Student')).not.toBeInTheDocument()
+    expect(screen.queryByText('Expel Student')).not.toBeInTheDocument()
   })
 })

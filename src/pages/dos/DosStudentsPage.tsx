@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { useStudents } from '../../hooks/useStudents'
 import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
 import { useAuth } from '../../store/AuthContext'
@@ -210,6 +211,7 @@ function HBar({ label, value, max, color }: { label: string; value: number; max:
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 export function DosStudentsPage() {
+  const navigate = useNavigate()
   const { data: allStudents = [], isLoading: studentsLoading } = useStudents({ status: 'active' })
   const { data: classes = [] }  = useClasses()
   const { data: streams = [] }  = useStreams()
@@ -525,10 +527,14 @@ export function DosStudentsPage() {
                 const avg = avgScore(s.id)
                 const sn  = streamName(s.streamId)
                 return (
-                  <div key={s.id} style={{
+                  <div key={s.id} onClick={() => navigate(`/dos/students/${s.id}`)} style={{
                     background: 'var(--surface2)', borderRadius: 14, padding: '14px 16px',
                     border: '.5px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8,
-                  }}>
+                    cursor: 'pointer', transition: 'border-color .15s',
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
+                  >
                     {/* Name row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{

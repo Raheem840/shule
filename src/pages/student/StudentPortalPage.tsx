@@ -1076,7 +1076,7 @@ function sColor(id: string) {
 
 function MyTimetableTab({ classId, streamId }: { classId: string | null; streamId: string | null }) {
   const { user } = useAuth()
-  const [term, setTerm] = useState('Term 1')
+  const [term, setTerm] = useState('1')
   const [year, setYear] = useState(new Date().getFullYear())
   const [mobileDay, setMobileDay] = useState<number>(() => {
     const d = new Date().getDay()
@@ -1120,7 +1120,7 @@ function MyTimetableTab({ classId, streamId }: { classId: string | null; streamI
       {/* Term / year selector */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ flex: '1 1 220px' }}>
-          <TermPicker format="full" value={term} onChange={setTerm} />
+          <TermPicker value={term} onChange={setTerm} />
         </div>
         <input type="number" value={year} onChange={e => setYear(parseInt(e.target.value))} className="sui-input" style={{ flex: '0 0 5rem', minWidth: 0 }} />
       </div>
@@ -1154,7 +1154,7 @@ function MyTimetableTab({ classId, streamId }: { classId: string | null; streamI
             </svg>
           }
           title="No Timetable Published"
-          body={`The timetable for ${term} ${year} hasn't been published yet.`}
+          body={`The timetable for Term ${term} ${year} hasn't been published yet.`}
         />
       )}
 

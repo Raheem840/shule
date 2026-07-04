@@ -198,6 +198,7 @@ export default function App() {
             <Route path="/dos/timetable"  element={<DosTimetablePage />} />
             <Route path="/dos/surveys"    element={<DosSurveysPage />} />
             <Route path="/dos/students"   element={<DosStudentsPage />} />
+            <Route path="/dos/students/:studentId" element={<StudentFullProfilePage />} />
             <Route path="/dos/remarks"    element={<RemarksViewPage />} />
             <Route path="/dos/events"     element={<TeacherEventsPage />} />
             <Route path="/dos/messages"   element={<MessagingPage />} />

@@ -880,7 +880,7 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>{selectedClassName}</span>
                 {selectedStream && <span style={{ padding: '2px 10px', borderRadius: 99, background: 'rgba(139,92,246,.1)', color: '#8b5cf6', fontSize: 11, fontWeight: 700, border: '.5px solid rgba(139,92,246,.2)' }}>{streams.find(s => s.id === selectedStream)?.name}</span>}
-                <span style={{ padding: '2px 10px', borderRadius: 99, background: 'var(--surface2)', color: 'var(--txt3)', fontSize: 11, fontWeight: 600, border: '.5px solid var(--border)' }}>{term} · {year}</span>
+                <span style={{ padding: '2px 10px', borderRadius: 99, background: 'var(--surface2)', color: 'var(--txt3)', fontSize: 11, fontWeight: 600, border: '.5px solid var(--border)' }}>Term {term} · {year}</span>
               </div>
               {conflictKeys.size > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 99, background: 'rgba(244,63,94,.08)', border: '.5px solid rgba(244,63,94,.22)', color: 'var(--danger)', fontSize: 11.5, fontWeight: 700 }}>
@@ -1633,7 +1633,7 @@ export function DosTimetablePage() {
         {/* Term */}
         <div style={{ flex: '1 1 240px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Term</div>
-          <TermPicker format="full" value={term} onChange={setTerm} />
+          <TermPicker value={term} onChange={setTerm} />
         </div>
         {/* Year */}
         <div style={{ flex: '0 0 88px' }}>

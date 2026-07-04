@@ -92,7 +92,7 @@ export function DeputyTimetablePage() {
   const { user } = useAuth()
   const isMobile = useIsMobile()
   const { data: classes = [] } = useClasses()
-  const [term,          setTerm]          = useState('Term 1')
+  const [term,          setTerm]          = useState('1')
   const [year,          setYear]          = useState(new Date().getFullYear())
   const [filterClassId, setFilterClassId] = useState('')
   const [mobileDay,     setMobileDay]     = useState(1)
@@ -152,7 +152,7 @@ export function DeputyTimetablePage() {
           </div>
           <div style={{ flex: 1 }}>
             <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: isMobile ? 18 : 22, color: 'var(--txt)', margin: 0, letterSpacing: -.4 }}>{className} Timetable</h1>
-            <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>{term} · {year} · Read-only view</p>
+            <p style={{ fontSize: 12.5, color: 'var(--txt3)', margin: '2px 0 0' }}>Term {term} · {year} · Read-only view</p>
           </div>
           <button onClick={() => setFilterClassId('')}
             style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 11, border: '.5px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--txt2)', flexShrink: 0 }}>
@@ -326,7 +326,7 @@ export function DeputyTimetablePage() {
         </div>
         <div style={{ flex: '1 1 240px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Term</div>
-          <TermPicker format="full" value={term} onChange={setTerm} />
+          <TermPicker value={term} onChange={setTerm} />
         </div>
         <div style={{ flex: '0 0 88px' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Year</div>

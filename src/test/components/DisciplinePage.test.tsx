@@ -222,6 +222,41 @@ describe('DisciplinePage', () => {
     })
   })
 
+  it('renders the Add Record modal via the shared Modal component (role=dialog, clipped corners)', async () => {
+    setupMocks()
+    const user = userEvent.setup()
+    render(<DisciplinePage />)
+
+    await user.click(screen.getByRole('button', { name: /add record/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: /add discipline record/i })).toBeInTheDocument()
+    })
+  })
+
+  it('submitting the Add Record form (via the footer Save button) calls the add mutation', async () => {
+    setupMocks({ records: [] })
+    mockStudents.mockReturnValue({ data: [{ id: 'stu-3', firstName: 'Cynthia', lastName: 'Auma', classId: 'c1' }], isLoading: false })
+    const addMutateAsync = vi.fn().mockResolvedValue(undefined)
+    mockAdd.mockReturnValue({ mutateAsync: addMutateAsync, isPending: false })
+    const user = userEvent.setup()
+    render(<DisciplinePage />)
+
+    await user.click(screen.getByRole('button', { name: /add record/i }))
+    await screen.findByRole('dialog', { name: /add discipline record/i })
+
+    await user.type(screen.getByPlaceholderText(/search by name or admission number/i), 'Cynthia')
+    await user.click(await screen.findByText('Cynthia Auma'))
+    await user.type(screen.getByPlaceholderText(/parent notified, detention issued/i), 'Verbal warning given')
+    await user.click(screen.getByRole('button', { name: /save record/i }))
+
+    await waitFor(() => {
+      expect(addMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+        studentId: 'stu-3', resolution: 'Verbal warning given',
+      }))
+    })
+  })
+
   it('does NOT render any fee or finance data', () => {
     setupMocks({ records: RECORDS })
     render(<DisciplinePage />)

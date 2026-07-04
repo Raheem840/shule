@@ -4,7 +4,13 @@
 // 2. unassignedCount (active students with classId === null) renders an
 //    "Unassigned" bar + a warning note in the Enrolment by Class widget.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '../utils'
+import { render, screen, waitFor, fireEvent } from '../utils'
+
+const { mockNavigate } = vi.hoisted(() => ({ mockNavigate: vi.fn() }))
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom')
+  return { ...actual, useNavigate: () => mockNavigate }
+})
 
 const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
   const tableData: Record<string, any> = {}
@@ -89,6 +95,21 @@ beforeEach(() => {
   vi.clearAllMocks()
   clearResponses()
   setResponse('attendance', { data: [], error: null })
+})
+
+describe('DosStudentsPage — view student navigation', () => {
+  it('navigates to the shared academics-only profile route when a student card is clicked', async () => {
+    setupBaseMocks([makeStudent({ id: 'stu-1', firstName: 'Grace', lastName: 'Apio' })])
+    setResponse('exam_journal', { data: [], error: null })
+    setResponse('exam_results', { data: [], error: null })
+
+    render(<DosStudentsPage />)
+
+    await waitFor(() => expect(screen.getByText('Grace Apio')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Grace Apio').closest('div[style*="cursor: pointer"]')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/dos/students/stu-1')
+  })
 })
 
 describe('DosStudentsPage — exam aggregate only counts published journals', () => {
