@@ -18,11 +18,16 @@ const { mockFrom, setTableData, clearAll } = vi.hoisted(() => {
       not:      vi.fn().mockReturnThis(),
       or:       vi.fn().mockReturnThis(),
       is:       vi.fn().mockReturnThis(),
+      in:       vi.fn().mockReturnThis(),
+      overlaps: vi.fn().mockReturnThis(),
       order:    vi.fn().mockReturnThis(),
       limit:    vi.fn().mockReturnThis(),
       insert:   vi.fn().mockReturnThis(),
       update:   vi.fn().mockReturnThis(),
       single:   vi.fn().mockImplementation(() =>
+        Promise.resolve(tableData[table] ?? { data: null, error: null })
+      ),
+      maybeSingle: vi.fn().mockImplementation(() =>
         Promise.resolve(tableData[table] ?? { data: null, error: null })
       ),
       then: (resolve: any, reject?: any) =>
@@ -69,6 +74,8 @@ import {
   useAnnouncements,
   usePostAnnouncement,
   useUnreadCount,
+  useParentConversations,
+  useSearchStudentsForMessaging,
 } from '../../hooks/useMessaging'
 
 function createWrapper() {
@@ -265,12 +272,103 @@ describe('useUnreadCount', () => {
       is: vi.fn().mockReturnThis(),
       then: (resolve: any) => Promise.resolve({ count: 3, error: null }).then(resolve),
     }))
-    mockFrom.mockImplementation(mockCount)
+    // .mockImplementationOnce — a plain .mockImplementation() here would
+    // permanently replace mockFrom's shared builder for every test that runs
+    // after this one in the file (vi.clearAllMocks() doesn't restore a custom
+    // implementation), silently breaking any later test whose hook calls a
+    // method (.or/.in/.not/.overlaps/.maybeSingle) this minimal stub lacks.
+    mockFrom.mockImplementationOnce(mockCount)
 
     const { result } = renderHook(() => useUnreadCount(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     // count is 3
     expect(result.current.data).toBe(3)
+  })
+})
+
+// ── useParentConversations — teacher class scoping ──────────────────────────
+describe('useParentConversations', () => {
+  it('for a teacher, excludes a parent whose child is not in the teacher\'s class', async () => {
+    mockRole = 'teacher'
+    setTableData('messages', { data: [
+      { id: 'm1', from_user_id: 'parent-mine',  body: 'Hi',  sent_at: '2026-06-01T10:00:00Z', read_at: null },
+      { id: 'm2', from_user_id: 'parent-other', body: 'Hey', sent_at: '2026-06-01T09:00:00Z', read_at: null },
+    ], error: null })
+    setTableData('parent_accounts', { data: [
+      { auth_user_id: 'parent-mine',  full_name: 'Jane Apio',  student_ids: ['stu-mine'] },
+      { auth_user_id: 'parent-other', full_name: 'Peter Otim', student_ids: ['stu-other'] },
+    ], error: null })
+    setTableData('staff', { data: { id: 'staff-1', classes: ['cls-mine'] }, error: null })
+    setTableData('streams', { data: [], error: null })
+    setTableData('students', { data: [
+      { id: 'stu-mine',  first_name: 'Grace', last_name: 'Apio', class_id: 'cls-mine' },
+      { id: 'stu-other', first_name: 'Brian', last_name: 'Otim', class_id: 'cls-other' },
+    ], error: null })
+
+    const { result } = renderHook(() => useParentConversations(), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const names = result.current.data!.map(c => c.parentName)
+    expect(names).toContain('Jane Apio')
+    expect(names).not.toContain('Peter Otim')
+  })
+
+  it('does not restrict conversations for non-teacher roles (e.g. bursar)', async () => {
+    mockRole = 'bursar'
+    setTableData('messages', { data: [
+      { id: 'm1', from_user_id: 'parent-other', body: 'Fee question', sent_at: '2026-06-01T10:00:00Z', read_at: null },
+    ], error: null })
+    setTableData('parent_accounts', { data: [
+      { auth_user_id: 'parent-other', full_name: 'Peter Otim', student_ids: ['stu-other'] },
+    ], error: null })
+    setTableData('students', { data: [
+      { id: 'stu-other', first_name: 'Brian', last_name: 'Otim', class_id: 'cls-other' },
+    ], error: null })
+
+    const { result } = renderHook(() => useParentConversations(), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data!.map(c => c.parentName)).toContain('Peter Otim')
+  })
+})
+
+// ── useSearchStudentsForMessaging — full-name search + teacher scoping ───────
+describe('useSearchStudentsForMessaging', () => {
+  it('finds a student when searching by full name ("Grace Apio"), not just a single word', async () => {
+    mockRole = 'bursar' // no class restriction, isolate the full-name-search fix
+    setTableData('students', { data: [
+      { id: 'stu-1', first_name: 'Grace', last_name: 'Apio', admission_number: 'S1/001', class_id: 'cls-1' },
+    ], error: null })
+    setTableData('parent_accounts', { data: [
+      { auth_user_id: 'parent-1', full_name: 'Jane Apio', email: 'jane@k.ug', student_ids: ['stu-1'] },
+    ], error: null })
+
+    const { result } = renderHook(() => useSearchStudentsForMessaging('Grace Apio'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toHaveLength(1)
+    expect(result.current.data![0].parentName).toBe('Jane Apio')
+  })
+
+  it('for a teacher, only returns students in their own assigned class', async () => {
+    mockRole = 'teacher'
+    setTableData('staff', { data: { id: 'staff-1', classes: ['cls-mine'] }, error: null })
+    setTableData('streams', { data: [], error: null })
+    setTableData('students', { data: [
+      { id: 'stu-mine',  first_name: 'Grace', last_name: 'Apio', admission_number: 'S1/001', class_id: 'cls-mine' },
+      { id: 'stu-other', first_name: 'Grant', last_name: 'Aine', admission_number: 'S2/001', class_id: 'cls-other' },
+    ], error: null })
+    setTableData('parent_accounts', { data: [
+      { auth_user_id: 'parent-mine',  full_name: 'Jane Apio', email: 'jane@k.ug', student_ids: ['stu-mine'] },
+      { auth_user_id: 'parent-other', full_name: 'Amy Aine',  email: 'amy@k.ug',  student_ids: ['stu-other'] },
+    ], error: null })
+
+    const { result } = renderHook(() => useSearchStudentsForMessaging('Gra'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const names = result.current.data!.map(r => r.parentName)
+    expect(names).toContain('Jane Apio')
+    expect(names).not.toContain('Amy Aine')
   })
 })

@@ -14,6 +14,40 @@ const ANNOUNCEMENT_POSTER_ROLES: UserRole[] = [
   'principal', 'deputy', 'dos', 'secretary', 'bursar', 'it_admin',
 ]
 
+// ── resolveTeacherClassIds ───────────────────────────────────────────────────
+// A teacher's "own class" for messaging purposes combines two sources: any
+// class they teach a subject in (staff.classes[]) and any class where they're
+// the homeroom class teacher (streams.class_teacher_id). Returns null for
+// non-teacher roles (no restriction — bursar etc. see every parent).
+async function resolveTeacherClassIds(user: { id: string; schoolId: string; role?: string; staffId?: string | null } | null): Promise<string[] | null> {
+  if (!user || (user.role !== 'teacher' && user.role !== 'class_teacher')) return null
+
+  let staffId = user.staffId ?? null
+  if (!staffId) {
+    const { data: s } = await supabase
+      .from('staff').select('id, classes')
+      .eq('auth_user_id', user.id).eq('school_id', user.schoolId).maybeSingle()
+    staffId = (s as any)?.id ?? null
+    if (s) {
+      const [streamsRes] = await Promise.all([
+        supabase.from('streams').select('class_id').eq('school_id', user.schoolId).eq('class_teacher_id', staffId!),
+      ])
+      const fromStaff = ((s as any).classes ?? []) as string[]
+      const fromStreams = (streamsRes.data ?? []).map((r: any) => r.class_id as string)
+      return Array.from(new Set([...fromStaff, ...fromStreams]))
+    }
+    return []
+  }
+
+  const [staffRes, streamsRes] = await Promise.all([
+    supabase.from('staff').select('classes').eq('id', staffId).eq('school_id', user.schoolId).maybeSingle(),
+    supabase.from('streams').select('class_id').eq('school_id', user.schoolId).eq('class_teacher_id', staffId),
+  ])
+  const fromStaff   = ((staffRes.data as any)?.classes ?? []) as string[]
+  const fromStreams = (streamsRes.data ?? []).map((r: any) => r.class_id as string)
+  return Array.from(new Set([...fromStaff, ...fromStreams]))
+}
+
 // ── useContacts ────────────────────────────────────────────────────────────
 // Returns all staff members the current user can message, ordered by seniority,
 // with unread count per contact.
@@ -469,6 +503,11 @@ export function useParentConversations() {
 
       if (parentErr) throw new Error(parentErr.message)
 
+      // Teachers only receive from parents of students in their own class(es)
+      // — a parent who messages a teacher whose child isn't (or is no longer)
+      // in that teacher's class shouldn't show up in the teacher's inbox.
+      const myClassIds = await resolveTeacherClassIds(user)
+
       const parentList = (parents ?? []) as Array<{
         auth_user_id: string; full_name: string; student_ids: string[] | null
       }>
@@ -480,20 +519,25 @@ export function useParentConversations() {
         new Set(parentList.flatMap(p => p.student_ids ?? []))
       )
 
-      const studentNameMap = new Map<string, string>()
+      const studentNameMap  = new Map<string, string>()
+      const studentClassMap = new Map<string, string | null>()
       if (allStudentIds.length > 0) {
         const { data: students } = await supabase
           .from('students')
-          .select('id, first_name, last_name')
+          .select('id, first_name, last_name, class_id')
           .eq('school_id', user!.schoolId)
           .in('id', allStudentIds)
-        for (const s of (students ?? []) as Array<{ id: string; first_name: string; last_name: string }>) {
+        for (const s of (students ?? []) as Array<{ id: string; first_name: string; last_name: string; class_id: string | null }>) {
           studentNameMap.set(s.id, `${s.first_name} ${s.last_name}`)
+          studentClassMap.set(s.id, s.class_id)
         }
       }
 
       return parentList
         .filter(p => senderMap.has(p.auth_user_id))
+        // A teacher only sees parents with at least one child in their own
+        // class(es); other roles (bursar etc.) are unrestricted (myClassIds === null).
+        .filter(p => myClassIds === null || (p.student_ids ?? []).some(sid => myClassIds.includes(studentClassMap.get(sid) ?? '')))
         .map(p => ({
           parentAuthUserId: p.auth_user_id,
           parentName:       p.full_name ?? 'Parent',
@@ -717,17 +761,37 @@ export function useSearchStudentsForMessaging(query: string) {
     staleTime: 30_000,
     queryFn: async (): Promise<StudentParentResult[]> => {
       const q = query.trim()
+      // Split on whitespace so a full-name search ("Grace Apio") matches —
+      // a single ilike on first_name OR last_name never matches "Grace Apio"
+      // as a whole, since neither column contains that literal substring.
+      const words = q.split(/\s+/).filter(Boolean)
+      const orFilter = words
+        .map(w => `first_name.ilike.%${w}%,last_name.ilike.%${w}%`)
+        .join(',') + `,admission_number.ilike.%${q}%`
 
-      // 1. Find matching active students
-      const { data: students, error: stuErr } = await supabase
+      // 1. Find matching active students — broad candidate set (any word/field
+      // matches), then require every word to appear somewhere in the full name
+      // client-side (ilike alone can't express "AND across OR" in one call).
+      const { data: candidates, error: stuErr } = await supabase
         .from('students')
-        .select('id, first_name, last_name, admission_number')
+        .select('id, first_name, last_name, admission_number, class_id')
         .eq('school_id', user!.schoolId)
         .eq('status', 'active')
-        .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,admission_number.ilike.%${q}%`)
-        .limit(15)
+        .or(orFilter)
+        .limit(50)
       if (stuErr) throw stuErr
-      if (!students?.length) return []
+      if (!candidates?.length) return []
+
+      const myClassIds = await resolveTeacherClassIds(user)
+
+      const students = candidates.filter((s: any) => {
+        // Teachers only find students in their own class(es).
+        if (myClassIds !== null && !myClassIds.includes(s.class_id)) return false
+        if (words.length <= 1) return true
+        const fullName = `${s.first_name} ${s.last_name}`.toLowerCase()
+        return words.every(w => fullName.includes(w.toLowerCase()) || (s.admission_number as string).toLowerCase().includes(w.toLowerCase()))
+      }).slice(0, 15)
+      if (students.length === 0) return []
 
       const studentIds = students.map(s => s.id as string)
 
@@ -747,10 +811,15 @@ export function useSearchStudentsForMessaging(query: string) {
       for (const p of parents) {
         const authId = p.auth_user_id as string
         if (seen.has(authId)) continue
-        seen.add(authId)
         const linked = students.filter(s =>
           (p.student_ids as string[]).includes(s.id as string)
         )
+        // Defense in depth alongside the server-side .overlaps() filter above —
+        // a parent with zero students in the (possibly teacher-scoped) `students`
+        // set shouldn't appear, e.g. if their only matching child was just
+        // filtered out because they're not in the searching teacher's class.
+        if (linked.length === 0) continue
+        seen.add(authId)
         results.push({
           parentAuthUserId: authId,
           parentName:       (p.full_name as string) || (p.email as string),
