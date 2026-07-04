@@ -329,6 +329,7 @@ export type FeeFilters = {
   year?:           number
   academicYearId?: string
   status?:         FeeStatus
+  studentType?:    'day' | 'boarder'
   search?:         string
 }
 
@@ -366,7 +367,7 @@ export function useFeePayments(filters: FeeFilters = {}) {
         feeQ,
         supabase
           .from('students')
-          .select('id, admission_number, first_name, last_name, class_id, stream_id')
+          .select('id, admission_number, first_name, last_name, class_id, stream_id, student_type')
           .eq('school_id', user!.schoolId),
         supabase
           .from('classes')
@@ -389,6 +390,7 @@ export function useFeePayments(filters: FeeFilters = {}) {
         lastName:   string
         classId:    string | null
         streamId:   string | null
+        studentType: 'day' | 'boarder'
       }
       const studentMap = new Map<string, StudentInfo>()
       for (const s of studentsRes.data ?? []) {
@@ -398,6 +400,7 @@ export function useFeePayments(filters: FeeFilters = {}) {
           lastName:   s.last_name as string,
           classId:    (s.class_id as string)  ?? null,
           streamId:   (s.stream_id as string) ?? null,
+          studentType: s.student_type === 'boarder' ? 'boarder' : 'day',
         })
       }
       const classMap  = new Map<string, string>()
@@ -453,6 +456,14 @@ export function useFeePayments(filters: FeeFilters = {}) {
         rows = rows.filter(r => ok.has(r.studentId))
       }
       if (filters.status) rows = rows.filter(r => r.status === filters.status)
+      if (filters.studentType) {
+        const ok = new Set(
+          [...studentMap.entries()]
+            .filter(([, s]) => s.studentType === filters.studentType)
+            .map(([id]) => id)
+        )
+        rows = rows.filter(r => ok.has(r.studentId))
+      }
       if (filters.search) {
         const q = filters.search.toLowerCase()
         rows = rows.filter(r =>

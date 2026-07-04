@@ -15,6 +15,7 @@ import {
 import { useClasses } from '../../hooks/useClasses'
 import { ugx } from '../../hooks/useFeePayments'
 import { useToast } from '../../components/ui/Toast'
+import { PillGroup } from '../../components/shared/PillGroup'
 import type { FeeStructure } from '../../types/app'
 
 // ─── Fee structure import types ───────────────────────────────────────────────
@@ -1070,16 +1071,22 @@ export function FeeStructurePage() {
 
       {/* Filter bar */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select className="sui-input" value={filterTerm ?? ''} onChange={e => setFilterTerm(e.target.value ? Number(e.target.value) : null)} style={{ minWidth: 120 }}>
-          <option value="">All Terms</option>
-          <option value={1}>Term 1</option>
-          <option value={2}>Term 2</option>
-          <option value={3}>Term 3</option>
-        </select>
-        <select className="sui-input" value={filterClass ?? ''} onChange={e => setFilterClass(e.target.value || null)} style={{ minWidth: 160 }}>
-          <option value="">All Classes</option>
-          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <PillGroup
+          value={filterTerm != null ? String(filterTerm) : ''}
+          onChange={v => setFilterTerm(v ? Number(v) : null)}
+          options={[
+            { value: '', label: 'All Terms' },
+            { value: '1', label: 'Term 1' },
+            { value: '2', label: 'Term 2' },
+            { value: '3', label: 'Term 3' },
+          ]}
+        />
+        <PillGroup
+          scrollable
+          value={filterClass ?? ''}
+          onChange={v => setFilterClass(v || null)}
+          options={[{ value: '', label: 'All Classes' }, ...classes.map(c => ({ value: c.id, label: c.name }))]}
+        />
         {(filterTerm || filterClass) && (
           <button onClick={() => { setFilterTerm(null); setFilterClass(null) }}
             style={{ padding: '7px 14px', borderRadius: 9, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>

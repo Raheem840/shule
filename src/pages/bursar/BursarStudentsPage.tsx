@@ -14,6 +14,7 @@ import { Button } from '../../components/ui/Button'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
 import { ugx } from '../../hooks/useFeePayments'
+import { PillGroup } from '../../components/shared/PillGroup'
 import ExcelJS from 'exceljs'
 
 // ─────────────────────────────────────────────────────────────
@@ -71,10 +72,11 @@ function useBursarStudentFees(
   streamId:       string | null,
   term:           number,
   academicYearId: string | null,
+  studentType:    'day' | 'boarder' | null = null,
 ) {
   const { user } = useAuth()
   return useQuery({
-    queryKey: ['bursar-student-fees', user?.schoolId, classId, streamId, term, academicYearId],
+    queryKey: ['bursar-student-fees', user?.schoolId, classId, streamId, term, academicYearId, studentType],
     // classId is optional — null means "all classes" (a QuickBooks-style whole-school view).
     enabled:  !!user?.schoolId && ['bursar', 'principal'].includes(user?.role ?? ''),
     staleTime: 30_000,
@@ -90,8 +92,9 @@ function useBursarStudentFees(
         .select('id, admission_number, first_name, last_name, gender, student_type, class_id, stream_id, classes(name), streams(name)')
         .eq('school_id', user!.schoolId)
         .eq('status', 'active')
-      if (classId)  q = q.eq('class_id',  classId)
-      if (streamId) q = q.eq('stream_id', streamId)
+      if (classId)     q = q.eq('class_id',     classId)
+      if (streamId)    q = q.eq('stream_id',    streamId)
+      if (studentType) q = q.eq('student_type', studentType)
       const { data: students, error: stuErr } = await q.order('last_name')
       if (stuErr) throw stuErr
 
@@ -1187,6 +1190,7 @@ export function BursarStudentsPage() {
   const [search,    setSearch]    = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [sortBy, setSortBy] = useState<'name' | 'balance' | 'pct'>('name')
+  const [studentType, setStudentType] = useState<'all' | 'day' | 'boarder'>('all')
 
   const [payStudent,     setPayStudent]     = useState<StudentFeeRow | null>(null)
   const [historyStudent, setHistoryStudent] = useState<StudentFeeRow | null>(null)
@@ -1206,7 +1210,7 @@ export function BursarStudentsPage() {
   }, [academicYears, academicYearId])
 
   const { data: students = [], isLoading, error } = useBursarStudentFees(
-    classId, streamId, term, academicYearId,
+    classId, streamId, term, academicYearId, studentType === 'all' ? null : studentType,
   )
 
   // ── Filtered + sorted list ────────────────────────────────
@@ -1412,15 +1416,23 @@ export function BursarStudentsPage() {
         </select>
 
         {/* Class */}
-        <select
+        <PillGroup
+          scrollable
           value={classId ?? ''}
-          onChange={e => { setClassId(e.target.value || null); setStreamId(null) }}
-          aria-label="Class"
-          style={selectStyle}
-        >
-          <option value="">All Classes</option>
-          {(classes ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+          onChange={v => { setClassId(v || null); setStreamId(null) }}
+          options={[{ value: '', label: 'All Classes' }, ...(classes ?? []).map(c => ({ value: c.id, label: c.name }))]}
+        />
+
+        {/* Boarder / Day */}
+        <PillGroup
+          value={studentType}
+          onChange={setStudentType}
+          options={[
+            { value: 'all',     label: 'All Students' },
+            { value: 'day',     label: 'Day' },
+            { value: 'boarder', label: 'Boarder' },
+          ]}
+        />
 
         {/* Stream */}
         <select

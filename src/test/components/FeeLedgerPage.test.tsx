@@ -208,11 +208,20 @@ describe('FeeLedgerPage', () => {
     expect(screen.getByText('Total Records')).toBeInTheDocument()
   })
 
-  it('shows filter dropdowns for class and status', () => {
+  it('shows a Class pill filter and a Status dropdown', () => {
     setupDefaultMocks([], false)
     mockUseClasses.mockReturnValue({ data: [{ id: 'c1', name: 'S.1' }], isLoading: false })
     render(<FeeLedgerPage />)
-    expect(screen.getByLabelText(/filter by class/i)).toBeInTheDocument()
+    expect(screen.getByText('All Classes')).toBeInTheDocument()
+    expect(screen.getByText('S.1')).toBeInTheDocument()
     expect(screen.getByLabelText(/filter by status/i)).toBeInTheDocument()
+  })
+
+  it('shows a Boarder / Day pill filter', () => {
+    setupDefaultMocks()
+    render(<FeeLedgerPage />)
+    expect(screen.getByText('All Students')).toBeInTheDocument()
+    expect(screen.getByText('Day')).toBeInTheDocument()
+    expect(screen.getByText('Boarder')).toBeInTheDocument()
   })
 })

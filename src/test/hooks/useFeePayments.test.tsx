@@ -186,6 +186,34 @@ describe('useFeePayments', () => {
     const builder = mockFrom.mock.results[feePaymentsCallIdx].value
     expect(builder.eq).toHaveBeenCalledWith('academic_year_id', 'year-prior')
   })
+
+  it('filters rows to the given studentType (boarder/day)', async () => {
+    setResponse('fee_payments', {
+      data: [
+        { id: 'pay-1', school_id: 'school-1', student_id: 'stu-1', fee_structure_id: null, amount_due: 100, amount_paid: 0, balance: 100, payment_date: null, receipt_number: null, term: 1, year: 2025, notes: null, imported: false },
+        { id: 'pay-2', school_id: 'school-1', student_id: 'stu-2', fee_structure_id: null, amount_due: 100, amount_paid: 0, balance: 100, payment_date: null, receipt_number: null, term: 1, year: 2025, notes: null, imported: false },
+      ],
+      error: null,
+    })
+    setResponse('students', {
+      data: [
+        { id: 'stu-1', admission_number: 'A1', first_name: 'Day', last_name: 'Student', class_id: null, stream_id: null, student_type: 'day' },
+        { id: 'stu-2', admission_number: 'A2', first_name: 'Board', last_name: 'Student', class_id: null, stream_id: null, student_type: 'boarder' },
+      ],
+      error: null,
+    })
+    setResponse('classes', { data: [], error: null })
+    setResponse('streams', { data: [], error: null })
+
+    const { result } = renderHook(
+      () => useFeePayments({ term: 1, year: 2025, studentType: 'boarder' }),
+      { wrapper: createWrapper() },
+    )
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toHaveLength(1)
+    expect(result.current.data![0].studentId).toBe('stu-2')
+  })
 })
 
 describe('useSmsCount', () => {

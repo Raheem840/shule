@@ -10,6 +10,7 @@ import { Button }         from '../../components/ui/Button'
 import { Badge }          from '../../components/ui/Badge'
 import { Modal }          from '../../components/ui/Modal'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { PillGroup } from '../../components/shared/PillGroup'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useStudents }    from '../../hooks/useStudents'
 import {
@@ -519,15 +520,22 @@ export function FeeLedgerPage() {
           {academicYears.map(y => <option key={y.id} value={y.id}>{y.name}{y.isActive ? ' (Active)' : ''}</option>)}
         </select>
 
-        <select
+        <PillGroup
+          scrollable
           value={filters.classId ?? ''}
-          onChange={e => setFilters(f => ({ ...f, classId: e.target.value || undefined, streamId: undefined }))}
-          aria-label="Filter by class"
-          style={{ padding: '0.35rem 0.85rem', minWidth: 120, border: '1.5px solid var(--border)', borderRadius: 'var(--r)', background: 'var(--surface)', color: 'var(--txt)', fontSize: 13 }}
-        >
-          <option value="">All Classes</option>
-          {(classes ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+          onChange={v => setFilters(f => ({ ...f, classId: v || undefined, streamId: undefined }))}
+          options={[{ value: '', label: 'All Classes' }, ...(classes ?? []).map(c => ({ value: c.id, label: c.name }))]}
+        />
+
+        <PillGroup
+          value={filters.studentType ?? 'all'}
+          onChange={v => setFilters(f => ({ ...f, studentType: v === 'all' ? undefined : (v as 'day' | 'boarder') }))}
+          options={[
+            { value: 'all',     label: 'All Students' },
+            { value: 'day',     label: 'Day' },
+            { value: 'boarder', label: 'Boarder' },
+          ]}
+        />
 
         <select
           value={filters.streamId ?? ''}

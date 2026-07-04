@@ -103,9 +103,10 @@ describe('BursarStudentsPage — All Classes view', () => {
 
     render(<BursarStudentsPage />)
 
-    const classSelect = screen.getByLabelText('Class') as HTMLSelectElement
-    expect(classSelect.value).toBe('')
+    // "All Classes" pill is the default active class filter.
     expect(screen.getByText('All Classes')).toBeInTheDocument()
+    expect(screen.getByText('S.1')).toBeInTheDocument()
+    expect(screen.getByText('S.2')).toBeInTheDocument()
 
     // Both students (from two different classes) should be counted without picking a class.
     await waitFor(() => expect(screen.getByText('2')).toBeInTheDocument())
@@ -115,7 +116,7 @@ describe('BursarStudentsPage — All Classes view', () => {
     expect(screen.queryByText(/select a class to begin/i)).not.toBeInTheDocument()
   })
 
-  it('narrows to a single class once one is explicitly selected', async () => {
+  it('narrows to a single class once its pill is clicked', async () => {
     setResponse('students', {
       data: [
         { id: 'stu-1', admission_number: 'A1', first_name: 'Grace', last_name: 'Apio', gender: 'female', student_type: 'day', class_id: 'cls-1', stream_id: null, classes: { name: 'S.1' }, streams: null },
@@ -129,9 +130,8 @@ describe('BursarStudentsPage — All Classes view', () => {
     const user = userEvent.setup()
     render(<BursarStudentsPage />)
 
-    const classSelect = screen.getByLabelText('Class') as HTMLSelectElement
-    await user.selectOptions(classSelect, 'cls-1')
-    expect(classSelect.value).toBe('cls-1')
+    await user.click(screen.getByText('S.1'))
+    await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
   })
 
   it('shows a Sort By control with name/balance/% paid options', () => {
@@ -144,5 +144,30 @@ describe('BursarStudentsPage — All Classes view', () => {
     const sortSelect = screen.getByLabelText('Sort by') as HTMLSelectElement
     const optionValues = Array.from(sortSelect.options).map(o => o.value)
     expect(optionValues).toEqual(['name', 'balance', 'pct'])
+  })
+
+  it('shows a Boarder / Day pill filter and scopes the student query when clicked', async () => {
+    setResponse('students', { data: [], error: null })
+    setResponse('fee_payments', { data: [], error: null })
+    setResponse('fee_structure', { data: [], error: null })
+    setResponse('school_profile', { data: null, error: null })
+
+    const user = userEvent.setup()
+    render(<BursarStudentsPage />)
+
+    expect(screen.getByText('All Students')).toBeInTheDocument()
+    expect(screen.getByText('Boarder')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Boarder'))
+
+    await waitFor(() => {
+      const studentsBuilders = mockFrom.mock.calls
+        .map((c, i) => ({ table: c[0], builder: mockFrom.mock.results[i].value }))
+        .filter(c => c.table === 'students')
+      const scopedCall = studentsBuilders.some(c =>
+        (c.builder.eq as ReturnType<typeof vi.fn>).mock.calls.some(args => args[0] === 'student_type' && args[1] === 'boarder')
+      )
+      expect(scopedCall).toBe(true)
+    })
   })
 })
