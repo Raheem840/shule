@@ -15,6 +15,9 @@ const { mockFrom, mockStorage, setResponse, clearResponses } = vi.hoisted(() => 
       select:      vi.fn().mockReturnThis(),
       eq:          vi.fn().mockReturnThis(),
       in:          vi.fn().mockReturnThis(),
+      not:         vi.fn().mockReturnThis(),
+      contains:    vi.fn().mockReturnThis(),
+      limit:       vi.fn().mockReturnThis(),
       order:       vi.fn().mockReturnThis(),
       update:      vi.fn().mockReturnThis(),
       upsert:      vi.fn().mockReturnThis(),
@@ -80,7 +83,7 @@ vi.mock('../../store/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }))
 
-import { useReportCards, useApproveReportCard, useReleaseReportCard, useUnlockReportCard } from '../../hooks/useReportCards'
+import { useReportCards, useApproveReportCard, useReleaseReportCard, useUnlockReportCard, useGenerateReportCards } from '../../hooks/useReportCards'
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -242,5 +245,29 @@ describe('schema boundary: report_cards', () => {
     const { result } = renderHook(() => useReportCards({ term: '1', year: 2025 }), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data![0].unlockCount).toBe(0)
+  })
+})
+
+describe('useGenerateReportCards — published-only exam results', () => {
+  it('only queries PUBLISHED exam_journal rows when pulling exam_results for a report card', async () => {
+    setResponse('school_profile', { data: { report_template_url: null }, error: null })
+    setResponse('students', { data: [{ id: 'stu-1', first_name: 'Grace', last_name: 'Apio', admission_number: 'S1/001' }], error: null })
+    setResponse('exam_results', { data: [], error: null })
+    setResponse('report_cards', { data: null, error: null })
+
+    const { result } = renderHook(() => useGenerateReportCards(), { wrapper: createWrapper() })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        studentIds: ['stu-1'], term: '1', year: 2025, classId: 'cls-1', streamId: null,
+      })
+    })
+
+    await waitFor(() => expect(result.current.isSuccess || result.current.isError).toBe(true))
+
+    const examResultsCallIdx = mockFrom.mock.calls.findIndex(c => c[0] === 'exam_results')
+    expect(examResultsCallIdx).toBeGreaterThan(-1)
+    const builder = mockFrom.mock.results[examResultsCallIdx].value
+    expect(builder.eq).toHaveBeenCalledWith('exam_journal.status', 'published')
   })
 })

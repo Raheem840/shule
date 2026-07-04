@@ -308,19 +308,24 @@ export function useGenerateReportCards() {
       }
 
       // ── Fetch all exam_results for these students ──────────
-      // Include is_absent so absent students are correctly shown as ABS not 0
+      // Include is_absent so absent students are correctly shown as ABS not 0.
+      // exam_journal.status = 'published' — a teacher's draft marks (still
+      // being entered/corrected) must never silently flow onto a generated
+      // report card, matching the published-only convention used everywhere
+      // else in the app (DoS analytics, exam aggregates, etc.).
       const { data: rawResults, error: re } = await supabase
         .from('exam_results')
         .select(`
           student_id, subject_id, score, is_absent,
           exam_journal!inner(
-            id, assessment_type, name, ca_label, total_marks
+            id, assessment_type, name, ca_label, total_marks, status
           )
         `)
         .eq('school_id', schoolId)
         .in('student_id', studentIds)
         .eq('term', String(term))
         .eq('year', year)
+        .eq('exam_journal.status', 'published')
 
       if (re) throw re
 

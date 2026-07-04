@@ -203,7 +203,16 @@ function TimelineNode({
         <div
           onMouseEnter={() => setOpen(true)}
           onMouseLeave={() => setOpen(false)}
-          onClick={() => setOpen(o => !o)}
+          onClick={() => {
+            // A past, not-yet-journaled event (e.g. a test/exam date) is almost
+            // always clicked to go journal it — skip the expand step and take
+            // the teacher straight to the exam journal, prefilled from this event.
+            if (canJournal && past && !today && !event.journaled) {
+              navigate('/teacher/exams', { state: { prefill: event } })
+              return
+            }
+            setOpen(o => !o)
+          }}
           style={{
             background: open ? `${color}06` : 'var(--surface)',
             border: `1px solid ${open ? color + '45' : today ? color + '30' : 'var(--border)'}`,

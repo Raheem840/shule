@@ -125,4 +125,45 @@ describe('ExamJournalPage', () => {
       }
     })
   })
+
+  describe('Create Journal modal — end_of_term totalMarks auto-default', () => {
+    it('auto-sets totalMarks to 80 when assessment type is switched to End of Term', async () => {
+      const user = userEvent.setup()
+      render(<ExamJournalPage />)
+      await user.click(screen.getAllByRole('button', { name: /create journal entry/i })[0])
+      await waitFor(() => expect(screen.getByText('Assessment Type')).toBeInTheDocument())
+      const dialog = screen.getByText('Assessment Type').closest('[data-testid="journal-create-modal"]') as HTMLElement
+
+      const assessmentSelect = within(dialog).getAllByRole('combobox')[0]
+      await user.selectOptions(assessmentSelect, 'end_of_term')
+
+      await waitFor(() => {
+        const input = within(dialog).getAllByRole('spinbutton')[0] as HTMLInputElement
+        expect(input.value).toBe('80')
+      })
+    })
+
+    it('shows a report-card warning if totalMarks is changed away from 80 for End of Term', async () => {
+      const user = userEvent.setup()
+      render(<ExamJournalPage />)
+      await user.click(screen.getAllByRole('button', { name: /create journal entry/i })[0])
+      await waitFor(() => expect(screen.getByText('Assessment Type')).toBeInTheDocument())
+      const dialog = screen.getByText('Assessment Type').closest('[data-testid="journal-create-modal"]') as HTMLElement
+
+      const assessmentSelect = within(dialog).getAllByRole('combobox')[0]
+      await user.selectOptions(assessmentSelect, 'end_of_term')
+      await waitFor(() => {
+        const input = within(dialog).getAllByRole('spinbutton')[0] as HTMLInputElement
+        expect(input.value).toBe('80')
+      })
+
+      const input = within(dialog).getAllByRole('spinbutton')[0]
+      await user.clear(input)
+      await user.type(input, '100')
+
+      await waitFor(() => {
+        expect(within(dialog).getByText(/report cards score the end-of-term exam out of 80/i)).toBeInTheDocument()
+      })
+    })
+  })
 })

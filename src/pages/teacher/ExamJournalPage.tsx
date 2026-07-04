@@ -1,5 +1,5 @@
 import { useSubjects, useStreams, useMyAssignedClasses, useMyAssignedSubjects } from '../../hooks/useClasses'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -183,7 +183,7 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
   const classes          = useMyAssignedClasses()
   const subjects         = useMyAssignedSubjects()
 
-  const { control, register, watch, handleSubmit, formState: { errors } } =
+  const { control, register, watch, setValue, handleSubmit, formState: { errors } } =
     useForm<JournalFormValues>({
       resolver: zodResolver(journalSchema) as any,
       defaultValues: {
@@ -200,6 +200,15 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
   const subjectId      = watch('subjectId')
   const classId        = watch('classId')
   const term           = watch('term')
+  const totalMarksVal  = watch('totalMarks')
+
+  // The report-card CBC formula (out_of_20 + exam_out_of_80) assumes an
+  // end-of-term journal's total is 80, not the general 100 default — a
+  // journal left at 100 silently inflates every student's report-card total.
+  useEffect(() => {
+    if (assessmentType === 'end_of_term') setValue('totalMarks', 80)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assessmentType])
 
   const { data: streams = [] } = useStreams(classId || null)
   const { data: caLabel }      = useNextCALabel(
@@ -314,6 +323,12 @@ function CreateJournalModal({ onClose }: { onClose: () => void }) {
               </>
             )}
           </div>
+
+          {assessmentType === 'end_of_term' && Number(totalMarksVal) !== 80 && (
+            <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(245,158,11,.1)', border: '1px solid rgba(245,158,11,.3)', color: 'var(--warning)', fontSize: 12 }}>
+              Report cards score the end-of-term exam out of 80. Leaving this at {totalMarksVal} will inflate or deflate every student's report-card total for this subject.
+            </div>
+          )}
 
           {isAOI && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 14px', background: 'var(--surface2)', borderRadius: 12, border: '.5px solid var(--border)' }}>
