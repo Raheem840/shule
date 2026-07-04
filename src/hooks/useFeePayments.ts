@@ -74,6 +74,9 @@ export function useBursarKpis(term: number, academicYearId: string | null) {
 }
 
 // ── SMS reminders count ────────────────────────────────────────
+// "queued" means not yet sent — status is still 'pending'. Counting every
+// row regardless of status (sent/delivered/failed included) would silently
+// inflate this KPI far past what's actually waiting to go out.
 export function useSmsCount() {
   const { user } = useAuth()
 
@@ -85,6 +88,7 @@ export function useSmsCount() {
         .from('sms_reminders')
         .select('id', { count: 'exact', head: true })
         .eq('school_id', user!.schoolId)
+        .eq('status', 'pending')
 
       if (error) throw error
       return count ?? 0
@@ -319,12 +323,13 @@ export type LedgerRow = FeePayment & {
 }
 
 export type FeeFilters = {
-  classId?:  string
-  streamId?: string
-  term?:     number
-  year?:     number
-  status?:   FeeStatus
-  search?:   string
+  classId?:        string
+  streamId?:       string
+  term?:           number
+  year?:           number
+  academicYearId?: string
+  status?:         FeeStatus
+  search?:         string
 }
 
 export function useFeePayments(filters: FeeFilters = {}) {
@@ -336,13 +341,18 @@ export function useFeePayments(filters: FeeFilters = {}) {
     queryKey: ['fee-payments', user?.schoolId, filters],
     enabled:  !!user?.schoolId && isFinanceRole(user?.role),
     queryFn: async () => {
-      // Resolve active academic year to scope data (fee_payments has no 'year' int column)
-      const { data: activeYearData } = await supabase
-        .from('academic_years')
-        .select('id')
-        .eq('school_id', user!.schoolId)
-        .eq('is_active', true)
-        .maybeSingle()
+      // Scope by the caller's chosen academic year; fall back to the school's
+      // active year if none was given (fee_payments has no 'year' int column).
+      let scopeYearId = filters.academicYearId ?? null
+      if (!scopeYearId) {
+        const { data: activeYearData } = await supabase
+          .from('academic_years')
+          .select('id')
+          .eq('school_id', user!.schoolId)
+          .eq('is_active', true)
+          .maybeSingle()
+        scopeYearId = activeYearData?.id ?? null
+      }
 
       let feeQ = supabase
         .from('fee_payments')
@@ -350,7 +360,7 @@ export function useFeePayments(filters: FeeFilters = {}) {
         .eq('school_id', user!.schoolId)
         .eq('term', term)
         .order('payment_date', { ascending: false })
-      if (activeYearData?.id) feeQ = feeQ.eq('academic_year_id', activeYearData.id)
+      if (scopeYearId) feeQ = feeQ.eq('academic_year_id', scopeYearId)
 
       const [paymentsRes, studentsRes, classesRes, streamsRes] = await Promise.all([
         feeQ,

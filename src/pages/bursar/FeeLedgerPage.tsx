@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -267,10 +267,24 @@ export function FeeLedgerPage() {
 
   const { data: classes } = useClasses()
   const { data: streams } = useStreams(filters.classId ?? null)
-  const { data: rows, isLoading, error } = useFeePayments(filters)
-  const updatePayment = useUpdatePayment()
   const { data: academicYears = [] } = useAcademicYears()
   const activeAcademicYearId = academicYears.find(y => y.isActive)?.id ?? null
+
+  // Default the ledger to the school's active academic year the first time
+  // years load, rather than leaving academicYearId unset (which silently
+  // falls back to "active year" anyway — this keeps the select in sync).
+  useEffect(() => {
+    if (!filters.academicYearId && activeAcademicYearId) {
+      setFilters(f => ({ ...f, academicYearId: activeAcademicYearId }))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAcademicYearId])
+
+  const { data: rows, isLoading, error } = useFeePayments(filters)
+  const updatePayment = useUpdatePayment()
+
+  const selectedYearLabel = academicYears.find(y => y.id === filters.academicYearId)?.name
+    ?? String(filters.year ?? CURRENT_YEAR)
 
   const allRows = useMemo(() => {
     const r = rows ?? []
@@ -305,7 +319,7 @@ export function FeeLedgerPage() {
     const ws = wb.addWorksheet('Fee Ledger')
 
     const lastCol = 'J'
-    const title = `Fee Ledger — Term ${filters.term ?? 1}, Year ${filters.year ?? CURRENT_YEAR}`
+    const title = `Fee Ledger — Term ${filters.term ?? 1}, ${selectedYearLabel}`
 
     // Title row
     ws.mergeCells(`A1:${lastCol}1`)
@@ -392,7 +406,7 @@ export function FeeLedgerPage() {
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
     a.href = url
-    a.download = `fee-ledger-T${filters.term ?? 1}-${filters.year ?? CURRENT_YEAR}.xlsx`
+    a.download = `fee-ledger-T${filters.term ?? 1}-${selectedYearLabel.replace(/[^a-zA-Z0-9]+/g, '-')}.xlsx`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -555,7 +569,7 @@ export function FeeLedgerPage() {
           </div>
 
           <p style={{ color: 'rgba(255,255,255,.75)', fontSize: 13, margin: '0 0 20px', fontWeight: 500 }}>
-            View and manage student fee payments for Term {filters.term ?? 1}, {filters.year ?? CURRENT_YEAR}.
+            View and manage student fee payments for Term {filters.term ?? 1}, {selectedYearLabel}.
           </p>
 
           {/* KPI chips */}
@@ -594,13 +608,14 @@ export function FeeLedgerPage() {
           ))}
         </div>
 
-        <input
-          type="number"
-          value={filters.year ?? CURRENT_YEAR}
-          onChange={e => setFilters(f => ({ ...f, year: Number(e.target.value) }))}
-          aria-label="Year"
-          style={{ width: 75, padding: '0.3rem 0.6rem', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', background: 'var(--surface)', color: 'var(--txt)', fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13, outline: 'none' }}
-        />
+        <select
+          value={filters.academicYearId ?? ''}
+          onChange={e => setFilters(f => ({ ...f, academicYearId: e.target.value || undefined }))}
+          aria-label="Academic Year"
+          style={{ padding: '0.35rem 0.85rem', minWidth: 120, border: '1.5px solid var(--border)', borderRadius: 'var(--r)', background: 'var(--surface)', color: 'var(--txt)', fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 13 }}
+        >
+          {academicYears.map(y => <option key={y.id} value={y.id}>{y.name}{y.isActive ? ' (Active)' : ''}</option>)}
+        </select>
 
         <select
           value={filters.classId ?? ''}

@@ -75,7 +75,8 @@ function useBursarStudentFees(
   const { user } = useAuth()
   return useQuery({
     queryKey: ['bursar-student-fees', user?.schoolId, classId, streamId, term, academicYearId],
-    enabled:  !!user?.schoolId && !!classId && ['bursar', 'principal'].includes(user?.role ?? ''),
+    // classId is optional — null means "all classes" (a QuickBooks-style whole-school view).
+    enabled:  !!user?.schoolId && ['bursar', 'principal'].includes(user?.role ?? ''),
     staleTime: 30_000,
     queryFn: async (): Promise<StudentFeeRow[]> => {
       // 1. Fetch students in class / stream
@@ -1185,6 +1186,7 @@ export function BursarStudentsPage() {
   const [academicYearId, setAcademicYearId] = useState<string | null>(null)
   const [search,    setSearch]    = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [sortBy, setSortBy] = useState<'name' | 'balance' | 'pct'>('name')
 
   const [payStudent,     setPayStudent]     = useState<StudentFeeRow | null>(null)
   const [historyStudent, setHistoryStudent] = useState<StudentFeeRow | null>(null)
@@ -1203,17 +1205,11 @@ export function BursarStudentsPage() {
     }
   }, [academicYears, academicYearId])
 
-  useEffect(() => {
-    if (classes && classes.length > 0 && !classId) {
-      setClassId(classes[0].id)
-    }
-  }, [classes, classId])
-
   const { data: students = [], isLoading, error } = useBursarStudentFees(
     classId, streamId, term, academicYearId,
   )
 
-  // ── Filtered list ─────────────────────────────────────────
+  // ── Filtered + sorted list ────────────────────────────────
   const filtered = useMemo(() => {
     let list = students
     if (statusFilter !== 'all') list = list.filter(s => s.status === statusFilter)
@@ -1225,8 +1221,13 @@ export function BursarStudentsPage() {
         s.admissionNumber.toLowerCase().includes(q)
       )
     }
+    list = [...list].sort((a, b) => {
+      if (sortBy === 'balance') return b.balance - a.balance
+      if (sortBy === 'pct')     return a.pct - b.pct
+      return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)
+    })
     return list
-  }, [students, statusFilter, search])
+  }, [students, statusFilter, search, sortBy])
 
   // ── KPI counts ───────────────────────────────────────────
   const kpis = useMemo(() => ({
@@ -1314,7 +1315,7 @@ export function BursarStudentsPage() {
                   Student Fee Tracker
                 </h1>
                 <p style={{ color: 'rgba(255,255,255,.65)', fontSize: 12.5, margin: '4px 0 0', fontWeight: 500 }}>
-                  Select a class to view fee collection status
+                  Fee collection status across every class — filter to narrow down
                 </p>
               </div>
             </div>
@@ -1417,7 +1418,7 @@ export function BursarStudentsPage() {
           aria-label="Class"
           style={selectStyle}
         >
-          <option value="">— Select Class —</option>
+          <option value="">All Classes</option>
           {(classes ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
 
@@ -1446,6 +1447,18 @@ export function BursarStudentsPage() {
           <option value="partial">Partial</option>
           <option value="unpaid">Unpaid</option>
           <option value="no_fees">No Fees</option>
+        </select>
+
+        {/* Sort */}
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value as typeof sortBy)}
+          aria-label="Sort by"
+          style={selectStyle}
+        >
+          <option value="name">Sort: Name</option>
+          <option value="balance">Sort: Highest Balance</option>
+          <option value="pct">Sort: Lowest % Paid</option>
         </select>
 
         {/* Search */}
@@ -1479,60 +1492,7 @@ export function BursarStudentsPage() {
 
       {/* ── Card list area ───────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-        {!classId ? (
-          // Premium empty state — no class selected
-          <div style={{
-            height: '100%', display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center', gap: 16,
-          }}>
-            <div style={{
-              width: 80, height: 80, borderRadius: 24,
-              background: 'linear-gradient(135deg, rgba(13,148,136,.12), rgba(13,148,136,.04))',
-              border: '1.5px solid rgba(13,148,136,.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 00-3-3.87"/>
-                <path d="M16 3.13a4 4 0 010 7.75"/>
-              </svg>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 18, color: 'var(--txt)', letterSpacing: -.3, marginBottom: 6 }}>
-                Select a Class to Begin
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--txt3)', maxWidth: 340, lineHeight: 1.6 }}>
-                Choose a class from the filter bar above to view student fee records
-                for Term {term}.
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {(classes ?? []).slice(0, 5).map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => setClassId(c.id)}
-                  style={{
-                    padding: '8px 16px', border: '1.5px solid var(--border)',
-                    borderRadius: 10, background: 'var(--surface)',
-                    color: 'var(--txt2)', fontFamily: 'var(--font2)', fontWeight: 700,
-                    fontSize: 13, cursor: 'pointer', transition: 'all .15s',
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget.style.borderColor = 'var(--brand)')
-                    ;(e.currentTarget.style.color = 'var(--brand)')
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget.style.borderColor = 'var(--border)')
-                    ;(e.currentTarget.style.color = 'var(--txt2)')
-                  }}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : isLoading ? (
+        {isLoading ? (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
               <div style={{

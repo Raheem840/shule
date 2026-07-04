@@ -50,7 +50,7 @@ vi.mock('../../store/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }))
 
-import { useFeePayments, useAddPayment } from '../../hooks/useFeePayments'
+import { useFeePayments, useAddPayment, useSmsCount } from '../../hooks/useFeePayments'
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -165,6 +165,40 @@ describe('useFeePayments', () => {
     )
 
     await waitFor(() => expect(result.current.isError).toBe(true))
+  })
+
+  it('scopes rows by the caller-provided academicYearId instead of always resolving the active year', async () => {
+    setResponse('fee_payments', { data: [], error: null })
+    setResponse('students', { data: [], error: null })
+    setResponse('classes', { data: [], error: null })
+    setResponse('streams', { data: [], error: null })
+
+    const { result } = renderHook(
+      () => useFeePayments({ term: 1, academicYearId: 'year-prior' }),
+      { wrapper: createWrapper() },
+    )
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    // The academic_years table should never be queried when an explicit
+    // academicYearId filter is supplied — it should scope directly.
+    expect(mockFrom).not.toHaveBeenCalledWith('academic_years')
+    const feePaymentsCallIdx = mockFrom.mock.calls.findIndex(c => c[0] === 'fee_payments')
+    const builder = mockFrom.mock.results[feePaymentsCallIdx].value
+    expect(builder.eq).toHaveBeenCalledWith('academic_year_id', 'year-prior')
+  })
+})
+
+describe('useSmsCount', () => {
+  it('counts only pending (queued) sms_reminders, not sent/delivered/failed', async () => {
+    setResponse('sms_reminders', { data: null, error: null, count: 3 })
+
+    const { result } = renderHook(() => useSmsCount(), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toBe(3)
+    const callIdx = mockFrom.mock.calls.findIndex(c => c[0] === 'sms_reminders')
+    const builder = mockFrom.mock.results[callIdx].value
+    expect(builder.eq).toHaveBeenCalledWith('status', 'pending')
   })
 })
 

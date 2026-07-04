@@ -14,6 +14,7 @@ const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
     const b: any = {
       select:      vi.fn().mockReturnThis(),
       eq:          vi.fn().mockReturnThis(),
+      in:          vi.fn().mockReturnThis(),
       order:       vi.fn().mockReturnThis(),
       insert:      vi.fn().mockReturnThis(),
       update:      vi.fn().mockReturnThis(),
@@ -49,7 +50,8 @@ vi.mock('../../store/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }))
 
-import { useFeeStructure, useAddFeeType, useToggleFeeActive, useAcademicYears, useUpdateFeeAmount } from '../../hooks/useFeeStructure'
+import { useFeeStructure, useAddFeeType, useToggleFeeActive, useAcademicYears, useUpdateFeeAmount, useUnchargedCounts } from '../../hooks/useFeeStructure'
+import type { FeeStructure } from '../../types/app'
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -249,5 +251,26 @@ describe('useUpdateFeeAmount', () => {
         result.current.mutateAsync({ id: 'fee-1', amount: 500_000 })
       ).rejects.toEqual({ message: 'RLS denied' })
     })
+  })
+})
+
+describe('useUnchargedCounts', () => {
+  const fee: FeeStructure = {
+    id: 'fee-1', schoolId: 'school-1', name: 'School Fees', amount: 400_000,
+    appliesTo: 'all', term: 1, academicYearId: 'year-1', classId: null,
+    isActive: true, isCompulsory: true,
+  } as FeeStructure
+
+  it('filters the already-billed check by academic_year_id — matching useAutoChargeFees exactly', async () => {
+    setResponse('students', { data: [{ id: 'stu-1' }, { id: 'stu-2' }], error: null })
+    setResponse('fee_payments', { data: [{ student_id: 'stu-1' }], error: null })
+
+    const { result } = renderHook(() => useUnchargedCounts([fee]), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toEqual({ 'fee-1': 1 })
+    const feePaymentsCallIdx = mockFrom.mock.calls.findIndex(c => c[0] === 'fee_payments')
+    const builder = mockFrom.mock.results[feePaymentsCallIdx].value
+    expect(builder.eq).toHaveBeenCalledWith('academic_year_id', 'year-1')
   })
 })

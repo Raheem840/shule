@@ -243,10 +243,13 @@ export function useUnchargedCounts(fees: FeeStructure[]) {
         const allIds = (students ?? []).map(s => s.id as string)
         if (!allIds.length) { counts[fee.id] = 0; return }
 
-        // Count how many already have a payment record for this fee
+        // Count how many already have a payment record for this fee — must match
+        // useAutoChargeFees' own "already charged" check exactly (fee_structure_id +
+        // term + academic_year_id), or the displayed count can drift from what
+        // clicking "Bill" actually charges.
         const { data: billed } = await supabase.from('fee_payments')
           .select('student_id').eq('school_id', sid)
-          .eq('fee_structure_id', fee.id).eq('term', fee.term)
+          .eq('fee_structure_id', fee.id).eq('term', fee.term).eq('academic_year_id', fee.academicYearId)
           .in('student_id', allIds)
         const billedIds = new Set((billed ?? []).map(r => r.student_id as string))
         counts[fee.id] = allIds.filter(id => !billedIds.has(id)).length

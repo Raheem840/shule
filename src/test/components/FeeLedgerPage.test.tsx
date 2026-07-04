@@ -158,6 +158,22 @@ describe('FeeLedgerPage', () => {
     expect(screen.getByText('Import')).toBeInTheDocument()
   })
 
+  it('shows an Academic Year select populated from useAcademicYears (not a dead year number input)', () => {
+    setupDefaultMocks()
+    mockUseAcadYears.mockReturnValue({
+      data: [
+        { id: 'ay1', name: '2025/2026', isActive: true },
+        { id: 'ay0', name: '2024/2025', isActive: false },
+      ],
+      isLoading: false,
+    })
+    render(<FeeLedgerPage />)
+    const select = screen.getByLabelText('Academic Year') as HTMLSelectElement
+    expect(select).toBeInTheDocument()
+    expect(screen.getByText('2025/2026 (Active)')).toBeInTheDocument()
+    expect(screen.getByText('2024/2025')).toBeInTheDocument()
+  })
+
   it('shows loading spinner while data is loading', () => {
     setupDefaultMocks([], true)
     render(<FeeLedgerPage />)
