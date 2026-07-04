@@ -40,10 +40,15 @@ vi.mock('../../hooks/useStudents', () => ({
   useStudents: vi.fn(),
 }))
 
-vi.mock('../../hooks/useTeacherRemarks', () => ({
-  useTeacherRemarks: vi.fn(),
-  useSaveRemarks:    vi.fn(),
-}))
+vi.mock('../../hooks/useTeacherRemarks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../hooks/useTeacherRemarks')>()
+  return {
+    ...actual,
+    useTeacherRemarks: vi.fn(),
+    useSaveRemarks:    vi.fn(),
+    useStudentPerformanceBands: vi.fn().mockReturnValue({ data: new Map() }),
+  }
+})
 
 vi.mock('../../components/ui/Toast', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn() }),
@@ -60,7 +65,7 @@ vi.mock('../../components/ui/TermPicker', () => ({
 
 import { useMyAssignedClasses, useStreams } from '../../hooks/useClasses'
 import { useStudents }                       from '../../hooks/useStudents'
-import { useTeacherRemarks, useSaveRemarks } from '../../hooks/useTeacherRemarks'
+import { useTeacherRemarks, useSaveRemarks, useStudentPerformanceBands } from '../../hooks/useTeacherRemarks'
 import { TeacherRemarksPage }                from '../../pages/teacher/TeacherRemarksPage'
 
 const mockMyClasses     = useMyAssignedClasses as ReturnType<typeof vi.fn>
@@ -68,6 +73,7 @@ const mockStreams        = useStreams            as ReturnType<typeof vi.fn>
 const mockStudents      = useStudents           as ReturnType<typeof vi.fn>
 const mockRemarks       = useTeacherRemarks     as ReturnType<typeof vi.fn>
 const mockSaveRemarks   = useSaveRemarks        as ReturnType<typeof vi.fn>
+const mockBands         = useStudentPerformanceBands as ReturnType<typeof vi.fn>
 
 const CLASSES = [{ id: 'c1', name: 'S.1' }]
 const STUDENTS = [
@@ -86,6 +92,7 @@ function setupMocks(opts: {
   mockStudents.mockReturnValue({ data: opts.students ?? [], isLoading: opts.studentsLoading ?? false })
   mockRemarks.mockReturnValue({ data: new Map(), isLoading: false })
   mockSaveRemarks.mockReturnValue({ mutateAsync: mutateAsyncFn, isPending: false, isError: false })
+  mockBands.mockReturnValue({ data: new Map() })
   return { mutateAsyncFn }
 }
 
@@ -219,5 +226,81 @@ describe('TeacherRemarksPage', () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue('Great student')).toBeInTheDocument()
     })
+  })
+})
+
+describe('TeacherRemarksPage — bulk apply', () => {
+  it('applies one remark to every student when "Whole Class" mode is used', async () => {
+    setupMocks({ students: STUDENTS })
+    const user = userEvent.setup()
+    render(<TeacherRemarksPage />)
+
+    await user.selectOptions(screen.getByDisplayValue('Select class'), 'c1')
+    await waitFor(() => expect(screen.getByText('Alice Apio')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Whole Class' }))
+    const textarea = screen.getByPlaceholderText(/one remark for all 2 students/i)
+    await user.type(textarea, 'Great class effort this term')
+    await user.click(screen.getByRole('button', { name: /apply to all 2 students/i }))
+
+    await waitFor(() => {
+      // Both student rows now carry the bulk text, plus the bulk textarea itself keeps it too (3 total)
+      const textareas = screen.getAllByDisplayValue('Great class effort this term')
+      expect(textareas.length).toBe(3)
+    })
+  })
+
+  it('pre-fills a template and only applies to students in the selected performance band', async () => {
+    mockBands.mockReturnValue({ data: new Map([
+      ['s1', { avg: 90, band: 'distinction' }],
+      ['s2', { avg: 40, band: 'basic' }],
+    ]) })
+    setupMocks({ students: STUDENTS })
+    mockBands.mockReturnValue({ data: new Map([
+      ['s1', { avg: 90, band: 'distinction' }],
+      ['s2', { avg: 40, band: 'basic' }],
+    ]) })
+
+    const user = userEvent.setup()
+    render(<TeacherRemarksPage />)
+
+    await user.selectOptions(screen.getByDisplayValue('Select class'), 'c1')
+    await waitFor(() => expect(screen.getByText('Alice Apio')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'By Performance Band' }))
+    // Template auto-fills once a band is active (default band is "Moderate")
+    await user.click(screen.getByRole('button', { name: /distinction \(1\)/i }))
+
+    await waitFor(() => {
+      expect((screen.getByPlaceholderText(/template remark for this band/i) as HTMLTextAreaElement).value)
+        .toMatch(/excellent term/i)
+    })
+
+    await user.click(screen.getByRole('button', { name: /apply to 1 student in distinction/i }))
+
+    await waitFor(() => {
+      // Alice (distinction) gets the template text; Bob (basic) is untouched
+      const aliceRow = screen.getByText('Alice Apio').closest('div[style*="border-bottom"]')!
+      const bobRow   = screen.getByText('Bob Okello').closest('div[style*="border-bottom"]')!
+      expect((aliceRow.querySelector('textarea') as HTMLTextAreaElement).value).toMatch(/excellent term/i)
+      expect((bobRow.querySelector('textarea') as HTMLTextAreaElement).value).toBe('')
+    })
+  })
+
+  it('shows a 0-count and disables Apply when no student falls in the selected band', async () => {
+    mockBands.mockReturnValue({ data: new Map([['s1', { avg: 90, band: 'distinction' }]]) })
+    setupMocks({ students: STUDENTS })
+    mockBands.mockReturnValue({ data: new Map([['s1', { avg: 90, band: 'distinction' }]]) })
+
+    const user = userEvent.setup()
+    render(<TeacherRemarksPage />)
+
+    await user.selectOptions(screen.getByDisplayValue('Select class'), 'c1')
+    await waitFor(() => expect(screen.getByText('Alice Apio')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'By Performance Band' }))
+    await user.click(screen.getByRole('button', { name: /basic \(0\)/i }))
+
+    expect(screen.getByRole('button', { name: /apply to 0 students in basic/i })).toBeDisabled()
   })
 })

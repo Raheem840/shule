@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useTeacherRemarks, useSaveRemarks } from '../../hooks/useTeacherRemarks'
+import {
+  useTeacherRemarks, useSaveRemarks,
+  useStudentPerformanceBands, PERFORMANCE_BANDS, BAND_REMARK_TEMPLATES,
+  type PerformanceBand,
+} from '../../hooks/useTeacherRemarks'
 import { useStudents } from '../../hooks/useStudents'
 import { useMyAssignedClasses, useStreams } from '../../hooks/useClasses'
 import { TermPicker } from '../../components/ui/TermPicker'
@@ -56,11 +60,42 @@ export function TeacherRemarksPage() {
   const [remarks,  setRemarks]  = useState<Map<string, string>>(new Map())
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set())
 
+  // Bulk-apply: write one remark to the whole class, or to everyone in a
+  // given CBC performance band, in a single action.
+  const [bulkMode, setBulkMode] = useState<'individual' | 'whole-class' | 'band'>('individual')
+  const [bulkBand, setBulkBand] = useState<PerformanceBand>('moderate')
+  const [bulkText, setBulkText] = useState('')
+
   const classes                = useMyAssignedClasses()
   const { data: streams = [] } = useStreams(classId || null)
   const { data: students = [], isLoading: studentsLoading } = useStudents({ classId: classId || undefined, streamId: streamId || undefined, status: 'active' }, !!classId)
   const { data: savedRemarks, isLoading: remarksLoading } = useTeacherRemarks({ term: term || null, classId: classId || null, streamId: streamId || null, year: CURRENT_YEAR })
   const saveRemarks = useSaveRemarks()
+
+  const studentIds = students.map(s => s.id)
+  const { data: bands } = useStudentPerformanceBands(studentIds, term || null, CURRENT_YEAR)
+
+  const studentsInBand = students.filter(s => bands?.get(s.id)?.band === bulkBand)
+
+  function applyBulk(targets: Student[], text: string) {
+    if (!text.trim() || targets.length === 0) return
+    setRemarks(prev => {
+      const next = new Map(prev)
+      for (const s of targets) next.set(s.id, text.trim())
+      return next
+    })
+    setDirtyIds(prev => {
+      const next = new Set(prev)
+      for (const s of targets) next.add(s.id)
+      return next
+    })
+  }
+
+  // Pre-fill the bulk textarea with that band's template whenever the
+  // teacher switches into band mode or changes which band they're targeting.
+  useEffect(() => {
+    if (bulkMode === 'band') setBulkText(BAND_REMARK_TEMPLATES[bulkBand])
+  }, [bulkMode, bulkBand])
 
   useEffect(() => {
     if (!savedRemarks) return
@@ -165,6 +200,60 @@ export function TeacherRemarksPage() {
           </div>
         ))}
       </div>
+
+      {/* Bulk apply — whole class or a CBC performance band, one remark at once */}
+      {ready && !isLoading && students.length > 0 && (
+        <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7 }}>Bulk Apply</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {([['individual', 'Individual'], ['whole-class', 'Whole Class'], ['band', 'By Performance Band']] as [typeof bulkMode, string][]).map(([v, label]) => (
+                <button key={v} onClick={() => setBulkMode(v)}
+                  style={{ padding: '5px 12px', borderRadius: 99, border: `.5px solid ${bulkMode === v ? 'var(--brand)' : 'var(--border)'}`, background: bulkMode === v ? 'var(--brand-light)' : 'var(--surface2)', color: bulkMode === v ? 'var(--brand)' : 'var(--txt3)', fontSize: 11.5, fontWeight: bulkMode === v ? 700 : 600, cursor: 'pointer' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {bulkMode === 'whole-class' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <textarea value={bulkText} onChange={e => setBulkText(e.target.value.slice(0, MAX_CHARS))} rows={2}
+                placeholder={`One remark for all ${students.length} students in this class…`}
+                className="sui-input" style={{ width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
+              <button onClick={() => applyBulk(students, bulkText)} disabled={!bulkText.trim()}
+                style={{ alignSelf: 'flex-start', padding: '8px 16px', borderRadius: 10, border: 'none', background: bulkText.trim() ? 'linear-gradient(145deg,#0d9488,#0f766e)' : 'var(--surface2)', color: bulkText.trim() ? '#fff' : 'var(--txt3)', fontWeight: 700, fontSize: 12.5, cursor: bulkText.trim() ? 'pointer' : 'default' }}>
+                Apply to all {students.length} students
+              </button>
+            </div>
+          )}
+
+          {bulkMode === 'band' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {PERFORMANCE_BANDS.map(b => {
+                  const count = students.filter(s => bands?.get(s.id)?.band === b.value).length
+                  const active = bulkBand === b.value
+                  return (
+                    <button key={b.value} onClick={() => setBulkBand(b.value)}
+                      style={{ padding: '6px 13px', borderRadius: 99, border: `.5px solid ${active ? 'var(--brand)' : 'var(--border)'}`, background: active ? 'var(--brand-light)' : 'var(--surface2)', color: active ? 'var(--brand)' : 'var(--txt3)', fontSize: 12, fontWeight: active ? 700 : 600, cursor: 'pointer' }}>
+                      {b.label} ({count})
+                    </button>
+                  )
+                })}
+              </div>
+              <textarea value={bulkText} onChange={e => setBulkText(e.target.value.slice(0, MAX_CHARS))} rows={2}
+                placeholder="Template remark for this band…"
+                className="sui-input" style={{ width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
+              <button onClick={() => applyBulk(studentsInBand, bulkText)} disabled={!bulkText.trim() || studentsInBand.length === 0}
+                style={{ alignSelf: 'flex-start', padding: '8px 16px', borderRadius: 10, border: 'none', background: (bulkText.trim() && studentsInBand.length > 0) ? 'linear-gradient(145deg,#0d9488,#0f766e)' : 'var(--surface2)', color: (bulkText.trim() && studentsInBand.length > 0) ? '#fff' : 'var(--txt3)', fontWeight: 700, fontSize: 12.5, cursor: (bulkText.trim() && studentsInBand.length > 0) ? 'pointer' : 'default' }}>
+                Apply to {studentsInBand.length} student{studentsInBand.length !== 1 ? 's' : ''} in {PERFORMANCE_BANDS.find(b => b.value === bulkBand)?.label}
+              </button>
+              {!bands && <div style={{ fontSize: 11, color: 'var(--txt3)' }}>Loading performance data…</div>}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Progress */}
       {ready && !isLoading && (

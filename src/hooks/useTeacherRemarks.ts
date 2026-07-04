@@ -100,6 +100,70 @@ export function useAllTeacherRemarks(params: {
   })
 }
 
+// ── Performance bands (Uganda NCDC CBC 4-tier) ─────────────────
+// Basic 0-49, Elementary 50-64, Moderate 65-79, Distinction 80-100.
+export type PerformanceBand = 'basic' | 'elementary' | 'moderate' | 'distinction'
+
+export const PERFORMANCE_BANDS: { value: PerformanceBand; label: string; min: number; max: number }[] = [
+  { value: 'distinction', label: 'Distinction', min: 80, max: 100 },
+  { value: 'moderate',    label: 'Moderate',     min: 65, max: 79 },
+  { value: 'elementary',  label: 'Elementary',   min: 50, max: 64 },
+  { value: 'basic',       label: 'Basic',        min: 0,  max: 49 },
+]
+
+export function bandForScore(avg: number): PerformanceBand {
+  if (avg >= 80) return 'distinction'
+  if (avg >= 65) return 'moderate'
+  if (avg >= 50) return 'elementary'
+  return 'basic'
+}
+
+// Default remark templates per band — teacher can edit before applying.
+export const BAND_REMARK_TEMPLATES: Record<PerformanceBand, string> = {
+  distinction: 'An excellent term — consistently strong performance across subjects. Keep up the outstanding work.',
+  moderate:    'A solid term overall, with room to push further in a few areas. Keep working steadily.',
+  elementary:  'Making progress this term. More consistent revision and practice will help raise performance.',
+  basic:       'This term was challenging academically. Extra support and consistent follow-up are recommended.',
+}
+
+// ── useStudentPerformanceBands ──────────────────────────────────
+// For a given set of students, computes each one's average score from
+// PUBLISHED exam_results for the term+year, and buckets them into a CBC
+// performance band — used to bulk-apply one remark to everyone in a band.
+export function useStudentPerformanceBands(studentIds: string[], term: string | null, year: number | null) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['student-performance-bands', user?.schoolId, studentIds.join(','), term, year],
+    enabled:  !!user?.schoolId && studentIds.length > 0 && !!term && !!year,
+    staleTime: 3 * 60_000,
+    queryFn: async (): Promise<Map<string, { avg: number; band: PerformanceBand }>> => {
+      const sid = user!.schoolId
+
+      const [journalRes, resultsRes] = await Promise.all([
+        supabase.from('exam_journal').select('id').eq('school_id', sid).eq('status', 'published').eq('term', term!).eq('year', year!),
+        supabase.from('exam_results').select('student_id, score, exam_journal_id').eq('school_id', sid).eq('term', term!).eq('year', year!).in('student_id', studentIds).not('score', 'is', null),
+      ])
+
+      const publishedIds = new Set((journalRes.data ?? []).map((j: any) => j.id as string))
+      const perStudent = new Map<string, number[]>()
+      for (const r of (resultsRes.data ?? []) as any[]) {
+        if (!publishedIds.has(r.exam_journal_id)) continue
+        const sid2 = r.student_id as string
+        if (!perStudent.has(sid2)) perStudent.set(sid2, [])
+        perStudent.get(sid2)!.push(Number(r.score))
+      }
+
+      const map = new Map<string, { avg: number; band: PerformanceBand }>()
+      for (const [studId, scores] of perStudent) {
+        const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+        map.set(studId, { avg, band: bandForScore(avg) })
+      }
+      return map
+    },
+  })
+}
+
 // ── RemarkRow ──────────────────────────────────────────────────
 export type RemarkRow = {
   studentId: string
