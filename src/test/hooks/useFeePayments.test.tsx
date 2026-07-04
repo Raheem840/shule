@@ -50,7 +50,7 @@ vi.mock('../../store/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }))
 
-import { useFeePayments, useAddPayment, useSmsCount } from '../../hooks/useFeePayments'
+import { useFeePayments, useAddPayment, useSmsCount, useTopDefaulters, useFeeCollectionByStudentType } from '../../hooks/useFeePayments'
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -227,6 +227,63 @@ describe('useSmsCount', () => {
     const callIdx = mockFrom.mock.calls.findIndex(c => c[0] === 'sms_reminders')
     const builder = mockFrom.mock.results[callIdx].value
     expect(builder.eq).toHaveBeenCalledWith('status', 'pending')
+  })
+})
+
+describe('useTopDefaulters', () => {
+  it('returns only students with balance > 0, sorted highest balance first, capped at the limit', async () => {
+    setResponse('fee_payments', {
+      data: [
+        { student_id: 'stu-1', amount_due: 400_000, amount_paid: 100_000, balance: 300_000 },
+        { student_id: 'stu-2', amount_due: 400_000, amount_paid: 400_000, balance: 0 },
+        { student_id: 'stu-3', amount_due: 400_000, amount_paid: 50_000,  balance: 350_000 },
+      ],
+      error: null,
+    })
+    setResponse('students', {
+      data: [
+        { id: 'stu-1', admission_number: 'A1', first_name: 'Grace', last_name: 'Apio',   class_id: 'c1', student_type: 'day' },
+        { id: 'stu-2', admission_number: 'A2', first_name: 'Fully',  last_name: 'Paid',    class_id: 'c1', student_type: 'day' },
+        { id: 'stu-3', admission_number: 'A3', first_name: 'Brian',  last_name: 'Okello', class_id: 'c1', student_type: 'boarder' },
+      ],
+      error: null,
+    })
+    setResponse('classes', { data: [{ id: 'c1', name: 'S.1' }], error: null })
+
+    const { result } = renderHook(() => useTopDefaulters(1, 'year-1', 10), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toHaveLength(2)
+    expect(result.current.data![0].studentId).toBe('stu-3') // highest balance first
+    expect(result.current.data![1].studentId).toBe('stu-1')
+    expect(result.current.data!.every(d => d.balance > 0)).toBe(true)
+  })
+})
+
+describe('useFeeCollectionByStudentType', () => {
+  it('splits collected/outstanding totals by boarder vs day', async () => {
+    setResponse('fee_payments', {
+      data: [
+        { student_id: 'stu-1', amount_paid: 100_000, balance: 300_000 }, // day
+        { student_id: 'stu-2', amount_paid: 400_000, balance: 0 },       // boarder
+      ],
+      error: null,
+    })
+    setResponse('students', {
+      data: [
+        { id: 'stu-1', student_type: 'day' },
+        { id: 'stu-2', student_type: 'boarder' },
+      ],
+      error: null,
+    })
+
+    const { result } = renderHook(() => useFeeCollectionByStudentType(1, 'year-1'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toEqual({
+      day:     { collected: 100_000, outstanding: 300_000 },
+      boarder: { collected: 400_000, outstanding: 0 },
+    })
   })
 })
 

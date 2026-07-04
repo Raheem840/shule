@@ -161,6 +161,135 @@ export function useFeeCollectionByClass(term: number, academicYearId: string | n
   })
 }
 
+// ── Top defaulters (highest outstanding balance) ──────────────
+export type Defaulter = {
+  studentId:       string
+  admissionNumber: string
+  firstName:       string
+  lastName:        string
+  className:       string
+  studentType:     'day' | 'boarder'
+  amountDue:       number
+  amountPaid:      number
+  balance:         number
+}
+
+export function useTopDefaulters(term: number, academicYearId: string | null, limit = 10) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['top-defaulters', user?.schoolId, term, academicYearId, limit],
+    enabled:  !!user?.schoolId && !!academicYearId && isFinanceRole(user?.role),
+    queryFn: async () => {
+      const sid = user!.schoolId
+
+      const [paymentsRes, studentsRes, classesRes] = await Promise.all([
+        supabase
+          .from('fee_payments')
+          .select('student_id, amount_due, amount_paid, balance')
+          .eq('school_id', sid)
+          .eq('term', term)
+          .eq('academic_year_id', academicYearId!),
+        supabase
+          .from('students')
+          .select('id, admission_number, first_name, last_name, class_id, student_type')
+          .eq('school_id', sid)
+          .eq('status', 'active'),
+        supabase
+          .from('classes')
+          .select('id, name')
+          .eq('school_id', sid),
+      ])
+
+      if (paymentsRes.error) throw paymentsRes.error
+      if (studentsRes.error) throw studentsRes.error
+      if (classesRes.error)  throw classesRes.error
+
+      const classMap = new Map<string, string>()
+      for (const c of classesRes.data ?? []) classMap.set(c.id as string, c.name as string)
+
+      const byStudent = new Map<string, { due: number; paid: number; bal: number }>()
+      for (const p of paymentsRes.data ?? []) {
+        const sidKey = p.student_id as string
+        const curr = byStudent.get(sidKey) ?? { due: 0, paid: 0, bal: 0 }
+        curr.due  += Number(p.amount_due)  || 0
+        curr.paid += Number(p.amount_paid) || 0
+        curr.bal  += Number(p.balance)     || 0
+        byStudent.set(sidKey, curr)
+      }
+
+      const rows: Defaulter[] = (studentsRes.data ?? [])
+        .map(s => {
+          const fees = byStudent.get(s.id as string) ?? { due: 0, paid: 0, bal: 0 }
+          return {
+            studentId:       s.id as string,
+            admissionNumber: s.admission_number as string,
+            firstName:       s.first_name as string,
+            lastName:        s.last_name as string,
+            className:       classMap.get(s.class_id as string) ?? '—',
+            studentType:     s.student_type === 'boarder' ? 'boarder' : 'day',
+            amountDue:       fees.due,
+            amountPaid:      fees.paid,
+            balance:         fees.bal,
+          } satisfies Defaulter
+        })
+        .filter(r => r.balance > 0)
+        .sort((a, b) => b.balance - a.balance)
+        .slice(0, limit)
+
+      return rows
+    },
+  })
+}
+
+// ── Collection split by boarder / day-scholar ─────────────────
+export type StudentTypeSplit = {
+  day:     { collected: number; outstanding: number }
+  boarder: { collected: number; outstanding: number }
+}
+
+export function useFeeCollectionByStudentType(term: number, academicYearId: string | null) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['fee-by-student-type', user?.schoolId, term, academicYearId],
+    enabled:  !!user?.schoolId && !!academicYearId && isFinanceRole(user?.role),
+    queryFn: async (): Promise<StudentTypeSplit> => {
+      const sid = user!.schoolId
+
+      const [paymentsRes, studentsRes] = await Promise.all([
+        supabase
+          .from('fee_payments')
+          .select('student_id, amount_paid, balance')
+          .eq('school_id', sid)
+          .eq('term', term)
+          .eq('academic_year_id', academicYearId!),
+        supabase
+          .from('students')
+          .select('id, student_type')
+          .eq('school_id', sid),
+      ])
+
+      if (paymentsRes.error) throw paymentsRes.error
+      if (studentsRes.error) throw studentsRes.error
+
+      const typeMap = new Map<string, 'day' | 'boarder'>()
+      for (const s of studentsRes.data ?? []) {
+        typeMap.set(s.id as string, s.student_type === 'boarder' ? 'boarder' : 'day')
+      }
+
+      const split: StudentTypeSplit = { day: { collected: 0, outstanding: 0 }, boarder: { collected: 0, outstanding: 0 } }
+      for (const p of paymentsRes.data ?? []) {
+        const type = typeMap.get(p.student_id as string) ?? 'day'
+        split[type].collected   += Number(p.amount_paid) || 0
+        split[type].outstanding += Math.max(0, Number(p.balance) || 0)
+      }
+
+      return split
+    },
+  })
+}
+
 // ── Recent payments (dashboard table) ─────────────────────────
 export type RecentPayment = {
   id:            string
