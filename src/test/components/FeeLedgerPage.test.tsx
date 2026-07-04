@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '../utils'
+import userEvent from '@testing-library/user-event'
 
 // ── Virtualiser (avoids DOM measurement issues in jsdom) ───────
 vi.mock('@tanstack/react-virtual', () => ({
@@ -26,10 +27,11 @@ vi.mock('exceljs', () => ({
   },
 }))
 
-// ── ImportWizard stub ──────────────────────────────────────────
-vi.mock('../../components/shared/ImportWizard', () => ({
-  ImportWizard: () => <div data-testid="import-wizard" />,
-}))
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return { ...actual, useNavigate: () => mockNavigate }
+})
 
 // ── Hook mocks ─────────────────────────────────────────────────
 vi.mock('../../hooks/useClasses', () => ({
@@ -156,6 +158,14 @@ describe('FeeLedgerPage', () => {
     setupDefaultMocks()
     render(<FeeLedgerPage />)
     expect(screen.getByText('Import')).toBeInTheDocument()
+  })
+
+  it('clicking Import navigates to the consolidated /bursar/import page (not a local modal)', async () => {
+    setupDefaultMocks()
+    const user = userEvent.setup()
+    render(<FeeLedgerPage />)
+    await user.click(screen.getByText('Import'))
+    expect(mockNavigate).toHaveBeenCalledWith('/bursar/import')
   })
 
   it('shows an Academic Year select populated from useAcademicYears (not a dead year number input)', () => {

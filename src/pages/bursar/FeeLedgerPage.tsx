@@ -1,17 +1,15 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { SubmitHandler } from 'react-hook-form'
 import ExcelJS from 'exceljs'
-import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../store/AuthContext'
 import { Button }         from '../../components/ui/Button'
 import { Badge }          from '../../components/ui/Badge'
 import { Modal }          from '../../components/ui/Modal'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
-import { ImportWizard }   from '../../components/shared/ImportWizard'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useStudents }    from '../../hooks/useStudents'
 import {
@@ -21,7 +19,6 @@ import {
 } from '../../hooks/useFeePayments'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
 import type { FeeStatus } from '../../types/app'
-import type { ParsedRow, ConflictStrategy, ImportResult } from '../../components/shared/ImportWizard'
 
 // ── Status badge variant map ───────────────────────────────────
 const STATUS_VARIANT = {
@@ -257,12 +254,11 @@ function EditableAmountCell({
 const CURRENT_YEAR = new Date().getFullYear()
 
 export function FeeLedgerPage() {
-  const { user } = useAuth()
   const [filters, setFilters] = useState<FeeFilters>({
     term: 1, year: CURRENT_YEAR,
   })
+  const navigate = useNavigate()
   const [showAdd,    setShowAdd]    = useState(false)
-  const [showImport, setShowImport] = useState(false)
   const [above60,    setAbove60]    = useState(false)
 
   const { data: classes } = useClasses()
@@ -411,100 +407,6 @@ export function FeeLedgerPage() {
     URL.revokeObjectURL(url)
   }
 
-  // ── Fee import handler ────────────────────────────────────────
-  const handleFeeImport = useCallback(
-    async (parsedRows: ParsedRow[], strategy: ConflictStrategy): Promise<ImportResult> => {
-      if (!user) throw new Error('Not authenticated')
-      if (!['bursar', 'principal'].includes(user.role ?? '')) throw new Error('Forbidden')
-      const result: ImportResult = { imported: 0, updated: 0, skipped: 0, failed: [] }
-      const term = filters.term ?? 1
-
-      // Resolve admission numbers → student IDs
-      const admNums = [...new Set(parsedRows.map(r => r.admission_number).filter(Boolean))]
-      const { data: students, error: stuErr } = await supabase
-        .from('students')
-        .select('id, admission_number')
-        .eq('school_id', user!.schoolId)
-        .in('admission_number', admNums)
-
-      if (stuErr) throw stuErr
-
-      const studentMap = new Map<string, string>()
-      for (const s of students ?? []) studentMap.set(s.admission_number as string, s.id as string)
-
-      // Resolve academic_year_id from the active year (fee_payments uses academic_year_id not year int)
-      const { data: activeYear } = await supabase
-        .from('academic_years')
-        .select('id')
-        .eq('school_id', user!.schoolId)
-        .eq('is_active', true)
-        .maybeSingle()
-      const academicYearId = activeYear?.id ?? null
-
-      const BATCH = 50
-      for (let i = 0; i < parsedRows.length; i += BATCH) {
-        const batch = parsedRows.slice(i, i + BATCH)
-        for (let bi = 0; bi < batch.length; bi++) {
-          const row    = batch[bi]
-          const rowNum = i + bi + 1
-          const sid    = studentMap.get(row.admission_number)
-
-          if (!sid) { result.failed.push({ row: rowNum, reason: `Student "${row.admission_number}" not found` }); continue }
-
-          const amountDue  = parseFloat(row.amount_due  || '0')
-          const amountPaid = parseFloat(row.amount_paid || '0')
-          if (isNaN(amountDue) || isNaN(amountPaid)) {
-            result.failed.push({ row: rowNum, reason: 'Invalid amount value' }); continue
-          }
-
-          const rowTerm = parseInt(row.term || String(term), 10)
-
-          // Check for existing record using academic_year_id (no 'year' column on fee_payments)
-          let existQ = supabase
-            .from('fee_payments')
-            .select('id')
-            .eq('school_id', user!.schoolId)
-            .eq('student_id', sid)
-            .eq('term', rowTerm)
-          if (academicYearId) existQ = existQ.eq('academic_year_id', academicYearId)
-          const { data: existing } = await existQ.limit(1).maybeSingle()
-
-          if (existing) {
-            if (strategy === 'skip') { result.skipped++; continue }
-            const { error } = await supabase
-              .from('fee_payments')
-              .update({ amount_due: amountDue, amount_paid: amountPaid, balance: Math.max(0, amountDue - amountPaid), imported: true })
-              .eq('id', existing.id)
-            if (error) { result.failed.push({ row: rowNum, reason: error.message }); continue }
-            result.updated++
-          } else {
-            const { error } = await supabase
-              .from('fee_payments')
-              .insert({
-                school_id:        user!.schoolId,
-                student_id:       sid,
-                fee_structure_id: null,
-                academic_year_id: academicYearId,
-                amount_due:       amountDue,
-                amount_paid:      amountPaid,
-                balance:          Math.max(0, amountDue - amountPaid),
-                payment_date:     row.payment_date   || null,
-                receipt_number:   row.receipt_number || null,
-                notes:            row.notes          || null,
-                term:             rowTerm,
-                imported:         true,
-              })
-            if (error) { result.failed.push({ row: rowNum, reason: error.message }); continue }
-            result.imported++
-          }
-        }
-      }
-
-      return result
-    },
-    [filters.term, filters.year, user]
-  )
-
   const thStyle = {
     textAlign: 'left' as const, fontSize: 10, fontWeight: 700 as const,
     color: 'var(--txt3)', padding: '0.6rem 0.85rem',
@@ -538,7 +440,7 @@ export function FeeLedgerPage() {
             </div>
             <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
               <button
-                onClick={() => setShowImport(true)}
+                onClick={() => navigate('/bursar/import')}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '11px 16px', minHeight: 44, borderRadius: 10, border: '.5px solid rgba(255,255,255,.35)', background: 'rgba(255,255,255,.16)', backdropFilter: 'blur(8px)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', transition: 'background .15s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.26)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,.16)')}
@@ -789,26 +691,6 @@ export function FeeLedgerPage() {
         />
       )}
 
-      {showImport && (
-        <Modal isOpen onClose={() => setShowImport(false)} title="Import Fee Payments" size="xl">
-          <ImportWizard
-            context="fees"
-            requiredFields={[
-              { key: 'admission_number', label: 'Admission Number', required: true },
-              { key: 'amount_due',       label: 'Amount Due (UGX)', required: true },
-              { key: 'amount_paid',      label: 'Amount Paid (UGX)', required: true },
-            ]}
-            optionalFields={[
-              { key: 'receipt_number', label: 'Receipt Number', required: false },
-              { key: 'payment_date',   label: 'Payment Date',   required: false },
-              { key: 'notes',          label: 'Notes',          required: false },
-              { key: 'term',           label: 'Term (1/2/3)',   required: false },
-            ]}
-            onComplete={handleFeeImport}
-            onClose={() => setShowImport(false)}
-          />
-        </Modal>
-      )}
     </div>
   )
 }

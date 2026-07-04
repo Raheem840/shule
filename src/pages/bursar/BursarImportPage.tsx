@@ -32,15 +32,23 @@ interface StreamRec {
   classId: string
 }
 
+interface FeeStructureRec {
+  id:      string
+  name:    string
+  classId: string | null
+  term:    number
+}
+
 interface MatchedRow {
-  rowIndex:    number
-  rawRow:      ParsedRow
-  matchStatus: MatchStatus
-  student:     StudentRec | null
-  candidates:  StudentRec[]   // full class pool for close-match dropdown
-  chosenId:    string | null  // null = not yet resolved
-  skipped:     boolean
-  dbClassName: string         // DB-stored class name (e.g. "S.3 East") — used as bucket key
+  rowIndex:      number
+  rawRow:        ParsedRow
+  matchStatus:   MatchStatus
+  student:       StudentRec | null
+  candidates:    StudentRec[]   // full class pool for close-match dropdown
+  chosenId:      string | null  // null = not yet resolved
+  skipped:       boolean
+  dbClassName:   string         // DB-stored class name (e.g. "S.3 East") — used as bucket key
+  feeStructureId: string | null // resolved from the row's fee_type column, if any
 }
 
 type ImportStage = 'wizard' | 'matching' | 'preview' | 'importing' | 'done'
@@ -76,6 +84,7 @@ const REQUIRED: ColumnSpec[] = [
 const OPTIONAL: ColumnSpec[] = [
   { key: 'admission_number', label: 'Admission Number', example: 'KJA/2026/001', hint: 'If provided, used directly — skips name matching.' },
   { key: 'stream_name',      label: 'Stream Name',      example: 'East',          hint: 'Further narrows to the correct stream.' },
+  { key: 'fee_type',         label: 'Fee Type',         example: 'Tuition',       hint: 'Name of the fee item this payment is for (matches Fee Structure). Leave blank for a general/manual payment.' },
   { key: 'year',             label: 'Year',             example: '2026',          hint: 'Calendar year — leave blank to use the active academic year.' },
   { key: 'payment_date',     label: 'Payment Date',     example: '2026-02-01',    hint: 'Date of payment in YYYY-MM-DD format.' },
   { key: 'receipt_number',   label: 'Receipt Number',   example: 'REC-001',       hint: 'Reference number from payment receipt.' },
@@ -189,6 +198,20 @@ export function BursarImportPage() {
       const streams: StreamRec[] = ((streamData ?? []) as { id: string; name: string; class_id: string }[])
         .map(s => ({ id: s.id, name: s.name, classId: s.class_id }))
 
+      // 3b. Fetch active fee structure items for this year — used to resolve the
+      // optional fee_type column to a fee_structure_id, so imported payments
+      // actually satisfy a defined fee item (rather than always landing as null,
+      // which leaves the "students not yet billed" banner stuck non-zero even
+      // after a bulk import covered them).
+      const { data: fsData } = await supabase
+        .from('fee_structure')
+        .select('id, name, class_id, term')
+        .eq('school_id', user!.schoolId)
+        .eq('academic_year_id', (yearData as { id: string }).id)
+        .eq('is_active', true)
+      const feeStructures: FeeStructureRec[] = ((fsData ?? []) as { id: string; name: string; class_id: string | null; term: number }[])
+        .map(f => ({ id: f.id, name: f.name, classId: f.class_id, term: f.term }))
+
       // Build lookups
       const classMap = new Map<string, ClassRec>()
       classes.forEach(c => classMap.set(normalizeClassName(c.name), c))
@@ -197,9 +220,25 @@ export function BursarImportPage() {
       const streamMap = new Map<string, StreamRec>()
       streams.forEach(s => streamMap.set(streamKey(s.classId, s.name), s))
 
+      // Resolve a row's fee_type text → a specific fee_structure.id, scoped to
+      // the row's matched class + term (or school-wide items with class_id=null).
+      function resolveFeeStructureId(feeTypeRaw: string, classId: string | null, term: number): string | null {
+        const name = normalizeName(feeTypeRaw)
+        if (!name) return null
+        const candidates = feeStructures.filter(f =>
+          f.term === term && (f.classId === null || f.classId === classId)
+        )
+        const exact = candidates.find(f => normalizeName(f.name) === name)
+        if (exact) return exact.id
+        const partial = candidates.find(f => normalizeName(f.name).includes(name) || name.includes(normalizeName(f.name)))
+        return partial ? partial.id : null
+      }
+
       // 4. Match each row
       const matched: MatchedRow[] = rows.map((row, idx) => {
-        const admNo = String(row.admission_number ?? '').trim()
+        const admNo      = String(row.admission_number ?? '').trim()
+        const rowTerm    = Number(row.term ?? 1)
+        const feeTypeRaw = String(row.fee_type ?? '').trim()
 
         // Path A: admission_number provided — direct lookup
         if (admNo) {
@@ -214,6 +253,7 @@ export function BursarImportPage() {
             chosenId:    found ? found.id : null,
             skipped:     !found,
             dbClassName: foundClass?.name ?? String(row.class_name ?? 'Unknown').trim(),
+            feeStructureId: found ? resolveFeeStructureId(feeTypeRaw, found.class_id, rowTerm) : null,
           }
         }
 
@@ -251,21 +291,22 @@ export function BursarImportPage() {
         const rawStudentName = String(row.student_name ?? '').trim()
         const normInput      = normalizeName(rawStudentName)
 
-        const dbClass = matchedClass?.name ?? String(row.class_name ?? 'Unknown').trim()
+        const dbClass  = matchedClass?.name ?? String(row.class_name ?? 'Unknown').trim()
+        const rowFeeId = resolveFeeStructureId(feeTypeRaw, matchedClass?.id ?? null, rowTerm)
 
         // Exact full-name match
         const exact = pool.find(s => normalizeName(`${s.first_name} ${s.last_name}`) === normInput)
         if (exact) {
-          return { rowIndex: idx, rawRow: row, matchStatus: 'matched', student: exact, candidates: [], chosenId: exact.id, skipped: false, dbClassName: dbClass }
+          return { rowIndex: idx, rawRow: row, matchStatus: 'matched', student: exact, candidates: [], chosenId: exact.id, skipped: false, dbClassName: dbClass, feeStructureId: rowFeeId }
         }
 
         // Levenshtein ≤ 2
         const close = pool.filter(s => levenshtein(normInput, normalizeName(`${s.first_name} ${s.last_name}`)) <= 2)
         if (close.length > 0) {
-          return { rowIndex: idx, rawRow: row, matchStatus: 'close', student: close[0], candidates: pool, chosenId: null, skipped: false, dbClassName: dbClass }
+          return { rowIndex: idx, rawRow: row, matchStatus: 'close', student: close[0], candidates: pool, chosenId: null, skipped: false, dbClassName: dbClass, feeStructureId: rowFeeId }
         }
 
-        return { rowIndex: idx, rawRow: row, matchStatus: 'unmatched', student: null, candidates: pool, chosenId: null, skipped: true, dbClassName: dbClass }
+        return { rowIndex: idx, rawRow: row, matchStatus: 'unmatched', student: null, candidates: pool, chosenId: null, skipped: true, dbClassName: dbClass, feeStructureId: rowFeeId }
       })
 
       setMatchedRows(matched)
@@ -286,48 +327,93 @@ export function BursarImportPage() {
     if (!['bursar', 'principal'].includes(user?.role ?? '')) return
     setImporting(true)
     let imported = 0
+    let updated  = 0
     const failed: Array<{ row: number; reason: string }> = []
 
     const toImport = matchedRows.filter(m => !m.skipped && m.chosenId !== null)
 
-    for (let i = 0; i < toImport.length; i += 50) {
-      const batch   = toImport.slice(i, i + 50)
-      const inserts = batch.map(m => {
-        const r          = m.rawRow
-        const amountPaid = Number(r.amount_paid ?? 0)
-        const amountDue  = Number(r.amount_due  ?? amountPaid)
-        const balance    = Math.max(0, amountDue - amountPaid)
-        const termNum    = Number(r.term ?? 1)
-        return {
-          school_id:        user!.schoolId,
-          student_id:       m.chosenId!,
-          academic_year_id: activeYearId!,
-          amount_paid:      amountPaid,
-          amount_due:       amountDue,
-          balance,
-          payment_date:     r.payment_date ? String(r.payment_date) : (amountPaid > 0 ? new Date().toISOString().slice(0, 10) : null),
-          receipt_number:   r.receipt_number ? String(r.receipt_number) : null,
-          notes:            r.notes ? String(r.notes) : null,
-          term:             termNum,
-          imported:         true,
-          created_by:       user!.staffId ?? user!.id,
-        }
-      })
+    // Look up existing fee_payments rows for every (student, term) pair in this
+    // import, scoped to the active academic year — re-running an import (or
+    // importing overlapping data) must UPDATE the existing record, not insert
+    // a second row that would double-count in every KPI/ledger aggregate.
+    const studentIds = Array.from(new Set(toImport.map(m => m.chosenId!)))
+    const existingMap = new Map<string, { id: string; fee_structure_id: string | null }>()
+    if (studentIds.length > 0) {
+      const { data: existingRows } = await supabase
+        .from('fee_payments')
+        .select('id, student_id, fee_structure_id, term')
+        .eq('school_id', user!.schoolId)
+        .eq('academic_year_id', activeYearId!)
+        .in('student_id', studentIds)
+      for (const r of (existingRows ?? []) as { id: string; student_id: string; fee_structure_id: string | null; term: number }[]) {
+        existingMap.set(`${r.student_id}::${r.term}::${r.fee_structure_id ?? 'null'}`, { id: r.id, fee_structure_id: r.fee_structure_id })
+      }
+    }
 
-      const { error } = await supabase.from('fee_payments').insert(inserts)
+    const toInsert: Array<Record<string, unknown>> = []
+    for (const m of toImport) {
+      const r          = m.rawRow
+      const amountPaid = Number(r.amount_paid ?? 0)
+      const amountDue  = Number(r.amount_due  ?? amountPaid)
+      const balance    = Math.max(0, amountDue - amountPaid)
+      const termNum    = Number(r.term ?? 1)
+      const key        = `${m.chosenId}::${termNum}::${m.feeStructureId ?? 'null'}`
+      const existing   = existingMap.get(key)
+
+      if (existing) {
+        const { error } = await supabase
+          .from('fee_payments')
+          .update({
+            amount_due:  amountDue,
+            amount_paid: amountPaid,
+            balance,
+            payment_date:   r.payment_date ? String(r.payment_date) : (amountPaid > 0 ? new Date().toISOString().slice(0, 10) : null),
+            receipt_number: r.receipt_number ? String(r.receipt_number) : null,
+            notes:          r.notes ? String(r.notes) : null,
+            imported:       true,
+          })
+          .eq('id', existing.id)
+        if (error) failed.push({ row: m.rowIndex + 2, reason: error.message })
+        else updated++
+        continue
+      }
+
+      toInsert.push({
+        school_id:        user!.schoolId,
+        student_id:       m.chosenId!,
+        fee_structure_id: m.feeStructureId,
+        academic_year_id: activeYearId!,
+        amount_paid:      amountPaid,
+        amount_due:       amountDue,
+        balance,
+        payment_date:     r.payment_date ? String(r.payment_date) : (amountPaid > 0 ? new Date().toISOString().slice(0, 10) : null),
+        receipt_number:   r.receipt_number ? String(r.receipt_number) : null,
+        notes:            r.notes ? String(r.notes) : null,
+        term:             termNum,
+        imported:         true,
+        created_by:       user!.staffId ?? user!.id,
+        __rowIndex:       m.rowIndex,
+      })
+    }
+
+    for (let i = 0; i < toInsert.length; i += 50) {
+      const batch = toInsert.slice(i, i + 50).map(({ __rowIndex, ...rest }) => rest)
+      const rowIndices = toInsert.slice(i, i + 50).map(r => r.__rowIndex as number)
+      const { error } = await supabase.from('fee_payments').insert(batch)
       if (error) {
-        batch.forEach(m => failed.push({ row: m.rowIndex + 2, reason: error.message }))
+        rowIndices.forEach(idx => failed.push({ row: idx + 2, reason: error.message }))
       } else {
-        imported += inserts.length
+        imported += batch.length
       }
     }
 
     void qc.invalidateQueries({ queryKey: ['fee-payments', user?.schoolId] })
     void qc.invalidateQueries({ queryKey: ['bursar-student-fees'] })
     void qc.invalidateQueries({ queryKey: ['bursar-kpis', user?.schoolId] })
+    void qc.invalidateQueries({ queryKey: ['uncharged-counts-v2'] })
 
     const skipped = matchedRows.filter(m => m.skipped).length
-    setImportResult({ imported, updated: 0, skipped, failed })
+    setImportResult({ imported, updated, skipped, failed })
     setStage('done')
     setImporting(false)
   }
@@ -519,9 +605,10 @@ export function BursarImportPage() {
             <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 4 }}>Fee payment import finished</div>
           </div>
 
-          <div className="mob-grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, width: '100%', maxWidth: 420 }}>
+          <div className="mob-grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, width: '100%', maxWidth: 520 }}>
             {[
               { label: 'Imported', value: importResult.imported,       variant: 'green' as const },
+              { label: 'Updated',  value: importResult.updated,        variant: 'blue'  as const },
               { label: 'Skipped',  value: importResult.skipped,        variant: 'amber' as const },
               { label: 'Failed',   value: importResult.failed.length,  variant: 'red'   as const },
             ].map(stat => (
