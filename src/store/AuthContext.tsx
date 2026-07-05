@@ -105,6 +105,21 @@ async function cacheSessionToDb(session: Session, user: AuthUser): Promise<void>
   } catch { /* ignore */ }
 }
 
+// Push subscription registration was previously gated to `event === 'SIGNED_IN'`
+// only — that Supabase auth event fires exclusively on a genuinely fresh
+// credential-based login. Reopening the app with an already-persisted session
+// (the overwhelmingly common case for a PWA) fires 'INITIAL_SESSION' instead,
+// so push permission/subscription was never requested for any returning user —
+// the entire reason zero rows ever existed in push_subscriptions. This helper
+// is idempotent (requestPushPermission itself no-ops if already granted/denied,
+// and upserts rather than duplicates an existing subscription), so it's safe
+// to call on every session establishment, not just the first-ever login.
+function maybeRequestPush(u: AuthUser) {
+  void import('../lib/pushNotifications').then(({ requestPushPermission }) => {
+    void requestPushPermission(u.id, u.schoolId)
+  })
+}
+
 // Deactivation must win over the offline-session bridge: sign out for real and
 // drop the cached session so a deactivated user can't keep using a stale device
 // session indefinitely.
@@ -140,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAuthError(null)
           await cacheSessionToDb(activeSession, u)
           void primeOfflineCache(u.schoolId, u.role, u.id)
+          maybeRequestPush(u)
         } else if (isDeactivatedSession(activeSession)) {
           await forceSignOutDeactivated()
           setUser(null)
@@ -216,11 +232,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setAuthError(null)
             await cacheSessionToDb(session, u)
             void primeOfflineCache(u.schoolId, u.role, u.id)
-            // Request push notification permission on fresh sign-in
-            if (event === 'SIGNED_IN') {
-              import('../lib/pushNotifications').then(({ requestPushPermission }) => {
-                void requestPushPermission(u.id, u.schoolId)
-              })
+            // Request push permission / (re-)register the subscription on
+            // fresh sign-in AND on a restored session (INITIAL_SESSION) —
+            // not just SIGNED_IN, since that's the common case for anyone
+            // reopening the app with an already-persisted login. Skipped on
+            // TOKEN_REFRESHED to avoid re-checking on every silent token
+            // refresh throughout a session.
+            if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+              maybeRequestPush(u)
             }
           } else if (event === 'SIGNED_IN') {
             if (isDeactivatedSession(session)) {
