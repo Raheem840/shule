@@ -192,3 +192,46 @@ describe('useTermProgress — classId scoping (student portal)', () => {
     expect(result.current.data!.events.map(e => e.id)).toContain('ev-1')
   })
 })
+
+describe('useTermProgress — includeJournalEvents: false (parent portal)', () => {
+  const activeYear = {
+    id: 'ay-1', name: '2025', start_date: '2025-01-01', end_date: '2025-12-31', is_active: true,
+    term1_start: '2025-01-01', term1_end: '2025-04-30',
+    term2_start: '2025-05-01', term2_end: '2025-08-31',
+    term3_start: '2025-09-01', term3_end: '2025-12-31',
+  }
+
+  it('never queries exam_journal when includeJournalEvents is false', async () => {
+    setResponse('academic_years', { data: activeYear, error: null })
+    setResponse('school_events', { data: [], error: null })
+
+    const { result } = renderHook(
+      () => useTermProgress('cls-1', { includeJournalEvents: false }),
+      { wrapper: createWrapper() },
+    )
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(mockFrom.mock.calls.some(c => c[0] === 'exam_journal')).toBe(false)
+  })
+
+  it('excludes a school event not marked visible_to_parents even with no classId', async () => {
+    setResponse('academic_years', { data: activeYear, error: null })
+    setResponse('school_events', {
+      data: [
+        { id: 'ev-1', title: 'Staff Meeting', event_date: '2025-02-01', event_type: 'general', subject_id: null, class_id: null, visible_to_parents: false },
+        { id: 'ev-2', title: 'PTA Meeting',   event_date: '2025-02-05', event_type: 'general', subject_id: null, class_id: null, visible_to_parents: true },
+      ],
+      error: null,
+    })
+
+    const { result } = renderHook(
+      () => useTermProgress(null, { includeJournalEvents: false }),
+      { wrapper: createWrapper() },
+    )
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const ids = result.current.data!.events.map(e => e.id)
+    expect(ids).not.toContain('ev-1')
+    expect(ids).toContain('ev-2')
+  })
+})

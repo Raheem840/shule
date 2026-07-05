@@ -16,6 +16,10 @@ const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
       eq:          vi.fn().mockReturnThis(),
       in:          vi.fn().mockReturnThis(),
       gte:         vi.fn().mockReturnThis(),
+      not:         vi.fn().mockReturnThis(),
+      overlaps:    vi.fn().mockReturnThis(),
+      contains:    vi.fn().mockReturnThis(),
+      limit:       vi.fn().mockReturnThis(),
       order:       vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockImplementation(() => Promise.resolve(tableData[table] ?? { data: null, error: null })),
       single:      vi.fn().mockImplementation(() => Promise.resolve(tableData[table] ?? { data: null, error: null })),
@@ -29,8 +33,23 @@ const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
   return { mockFrom, setResponse, clearResponses }
 })
 
+const { mockChannel, mockRemoveChannel, channelHandlers } = vi.hoisted(() => {
+  const channelHandlers: Array<{ table: string; cb: (payload: any) => void }> = []
+  const mockRemoveChannel = vi.fn()
+  const mockChannel = vi.fn().mockImplementation(() => {
+    const chan: any = {}
+    chan.on = vi.fn().mockImplementation((_type: string, filter: { table: string }, cb: (payload: any) => void) => {
+      channelHandlers.push({ table: filter.table, cb })
+      return chan
+    })
+    chan.subscribe = vi.fn().mockReturnValue(chan)
+    return chan
+  })
+  return { mockChannel, mockRemoveChannel, channelHandlers }
+})
+
 vi.mock('../../lib/supabase', () => ({
-  supabase: { from: mockFrom },
+  supabase: { from: mockFrom, channel: mockChannel, removeChannel: mockRemoveChannel },
 }))
 
 // ── Single top-level auth mock with mutable state ─────────────
@@ -54,6 +73,8 @@ import {
   useStudentFeeBalance,
   useStudentExamSummary,
   useStudentReleasedReportCards,
+  useClassTeachersForClasses,
+  useParentPortalRealtime,
 } from '../../hooks/useParentPortal'
 
 function createWrapper() {
@@ -66,6 +87,7 @@ function createWrapper() {
 beforeEach(() => {
   vi.clearAllMocks()
   clearResponses()
+  channelHandlers.length = 0
   // Reset mockUser to default state before each test
   mockUser.studentIds = ['stu-1']
   mockUser.id         = 'parent-user-1'
@@ -139,11 +161,25 @@ describe('parent data isolation', () => {
   it('useStudentExamSummary queries exam_results by school_id + student_id (RLS boundary)', async () => {
     // Return empty (simulating RLS blocking cross-student access)
     setResponse('exam_results', { data: [], error: null })
-    const { result } = renderHook(() => useStudentExamSummary('stu-99'), { wrapper: createWrapper() })
+    const { result } = renderHook(() => useStudentExamSummary('stu-1'), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data).toEqual([])
     // Verify exam_results was queried
     expect(mockFrom).toHaveBeenCalledWith('exam_results')
+  })
+
+  it('useStudentExamSummary throws Forbidden when studentId is not in parent studentIds', async () => {
+    setResponse('exam_results', { data: [], error: null })
+    const { result } = renderHook(() => useStudentExamSummary('stu-99'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect((result.current.error as Error)?.message).toBe('Forbidden')
+  })
+
+  it('useStudentReleasedReportCards throws Forbidden when studentId is not in parent studentIds', async () => {
+    setResponse('report_cards', { data: [], error: null })
+    const { result } = renderHook(() => useStudentReleasedReportCards('stu-99'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect((result.current.error as Error)?.message).toBe('Forbidden')
   })
 
   it('useStudentFeeBalance computes "paid" status when balance is 0', async () => {
@@ -220,5 +256,111 @@ describe('useStudentReleasedReportCards', () => {
     setResponse('report_cards', { data: null, error: { message: 'Access denied' } })
     const { result } = renderHook(() => useStudentReleasedReportCards('stu-1'), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isError).toBe(true))
+  })
+})
+
+// ── useStudentFeeBalance — balance precedence ──────────────────
+describe('useStudentFeeBalance balance precedence', () => {
+  it('uses the stored DB balance column when present, not a recomputed amount', async () => {
+    // amount_due - amount_paid would be 20000, but the stored balance (e.g. after
+    // a bursar-applied waiver) is 5000 — the parent must see the stored figure,
+    // matching the bursar ledger's own useFeePayments convention.
+    setResponse('fee_payments', {
+      data: [{
+        id: 'p-4', amount_due: 100000, amount_paid: 80000,
+        balance: 5000, payment_date: null, receipt_number: null, term: 1, year: 2026,
+      }],
+      error: null,
+    })
+    const { result } = renderHook(() => useStudentFeeBalance('stu-1'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data![0].balance).toBe(5000)
+  })
+
+  it('falls back to amountDue - amountPaid when balance is null', async () => {
+    setResponse('fee_payments', {
+      data: [{
+        id: 'p-5', amount_due: 100000, amount_paid: 60000,
+        balance: null, payment_date: null, receipt_number: null, term: 1, year: 2026,
+      }],
+      error: null,
+    })
+    const { result } = renderHook(() => useStudentFeeBalance('stu-1'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data![0].balance).toBe(40000)
+  })
+})
+
+// ── useClassTeachersForClasses ─────────────────────────────────
+describe('useClassTeachersForClasses', () => {
+  it('is disabled when no classIds are given', () => {
+    const { result } = renderHook(() => useClassTeachersForClasses([null, undefined]), { wrapper: createWrapper() })
+    expect(result.current.fetchStatus).toBe('idle')
+  })
+
+  it('resolves one teacher per distinct class via streams.class_teacher_id', async () => {
+    setResponse('streams', {
+      data: [
+        { class_id: 'class-a', class_teacher_id: 'staff-1' },
+        { class_id: 'class-b', class_teacher_id: 'staff-2' },
+      ],
+      error: null,
+    })
+    setResponse('staff', {
+      data: [
+        { id: 'staff-1', auth_user_id: 'auth-1', first_name: 'Amina', last_name: 'K' },
+        { id: 'staff-2', auth_user_id: 'auth-2', first_name: 'Brian', last_name: 'M' },
+      ],
+      error: null,
+    })
+    const { result } = renderHook(() => useClassTeachersForClasses(['class-a', 'class-b']), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data!.get('class-a')?.firstName).toBe('Amina')
+    expect(result.current.data!.get('class-b')?.firstName).toBe('Brian')
+  })
+
+  it('dedupes classIds before querying', async () => {
+    setResponse('streams', { data: [], error: null })
+    const { result } = renderHook(() => useClassTeachersForClasses(['class-a', 'class-a', null]), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    const streamsCall = mockFrom.mock.calls.find(c => c[0] === 'streams')
+    expect(streamsCall).toBeTruthy()
+  })
+})
+
+// ── useParentPortalRealtime ─────────────────────────────────────
+describe('useParentPortalRealtime', () => {
+  it('subscribes to a channel scoped to all linked children', () => {
+    renderHook(() => useParentPortalRealtime(['stu-1', 'stu-2']), { wrapper: createWrapper() })
+    expect(mockChannel).toHaveBeenCalledWith('parent-portal:school-1:parent-user-1')
+  })
+
+  it('does not subscribe when there are no linked children', () => {
+    mockChannel.mockClear()
+    renderHook(() => useParentPortalRealtime([]), { wrapper: createWrapper() })
+    expect(mockChannel).not.toHaveBeenCalled()
+  })
+
+  it('invalidates the correct fee balance query for the affected child only', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries')
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}><MemoryRouter>{children}</MemoryRouter></QueryClientProvider>
+    )
+    renderHook(() => useParentPortalRealtime(['stu-1', 'stu-2']), { wrapper })
+
+    const feeHandler = channelHandlers.find(h => h.table === 'fee_payments')
+    feeHandler?.cb({ new: { student_id: 'stu-2' } })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['parent-fee-balance', 'school-1', 'stu-2'] })
+
+    invalidateSpy.mockClear()
+    feeHandler?.cb({ new: { student_id: 'stu-99' } })
+    expect(invalidateSpy).not.toHaveBeenCalled()
+  })
+
+  it('unsubscribes on unmount', () => {
+    const { unmount } = renderHook(() => useParentPortalRealtime(['stu-1']), { wrapper: createWrapper() })
+    unmount()
+    expect(mockRemoveChannel).toHaveBeenCalled()
   })
 })

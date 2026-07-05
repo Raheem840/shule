@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
@@ -6,6 +7,67 @@ import { generateTempPassword } from '../lib/passwords'
 import type { Student } from '../types/app'
 
 type AnyRow = Record<string, unknown>
+
+// ── useParentPortalRealtime ───────────────────────────────────
+// Mirrors useStudentPortalRealtime's channel/.on()/invalidate pattern so a
+// bursar payment, a newly-published mark, or a released report card shows up
+// for parents without a manual refresh. Scoped to ALL of the parent's linked
+// children (studentIds), not just the currently selected one, since a parent
+// with two children shouldn't have to switch tabs to see the other child's update.
+export function useParentPortalRealtime(studentIds: string[]) {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  const key = studentIds.slice().sort().join(',')
+
+  useEffect(() => {
+    if (!user || user.role !== 'parent' || studentIds.length === 0) return
+    const idSet = new Set(studentIds)
+
+    const channel = supabase
+      .channel(`parent-portal:${user.schoolId}:${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fee_payments', filter: `school_id=eq.${user.schoolId}` },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as AnyRow | undefined
+          if (!row || !idSet.has(row.student_id as string)) return
+          void qc.invalidateQueries({ queryKey: ['parent-fee-balance', user.schoolId, row.student_id] })
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'exam_results', filter: `school_id=eq.${user.schoolId}` },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as AnyRow | undefined
+          if (!row || !idSet.has(row.student_id as string)) return
+          void qc.invalidateQueries({ queryKey: ['parent-exam-summary', user.schoolId, row.student_id] })
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'report_cards', filter: `school_id=eq.${user.schoolId}` },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as AnyRow | undefined
+          if (!row || !idSet.has(row.student_id as string)) return
+          void qc.invalidateQueries({ queryKey: ['parent-report-cards', user.schoolId, row.student_id] })
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance', filter: `school_id=eq.${user.schoolId}` },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as AnyRow | undefined
+          if (!row || !idSet.has(row.student_id as string)) return
+          void qc.invalidateQueries({ queryKey: ['attendance-summary', user.schoolId, row.student_id] })
+          void qc.invalidateQueries({ queryKey: ['attendance-history', user.schoolId, row.student_id] })
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_remarks', filter: `school_id=eq.${user.schoolId}` },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as AnyRow | undefined
+          if (!row || !idSet.has(row.student_id as string)) return
+          void qc.invalidateQueries({ queryKey: ['parent-teacher-remarks', user.schoolId, row.student_id] })
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'students', filter: `school_id=eq.${user.schoolId}` },
+        (payload) => {
+          const row = payload.new as AnyRow | undefined
+          if (!row || !idSet.has(row.id as string)) return
+          void qc.invalidateQueries({ queryKey: ['parent-students', user.schoolId] })
+        })
+      .subscribe()
+
+    return () => { void supabase.removeChannel(channel) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, key, qc])
+}
 
 // ── Shared portal types ───────────────────────────────────────
 export type PortalReportCard = {
@@ -122,6 +184,9 @@ export function useStudentReleasedReportCards(studentId: string | null) {
     queryKey: ['parent-report-cards', user?.schoolId, studentId],
     enabled:  user?.role === 'parent' && !!studentId && !!user?.schoolId,
     queryFn: async () => {
+      if (studentId && !(user?.studentIds ?? []).includes(studentId)) {
+        throw new Error('Forbidden')
+      }
       const { data, error } = await supabase
         .from('report_cards')
         .select('id, term, year, pdf_url, released_at, principal_remarks')
@@ -153,6 +218,9 @@ export function useStudentExamSummary(studentId: string | null) {
     queryKey: ['parent-exam-summary', user?.schoolId, studentId],
     enabled:  user?.role === 'parent' && !!studentId && !!user?.schoolId,
     queryFn: async () => {
+      if (studentId && !(user?.studentIds ?? []).includes(studentId)) {
+        throw new Error('Forbidden')
+      }
       const { data, error } = await supabase
         .from('exam_results')
         .select('score, grade, term, year, exam_journal_id, is_absent')
@@ -186,20 +254,22 @@ export function useStudentExamSummary(studentId: string | null) {
       const subjectMap = new Map<string, string>()
       for (const s of (subjects ?? []) as AnyRow[]) subjectMap.set(s.id as string, s.name as string)
 
-      return (data as AnyRow[]).map(r => {
-        const j = journalMap.get(r.exam_journal_id as string)
-        return {
-          subjectName:    j ? (subjectMap.get(j.subject_id as string) ?? '—') : '—',
-          assessmentType: (j?.assessment_type as string) ?? '—',
-          journalName:    (j?.name as string) ?? '—',
-          score:          (r.score as number) ?? null,
-          grade:          (r.grade as string) ?? null,
-          totalMarks:     (j?.total_marks as number) ?? 0,
-          term:           r.term as string,
-          year:           r.year as number,
-          isAbsent:       (r.is_absent as boolean) ?? false,
-        } satisfies ExamResultRow
-      })
+      return (data as AnyRow[])
+        .filter(r => journalMap.has(r.exam_journal_id as string))
+        .map(r => {
+          const j = journalMap.get(r.exam_journal_id as string)!
+          return {
+            subjectName:    subjectMap.get(j.subject_id as string) ?? '—',
+            assessmentType: (j.assessment_type as string) ?? '—',
+            journalName:    (j.name as string) ?? '—',
+            score:          (r.score as number) ?? null,
+            grade:          (r.grade as string) ?? null,
+            totalMarks:     (j.total_marks as number) ?? 0,
+            term:           r.term as string,
+            year:           r.year as number,
+            isAbsent:       (r.is_absent as boolean) ?? false,
+          } satisfies ExamResultRow
+        })
     },
   })
 }
@@ -241,7 +311,7 @@ export function useStudentFeeBalance(studentId: string | null) {
       return ((paymentsRes.data ?? []) as AnyRow[]).map(r => {
         const amtDue  = Number(r.amount_due)  || 0
         const amtPaid = Number(r.amount_paid) || 0
-        const balance = Math.max(0, amtDue - amtPaid)
+        const balance = Math.max(0, r.balance != null ? Number(r.balance) : (amtDue - amtPaid))
         const fsId    = r.fee_structure_id as string | null
         return {
           id:            r.id as string,
@@ -409,10 +479,11 @@ export function useSendMessageToBursar() {
 // Finds the class teacher for a student's class (stream class_teacher_id first,
 // then staff with class in their classes array).
 export type StaffContact = {
-  authUserId: string
-  firstName:  string
-  lastName:   string
-  role:       string
+  authUserId:    string
+  firstName:     string
+  lastName:      string
+  role:          string
+  contextLabel?: string
 }
 
 export function useFindClassTeacher(classId: string | null | undefined) {
@@ -463,6 +534,89 @@ export function useFindClassTeacher(classId: string | null | undefined) {
       if (!fallback) return null
       const r = fallback as AnyRow
       return { authUserId: r.auth_user_id as string, firstName: r.first_name as string, lastName: r.last_name as string, role: 'class_teacher' } satisfies StaffContact
+    },
+  })
+}
+
+// ── useClassTeachersForClasses ────────────────────────────────
+// Batched version of useFindClassTeacher for a parent with multiple children
+// in different classes — resolves one class teacher per distinct classId in
+// a single pair of queries instead of calling the hook per-child (which
+// would require calling a hook inside a loop/map).
+export function useClassTeachersForClasses(classIds: (string | null | undefined)[]) {
+  const { user } = useAuth()
+  const ids = [...new Set(classIds.filter((id): id is string => !!id))]
+  const key = ids.slice().sort().join(',')
+
+  return useQuery({
+    queryKey: ['class-teachers-for-classes', user?.schoolId, key],
+    enabled:  !!user?.schoolId && ids.length > 0,
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      const map = new Map<string, StaffContact>()
+
+      const { data: streamRows } = await supabase
+        .from('streams')
+        .select('class_id, class_teacher_id')
+        .eq('school_id', user!.schoolId)
+        .in('class_id', ids)
+        .not('class_teacher_id', 'is', null)
+
+      const teacherIdByClass = new Map<string, string>()
+      for (const s of (streamRows ?? []) as AnyRow[]) {
+        const cid = s.class_id as string
+        if (!teacherIdByClass.has(cid)) teacherIdByClass.set(cid, s.class_teacher_id as string)
+      }
+
+      const staffIds = [...new Set(teacherIdByClass.values())]
+      const staffByStaffId = new Map<string, AnyRow>()
+      if (staffIds.length > 0) {
+        const { data: staffRows } = await supabase
+          .from('staff')
+          .select('id, auth_user_id, first_name, last_name')
+          .eq('school_id', user!.schoolId)
+          .in('id', staffIds)
+          .not('auth_user_id', 'is', null)
+        for (const s of (staffRows ?? []) as AnyRow[]) staffByStaffId.set(s.id as string, s)
+      }
+
+      for (const [cid, staffId] of teacherIdByClass) {
+        const s = staffByStaffId.get(staffId)
+        if (s) {
+          map.set(cid, {
+            authUserId: s.auth_user_id as string,
+            firstName:  s.first_name as string,
+            lastName:   s.last_name as string,
+            role:       'class_teacher',
+          })
+        }
+      }
+
+      // Fallback: staff with role class_teacher and this class in their classes[] array
+      const remaining = ids.filter(id => !map.has(id))
+      if (remaining.length > 0) {
+        const { data: fallbackStaff } = await supabase
+          .from('staff')
+          .select('auth_user_id, first_name, last_name, classes')
+          .eq('school_id', user!.schoolId)
+          .eq('role', 'class_teacher')
+          .not('auth_user_id', 'is', null)
+          .overlaps('classes', remaining)
+
+        for (const cid of remaining) {
+          const match = ((fallbackStaff ?? []) as AnyRow[]).find(s => ((s.classes as string[]) ?? []).includes(cid))
+          if (match) {
+            map.set(cid, {
+              authUserId: match.auth_user_id as string,
+              firstName:  match.first_name as string,
+              lastName:   match.last_name as string,
+              role:       'class_teacher',
+            })
+          }
+        }
+      }
+
+      return map
     },
   })
 }

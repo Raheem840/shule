@@ -55,11 +55,18 @@ function detectActiveTerm(row: Record<string, string | null>): {
 // (exam_journal) and school_events explicitly marked visible_to_parents (the
 // schema has no separate "visible to students" flag, so this reuses that one),
 // instead of leaking every class's / every non-parent-visible event school-wide.
-export function useTermProgress(classId?: string | null) {
+//
+// includeJournalEvents controls whether exam_journal assessment dates (a
+// teacher's academic calendar, no visibility flag of its own) appear alongside
+// school_events. The parent portal passes false — parents should only see
+// events explicitly marked visible_to_parents at creation time, not every
+// subject's exam date.
+export function useTermProgress(classId?: string | null, opts?: { includeJournalEvents?: boolean }) {
   const { user } = useAuth()
+  const includeJournalEvents = opts?.includeJournalEvents ?? true
 
   return useQuery({
-    queryKey: ['term-progress', user?.schoolId, classId ?? null],
+    queryKey: ['term-progress', user?.schoolId, classId ?? null, includeJournalEvents],
     enabled: !!user,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<TermProgress | null> => {
@@ -154,16 +161,20 @@ export function useTermProgress(classId?: string | null) {
       // Fetch exam journal events for this term only.
       // Use active year's start_date year so split academic years work correctly.
       const activeYear = new Date((row['start_date'] as string) ?? termStart).getFullYear()
-      let journalQ = supabase
-        .from('exam_journal')
-        .select('id, name, assessment_type, date_given, subject_id, class_id, term, year')
-        .eq('school_id', sid)
-        .eq('year', activeYear)
-        .eq('term', termLabel)
-      if (classId) journalQ = journalQ.eq('class_id', classId)
 
       const [journalsRes, schoolEventsRes] = await Promise.all([
-        journalQ,
+        includeJournalEvents
+          ? (() => {
+              let q = supabase
+                .from('exam_journal')
+                .select('id, name, assessment_type, date_given, subject_id, class_id, term, year')
+                .eq('school_id', sid)
+                .eq('year', activeYear)
+                .eq('term', termLabel)
+              if (classId) q = q.eq('class_id', classId)
+              return q
+            })()
+          : Promise.resolve({ data: [], error: null }),
         supabase
           .from('school_events')
           .select('id, title, event_date, event_type, subject_id, class_id, visible_to_parents')
@@ -191,9 +202,14 @@ export function useTermProgress(classId?: string | null) {
         // classId scoping (student portal): only general events (no class) or
         // events for the student's own class, and only ones explicitly marked
         // visible_to_parents — students see the same "shared" events parents do.
+        // Parent-mode (includeJournalEvents=false) always requires
+        // visible_to_parents regardless of classId, since parents should only
+        // ever see events explicitly dedicated to them at creation time.
         if (classId) {
           const eventClassId = (e.class_id as string | null) ?? null
           if (eventClassId && eventClassId !== classId) continue
+          if (!e.visible_to_parents) continue
+        } else if (!includeJournalEvents) {
           if (!e.visible_to_parents) continue
         }
         events.push({

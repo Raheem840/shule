@@ -2,12 +2,13 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   useParentStudents,
+  useParentPortalRealtime,
   useStudentReleasedReportCards,
   useStudentExamSummary,
   useStudentFeeBalance,
   useSchoolNotices,
   useFindBursar,
-  useFindClassTeacher,
+  useClassTeachersForClasses,
   useParentMessagesWithContact,
   useSendMessageToContact,
   useParentTeacherRemarks,
@@ -18,6 +19,7 @@ import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Avatar } from '../../components/shared/Avatar'
+import { SafeTermProgressTimeline } from '../../components/shared/TermProgressTimeline'
 import type { Student } from '../../types/app'
 import type { AttendanceDay } from '../../hooks/useAttendance'
 import type { ExamResultRow, StudentFeeRecord, PortalReportCard } from '../../hooks/useParentPortal'
@@ -944,7 +946,9 @@ function ChatThread({ contact, parentId }: { contact: StaffContact; parentId: st
     await sendMsg.mutateAsync({ contactAuthUserId: contact.authUserId, body: text })
   }
 
-  const roleLabel = contact.role === 'class_teacher' ? 'Class Teacher' : contact.role === 'bursar' ? 'School Bursar' : contact.role
+  const roleLabel = contact.role === 'class_teacher'
+    ? (contact.contextLabel ? `Class Teacher · ${contact.contextLabel}` : 'Class Teacher')
+    : contact.role === 'bursar' ? 'School Bursar' : contact.role
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -1017,21 +1021,42 @@ function ChatThread({ contact, parentId }: { contact: StaffContact; parentId: st
   )
 }
 
-// ── Messages tab (parent ↔ bursar / class teacher) ────────────────────────
-function MessagesTab({ classId }: { classId: string | null }) {
+// ── Messages tab (parent ↔ bursar / class teacher(s)) ──────────────────────
+// Shows the bursar plus ONE contact per distinct class among the parent's
+// children — a parent with two children in different classes sees two
+// class-teacher contacts, each labeled with the child(ren) they teach.
+function MessagesTab({ children }: { children: Student[] }) {
   const { user } = useAuth()
-  const { data: bursar,   isLoading: bursarLoad   } = useFindBursar()
-  const { data: teacher,  isLoading: teacherLoad  } = useFindClassTeacher(classId)
+  const { data: bursar,      isLoading: bursarLoad   } = useFindBursar()
+  const classIds = useMemo(() => children.map(c => c.classId), [children])
+  const { data: teacherMap = new Map<string, StaffContact>(), isLoading: teacherLoad } = useClassTeachersForClasses(classIds)
   const [selectedContact, setSelectedContact] = useState<StaffContact | null>(null)
+
+  const contacts: StaffContact[] = useMemo(() => {
+    const list: StaffContact[] = []
+    if (bursar) list.push({ ...bursar, role: 'bursar' })
+
+    const seenTeachers = new Map<string, StaffContact>()
+    for (const child of children) {
+      if (!child.classId) continue
+      const teacher = teacherMap.get(child.classId)
+      if (!teacher) continue
+      const existing = seenTeachers.get(teacher.authUserId)
+      if (existing) {
+        existing.contextLabel = `${existing.contextLabel} & ${child.firstName}`
+      } else {
+        const contact = { ...teacher, contextLabel: child.firstName }
+        seenTeachers.set(teacher.authUserId, contact)
+        list.push(contact)
+      }
+    }
+    return list
+  }, [bursar, teacherMap, children])
 
   // Auto-select bursar when loaded if nothing selected
   useEffect(() => {
-    if (!selectedContact && bursar) setSelectedContact(bursar as StaffContact)
-  }, [bursar, selectedContact])
-
-  const contacts: StaffContact[] = []
-  if (bursar)  contacts.push({ ...bursar,  role: 'bursar'        })
-  if (teacher) contacts.push({ ...teacher, role: 'class_teacher' })
+    if (!selectedContact && contacts.length > 0) setSelectedContact(contacts[0])
+  }, [contacts, selectedContact])
 
   if (bursarLoad || teacherLoad) {
     return <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', color: 'var(--txt3)', fontSize: 13 }}>Loading contacts…</div>
@@ -1054,7 +1079,9 @@ function MessagesTab({ classId }: { classId: string | null }) {
         <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5 }}>Contacts</div>
         {contacts.map(c => {
           const isSel = selectedContact?.authUserId === c.authUserId
-          const roleLabel = c.role === 'class_teacher' ? 'Class Teacher' : 'School Bursar'
+          const roleLabel = c.role === 'class_teacher'
+            ? (c.contextLabel ? `Teacher · ${c.contextLabel}` : 'Class Teacher')
+            : 'School Bursar'
           return (
             <button key={c.authUserId} onClick={() => setSelectedContact(c)}
               style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 12px', border: 'none', cursor: 'pointer', background: isSel ? 'rgba(13,148,136,.1)' : 'transparent', borderLeft: `3px solid ${isSel ? 'var(--brand)' : 'transparent'}`, textAlign: 'left', transition: 'all .15s' }}>
@@ -1609,6 +1636,8 @@ export function ParentPortalPage() {
   const { data: classes  = [] } = useClasses()
   const { data: notices  = [] } = useSchoolNotices()
 
+  useParentPortalRealtime(useMemo(() => children.map(c => c.id), [children]))
+
   const [activeChildId, setActiveChildId] = useState<string | null>(null)
   const [activeTab, setActiveTab]         = useState<TabName>('Results')
 
@@ -1736,6 +1765,13 @@ export function ParentPortalPage() {
           />
         )}
 
+        {/* Term progress — parent-only events (visible_to_parents), no journal dates */}
+        {selectedChild && (
+          <div style={{ padding: '0 1rem' }}>
+            <SafeTermProgressTimeline classId={selectedChild.classId} includeJournalEvents={false} />
+          </div>
+        )}
+
         {/* Tab content area */}
         {selectedChild && (
           <div className="portal-content-shell" style={{
@@ -1751,7 +1787,7 @@ export function ParentPortalPage() {
             {activeTab === 'Report Cards' && <ReportCardsTab studentId={selectedChild.id} />}
             {activeTab === 'Notices'      && <NoticesTab />}
             {activeTab === 'Remarks'      && <RemarksTab     studentId={selectedChild.id} />}
-            {activeTab === 'Messages'     && <MessagesTab    classId={selectedChild.classId ?? null} />}
+            {activeTab === 'Messages'     && <MessagesTab    children={children} />}
           </div>
         )}
       </div>

@@ -210,9 +210,9 @@ function EventDot({ event, pct }: { event: TermEvent; pct: number }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TERM PROGRESS TIMELINE
 // ═══════════════════════════════════════════════════════════════════════════════
-export function TermProgressTimeline({ classId }: { classId?: string | null } = {}) {
+export function TermProgressTimeline({ classId, includeJournalEvents }: { classId?: string | null; includeJournalEvents?: boolean } = {}) {
   const { loading: authLoading } = useAuth()
-  const { data: tp, isLoading } = useTermProgress(classId)
+  const { data: tp, isLoading } = useTermProgress(classId, { includeJournalEvents })
   const [animated, setAnimated] = useState(false)
 
   useEffect(() => {
@@ -363,11 +363,11 @@ export function TermProgressTimeline({ classId }: { classId?: string | null } = 
 }
 
 // ─── Safe wrapper ─────────────────────────────────────────────────────────────
-export function SafeTermProgressTimeline({ classId }: { classId?: string | null } = {}) {
+export function SafeTermProgressTimeline({ classId, includeJournalEvents }: { classId?: string | null; includeJournalEvents?: boolean } = {}) {
   return (
     <ErrorBoundary fallback={<div style={{ minHeight: 164, marginBottom: 24 }} />}>
       <div style={{ minHeight: 164 }}>
-        <TermProgressTimeline classId={classId} />
+        <TermProgressTimeline classId={classId} includeJournalEvents={includeJournalEvents} />
       </div>
     </ErrorBoundary>
   )
