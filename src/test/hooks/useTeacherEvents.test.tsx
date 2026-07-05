@@ -12,7 +12,7 @@ const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
     const b: any = {
       select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
       neq: vi.fn().mockReturnThis(), in: vi.fn().mockReturnThis(),
-      is: vi.fn().mockReturnThis(), order: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(), or: vi.fn().mockReturnThis(), order: vi.fn().mockReturnThis(),
       limit: vi.fn().mockReturnThis(), insert: vi.fn().mockReturnThis(),
       update: vi.fn().mockReturnThis(), upsert: vi.fn().mockReturnThis(),
       delete: vi.fn().mockReturnThis(),
@@ -45,7 +45,7 @@ vi.mock('../../store/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }))
 
-import { useTeacherEvents, useCreateEvent } from '../../hooks/useTeacherEvents'
+import { useTeacherEvents, useCreateEvent, useStudentSchoolEvents } from '../../hooks/useTeacherEvents'
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -176,5 +176,50 @@ describe('useCreateEvent', () => {
     // A regular teacher leaving classId blank must not trigger a school-wide student broadcast.
     const studentsCalls = mockFrom.mock.calls.filter(c => c[0] === 'students')
     expect(studentsCalls.length).toBe(0)
+  })
+})
+
+describe('useStudentSchoolEvents', () => {
+  it('is enabled only for the student role', () => {
+    authState.role = 'teacher'
+    const { result } = renderHook(() => useStudentSchoolEvents('cls-1'), { wrapper: createWrapper() })
+    expect(result.current.fetchStatus).toBe('idle')
+  })
+
+  it('queries visible_to_parents=true and scopes to general (no-class) events plus the student\'s own class', async () => {
+    authState.role = 'student'
+    setResponse('school_events', {
+      data: [{
+        id: 'ev-1', school_id: 'school-1', title: 'Sports Day', event_date: '2025-04-01',
+        event_type: 'sport', description: null, subject_id: null, class_id: null, stream_id: null,
+        total_marks: null, pass_mark: null, journaled: false, journal_id: null, created_by: null,
+        term: null, year: null, created_at: '2025-01-01T00:00:00Z', visible_to_parents: true,
+        subjects: null, classes: null, streams: null, creator: null,
+      }],
+      error: null,
+    })
+
+    const { result } = renderHook(() => useStudentSchoolEvents('cls-1'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toHaveLength(1)
+    expect(result.current.data![0].visibleToParents).toBe(true)
+
+    const callIdx = mockFrom.mock.calls.findIndex(c => c[0] === 'school_events')
+    const builder = mockFrom.mock.results[callIdx].value
+    expect(builder.eq).toHaveBeenCalledWith('visible_to_parents', true)
+    expect(builder.or).toHaveBeenCalledWith('class_id.is.null,class_id.eq.cls-1')
+  })
+
+  it('falls back to only general events (class_id null) when the student has no class yet', async () => {
+    authState.role = 'student'
+    setResponse('school_events', { data: [], error: null })
+
+    const { result } = renderHook(() => useStudentSchoolEvents(null), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const callIdx = mockFrom.mock.calls.findIndex(c => c[0] === 'school_events')
+    const builder = mockFrom.mock.results[callIdx].value
+    expect(builder.is).toHaveBeenCalledWith('class_id', null)
   })
 })

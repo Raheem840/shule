@@ -210,9 +210,9 @@ function EventDot({ event, pct }: { event: TermEvent; pct: number }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TERM PROGRESS TIMELINE
 // ═══════════════════════════════════════════════════════════════════════════════
-export function TermProgressTimeline() {
+export function TermProgressTimeline({ classId }: { classId?: string | null } = {}) {
   const { loading: authLoading } = useAuth()
-  const { data: tp, isLoading } = useTermProgress()
+  const { data: tp, isLoading } = useTermProgress(classId)
   const [animated, setAnimated] = useState(false)
 
   useEffect(() => {
@@ -363,11 +363,11 @@ export function TermProgressTimeline() {
 }
 
 // ─── Safe wrapper ─────────────────────────────────────────────────────────────
-export function SafeTermProgressTimeline() {
+export function SafeTermProgressTimeline({ classId }: { classId?: string | null } = {}) {
   return (
     <ErrorBoundary fallback={<div style={{ minHeight: 164, marginBottom: 24 }} />}>
       <div style={{ minHeight: 164 }}>
-        <TermProgressTimeline />
+        <TermProgressTimeline classId={classId} />
       </div>
     </ErrorBoundary>
   )

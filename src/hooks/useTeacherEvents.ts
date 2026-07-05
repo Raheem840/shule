@@ -99,6 +99,37 @@ export function useAllSchoolEvents() {
   })
 }
 
+// ── useStudentSchoolEvents ─────────────────────────────────────────────────
+// Events for the student portal's Events tab: general school-wide events
+// (class_id null) plus events for the student's own class, restricted to
+// ones explicitly marked visible_to_parents at creation (the schema has no
+// separate "visible to students" flag, so this reuses that one — same scope
+// a parent sees for this child).
+export function useStudentSchoolEvents(classId: string | null) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['student-school-events', user?.schoolId, classId],
+    enabled: !!user && user.role === 'student',
+    queryFn: async (): Promise<SchoolEvent[]> => {
+      const sid = user!.schoolId
+      let q = supabase
+        .from('school_events')
+        .select(EVENT_SELECT)
+        .eq('school_id', sid)
+        .eq('visible_to_parents', true)
+        .order('event_date', { ascending: true })
+      q = classId ? q.or(`class_id.is.null,class_id.eq.${classId}`) : q.is('class_id', null)
+
+      const { data, error } = await q
+      if (error?.code === '42P01') return []
+      if (error) throw new Error(error.message)
+      return (data ?? []).map(mapRow)
+    },
+    staleTime: 2 * 60_000,
+  })
+}
+
 // ── useCreateEvent ─────────────────────────────────────────────────────────
 export function useCreateEvent() {
   const { user } = useAuth()

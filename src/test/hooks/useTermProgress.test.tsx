@@ -119,3 +119,76 @@ describe('useTermProgress', () => {
     expect(result.current.data!.events).toEqual([])
   })
 })
+
+describe('useTermProgress — classId scoping (student portal)', () => {
+  const activeYear = {
+    id: 'ay-1', name: '2025', start_date: '2025-01-01', end_date: '2025-12-31', is_active: true,
+    term1_start: '2025-01-01', term1_end: '2025-04-30',
+    term2_start: '2025-05-01', term2_end: '2025-08-31',
+    term3_start: '2025-09-01', term3_end: '2025-12-31',
+  }
+
+  it('filters exam_journal events to the given class only', async () => {
+    setResponse('academic_years', { data: activeYear, error: null })
+    setResponse('exam_journal', { data: [], error: null })
+    setResponse('school_events', { data: [], error: null })
+
+    const { result } = renderHook(() => useTermProgress('cls-1'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const journalCallIdx = mockFrom.mock.calls.findIndex(c => c[0] === 'exam_journal')
+    const builder = mockFrom.mock.results[journalCallIdx].value
+    expect(builder.eq).toHaveBeenCalledWith('class_id', 'cls-1')
+  })
+
+  it('excludes a school event not marked visible_to_parents, even if in range', async () => {
+    setResponse('academic_years', { data: activeYear, error: null })
+    setResponse('exam_journal', { data: [], error: null })
+    setResponse('school_events', {
+      data: [
+        { id: 'ev-1', title: 'Staff Meeting', event_date: '2025-02-01', event_type: 'general', subject_id: null, class_id: null, visible_to_parents: false },
+        { id: 'ev-2', title: 'Sports Day',    event_date: '2025-02-05', event_type: 'sport',   subject_id: null, class_id: null, visible_to_parents: true },
+      ],
+      error: null,
+    })
+
+    const { result } = renderHook(() => useTermProgress('cls-1'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const ids = result.current.data!.events.map(e => e.id)
+    expect(ids).not.toContain('ev-1')
+    expect(ids).toContain('ev-2')
+  })
+
+  it('excludes a visible_to_parents event that belongs to a different class', async () => {
+    setResponse('academic_years', { data: activeYear, error: null })
+    setResponse('exam_journal', { data: [], error: null })
+    setResponse('school_events', {
+      data: [
+        { id: 'ev-1', title: 'Other Class Trip', event_date: '2025-02-01', event_type: 'general', subject_id: null, class_id: 'cls-OTHER', visible_to_parents: true },
+      ],
+      error: null,
+    })
+
+    const { result } = renderHook(() => useTermProgress('cls-1'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data!.events.map(e => e.id)).not.toContain('ev-1')
+  })
+
+  it('does not filter by class or visibility when classId is not provided (staff dashboards)', async () => {
+    setResponse('academic_years', { data: activeYear, error: null })
+    setResponse('exam_journal', { data: [], error: null })
+    setResponse('school_events', {
+      data: [
+        { id: 'ev-1', title: 'Internal Note', event_date: '2025-02-01', event_type: 'general', subject_id: null, class_id: 'cls-OTHER', visible_to_parents: false },
+      ],
+      error: null,
+    })
+
+    const { result } = renderHook(() => useTermProgress(), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data!.events.map(e => e.id)).toContain('ev-1')
+  })
+})

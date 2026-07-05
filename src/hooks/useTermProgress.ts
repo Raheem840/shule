@@ -50,11 +50,16 @@ function detectActiveTerm(row: Record<string, string | null>): {
   return null
 }
 
-export function useTermProgress() {
+// classId scopes events to a single class — used by the student portal so its
+// term timeline only shows subject events set for the student's OWN class
+// (exam_journal) and school_events explicitly marked visible_to_parents (the
+// schema has no separate "visible to students" flag, so this reuses that one),
+// instead of leaking every class's / every non-parent-visible event school-wide.
+export function useTermProgress(classId?: string | null) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['term-progress', user?.schoolId],
+    queryKey: ['term-progress', user?.schoolId, classId ?? null],
     enabled: !!user,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<TermProgress | null> => {
@@ -149,16 +154,19 @@ export function useTermProgress() {
       // Fetch exam journal events for this term only.
       // Use active year's start_date year so split academic years work correctly.
       const activeYear = new Date((row['start_date'] as string) ?? termStart).getFullYear()
+      let journalQ = supabase
+        .from('exam_journal')
+        .select('id, name, assessment_type, date_given, subject_id, class_id, term, year')
+        .eq('school_id', sid)
+        .eq('year', activeYear)
+        .eq('term', termLabel)
+      if (classId) journalQ = journalQ.eq('class_id', classId)
+
       const [journalsRes, schoolEventsRes] = await Promise.all([
-        supabase
-          .from('exam_journal')
-          .select('id, name, assessment_type, date_given, subject_id, class_id, term, year')
-          .eq('school_id', sid)
-          .eq('year', activeYear)
-          .eq('term', termLabel),
+        journalQ,
         supabase
           .from('school_events')
-          .select('id, title, event_date, event_type, subject_id, class_id')
+          .select('id, title, event_date, event_type, subject_id, class_id, visible_to_parents')
           .eq('school_id', sid)
           .gte('event_date', termStart)
           .lte('event_date', termEnd),
@@ -180,6 +188,14 @@ export function useTermProgress() {
       // School events (if table exists — 42P01 → data will be null → empty array)
       if (!schoolEventsRes.error || schoolEventsRes.error.code === '42P01') {
       for (const e of (schoolEventsRes.data ?? [])) {
+        // classId scoping (student portal): only general events (no class) or
+        // events for the student's own class, and only ones explicitly marked
+        // visible_to_parents — students see the same "shared" events parents do.
+        if (classId) {
+          const eventClassId = (e.class_id as string | null) ?? null
+          if (eventClassId && eventClassId !== classId) continue
+          if (!e.visible_to_parents) continue
+        }
         events.push({
           id:    e.id,
           title: e.title as string,
