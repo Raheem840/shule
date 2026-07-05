@@ -372,97 +372,272 @@ export function useStorageBuckets() {
   })
 }
 
+// ── Promotion year-rollover helpers ─────────────────────────────────────────
+// Classes are year-scoped (classes.academic_year_id is required — each academic
+// year has its own class rows). Promotion must therefore move a student not just
+// to the next grade LEVEL, but into the NEXT academic year's class at that level,
+// creating that year/those classes if they don't exist yet.
+
+type YearRow = {
+  id: string; label: string; start_date: string | null; end_date: string | null; is_active: boolean
+  term1_start: string | null; term1_end: string | null
+  term2_start: string | null; term2_end: string | null
+  term3_start: string | null; term3_end: string | null
+}
+
+function shiftDate(d: string | null, days: number): string | null {
+  if (!d) return null
+  const dt = new Date(d)
+  dt.setDate(dt.getDate() + days)
+  return dt.toISOString().slice(0, 10)
+}
+
+// Resolves the academic year that comes chronologically after the school's
+// active year. If none exists yet, creates one — mirroring the active year's
+// date structure one year forward, matching the convention already used by
+// AcademicYearPage's own "+ New Year" default (same-length year, is_active=false
+// until the principal explicitly activates it via that page).
+async function resolveOrCreateNextAcademicYear(schoolId: string): Promise<{ id: string; label: string }> {
+  const { data: yearsData, error } = await supabase
+    .from('academic_years')
+    .select('id, label, start_date, end_date, is_active, term1_start, term1_end, term2_start, term2_end, term3_start, term3_end')
+    .eq('school_id', schoolId)
+    .order('start_date', { ascending: true })
+  if (error) throw new Error(error.message)
+
+  const years  = (yearsData ?? []) as YearRow[]
+  const active = years.find(y => y.is_active)
+  if (!active) throw new Error('No active academic year is set. Configure one in Academic Years before promoting students.')
+
+  const candidates = years
+    .filter(y => y.id !== active.id && active.start_date && y.start_date && y.start_date > active.start_date)
+    .sort((a, b) => (a.start_date ?? '').localeCompare(b.start_date ?? ''))
+  if (candidates.length > 0) return { id: candidates[0].id, label: candidates[0].label }
+
+  let offsetDays = 365
+  if (active.start_date && active.end_date) {
+    offsetDays = Math.round((new Date(active.end_date).getTime() - new Date(active.start_date).getTime()) / 86_400_000) + 1
+  }
+  const nextStart = shiftDate(active.end_date, 1)
+  const nextEnd   = active.start_date && active.end_date ? shiftDate(nextStart, offsetDays - 1) : null
+  const yearMatch = active.label.match(/\d{4}/)
+  const nextLabel = yearMatch ? active.label.replace(yearMatch[0], String(Number(yearMatch[0]) + 1)) : `${active.label} (Next)`
+
+  const { data: created, error: createErr } = await supabase
+    .from('academic_years')
+    .insert({
+      school_id: schoolId, label: nextLabel,
+      start_date: nextStart, end_date: nextEnd,
+      is_active: false, survey_active: false,
+      term1_start: shiftDate(active.term1_start, offsetDays), term1_end: shiftDate(active.term1_end, offsetDays),
+      term2_start: shiftDate(active.term2_start, offsetDays), term2_end: shiftDate(active.term2_end, offsetDays),
+      term3_start: shiftDate(active.term3_start, offsetDays), term3_end: shiftDate(active.term3_end, offsetDays),
+    })
+    .select('id')
+    .single()
+  if (createErr) throw new Error(createErr.message)
+  return { id: created!.id as string, label: nextLabel }
+}
+
+type ClassRow  = { id: string; name: string; level: string | null }
+type StreamRow = { id: string; name: string; class_id: string }
+
+// Ensures the target year has a class for every class the source year has
+// (matched by name), auto-creating any missing ones (and their streams) by
+// copying the source year's structure forward. Returns lookups needed to
+// resolve where a promoted student's new class_id/stream_id should point.
+async function ensureClassesForYear(schoolId: string, sourceYearId: string, targetYearId: string) {
+  const [sourceRes, targetRes] = await Promise.all([
+    supabase.from('classes').select('id, name, level').eq('school_id', schoolId).eq('academic_year_id', sourceYearId),
+    supabase.from('classes').select('id, name, level').eq('school_id', schoolId).eq('academic_year_id', targetYearId),
+  ])
+  if (sourceRes.error) throw new Error(sourceRes.error.message)
+  if (targetRes.error) throw new Error(targetRes.error.message)
+
+  const sourceClasses = (sourceRes.data ?? []) as ClassRow[]
+  let targetClasses   = (targetRes.data ?? []) as ClassRow[]
+  const targetByName  = new Map(targetClasses.map(c => [c.name, c]))
+
+  const missing = sourceClasses.filter(c => !targetByName.has(c.name))
+  if (missing.length > 0) {
+    const { error: insErr } = await supabase.from('classes').insert(
+      missing.map(c => ({ school_id: schoolId, academic_year_id: targetYearId, name: c.name, level: c.level }))
+    )
+    if (insErr) throw new Error(insErr.message)
+    const { data: refetched, error: refErr } = await supabase
+      .from('classes').select('id, name, level').eq('school_id', schoolId).eq('academic_year_id', targetYearId)
+    if (refErr) throw new Error(refErr.message)
+    targetClasses = (refetched ?? []) as ClassRow[]
+    targetClasses.forEach(c => targetByName.set(c.name, c))
+  }
+
+  const sourceToTargetClassId = new Map<string, string>()
+  for (const sc of sourceClasses) {
+    const tc = targetByName.get(sc.name)
+    if (tc) sourceToTargetClassId.set(sc.id, tc.id)
+  }
+
+  // Copy streams for any newly-created target class that has none yet.
+  const [sourceStreamsRes, targetStreamsRes] = await Promise.all([
+    sourceClasses.length
+      ? supabase.from('streams').select('id, name, class_id').eq('school_id', schoolId).in('class_id', sourceClasses.map(c => c.id))
+      : Promise.resolve({ data: [], error: null }),
+    targetClasses.length
+      ? supabase.from('streams').select('id, name, class_id').eq('school_id', schoolId).in('class_id', targetClasses.map(c => c.id))
+      : Promise.resolve({ data: [], error: null }),
+  ])
+  if (sourceStreamsRes.error) throw new Error(sourceStreamsRes.error.message)
+  if (targetStreamsRes.error) throw new Error(targetStreamsRes.error.message)
+
+  const targetStreamsByClass = new Map<string, Map<string, string>>()
+  for (const st of (targetStreamsRes.data ?? []) as StreamRow[]) {
+    if (!targetStreamsByClass.has(st.class_id)) targetStreamsByClass.set(st.class_id, new Map())
+    targetStreamsByClass.get(st.class_id)!.set(st.name, st.id)
+  }
+
+  const streamsToInsert: { school_id: string; class_id: string; name: string }[] = []
+  for (const st of (sourceStreamsRes.data ?? []) as StreamRow[]) {
+    const targetClassId = sourceToTargetClassId.get(st.class_id)
+    if (!targetClassId) continue
+    const alreadyHas = targetStreamsByClass.get(targetClassId)?.has(st.name)
+    if (!alreadyHas) streamsToInsert.push({ school_id: schoolId, class_id: targetClassId, name: st.name })
+  }
+  if (streamsToInsert.length > 0) {
+    const { error: streamInsErr } = await supabase.from('streams').insert(streamsToInsert)
+    if (streamInsErr) throw new Error(streamInsErr.message)
+    const { data: refetchedStreams } = await supabase
+      .from('streams').select('id, name, class_id').eq('school_id', schoolId).in('class_id', targetClasses.map(c => c.id))
+    targetStreamsByClass.clear()
+    for (const st of (refetchedStreams ?? []) as StreamRow[]) {
+      if (!targetStreamsByClass.has(st.class_id)) targetStreamsByClass.set(st.class_id, new Map())
+      targetStreamsByClass.get(st.class_id)!.set(st.name, st.id)
+    }
+  }
+
+  return { sourceToTargetClassId, targetStreamsByClass }
+}
+
+function parseLevel(level: string | null): number | null {
+  if (level == null || level === '') return null
+  const n = Number(level)
+  return Number.isFinite(n) ? n : null
+}
+
+export type PromotionOutcome = { promoted: number; completed: number; skipped: number; total: number; nextYearLabel: string }
+
+// Shared by usePromoteStudents (all active students) and useSelectivePromote
+// (an explicit subset). Resolves/creates the next academic year, mirrors its
+// class/stream structure forward, then moves each student to the class one
+// level up IN THAT YEAR (never just the same year's differently-named class —
+// classes are year-scoped, so "promoting" must mean moving year, not just level).
+async function runPromotion(schoolId: string, scope: 'all' | string[]): Promise<PromotionOutcome> {
+  let sq = supabase.from('students').select('id, class_id, stream_id').eq('school_id', schoolId).eq('status', 'active')
+  if (scope !== 'all') sq = sq.in('id', scope)
+  const { data: studentsData, error: stuErr } = await sq
+  if (stuErr) throw new Error(stuErr.message)
+  const students = (studentsData ?? []) as { id: string; class_id: string | null; stream_id: string | null }[]
+  const total = students.length
+  if (total === 0) return { promoted: 0, completed: 0, skipped: 0, total: 0, nextYearLabel: '' }
+
+  const { data: activeYearRow, error: yearErr } = await supabase
+    .from('academic_years').select('id').eq('school_id', schoolId).eq('is_active', true).maybeSingle()
+  if (yearErr) throw new Error(yearErr.message)
+  if (!activeYearRow) throw new Error('No active academic year is set. Configure one in Academic Years before promoting students.')
+  const sourceYearId = activeYearRow.id as string
+
+  const { id: targetYearId, label: nextYearLabel } = await resolveOrCreateNextAcademicYear(schoolId)
+  const { sourceToTargetClassId, targetStreamsByClass } = await ensureClassesForYear(schoolId, sourceYearId, targetYearId)
+
+  const { data: sourceClassesData, error: srcClassErr } = await supabase
+    .from('classes').select('id, level').eq('school_id', schoolId).eq('academic_year_id', sourceYearId)
+  if (srcClassErr) throw new Error(srcClassErr.message)
+  const sourceClasses = (sourceClassesData ?? []) as { id: string; level: string | null }[]
+
+  const levelById = new Map<string, number | null>()
+  let maxLevel: number | null = null
+  for (const c of sourceClasses) {
+    const lvl = parseLevel(c.level)
+    levelById.set(c.id, lvl)
+    if (lvl != null && (maxLevel === null || lvl > maxLevel)) maxLevel = lvl
+  }
+  // level -> this year's class id, so we can find "level+1" then map that
+  // source class id through sourceToTargetClassId to the actual next-year class.
+  const sourceClassIdByLevel = new Map<number, string>()
+  for (const c of sourceClasses) {
+    const lvl = levelById.get(c.id)
+    if (lvl != null) sourceClassIdByLevel.set(lvl, c.id)
+  }
+
+  const relevantClassIds = [...new Set(students.map(s => s.class_id).filter((id): id is string => !!id))]
+  const { data: sourceStreamsData } = relevantClassIds.length
+    ? await supabase.from('streams').select('id, name, class_id').eq('school_id', schoolId).in('class_id', relevantClassIds)
+    : { data: [] as StreamRow[] }
+  const sourceStreamById = new Map(((sourceStreamsData ?? []) as StreamRow[]).map(s => [s.id, s.name]))
+
+  const toComplete: string[] = []
+  const skipped: string[] = []
+  // Group by (targetClassId, targetStreamId) to batch updates.
+  const toPromoteMap = new Map<string, { classId: string; streamId: string | null; ids: string[] }>()
+
+  for (const s of students) {
+    const level = s.class_id ? levelById.get(s.class_id) : undefined
+    if (!s.class_id || level == null) { skipped.push(s.id); continue }
+    if (maxLevel != null && level === maxLevel) { toComplete.push(s.id); continue }
+
+    const nextSourceClassId = sourceClassIdByLevel.get(level + 1)
+    const targetClassId     = nextSourceClassId ? sourceToTargetClassId.get(nextSourceClassId) : undefined
+    if (!targetClassId) { skipped.push(s.id); continue }
+
+    const streamName = s.stream_id ? sourceStreamById.get(s.stream_id) : undefined
+    const targetStreamId = streamName ? targetStreamsByClass.get(targetClassId)?.get(streamName) ?? null : null
+
+    const key = `${targetClassId}::${targetStreamId ?? 'none'}`
+    if (!toPromoteMap.has(key)) toPromoteMap.set(key, { classId: targetClassId, streamId: targetStreamId, ids: [] })
+    toPromoteMap.get(key)!.ids.push(s.id)
+  }
+
+  if (toComplete.length > 0) {
+    for (let i = 0; i < toComplete.length; i += 100) {
+      const { error } = await supabase.from('students')
+        .update({ status: 'completed', class_id: null, stream_id: null })
+        .eq('school_id', schoolId)
+        .in('id', toComplete.slice(i, i + 100))
+      if (error) throw new Error(error.message)
+    }
+  }
+
+  for (const { classId, streamId, ids } of toPromoteMap.values()) {
+    for (let i = 0; i < ids.length; i += 100) {
+      const { error } = await supabase.from('students')
+        .update({ class_id: classId, stream_id: streamId, academic_year_id: targetYearId })
+        .eq('school_id', schoolId)
+        .in('id', ids.slice(i, i + 100))
+      if (error) throw new Error(error.message)
+    }
+  }
+
+  const promoted = [...toPromoteMap.values()].reduce((sum, g) => sum + g.ids.length, 0)
+  return { promoted, completed: toComplete.length, skipped: skipped.length, total, nextYearLabel }
+}
+
 // ── usePromoteStudents ─────────────────────────────────────────────────────
-// Promotes all active students to the next class. S4/S6 → completed.
+// Promotes all active students to next year's class one level up. Students at
+// the highest configured level (e.g. S.4/S.6) → completed.
 export function usePromoteStudents() {
   const { user } = useAuth()
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async (onProgress?: (current: number, total: number) => void) => {
+    mutationFn: async (_onProgress?: (current: number, total: number) => void): Promise<PromotionOutcome> => {
       if (!user) throw new Error('Not authenticated')
       if (!['deputy', 'secretary'].includes(user.role)) throw new Error('Forbidden')
-
-      // Fetch all active students with their class name
-      const { data: students, error: studentsErr } = await supabase
-        .from('students')
-        .select('id, class_id')
-        .eq('school_id', user.schoolId)
-        .eq('status', 'active')
-
-      if (studentsErr) throw new Error(studentsErr.message)
-
-      // Fetch all classes to build name → id map
-      const { data: classes, error: classesErr } = await supabase
-        .from('classes')
-        .select('id, name')
-        .eq('school_id', user.schoolId)
-
-      if (classesErr) throw new Error(classesErr.message)
-
-      const classById   = new Map((classes ?? []).map((c: any) => [c.id, c.name as string]))
-      const classByName = new Map((classes ?? []).map((c: any) => [c.name as string, c.id as string]))
-
-      const NEXT_CLASS: Record<string, string | null> = {
-        'S.1': 'S.2', 'S.2': 'S.3', 'S.3': 'S.4', 'S.4': null,
-        'S.5': 'S.6', 'S.6': null,
-        'S1':  'S2',  'S2':  'S3',   'S3':  'S4',  'S4':  null,
-        'S5':  'S6',  'S6':  null,
-      }
-
-      const rows = students ?? []
-      const total = rows.length
-
-      // Group by outcome to avoid N+1 updates
-      const toComplete: string[] = []
-      const toPromoteMap = new Map<string, string[]>()
-
-      for (const s of rows) {
-        const className = classById.get(s.class_id ?? '') ?? ''
-        const nextName  = NEXT_CLASS[className]
-        if (nextName === undefined) continue
-        if (nextName === null) {
-          toComplete.push(s.id)
-        } else {
-          const nextId = classByName.get(nextName)
-          if (nextId) {
-            if (!toPromoteMap.has(nextId)) toPromoteMap.set(nextId, [])
-            toPromoteMap.get(nextId)!.push(s.id)
-          }
-        }
-      }
-
-      let processed = 0
-      if (toComplete.length > 0) {
-        for (let i = 0; i < toComplete.length; i += 100) {
-          const { error } = await supabase.from('students')
-            .update({ status: 'completed', class_id: null, stream_id: null })
-            .eq('school_id', user!.schoolId)
-            .in('id', toComplete.slice(i, i + 100))
-          if (error) throw new Error(error.message)
-          processed += Math.min(100, toComplete.length - i)
-          onProgress?.(processed, total)
-        }
-      }
-
-      for (const [nextId, ids] of toPromoteMap) {
-        for (let i = 0; i < ids.length; i += 100) {
-          const { error } = await supabase.from('students')
-            .update({ class_id: nextId, stream_id: null })
-            .eq('school_id', user!.schoolId)
-            .in('id', ids.slice(i, i + 100))
-          if (error) throw new Error(error.message)
-          processed += Math.min(100, ids.length - i)
-          onProgress?.(processed, total)
-        }
-      }
-
-      const promoted  = [...toPromoteMap.values()].reduce((s, arr) => s + arr.length, 0)
-      const completed = toComplete.length
-      return { promoted, completed, total }
+      return runPromotion(user.schoolId, 'all')
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['classes', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['academic-years', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['academic-years-full', user?.schoolId] })
     },
   })
 }
@@ -482,7 +657,7 @@ export type PromotionCandidate = {
   className: string
   avgScore: number | null
   grade: PerformanceGrade
-  isTerminal: boolean   // true for S.4 (O'Level terminal)
+  isTerminal: boolean   // true when at the school's highest configured class level
 }
 
 function scoreToGrade(avg: number | null): PerformanceGrade {
@@ -492,15 +667,6 @@ function scoreToGrade(avg: number | null): PerformanceGrade {
   if (avg >= 50)   return 'Needs Improvement'
   return 'Advised to Stay Back'
 }
-
-const NEXT_CLASS_MAP: Record<string, string | null> = {
-  'S.1': 'S.2', 'S.2': 'S.3', 'S.3': 'S.4', 'S.4': null,
-  'S.5': 'S.6', 'S.6': null,
-  'S1':  'S2',  'S2':  'S3',  'S3':  'S4',  'S4':  null,
-  'S5':  'S6',  'S6':  null,
-}
-
-const TERMINAL_CLASSES = new Set(['S.4', 'S4', 'S.6', 'S6'])
 
 export function useLoadPromotionCandidates() {
   const { user } = useAuth()
@@ -520,7 +686,7 @@ export function useLoadPromotionCandidates() {
           .eq('status', 'active'),
         supabase
           .from('classes')
-          .select('id, name')
+          .select('id, name, level')
           .eq('school_id', sid),
         supabase
           .from('exam_results')
@@ -534,6 +700,12 @@ export function useLoadPromotionCandidates() {
       if (classesRes.error)  throw new Error(classesRes.error.message)
 
       const classById = new Map((classesRes.data ?? []).map((c: any) => [c.id as string, c.name as string]))
+      let maxLevel: number | null = null
+      for (const c of (classesRes.data ?? []) as { level: string | null }[]) {
+        const lvl = parseLevel(c.level)
+        if (lvl != null && (maxLevel === null || lvl > maxLevel)) maxLevel = lvl
+      }
+      const levelByClassId = new Map((classesRes.data ?? []).map((c: any) => [c.id as string, parseLevel(c.level)]))
 
       // Aggregate scores per student
       const scoreMap = new Map<string, { sum: number; count: number }>()
@@ -549,6 +721,7 @@ export function useLoadPromotionCandidates() {
         const entry   = scoreMap.get(s.id as string)
         const avg     = entry && entry.count > 0 ? entry.sum / entry.count : null
         const cName   = classById.get(s.class_id as string) ?? '—'
+        const level   = levelByClassId.get(s.class_id as string) ?? null
         return {
           id:              s.id as string,
           firstName:       s.first_name as string,
@@ -558,7 +731,7 @@ export function useLoadPromotionCandidates() {
           className:       cName,
           avgScore:        avg !== null ? Math.round(avg * 10) / 10 : null,
           grade:           scoreToGrade(avg),
-          isTerminal:      TERMINAL_CLASSES.has(cName),
+          isTerminal:      level != null && maxLevel != null && level === maxLevel,
         } satisfies PromotionCandidate
       })
     },
@@ -566,84 +739,24 @@ export function useLoadPromotionCandidates() {
 }
 
 // ── useSelectivePromote ────────────────────────────────────────────────────
-// Promotes only the explicitly selected students.
-// S.4/S.6 terminal students are set to status='completed', class_id=null.
+// Promotes only the explicitly selected students, into next year's class one
+// level up. Students at the highest configured level → completed.
 export function useSelectivePromote() {
   const { user } = useAuth()
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async (
-      selectedIds: string[],
-    ): Promise<{ promoted: number; completed: number }> => {
+    mutationFn: async (selectedIds: string[]): Promise<PromotionOutcome> => {
       if (!user) throw new Error('Not authenticated')
       if (!['deputy', 'secretary'].includes(user.role ?? '')) throw new Error('Forbidden')
-      if (selectedIds.length === 0) return { promoted: 0, completed: 0 }
-
-      const sid = user.schoolId
-
-      // Fetch class info for selected students
-      const { data: students, error } = await supabase
-        .from('students')
-        .select('id, class_id')
-        .eq('school_id', sid)
-        .in('id', selectedIds)
-
-      if (error) throw new Error(error.message)
-
-      const { data: classes, error: classErr } = await supabase
-        .from('classes')
-        .select('id, name')
-        .eq('school_id', sid)
-
-      if (classErr) throw new Error(classErr.message)
-
-      const classById   = new Map((classes ?? []).map((c: any) => [c.id as string, c.name as string]))
-      const classByName = new Map((classes ?? []).map((c: any) => [c.name as string, c.id as string]))
-
-      const toComplete: string[] = []
-      const toPromoteMap = new Map<string, string[]>()
-
-      for (const s of students ?? []) {
-        const cName = classById.get(s.class_id ?? '') ?? ''
-        const next  = NEXT_CLASS_MAP[cName]
-        if (next === undefined) continue
-        if (next === null) {
-          toComplete.push(s.id)
-        } else {
-          const nextId = classByName.get(next)
-          if (nextId) {
-            if (!toPromoteMap.has(nextId)) toPromoteMap.set(nextId, [])
-            toPromoteMap.get(nextId)!.push(s.id)
-          }
-        }
-      }
-
-      if (toComplete.length > 0) {
-        for (let i = 0; i < toComplete.length; i += 100) {
-          const { error } = await supabase.from('students')
-            .update({ status: 'completed', class_id: null, stream_id: null })
-            .eq('school_id', sid).in('id', toComplete.slice(i, i + 100))
-          if (error) throw new Error(error.message)
-        }
-      }
-
-      for (const [nextId, ids] of toPromoteMap) {
-        for (let i = 0; i < ids.length; i += 100) {
-          const { error } = await supabase.from('students')
-            .update({ class_id: nextId, stream_id: null })
-            .eq('school_id', sid).in('id', ids.slice(i, i + 100))
-          if (error) throw new Error(error.message)
-        }
-      }
-
-      return {
-        promoted:  [...toPromoteMap.values()].reduce((s, arr) => s + arr.length, 0),
-        completed: toComplete.length,
-      }
+      if (selectedIds.length === 0) return { promoted: 0, completed: 0, skipped: 0, total: 0, nextYearLabel: '' }
+      return runPromotion(user.schoolId, selectedIds)
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['classes', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['academic-years', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['academic-years-full', user?.schoolId] })
     },
   })
 }

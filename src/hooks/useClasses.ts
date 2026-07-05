@@ -4,20 +4,39 @@ import { useAuth } from '../store/AuthContext'
 import type { Class, Stream, Subject, Department } from '../types/app'
 
 // ── useClasses ─────────────────────────────────────────────────
-// Used in registration wizard and filter dropdowns.
-export function useClasses() {
+// Used in registration wizard and filter dropdowns. Classes are year-scoped
+// (academic_year_id is required — each academic year gets its own class rows,
+// per how promotion/rollover works), so this defaults to the school's ACTIVE
+// year only — otherwise every dropdown/list would accumulate one duplicate
+// "S.1"/"S.2"/etc. per year the school has ever operated. Pass `null`
+// explicitly for the rare case that genuinely needs every class ever created.
+export function useClasses(academicYearId?: string | null) {
   const { user } = useAuth()
+  const scopeToActive = academicYearId === undefined
 
   return useQuery({
-    queryKey: ['classes', user?.schoolId],
+    queryKey: ['classes', user?.schoolId, academicYearId],
     enabled:  !!user?.schoolId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let yearId = academicYearId ?? null
+      if (scopeToActive) {
+        const { data: activeYear } = await supabase
+          .from('academic_years')
+          .select('id')
+          .eq('school_id', user!.schoolId)
+          .eq('is_active', true)
+          .maybeSingle()
+        yearId = activeYear?.id ?? null
+      }
+
+      let q = supabase
         .from('classes')
         .select('id, school_id, name, level, academic_year_id')
         .eq('school_id', user!.schoolId)
         .order('level', { ascending: true })
+      if (yearId) q = q.eq('academic_year_id', yearId)
 
+      const { data, error } = await q
       if (error) throw error
 
       return (data ?? []).map(r => ({
