@@ -428,72 +428,6 @@ export function useFindBursar() {
   })
 }
 
-// ── Message type ──────────────────────────────────────────────
-export type PortalMessage = {
-  id:         string
-  fromUserId: string
-  toUserId:   string
-  body:       string
-  sentAt:     string
-}
-
-// ── useParentMessagesWithBursar ───────────────────────────────
-// Fetches messages between the current parent and the school bursar.
-export function useParentMessagesWithBursar(bursarAuthUserId: string | null | undefined) {
-  const { user } = useAuth()
-  const me      = user?.id ?? ''
-  const bursar  = bursarAuthUserId ?? ''
-
-  return useQuery({
-    queryKey: ['parent-bursar-messages', user?.schoolId, me, bursar],
-    enabled:  user?.role === 'parent' && !!user?.schoolId && !!me && !!bursar,
-    refetchInterval: 15_000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('id, from_user_id, to_user_id, body, sent_at')
-        .eq('school_id', user!.schoolId)
-        .eq('is_announcement', false)
-        .or(`and(from_user_id.eq.${me},to_user_id.eq.${bursar}),and(from_user_id.eq.${bursar},to_user_id.eq.${me})`)
-        .order('sent_at', { ascending: true })
-
-      if (error) throw error
-
-      return ((data ?? []) as AnyRow[]).map(r => ({
-        id:         r.id as string,
-        fromUserId: r.from_user_id as string,
-        toUserId:   r.to_user_id as string,
-        body:       r.body as string,
-        sentAt:     r.sent_at as string,
-      } satisfies PortalMessage))
-    },
-  })
-}
-
-// ── useSendMessageToBursar ────────────────────────────────────
-export function useSendMessageToBursar() {
-  const { user } = useAuth()
-  const qc = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ bursarAuthUserId, body }: { bursarAuthUserId: string; body: string }) => {
-      if (!user) throw new Error('Not authenticated')
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          school_id:       user.schoolId,
-          from_user_id:    user.id,
-          to_user_id:      bursarAuthUserId,
-          body,
-          is_announcement: false,
-        })
-      if (error) throw error
-    },
-    onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['parent-bursar-messages', user?.schoolId, user?.id, vars.bursarAuthUserId] })
-    },
-  })
-}
 
 // ── StaffContact ───────────────────────────────────────────────
 export type StaffContact = {
@@ -588,61 +522,6 @@ export function useClassTeachersForClasses(classIds: (string | null | undefined)
   })
 }
 
-// ── useParentMessagesWithContact ──────────────────────────────
-// Messages between the parent and ONE specific contact (bursar or teacher).
-export function useParentMessagesWithContact(contactAuthUserId: string | null | undefined) {
-  const { user } = useAuth()
-
-  return useQuery({
-    queryKey: ['parent-contact-messages', user?.schoolId, user?.id, contactAuthUserId],
-    enabled:  user?.role === 'parent' && !!user?.schoolId && !!user?.id && !!contactAuthUserId,
-    refetchInterval: 10_000,
-    queryFn: async () => {
-      const me      = user!.id
-      const contact = contactAuthUserId!
-      const { data, error } = await supabase
-        .from('messages')
-        .select('id, from_user_id, to_user_id, body, sent_at')
-        .eq('school_id', user!.schoolId)
-        .eq('is_announcement', false)
-        .or(`and(from_user_id.eq.${me},to_user_id.eq.${contact}),and(from_user_id.eq.${contact},to_user_id.eq.${me})`)
-        .order('sent_at', { ascending: true })
-      if (error) throw error
-      return ((data ?? []) as AnyRow[]).map(r => ({
-        id:         r.id as string,
-        fromUserId: r.from_user_id as string,
-        toUserId:   r.to_user_id as string,
-        body:       r.body as string,
-        sentAt:     r.sent_at as string,
-      } satisfies PortalMessage))
-    },
-  })
-}
-
-// ── useSendMessageToContact ───────────────────────────────────
-export function useSendMessageToContact() {
-  const { user } = useAuth()
-  const qc = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ contactAuthUserId, body }: { contactAuthUserId: string; body: string }) => {
-      if (!user) throw new Error('Not authenticated')
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          school_id:       user!.schoolId,
-          from_user_id:    user!.id,
-          to_user_id:      contactAuthUserId,
-          body,
-          is_announcement: false,
-        })
-      if (error) throw error
-    },
-    onSuccess: (_d, vars) => {
-      qc.invalidateQueries({ queryKey: ['parent-contact-messages', user?.schoolId, user?.id, vars.contactAuthUserId] })
-    },
-  })
-}
 
 // ── useParentTeacherRemarks ───────────────────────────────────
 // Teacher remarks saved for a specific student — visible to parents.

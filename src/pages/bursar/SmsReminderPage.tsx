@@ -390,7 +390,9 @@ export function SmsReminderPage() {
                 </button>
               ))}
               <div
+                role="status"
                 title="In-app notifications are always sent alongside SMS/WhatsApp and can't be turned off — every parent AND student with an activated account gets one, regardless of which channel you pick above."
+                aria-label="In-app notifications are always sent alongside SMS or WhatsApp and cannot be turned off — every parent and student with an activated account gets one, regardless of which channel you pick."
                 style={{
                   flex: 1, padding: '0.4rem 0.75rem', borderRadius: 'var(--r)',
                   background: 'var(--success-bg)', color: 'var(--success)',

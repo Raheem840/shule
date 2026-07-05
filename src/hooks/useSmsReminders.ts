@@ -232,6 +232,36 @@ export type SendReminderInput = {
   message:       string
 }
 
+// Shared by the parent and student in-app-notification paths — each reminder
+// has its own rendered message, so one sendNotifications call per reminder is
+// unavoidable (the helper doesn't send identical text to everyone), but the
+// calls themselves run in parallel rather than serialized one-by-one, which
+// matters once a bursar selects a large batch (a "select all" of 200+
+// students would otherwise stack ~200 sequential round trips before the
+// mutation resolves).
+async function notifyReminderRecipients(
+  schoolId: string,
+  reminders: SendReminderInput[],
+  authIdsByStudentId: Map<string, string[]>,
+  link: string,
+): Promise<void> {
+  const results = await Promise.allSettled(
+    reminders.map(r => {
+      const authIds = authIdsByStudentId.get(r.studentId) ?? []
+      if (authIds.length === 0) return Promise.resolve()
+      return sendNotifications({
+        schoolId, userIds: authIds, type: 'fee', title: 'Fee Reminder', body: r.message, link,
+      })
+    })
+  )
+  for (const res of results) {
+    if (res.status === 'rejected') {
+      // Non-fatal — SMS/WhatsApp already queued regardless of this.
+      console.warn('[useSendReminders] in-app notification failed:', res.reason)
+    }
+  }
+}
+
 export function useSendReminders() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -270,68 +300,47 @@ export function useSendReminders() {
       }
 
       // In-app notification — always fires alongside SMS/WhatsApp, never
-      // gated behind the channel toggle. Best-effort: a parent without a
-      // linked auth account (not yet activated) just gets no in-app copy,
+      // gated behind the channel toggle. Best-effort: a parent/student
+      // without a linked/activated auth account just gets no in-app copy,
       // same as a guardian with no phone number gets no SMS.
       const studentIds = [...new Set(reminders.map(r => r.studentId))]
-      const { data: parentRows } = await supabase
-        .from('parent_accounts')
-        .select('auth_user_id, student_ids')
-        .eq('school_id', user!.schoolId)
-        .not('auth_user_id', 'is', null)
-        .overlaps('student_ids', studentIds)
 
-      if (parentRows && parentRows.length > 0) {
-        for (const r of reminders) {
-          const parentAuthIds = parentRows
-            .filter(p => ((p.student_ids as string[]) ?? []).includes(r.studentId))
-            .map(p => p.auth_user_id as string)
-          if (parentAuthIds.length === 0) continue
-          try {
-            await sendNotifications({
-              schoolId: user!.schoolId,
-              userIds:  parentAuthIds,
-              type:     'fee',
-              title:    'Fee Reminder',
-              body:     r.message,
-              link:     '/parent',
-            })
-          } catch (e) {
-            // Non-fatal — SMS/WhatsApp already queued regardless of this.
-            console.warn('[useSendReminders] in-app notification failed:', e)
-          }
+      const [parentRes, studentRes] = await Promise.all([
+        supabase
+          .from('parent_accounts')
+          .select('auth_user_id, student_ids')
+          .eq('school_id', user!.schoolId)
+          .not('auth_user_id', 'is', null)
+          .overlaps('student_ids', studentIds),
+        supabase
+          .from('students')
+          .select('id, auth_user_id')
+          .eq('school_id', user!.schoolId)
+          .in('id', studentIds)
+          .not('auth_user_id', 'is', null),
+      ])
+      if (parentRes.error)  console.warn('[useSendReminders] parent_accounts lookup failed:', parentRes.error)
+      if (studentRes.error) console.warn('[useSendReminders] students lookup failed:', studentRes.error)
+
+      // studentId -> auth ids to notify (one parent can have multiple auth
+      // rows in theory, so both maps are studentId -> string[])
+      const parentAuthIdsByStudent = new Map<string, string[]>()
+      for (const p of parentRes.data ?? []) {
+        const authId = p.auth_user_id as string
+        for (const sid of (p.student_ids as string[]) ?? []) {
+          if (!studentIds.includes(sid)) continue
+          parentAuthIdsByStudent.set(sid, [...(parentAuthIdsByStudent.get(sid) ?? []), authId])
         }
       }
-
-      // Students also get an in-app copy — in case a parent is unreachable
-      // (phone off, no activated portal account), the student themselves
-      // still sees the balance reminder next time they open their portal.
-      const { data: studentRows } = await supabase
-        .from('students')
-        .select('id, auth_user_id')
-        .eq('school_id', user!.schoolId)
-        .in('id', studentIds)
-        .not('auth_user_id', 'is', null)
-
-      if (studentRows && studentRows.length > 0) {
-        const studentAuthByStudentId = new Map(studentRows.map(s => [s.id as string, s.auth_user_id as string]))
-        for (const r of reminders) {
-          const studentAuthId = studentAuthByStudentId.get(r.studentId)
-          if (!studentAuthId) continue
-          try {
-            await sendNotifications({
-              schoolId: user!.schoolId,
-              userIds:  [studentAuthId],
-              type:     'fee',
-              title:    'Fee Reminder',
-              body:     r.message,
-              link:     '/student',
-            })
-          } catch (e) {
-            console.warn('[useSendReminders] student in-app notification failed:', e)
-          }
-        }
+      const studentAuthIdsByStudent = new Map<string, string[]>()
+      for (const s of studentRes.data ?? []) {
+        studentAuthIdsByStudent.set(s.id as string, [s.auth_user_id as string])
       }
+
+      await Promise.all([
+        notifyReminderRecipients(user!.schoolId, reminders, parentAuthIdsByStudent, '/parent'),
+        notifyReminderRecipients(user!.schoolId, reminders, studentAuthIdsByStudent, '/student'),
+      ])
 
       return reminders.length
     },
