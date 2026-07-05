@@ -147,11 +147,20 @@
 /* ═══════════════════════════════════════════════════
    RESET & BASE
 ═══════════════════════════════════════════════════ */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after {
+  box-sizing: border-box; margin: 0; padding: 0;
+  /* Suppresses the iOS/Android grey/yellow tap-flash on every element —
+     was previously only applied ad hoc to a handful of buttons, so most of
+     the app still flashed on tap like a website rather than a native app. */
+  -webkit-tap-highlight-color: transparent;
+}
 
 html, body, #root {
   height: 100%;
   font-family: var(--font1, 'Plus Jakarta Sans', sans-serif);
+  /* Prevents the iOS "rubber-band" bounce past the top/bottom of the page —
+     a website tell; native apps contain scroll within their own bounds. */
+  overscroll-behavior-y: contain;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -474,6 +483,7 @@ html, body, #root {
   align-items: center;
   gap: 0.6rem;
   padding: 0.52rem 1.1rem;
+  min-height: 44px; /* standard minimum touch target — was ~34px */
   font-size: 12.5px;
   font-weight: 600;
   color: var(--sb-item);
@@ -854,14 +864,20 @@ html, body, #root {
   box-shadow: var(--sh-brand);
 }
 .btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
+/* :active press-down — :hover never fires on touch, so without this a tap
+   on any button gave zero visual feedback, a common "feels like a website,
+   not an app" tell. */
+.btn-primary:active { transform: scale(0.97); opacity: 0.95; }
 .btn-secondary {
   background: var(--surface2);
   color: var(--txt2);
   border: 1px solid var(--border);
 }
 .btn-secondary:hover { border-color: var(--brand); color: var(--brand); }
+.btn-secondary:active { transform: scale(0.97); }
 .btn-danger { background: var(--danger-bg); color: #be123c; border: 1px solid var(--danger); }
 .btn-danger:hover { background: var(--danger); color: #fff; }
+.btn-danger:active { transform: scale(0.97); }
 
 /* Mono (admission numbers, amounts, codes) */
 .mono { font-family: var(--font3); }
@@ -953,6 +969,7 @@ html, body, #root {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(13,148,136,0.35);
 }
+.sui-btn-primary:active:not(:disabled) { transform: scale(0.96); }
 
 /* secondary — surface2 fill, brand on hover */
 .sui-btn-secondary {
@@ -964,6 +981,7 @@ html, body, #root {
   border-color: var(--brand);
   color: var(--brand);
 }
+.sui-btn-secondary:active:not(:disabled) { transform: scale(0.96); }
 
 /* outline — transparent bg, border visible */
 .sui-btn-outline {
@@ -976,6 +994,7 @@ html, body, #root {
   border-color: var(--brand);
   color: var(--brand);
 }
+.sui-btn-outline:active:not(:disabled) { transform: scale(0.96); }
 
 /* ghost — no border, no bg */
 .sui-btn-ghost {
@@ -983,6 +1002,7 @@ html, body, #root {
   color: var(--txt2);
   border-color: transparent;
 }
+.sui-btn-ghost:active:not(:disabled) { transform: scale(0.96); }
 .sui-btn-ghost:hover:not(:disabled) {
   color: var(--txt);
   background: var(--surface2);
@@ -998,6 +1018,7 @@ html, body, #root {
   opacity: 0.88;
   transform: translateY(-1px);
 }
+.sui-btn-danger:active:not(:disabled) { transform: scale(0.96); }
 
 /* ── CARD ───────────────────────────────────────────── */
 .sui-card {
