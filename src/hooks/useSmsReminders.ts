@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
+import { sendNotifications } from '../lib/notifications'
 import type { SmsReminder, SmsChannel, FeeStatus } from '../types/app'
 import { calcFeeStatus } from './useFeePayments'
 
@@ -266,6 +267,40 @@ export function useSendReminders() {
       if (fnErr) {
         // Edge fn error is non-fatal: send_queue row ensures eventual delivery
         console.warn('[useSendReminders] edge fn error:', fnErr)
+      }
+
+      // In-app notification — always fires alongside SMS/WhatsApp, never
+      // gated behind the channel toggle. Best-effort: a parent without a
+      // linked auth account (not yet activated) just gets no in-app copy,
+      // same as a guardian with no phone number gets no SMS.
+      const studentIds = [...new Set(reminders.map(r => r.studentId))]
+      const { data: parentRows } = await supabase
+        .from('parent_accounts')
+        .select('auth_user_id, student_ids')
+        .eq('school_id', user!.schoolId)
+        .not('auth_user_id', 'is', null)
+        .overlaps('student_ids', studentIds)
+
+      if (parentRows && parentRows.length > 0) {
+        for (const r of reminders) {
+          const parentAuthIds = parentRows
+            .filter(p => ((p.student_ids as string[]) ?? []).includes(r.studentId))
+            .map(p => p.auth_user_id as string)
+          if (parentAuthIds.length === 0) continue
+          try {
+            await sendNotifications({
+              schoolId: user!.schoolId,
+              userIds:  parentAuthIds,
+              type:     'fee',
+              title:    'Fee Reminder',
+              body:     r.message,
+              link:     '/parent',
+            })
+          } catch (e) {
+            // Non-fatal — SMS/WhatsApp already queued regardless of this.
+            console.warn('[useSendReminders] in-app notification failed:', e)
+          }
+        }
       }
 
       return reminders.length

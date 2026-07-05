@@ -15,6 +15,8 @@ const { mockFrom, mockFunctionsInvoke, setResponse, clearResponses } = vi.hoiste
       select:      vi.fn().mockReturnThis(),
       eq:          vi.fn().mockReturnThis(),
       in:          vi.fn().mockReturnThis(),
+      not:         vi.fn().mockReturnThis(),
+      overlaps:    vi.fn().mockReturnThis(),
       order:       vi.fn().mockReturnThis(),
       limit:       vi.fn().mockReturnThis(),
       insert:      vi.fn().mockReturnThis(),
@@ -29,6 +31,11 @@ const { mockFrom, mockFunctionsInvoke, setResponse, clearResponses } = vi.hoiste
   const mockFunctionsInvoke = vi.fn().mockResolvedValue({ data: { results: [] }, error: null })
   return { mockFrom, mockFunctionsInvoke, setResponse, clearResponses }
 })
+
+const mockSendNotifications = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+vi.mock('../../lib/notifications', () => ({
+  sendNotifications: mockSendNotifications,
+}))
 
 vi.mock('../../lib/supabase', () => ({
   supabase: {
@@ -65,6 +72,7 @@ function createWrapper() {
 beforeEach(() => {
   vi.clearAllMocks()
   clearResponses()
+  mockSendNotifications.mockResolvedValue(undefined)
 })
 
 describe('useSendReminders', () => {
@@ -120,6 +128,90 @@ describe('useSendReminders', () => {
 
     const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
 
+    let count: number | undefined
+    await act(async () => {
+      count = await result.current.mutateAsync([
+        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Pay fees' },
+      ])
+    })
+
+    expect(count).toBe(1)
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  })
+
+  it('always sends an in-app notification to a linked parent, alongside SMS', async () => {
+    setResponse('send_queue', { data: null, error: null })
+    setResponse('parent_accounts', {
+      data: [{ auth_user_id: 'parent-auth-1', student_ids: ['stu-1'] }],
+      error: null,
+    })
+
+    const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
+    await act(async () => {
+      await result.current.mutateAsync([
+        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Pay fees, Amina' },
+      ])
+    })
+
+    expect(mockFrom).toHaveBeenCalledWith('parent_accounts')
+    expect(mockSendNotifications).toHaveBeenCalledWith({
+      schoolId: 'school-1',
+      userIds:  ['parent-auth-1'],
+      type:     'fee',
+      title:    'Fee Reminder',
+      body:     'Pay fees, Amina',
+      link:     '/parent',
+    })
+  })
+
+  it('sends separate in-app notifications when two students map to different parents', async () => {
+    setResponse('send_queue', { data: null, error: null })
+    setResponse('parent_accounts', {
+      data: [
+        { auth_user_id: 'parent-auth-1', student_ids: ['stu-1'] },
+        { auth_user_id: 'parent-auth-2', student_ids: ['stu-2'] },
+      ],
+      error: null,
+    })
+
+    const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
+    await act(async () => {
+      await result.current.mutateAsync([
+        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Msg for stu-1' },
+        { studentId: 'stu-2', guardianPhone: '0700333444', channel: 'whatsapp', message: 'Msg for stu-2' },
+      ])
+    })
+
+    expect(mockSendNotifications).toHaveBeenCalledTimes(2)
+    expect(mockSendNotifications).toHaveBeenCalledWith(expect.objectContaining({ userIds: ['parent-auth-1'], body: 'Msg for stu-1' }))
+    expect(mockSendNotifications).toHaveBeenCalledWith(expect.objectContaining({ userIds: ['parent-auth-2'], body: 'Msg for stu-2' }))
+  })
+
+  it('skips a student with no linked parent account — no notification, no crash', async () => {
+    setResponse('send_queue', { data: null, error: null })
+    setResponse('parent_accounts', { data: [], error: null })
+
+    const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
+    let count: number | undefined
+    await act(async () => {
+      count = await result.current.mutateAsync([
+        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Pay fees' },
+      ])
+    })
+
+    expect(count).toBe(1)
+    expect(mockSendNotifications).not.toHaveBeenCalled()
+  })
+
+  it('mutation still succeeds even if the in-app notification fails', async () => {
+    setResponse('send_queue', { data: null, error: null })
+    setResponse('parent_accounts', {
+      data: [{ auth_user_id: 'parent-auth-1', student_ids: ['stu-1'] }],
+      error: null,
+    })
+    mockSendNotifications.mockRejectedValueOnce(new Error('push service down'))
+
+    const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
     let count: number | undefined
     await act(async () => {
       count = await result.current.mutateAsync([

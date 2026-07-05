@@ -216,7 +216,7 @@ export function SmsReminderPage() {
         </div>
         <div>
           <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:22, color:'var(--txt)', margin:0, letterSpacing:-.4 }}>SMS Reminders</h1>
-          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>Send fee reminders to parents via SMS or WhatsApp</p>
+          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>Send fee reminders to parents via SMS or WhatsApp — always paired with an in-app notification</p>
         </div>
       </div>
 
@@ -370,8 +370,10 @@ export function SmsReminderPage() {
               Compose Message
             </div>
 
-            {/* Channel toggle */}
-            <div style={{ display: 'flex', gap: 6 }}>
+            {/* Channel toggle — SMS/WhatsApp are mutually exclusive; In-App is
+                always on and can't be switched off, so it renders as a
+                non-interactive pill rather than a third toggle option. */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {(['sms', 'whatsapp'] as const).map(ch => (
                 <button
                   key={ch}
@@ -387,6 +389,19 @@ export function SmsReminderPage() {
                   {ch === 'sms' ? 'SMS' : 'WhatsApp'}
                 </button>
               ))}
+              <div
+                title="In-app notifications are always sent alongside SMS/WhatsApp and can't be turned off — every parent with an activated account gets one regardless of which channel you pick above."
+                style={{
+                  flex: 1, padding: '0.4rem 0.75rem', borderRadius: 'var(--r)',
+                  background: 'var(--success-bg)', color: 'var(--success)',
+                  fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 12,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  cursor: 'default', whiteSpace: 'nowrap',
+                }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                In-App
+              </div>
             </div>
 
             {/* Template chips */}
@@ -469,7 +484,7 @@ export function SmsReminderPage() {
 
             {sendReminders.isSuccess && !studentsError && (
               <div style={{ padding: '0.6rem 0.85rem', background: 'var(--success-bg)', borderRadius: 'var(--r)', fontSize: 12.5, color: 'var(--success)', fontWeight: 600 }}>
-                Reminders queued successfully. They will be sent when the SMS worker runs.
+                Reminders queued successfully — in-app notifications were sent immediately, {channel === 'sms' ? 'SMS' : 'WhatsApp'} messages will follow when the worker runs.
               </div>
             )}
             {sendReminders.isError && (
