@@ -7,7 +7,7 @@ import {
 } from 'recharts'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useQueryClient } from '@tanstack/react-query'
-import { useExamJournalById, usePublishJournal } from '../../hooks/useExamJournal'
+import { useExamJournalById, usePublishJournal, isJournalLocked, MARKS_GRACE_PERIOD_DAYS } from '../../hooks/useExamJournal'
 import { useExamResults, useSaveMarks } from '../../hooks/useExamResults'
 import { useStudents } from '../../hooks/useStudents'
 import { useSubjects } from '../../hooks/useClasses'
@@ -731,6 +731,14 @@ export function MarkEntryPage() {
   // Open import modal automatically when ?import=1 is present
   const [importOpen, setImportOpen] = useState(() => searchParams.get('import') === '1')
 
+  // ── Provisional / locked results ────────────────────────────
+  // A published journal stays freely editable for MARKS_GRACE_PERIOD_DAYS —
+  // after that, saving or importing a correction requires a reason (audited).
+  const locked = journal ? isJournalLocked(journal) : false
+  const [showReasonModal, setShowReasonModal] = useState<'save' | 'import' | null>(null)
+  const [overrideReason, setOverrideReason]   = useState('')
+  const [overrideError, setOverrideError]     = useState<string | null>(null)
+
   useEffect(() => {
     if (savedResults.length === 0) return
     setMarks(prev => {
@@ -767,28 +775,55 @@ export function MarkEntryPage() {
   const missingCount  = students.length - enteredCount
   const absentCount   = Array.from(marks.values()).filter(m => m.isAbsent).length
 
-  async function handleSaveAll() {
+  async function handleSaveAll(reason?: string) {
     if (!journal) return
+    if (locked && !reason) { setOverrideError(null); setShowReasonModal('save'); return }
     const rows: MarkRow[] = students.map(s => {
       const m = marks.get(s.id) ?? { score: null, isAbsent: false }
       return { studentId: s.id, score: m.score, isAbsent: m.isAbsent }
     })
-    await saveMarks.mutateAsync({
-      journalId:      journal.id,
-      subjectId:      journal.subjectId,
-      assessmentType: journal.assessmentType,
-      totalMarks:     journal.totalMarks,
-      term:           journal.term,
-      year:           journal.year,
-      marks:          rows,
-    })
-    setSaved(true)
+    try {
+      await saveMarks.mutateAsync({
+        journalId:      journal.id,
+        subjectId:      journal.subjectId,
+        assessmentType: journal.assessmentType,
+        totalMarks:     journal.totalMarks,
+        term:           journal.term,
+        year:           journal.year,
+        marks:          rows,
+        overrideReason: reason,
+      })
+      setSaved(true)
+      setShowReasonModal(null)
+      setOverrideReason('')
+    } catch (e) {
+      if (showReasonModal === 'save') setOverrideError(e instanceof Error ? e.message : 'Save failed')
+      else throw e
+    }
   }
 
   async function handlePublish() {
     if (!journal) return
     await handleSaveAll()
     await publish.mutateAsync(journal.id)
+  }
+
+  function handleImportClick() {
+    if (locked) { setOverrideError(null); setShowReasonModal('import'); return }
+    setImportOpen(true)
+  }
+
+  function confirmOverrideReason() {
+    const reason = overrideReason.trim()
+    if (!reason) { setOverrideError('A reason is required to edit locked results.'); return }
+    setOverrideError(null)
+    if (showReasonModal === 'save') {
+      setShowReasonModal(null)
+      void handleSaveAll(reason)
+    } else if (showReasonModal === 'import') {
+      setShowReasonModal(null)
+      setImportOpen(true)
+    }
   }
 
   // ── Bulk mark import via ImportWizard ──────────────────────
@@ -798,6 +833,27 @@ export function MarkEntryPage() {
   ): Promise<ImportResult> {
     const result: ImportResult = { imported: 0, updated: 0, skipped: 0, failed: [] }
     if (!journal || !user || rows.length === 0) return result
+
+    // Re-check lock state against the live DB row (mirrors useSaveMarks) —
+    // the ImportWizard is only opened after the reason modal already ran for
+    // a locked journal, but this closure could still be stale if the journal
+    // was locked in the moments between opening the wizard and completing it.
+    const { data: journalRow, error: jErr } = await supabase
+      .from('exam_journal')
+      .select('status, published_at')
+      .eq('id', journal.id)
+      .eq('school_id', user.schoolId)
+      .single()
+    if (jErr) { result.failed.push({ row: 0, reason: jErr.message }); return result }
+
+    const stillLocked = isJournalLocked({
+      status:      journalRow.status as 'draft' | 'published',
+      publishedAt: journalRow.published_at as string | null,
+    })
+    if (stillLocked && !overrideReason.trim()) {
+      result.failed.push({ row: 0, reason: 'These results are locked. Provide a reason to make a correction.' })
+      return result
+    }
 
     // Build admission_number → student_id map
     const admMap = new Map(students.map(s => [s.admissionNumber.trim().toLowerCase(), s.id]))
@@ -855,6 +911,20 @@ export function MarkEntryPage() {
     }
 
     result.imported = validRows.length
+
+    if (stillLocked && overrideReason.trim()) {
+      await supabase.from('audit_log').insert({
+        school_id:   user.schoolId,
+        user_id:     user.id,
+        role:        user.role,
+        action:      'MARKS_EDITED_AFTER_LOCK',
+        table_name:  'exam_results',
+        record_id:   journal.id,
+        entity_name: `Exam journal ${journal.id}`,
+        new_value:   { reason: overrideReason.trim(), studentsAffected: validRows.length, via: 'import' },
+      })
+    }
+
     qc.invalidateQueries({ queryKey: ['exam-results', user?.schoolId, journal.id] })
     qc.invalidateQueries({ queryKey: ['dos-overview', user?.schoolId] })
     qc.invalidateQueries({ queryKey: ['dos-class-perf', user?.schoolId] })
@@ -910,7 +980,7 @@ export function MarkEntryPage() {
 
           {/* Import Marks button */}
           <button
-            onClick={() => setImportOpen(true)}
+            onClick={handleImportClick}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '9px 14px', borderRadius: 10,
@@ -929,7 +999,7 @@ export function MarkEntryPage() {
 
           <button onClick={() => void handleSaveAll()} disabled={saveMarks.isPending}
             style={{ padding: '9px 16px', borderRadius: 10, border: '.5px solid var(--border)', background: saved ? 'rgba(16,185,129,.1)' : 'var(--surface2)', color: saved ? '#065f46' : 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-            {saveMarks.isPending ? 'Saving…' : saved ? '✓ Saved' : 'Save All'}
+            {saveMarks.isPending ? 'Saving…' : saved ? '✓ Saved' : locked ? 'Save (locked)' : 'Save All'}
           </button>
           {journal.status === 'draft' && (
             <button onClick={() => void handlePublish()} disabled={publish.isPending || saveMarks.isPending}
@@ -937,13 +1007,27 @@ export function MarkEntryPage() {
               {publish.isPending ? 'Publishing…' : 'Publish'}
             </button>
           )}
-          {journal.status === 'published' && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'rgba(16,185,129,.1)', color: '#065f46' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} /> Published
+          {journal.status === 'published' && !locked && (
+            <span title={`Editable without a reason for ${MARKS_GRACE_PERIOD_DAYS} days after publishing`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'rgba(14,165,233,.1)', color: '#0369a1' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--info)' }} /> Provisional
+            </span>
+          )}
+          {journal.status === 'published' && locked && (
+            <span title="Past the grace period — edits now require a reason, logged to the audit trail"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'rgba(244,63,94,.1)', color: 'var(--danger)' }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              Locked
             </span>
           )}
         </div>
       </div>
+
+      {locked && (
+        <div style={{ padding: '10px 14px', background: 'rgba(244,63,94,.06)', border: '1px solid rgba(244,63,94,.2)', borderRadius: 10, fontSize: 12.5, color: 'var(--danger)' }}>
+          These results have been final for over {MARKS_GRACE_PERIOD_DAYS} days. Any further correction needs a reason, which is recorded in the school's audit log.
+        </div>
+      )}
 
       {saveMarks.isError && (
         <div style={{ padding: '10px 14px', background: 'rgba(244,63,94,.08)', color: 'var(--danger)', borderRadius: 10, fontSize: 13 }}>
@@ -1147,7 +1231,7 @@ export function MarkEntryPage() {
         <Modal
           title="Import Marks from Excel / CSV"
           size="lg"
-          onClose={() => setImportOpen(false)}
+          onClose={() => { setImportOpen(false); setOverrideReason('') }}
         >
           <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(14,165,233,.07)', border: '.5px solid rgba(14,165,233,.25)', borderRadius: 10, fontSize: 12.5, color: '#0369a1' }}>
             <strong>Template columns:</strong> Admission No. · Score · Absent (optional) · Remarks (optional).
@@ -1159,8 +1243,44 @@ export function MarkEntryPage() {
             optionalFields={MARK_OPTIONAL_FIELDS}
             editableFields={['score', 'is_absent']}
             onComplete={handleMarkImport}
-            onClose={() => setImportOpen(false)}
+            onClose={() => { setImportOpen(false); setOverrideReason('') }}
           />
+        </Modal>
+      )}
+
+      {/* ── Locked-results override reason prompt ──────────── */}
+      {showReasonModal && (
+        <Modal
+          title="Locked Results — Reason Required"
+          size="sm"
+          onClose={() => { setShowReasonModal(null); setOverrideReason(''); setOverrideError(null) }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <p style={{ fontSize: 13, color: 'var(--txt2)', margin: 0 }}>
+              These results have been final for over {MARKS_GRACE_PERIOD_DAYS} days. Explain why this correction
+              is needed — this reason is recorded in the school's audit log.
+            </p>
+            <textarea
+              value={overrideReason}
+              onChange={e => setOverrideReason(e.target.value)}
+              placeholder="e.g. Student raised a marks complaint, re-checked script and found a tallying error"
+              rows={3}
+              style={{ width: '100%', padding: '10px 12px', border: '.5px solid var(--border)', borderRadius: 10, fontSize: 13, fontFamily: 'var(--font1)', color: 'var(--txt)', background: 'var(--surface2)', boxSizing: 'border-box', resize: 'vertical' }}
+            />
+            {overrideError && (
+              <div style={{ fontSize: 12.5, color: 'var(--danger)' }}>{overrideError}</div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => { setShowReasonModal(null); setOverrideReason(''); setOverrideError(null) }}
+                style={{ padding: '8px 16px', borderRadius: 10, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={confirmOverrideReason} disabled={saveMarks.isPending}
+                style={{ padding: '8px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                {saveMarks.isPending ? 'Saving…' : 'Continue'}
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

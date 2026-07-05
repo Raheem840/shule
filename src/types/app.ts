@@ -283,6 +283,7 @@ export type ExamJournal = {
   year: number
   teacherNotes: string | null    // DB column: teacher_notes (NOT 'notes')
   status: 'draft' | 'published'
+  publishedAt: string | null     // set when status first becomes 'published' — starts the marks-lock grace period
   // Conditional — set based on assessmentType
   learningArea:     string | null  // aoi
   competency:       string | null  // aoi

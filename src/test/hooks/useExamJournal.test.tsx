@@ -49,7 +49,7 @@ vi.mock('../../store/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }))
 
-import { useExamJournals, useExamJournalById, useNextCALabel, useCreateJournal, usePublishJournal } from '../../hooks/useExamJournal'
+import { useExamJournals, useExamJournalById, useNextCALabel, useCreateJournal, usePublishJournal, isJournalLocked, MARKS_GRACE_PERIOD_DAYS } from '../../hooks/useExamJournal'
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -317,6 +317,41 @@ describe('usePublishJournal', () => {
         result.current.mutateAsync('j-1')
       ).rejects.toEqual({ message: 'Publish failed' })
     })
+  })
+
+  it('sets published_at to the current time', async () => {
+    setResponse('exam_journal', { data: null, error: null })
+    const { result } = renderHook(() => usePublishJournal(), { wrapper: createWrapper() })
+
+    const before = Date.now()
+    await act(async () => { await result.current.mutateAsync('j-1') })
+
+    const builder = mockFrom.mock.results.find(r => r.value.update?.mock.calls.length > 0)?.value
+    const patch = builder?.update.mock.calls[0][0]
+    expect(patch.status).toBe('published')
+    expect(new Date(patch.published_at).getTime()).toBeGreaterThanOrEqual(before)
+  })
+})
+
+describe('isJournalLocked', () => {
+  it('is never locked while status is draft, regardless of publishedAt', () => {
+    expect(isJournalLocked({ status: 'draft', publishedAt: null })).toBe(false)
+    const longAgo = new Date(Date.now() - 999 * 86_400_000).toISOString()
+    expect(isJournalLocked({ status: 'draft', publishedAt: longAgo })).toBe(false)
+  })
+
+  it('is never locked when publishedAt is null (legacy journals published before the column existed)', () => {
+    expect(isJournalLocked({ status: 'published', publishedAt: null })).toBe(false)
+  })
+
+  it('is not locked within the grace period', () => {
+    const recent = new Date(Date.now() - (MARKS_GRACE_PERIOD_DAYS - 1) * 86_400_000).toISOString()
+    expect(isJournalLocked({ status: 'published', publishedAt: recent })).toBe(false)
+  })
+
+  it('is locked once the grace period has elapsed', () => {
+    const expired = new Date(Date.now() - (MARKS_GRACE_PERIOD_DAYS + 1) * 86_400_000).toISOString()
+    expect(isJournalLocked({ status: 'published', publishedAt: expired })).toBe(true)
   })
 })
 

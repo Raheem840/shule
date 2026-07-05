@@ -15,6 +15,8 @@ const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
       select:      vi.fn().mockReturnThis(),
       eq:          vi.fn().mockReturnThis(),
       upsert:      vi.fn().mockReturnThis(),
+      insert:      vi.fn().mockReturnThis(),
+      single:      vi.fn().mockImplementation(() => Promise.resolve(tableData[table] ?? { data: null, error: null })),
       then:        (resolve: any, reject?: any) =>
         Promise.resolve(tableData[table] ?? { data: [], error: null }).then(resolve, reject),
     }
@@ -73,6 +75,9 @@ const dbResultRow = {
 beforeEach(() => {
   vi.clearAllMocks()
   clearResponses()
+  // Default: draft journal — never locked, so existing save-marks tests
+  // (written before the grace-period lock feature) keep passing unmodified.
+  setResponse('exam_journal', { data: { status: 'draft', published_at: null }, error: null })
 })
 
 describe('useExamResults', () => {
@@ -208,6 +213,77 @@ describe('useSaveMarks', () => {
         })
       ).rejects.toEqual({ message: 'Upsert failed' })
     })
+  })
+})
+
+describe('useSaveMarks — grace-period lock', () => {
+  const expiredPublishedAt = new Date(Date.now() - 40 * 86_400_000).toISOString()
+  const recentPublishedAt  = new Date(Date.now() - 2  * 86_400_000).toISOString()
+
+  it('saves freely when the journal is published but still within the grace period', async () => {
+    setResponse('exam_journal', { data: { status: 'published', published_at: recentPublishedAt }, error: null })
+    setResponse('exam_results', { data: null, error: null })
+    const { result } = renderHook(() => useSaveMarks(), { wrapper: createWrapper() })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        journalId: 'j-1', subjectId: 'sub-1', assessmentType: 'mid_term', totalMarks: 80,
+        term: '1', year: 2025, marks: [{ studentId: 'stu-1', score: 60, isAbsent: false }],
+      })
+    })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  })
+
+  it('rejects a save on a locked journal when no overrideReason is given', async () => {
+    setResponse('exam_journal', { data: { status: 'published', published_at: expiredPublishedAt }, error: null })
+    setResponse('exam_results', { data: null, error: null })
+    const { result } = renderHook(() => useSaveMarks(), { wrapper: createWrapper() })
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          journalId: 'j-1', subjectId: 'sub-1', assessmentType: 'mid_term', totalMarks: 80,
+          term: '1', year: 2025, marks: [{ studentId: 'stu-1', score: 60, isAbsent: false }],
+        })
+      ).rejects.toThrow('locked')
+    })
+  })
+
+  it('saves a locked journal and logs an audit entry when overrideReason is given', async () => {
+    setResponse('exam_journal', { data: { status: 'published', published_at: expiredPublishedAt }, error: null })
+    setResponse('exam_results', { data: null, error: null })
+    const { result } = renderHook(() => useSaveMarks(), { wrapper: createWrapper() })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        journalId: 'j-1', subjectId: 'sub-1', assessmentType: 'mid_term', totalMarks: 80,
+        term: '1', year: 2025,
+        marks: [{ studentId: 'stu-1', score: 60, isAbsent: false }],
+        overrideReason: 'Student complaint — re-marked script',
+      })
+    })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockFrom).toHaveBeenCalledWith('audit_log')
+
+    const auditBuilder = mockFrom.mock.results.find(r => r.value.insert?.mock.calls.length > 0)?.value
+    const insertedRow = auditBuilder?.insert.mock.calls[0][0]
+    expect(insertedRow.action).toBe('MARKS_EDITED_AFTER_LOCK')
+    expect(insertedRow.new_value.reason).toBe('Student complaint — re-marked script')
+  })
+
+  it('does not write an audit entry when the journal is not locked', async () => {
+    setResponse('exam_journal', { data: { status: 'published', published_at: recentPublishedAt }, error: null })
+    setResponse('exam_results', { data: null, error: null })
+    const { result } = renderHook(() => useSaveMarks(), { wrapper: createWrapper() })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        journalId: 'j-1', subjectId: 'sub-1', assessmentType: 'mid_term', totalMarks: 80,
+        term: '1', year: 2025, marks: [{ studentId: 'stu-1', score: 60, isAbsent: false }],
+      })
+    })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockFrom).not.toHaveBeenCalledWith('audit_log')
   })
 })
 

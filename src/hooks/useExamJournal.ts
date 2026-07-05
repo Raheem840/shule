@@ -6,11 +6,23 @@ import type { ExamJournal, AssessmentType } from '../types/app'
 const JOURNAL_COLS = [
   'id', 'school_id', 'teacher_id', 'subject_id', 'class_id', 'stream_id', 'academic_year_id',
   'assessment_type', 'name', 'date_given', 'total_marks', 'pass_mark', 'term', 'year',
-  'teacher_notes', 'status',
+  'teacher_notes', 'status', 'published_at',
   'learning_area', 'competency', 'integration_theme',
   'trade_area', 'dit_module_code',
   'ca_component', 'ca_weighting', 'ca_label',
 ].join(', ')
+
+// A published journal's marks stay freely editable for this many days after
+// publish (the "provisional" window) — after that, editing requires an
+// override reason, logged to audit_log. Journals published before this
+// column existed have published_at=null and are treated as never-locked.
+export const MARKS_GRACE_PERIOD_DAYS = 30
+
+export function isJournalLocked(journal: Pick<ExamJournal, 'status' | 'publishedAt'>): boolean {
+  if (journal.status !== 'published' || !journal.publishedAt) return false
+  const lockAt = new Date(journal.publishedAt).getTime() + MARKS_GRACE_PERIOD_DAYS * 86_400_000
+  return Date.now() > lockAt
+}
 
 type AnyRow = Record<string, unknown>
 
@@ -32,6 +44,7 @@ function toJournal(r: AnyRow): ExamJournal {
     year:             r.year as number,
     teacherNotes:     (r.teacher_notes as string) ?? null,
     status:           ((r.status as string) ?? 'draft') as ExamJournal['status'],
+    publishedAt:      (r.published_at as string) ?? null,
     learningArea:     (r.learning_area as string) ?? null,
     competency:       (r.competency as string) ?? null,
     integrationTheme: (r.integration_theme as string) ?? null,
@@ -260,7 +273,7 @@ export function usePublishJournal() {
       if (!user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('exam_journal')
-        .update({ status: 'published' })
+        .update({ status: 'published', published_at: new Date().toISOString() })
         .eq('id', journalId)
         .eq('school_id', user.schoolId)
 

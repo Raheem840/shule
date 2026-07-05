@@ -2,7 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { calculateCBCGrade } from '../types/app'
-import type { ExamResult } from '../types/app'
+import { isJournalLocked } from './useExamJournal'
+import type { ExamResult, ExamJournal } from '../types/app'
 
 const RESULT_COLS = [
   'id', 'school_id', 'exam_journal_id', 'student_id', 'subject_id',
@@ -60,6 +61,9 @@ export type MarkRow = {
 // ── useSaveMarks ───────────────────────────────────────────────
 // Upserts all mark rows for a journal. Batches in 100-row chunks.
 // Conflict key: (exam_journal_id, student_id) — unique per student per journal.
+// Re-checks the journal's lock state against the live DB row (not whatever
+// the calling page has cached) — a published journal past its grace period
+// requires overrideReason, which gets logged to audit_log.
 export function useSaveMarks() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -73,6 +77,7 @@ export function useSaveMarks() {
       term,
       year,
       marks,
+      overrideReason,
     }: {
       journalId:      string
       subjectId:      string
@@ -81,9 +86,27 @@ export function useSaveMarks() {
       term:           string
       year:           number
       marks:          MarkRow[]
+      overrideReason?: string
     }) => {
       if (!user) throw new Error('Not authenticated')
       if (!user.staffId) throw new Error('Staff profile not found — please sign out and sign in again')
+
+      const { data: journalRow, error: jErr } = await supabase
+        .from('exam_journal')
+        .select('status, published_at')
+        .eq('id', journalId)
+        .eq('school_id', user.schoolId)
+        .single()
+      if (jErr) throw jErr
+
+      const locked = isJournalLocked({
+        status:      (journalRow as { status: ExamJournal['status'] }).status,
+        publishedAt: (journalRow as { published_at: string | null }).published_at,
+      })
+      if (locked && !overrideReason?.trim()) {
+        throw new Error('These results are locked. Provide a reason to make a correction.')
+      }
+
       const rows = marks.map(m => {
         // Grade: null for end_of_term (needs CA to combine), calculated for all others
         let grade: ExamResult['grade'] = null
@@ -115,6 +138,19 @@ export function useSaveMarks() {
             onConflict: 'exam_journal_id,student_id',
           })
         if (error) throw error
+      }
+
+      if (locked && overrideReason) {
+        await supabase.from('audit_log').insert({
+          school_id:   user.schoolId,
+          user_id:     user.id,
+          role:        user.role,
+          action:      'MARKS_EDITED_AFTER_LOCK',
+          table_name:  'exam_results',
+          record_id:   journalId,
+          entity_name: `Exam journal ${journalId}`,
+          new_value:   { reason: overrideReason.trim(), studentsAffected: rows.length },
+        })
       }
 
       return journalId
