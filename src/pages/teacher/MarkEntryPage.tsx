@@ -27,27 +27,34 @@ import type { Student } from '../../types/app'
 import type { MarkRow } from '../../hooks/useExamResults'
 
 // ── Mark import field specs ────────────────────────────────────
-const MARK_REQUIRED_FIELDS: ColumnSpec[] = [
-  {
-    key:      'admission_number',
-    label:    'Admission No.',
-    required: true,
-    hint:     'Must match the student admission number exactly',
-    example:  'KJA/2025/001',
-  },
-  {
-    key:      'score',
-    label:    'Score',
-    required: true,
-    hint:     'Numeric score within the total marks range',
-    example:  '72',
-    validate: (v: string) => {
-      const n = Number(v)
-      if (isNaN(n) || n < 0) return 'Score must be a positive number'
-      return null
+// A function of totalMarks so the Score validator can flag an out-of-range
+// value in the preview step itself, matching handleMarkImport's own check —
+// otherwise a score exceeding the journal's total would show "valid" in the
+// editable preview and only fail later, at the actual import call.
+function buildMarkRequiredFields(totalMarks: number): ColumnSpec[] {
+  return [
+    {
+      key:      'admission_number',
+      label:    'Admission No.',
+      required: true,
+      hint:     'Must match the student admission number exactly',
+      example:  'KJA/2025/001',
     },
-  },
-]
+    {
+      key:      'score',
+      label:    'Score',
+      required: true,
+      hint:     `Numeric score between 0 and ${totalMarks}`,
+      example:  '72',
+      validate: (v: string) => {
+        const n = Number(v)
+        if (isNaN(n) || n < 0) return 'Score must be a positive number'
+        if (n > totalMarks) return `Score must not exceed ${totalMarks}`
+        return null
+      },
+    },
+  ]
+}
 
 const MARK_OPTIONAL_FIELDS: ColumnSpec[] = [
   {
@@ -744,6 +751,7 @@ export function MarkEntryPage() {
   const isEndOfTerm = journal?.assessmentType === 'end_of_term'
   const totalMarks  = journal?.totalMarks ?? 100
   const passMark    = journal?.passMark ?? 50
+  const markRequiredFields = useMemo(() => buildMarkRequiredFields(totalMarks), [totalMarks])
 
   const parentRef = useRef<HTMLDivElement>(null)
   const rowVirt   = useVirtualizer({
@@ -1147,8 +1155,9 @@ export function MarkEntryPage() {
           </div>
           <ImportWizard
             context="marks"
-            requiredFields={MARK_REQUIRED_FIELDS}
+            requiredFields={markRequiredFields}
             optionalFields={MARK_OPTIONAL_FIELDS}
+            editableFields={['score', 'is_absent']}
             onComplete={handleMarkImport}
             onClose={() => setImportOpen(false)}
           />

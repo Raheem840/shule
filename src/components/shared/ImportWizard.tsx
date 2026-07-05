@@ -32,6 +32,9 @@ interface ImportWizardProps {
   onClose?:       () => void
   /** Optional per-row validator — if provided, preview shows error/warning indicators */
   validateRow?:   (row: Record<string, unknown>) => RowWarning[]
+  /** Field keys the user can correct inline on the Preview step before importing
+   *  (e.g. a mis-scanned score) — edited cells are re-validated immediately. */
+  editableFields?: string[]
 }
 
 // ── Internal types ────────────────────────────────────────────
@@ -144,6 +147,20 @@ function autoDetect(headers: string[]): Record<string, string> {
 }
 
 // ── Row validation ────────────────────────────────────────────
+function validateFields(data: Record<string, string>, fields: ColumnSpec[]): string[] {
+  const errors: string[] = []
+  fields.forEach(f => {
+    const val = (data[f.key] ?? '').trim()
+    if (f.required && !val) {
+      errors.push(`${f.label} is required`)
+    } else if (val && f.validate) {
+      const msg = f.validate(val)
+      if (msg) errors.push(msg)
+    }
+  })
+  return errors
+}
+
 function validateRows(
   allRows:  string[][],
   headers:  string[],
@@ -157,16 +174,7 @@ function validateRows(
       if (field && field !== '__skip__') data[field] = row[i] ?? ''
     })
 
-    const errors: string[] = []
-    fields.forEach(f => {
-      const val = (data[f.key] ?? '').trim()
-      if (f.required && !val) {
-        errors.push(`${f.label} is required`)
-      } else if (val && f.validate) {
-        const msg = f.validate(val)
-        if (msg) errors.push(msg)
-      }
-    })
+    const errors = validateFields(data, fields)
 
     return {
       data,
@@ -218,7 +226,7 @@ function WizardSteps({ current }: { current: number }) {
 }
 
 // ── Main component ────────────────────────────────────────────
-export function ImportWizard({ context, requiredFields, optionalFields, onComplete, onClose, validateRow }: ImportWizardProps) {
+export function ImportWizard({ context, requiredFields, optionalFields, onComplete, onClose, validateRow, editableFields }: ImportWizardProps) {
   const allFields = [...requiredFields, ...optionalFields]
 
   const [step,       setStep]       = useState(1)
@@ -280,6 +288,16 @@ export function ImportWizard({ context, requiredFields, optionalFields, onComple
     const rows = validateRows(parsed.allRows, parsed.headers, mapping, allFields)
     setValidated(rows)
     setStep(3)
+  }
+
+  // ── Step 3 — inline cell edit + re-validate ────────────────
+  function editCell(rowIndex: number, key: string, value: string) {
+    setValidated(rows => rows.map((r, i) => {
+      if (i !== rowIndex) return r
+      const data   = { ...r.data, [key]: value }
+      const errors = validateFields(data, allFields)
+      return { ...r, data, errors, status: errors.length > 0 ? 'error' : 'valid' }
+    }))
   }
 
   // ── Step 5 — import ────────────────────────────────────────
@@ -452,6 +470,12 @@ export function ImportWizard({ context, requiredFields, optionalFields, onComple
             <Badge variant="muted">{validated.length} total rows</Badge>
           </div>
 
+          {editableFields && editableFields.length > 0 && (
+            <div style={{ padding: '0.6rem 0.85rem', background: 'var(--info-bg)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: 'var(--r)', fontSize: 12.5, color: '#0369a1' }}>
+              Spotted a mistake? Click any highlighted cell below to correct it before importing — errors clear as soon as the value is valid.
+            </div>
+          )}
+
           {/* External validator summary banner */}
           {validateRow && (extErrorCount > 0 || extWarningCount > 0) && (
             <div style={{
@@ -504,11 +528,30 @@ export function ImportWizard({ context, requiredFields, optionalFields, onComple
                           {row.status}
                         </Badge>
                       </td>
-                      {allFields.filter(f => Object.values(mapping).includes(f.key)).map(f => (
-                        <td key={f.key} style={{ ...tdStyle, color: row.errors.some(e => e.includes(f.label)) ? 'var(--danger)' : 'var(--txt2)' }}>
-                          {row.data[f.key] || <span style={{ color: 'var(--txt3)' }}>—</span>}
-                        </td>
-                      ))}
+                      {allFields.filter(f => Object.values(mapping).includes(f.key)).map(f => {
+                        const isErrored = row.errors.some(e => e.includes(f.label))
+                        if (editableFields?.includes(f.key)) {
+                          return (
+                            <td key={f.key} style={tdStyle}>
+                              <input
+                                value={row.data[f.key] ?? ''}
+                                onChange={e => editCell(i, f.key, e.target.value)}
+                                style={{
+                                  width: 90, padding: '4px 7px',
+                                  border: `1px solid ${isErrored ? 'var(--danger)' : 'var(--border)'}`,
+                                  borderRadius: 6, fontSize: 12, fontFamily: 'var(--font3)',
+                                  background: 'var(--surface)', color: 'var(--txt)',
+                                }}
+                              />
+                            </td>
+                          )
+                        }
+                        return (
+                          <td key={f.key} style={{ ...tdStyle, color: isErrored ? 'var(--danger)' : 'var(--txt2)' }}>
+                            {row.data[f.key] || <span style={{ color: 'var(--txt3)' }}>—</span>}
+                          </td>
+                        )
+                      })}
                       {validateRow && (
                         <td style={tdStyle}>
                           {hasExtErr && <span style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11 }}>● {extWarns.filter(w => w.severity === 'error').length} err</span>}
