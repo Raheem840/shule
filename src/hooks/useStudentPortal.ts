@@ -1,4 +1,5 @@
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { calcFeeStatus } from './useFeePayments'
@@ -6,6 +7,68 @@ import type { Student } from '../types/app'
 import type { PortalReportCard, ExamResultRow, StudentFeeRecord } from './useParentPortal'
 
 type AnyRow = Record<string, unknown>
+
+// ── useStudentPortalRealtime ───────────────────────────────────
+// Every other role's data (messaging, notifications) updates live via a
+// Supabase realtime channel — the student portal previously had none, so a
+// bursar payment, a newly-published mark, an attendance entry, or a
+// promotion (which changes class_id/stream_id) wouldn't show up until the
+// query's 5-minute staleTime lapsed and the tab regained focus, or a hard
+// refresh. Mirrors the exact channel/.on()/invalidate pattern already used
+// in useMessaging.ts. Filters server-side by school_id (Supabase's realtime
+// filter can't reference student_id from a subquery), then narrows client-side.
+export function useStudentPortalRealtime(studentId: string | null) {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  useEffect(() => {
+    if (!user || user.role !== 'student' || !studentId) return
+
+    const channel = supabase
+      .channel(`student-portal:${user.schoolId}:${studentId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'students', filter: `school_id=eq.${user.schoolId}` },
+        (payload) => {
+          const row = payload.new as AnyRow | undefined
+          if (row?.id !== studentId) return
+          void qc.invalidateQueries({ queryKey: ['my-student-record', user.schoolId, user.id] })
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fee_payments', filter: `school_id=eq.${user.schoolId}` },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as AnyRow | undefined
+          if (row?.student_id !== studentId) return
+          void qc.invalidateQueries({ queryKey: ['my-fee-balance', user.schoolId, studentId] })
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'exam_results', filter: `school_id=eq.${user.schoolId}` },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as AnyRow | undefined
+          if (row?.student_id !== studentId) return
+          void qc.invalidateQueries({ queryKey: ['my-exam-results', user.schoolId, studentId] })
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'report_cards', filter: `school_id=eq.${user.schoolId}` },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as AnyRow | undefined
+          if (row?.student_id !== studentId) return
+          void qc.invalidateQueries({ queryKey: ['my-report-cards', user.schoolId, studentId] })
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance', filter: `school_id=eq.${user.schoolId}` },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as AnyRow | undefined
+          if (row?.student_id !== studentId) return
+          void qc.invalidateQueries({ queryKey: ['attendance-summary', user.schoolId, studentId] })
+          void qc.invalidateQueries({ queryKey: ['attendance-history', user.schoolId, studentId] })
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'timetable_slots', filter: `school_id=eq.${user.schoolId}` },
+        () => {
+          // A promotion or a DOS edit can change which slots apply — class/stream
+          // filtering happens client-side in useTimetableSlots, so just invalidate
+          // the whole family rather than trying to match this student's current class.
+          void qc.invalidateQueries({ queryKey: ['timetable-slots', user.schoolId] })
+        })
+      .subscribe()
+
+    return () => { void supabase.removeChannel(channel) }
+  }, [user, studentId, qc])
+}
 
 // ── useMyStudentRecord ─────────────────────────────────────────
 // Finds the student row linked to the logged-in student's auth account.

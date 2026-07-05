@@ -6,6 +6,7 @@ import {
   useMyFeeBalance,
   useIsEndOfTermSurveyActive,
   useSubmitSurvey,
+  useStudentPortalRealtime,
 } from '../../hooks/useStudentPortal'
 import { useSchoolNotices } from '../../hooks/useParentPortal'
 import { usePortalNotifications, useMarkSingleNotificationRead } from '../../hooks/useNotifications'
@@ -1320,6 +1321,7 @@ const TAB_ICONS: Record<TabName, React.ReactNode> = {
 // ─── StudentPortalPage ─────────────────────────────────────────────────────────
 export function StudentPortalPage() {
   const { data: student, isLoading: studentLoading } = useMyStudentRecord()
+  useStudentPortalRealtime(student?.id ?? null)
   const { data: surveyMeta } = useIsEndOfTermSurveyActive()
   const { data: fees = [] } = useMyFeeBalance(student?.id ?? '')
   const { data: attendance } = useAttendanceSummary(student?.id ?? '')

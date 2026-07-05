@@ -4,6 +4,21 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
+const { mockChannel, mockRemoveChannel, channelHandlers } = vi.hoisted(() => {
+  const channelHandlers: Array<{ table: string; cb: (payload: any) => void }> = []
+  const mockRemoveChannel = vi.fn()
+  const mockChannel = vi.fn().mockImplementation(() => {
+    const chan: any = {}
+    chan.on = vi.fn().mockImplementation((_type: string, filter: { table: string }, cb: (payload: any) => void) => {
+      channelHandlers.push({ table: filter.table, cb })
+      return chan
+    })
+    chan.subscribe = vi.fn().mockReturnValue(chan)
+    return chan
+  })
+  return { mockChannel, mockRemoveChannel, channelHandlers }
+})
+
 const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
   const tableData: Record<string, any> = {}
   const setResponse    = (t: string, r: any) => { tableData[t] = r }
@@ -33,6 +48,8 @@ vi.mock('../../lib/supabase', () => ({
       onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
     },
     from: mockFrom,
+    channel: mockChannel,
+    removeChannel: mockRemoveChannel,
   },
 }))
 
@@ -49,6 +66,7 @@ import {
   useSubmitSurvey,
   useIsEndOfTermSurveyActive,
   useMyReleasedReportCards,
+  useStudentPortalRealtime,
 } from '../../hooks/useStudentPortal'
 
 function createWrapper() {
@@ -167,5 +185,55 @@ describe('useIsEndOfTermSurveyActive', () => {
     const { result } = renderHook(() => useIsEndOfTermSurveyActive(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data?.isActive).toBe(false)
+  })
+})
+
+// ── useStudentPortalRealtime ─────────────────────────────────────
+describe('useStudentPortalRealtime', () => {
+  it('subscribes to a channel scoped to the school and invalidates the matching query on a relevant change', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries')
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}><MemoryRouter>{children}</MemoryRouter></QueryClientProvider>
+    )
+
+    renderHook(() => useStudentPortalRealtime('stu-1'), { wrapper })
+
+    expect(mockChannel).toHaveBeenCalledWith('student-portal:school-1:stu-1')
+
+    const feeHandler = channelHandlers.find(h => h.table === 'fee_payments')
+    expect(feeHandler).toBeDefined()
+    feeHandler!.cb({ new: { student_id: 'stu-1' } })
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['my-fee-balance', 'school-1', 'stu-1'] })
+  })
+
+  it('ignores changes for a different student', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries')
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}><MemoryRouter>{children}</MemoryRouter></QueryClientProvider>
+    )
+
+    renderHook(() => useStudentPortalRealtime('stu-1'), { wrapper })
+
+    const examHandler = channelHandlers.find(h => h.table === 'exam_results')
+    examHandler!.cb({ new: { student_id: 'some-other-student' } })
+
+    expect(invalidateSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: expect.arrayContaining(['my-exam-results']) })
+    )
+  })
+
+  it('unsubscribes the channel on unmount', () => {
+    const { unmount } = renderHook(() => useStudentPortalRealtime('stu-1'), { wrapper: createWrapper() })
+    unmount()
+    expect(mockRemoveChannel).toHaveBeenCalled()
+  })
+
+  it('does not subscribe when studentId is null', () => {
+    mockChannel.mockClear()
+    renderHook(() => useStudentPortalRealtime(null), { wrapper: createWrapper() })
+    expect(mockChannel).not.toHaveBeenCalled()
   })
 })
