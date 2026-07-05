@@ -10,7 +10,7 @@
   --brand:        #0d9488;
   --brand-dark:   #0f766e;
   --brand-light:  #f0fdfa;
-  --brand-glow:   rgba(13,148,136,0.15);
+  --brand-glow:   color-mix(in srgb, var(--brand) 15%, transparent);
 
   /* Surfaces */
   --bg:           #f8fafc;
@@ -22,8 +22,8 @@
   --sb-label:     #2a3f55;
   --sb-item:      rgba(255,255,255,0.6);
   --sb-hover-bg:  rgba(255,255,255,0.04);
-  --sb-active-bg: rgba(13,217,196,0.08);
-  --sb-active:    #0dd9c4;
+  --sb-active-bg: color-mix(in srgb, var(--brand) 8%, transparent);
+  --sb-active:    var(--brand);
   --sb-border:    rgba(255,255,255,0.06);
 
   /* Borders */
@@ -47,7 +47,7 @@
   --sh-sm:    0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
   --sh-md:    0 4px 16px rgba(15,23,42,0.08);
   --sh-lg:    0 12px 40px rgba(15,23,42,0.1);
-  --sh-brand: 0 4px 20px rgba(13,148,136,0.25);
+  --sh-brand: 0 4px 20px color-mix(in srgb, var(--brand) 25%, transparent);
 
   /* Typography */
   --font1: 'Plus Jakarta Sans', sans-serif;
@@ -87,7 +87,7 @@
   --surface2:     rgba(10,20,38,0.8);
 
   --sb-bg:        rgba(6,16,38,0.95);
-  --sb-label:     rgba(13,217,196,0.25);
+  --sb-label:     color-mix(in srgb, var(--brand) 25%, transparent);
 
   --border:       rgba(255,255,255,0.06);
   --border2:      rgba(255,255,255,0.1);
@@ -99,8 +99,8 @@
   --sh-sm:    0 1px 3px rgba(0,0,0,0.3),  0 1px 2px rgba(0,0,0,0.2);
   --sh-md:    0 4px 16px rgba(0,0,0,0.25);
   --sh-lg:    0 12px 40px rgba(0,0,0,0.3);
-  --sh-brand: 0 4px 20px rgba(13,217,196,0.2);
-  --brand-glow: rgba(13,217,196,0.2);
+  --sh-brand: 0 4px 20px color-mix(in srgb, var(--brand) 20%, transparent);
+  --brand-glow: color-mix(in srgb, var(--brand) 20%, transparent);
 
   /* Semantic overrides for dark mode — full set */
   --success:      #34d399;  --success-bg: rgba(16,185,129,0.12);  --success-txt: #34d399;

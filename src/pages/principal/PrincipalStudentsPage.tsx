@@ -52,7 +52,8 @@ function StudentActionMenu({ student, pos, onClose, onView }: {
       onMouseDown={e => e.stopPropagation()}
       style={{
         position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999,
-        background: 'var(--surface)', border: '.5px solid var(--border)',
+        background: 'var(--surface)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+        border: '.5px solid var(--border)',
         borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,.16)',
         minWidth: 168, overflow: 'hidden', animation: 'fadeUp .16s ease both',
       }}
@@ -96,7 +97,17 @@ function StudentCard({ student, className, classLevel, streamName, onView }: {
     if (!menuOpen) return
     function close() { setMenuOpen(false) }
     document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    // The menu's position is computed once, at open time, from the button's
+    // fixed-viewport coordinates — it doesn't track the button as the page
+    // (or any scrollable ancestor) scrolls. Rather than re-measuring on every
+    // scroll tick, just close it — the button is one click away again.
+    // `capture: true` catches scroll events on nested scroll containers
+    // (e.g. .shell-main), which don't bubble to window otherwise.
+    window.addEventListener('scroll', close, true)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      window.removeEventListener('scroll', close, true)
+    }
   }, [menuOpen])
 
   return (

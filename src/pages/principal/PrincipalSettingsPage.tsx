@@ -227,7 +227,7 @@ export function PrincipalSettingsPage() {
 
           {/* Content */}
           <div style={{ padding: '0 28px 28px', marginTop: -40 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 20, flexWrap: 'wrap' }}>
 
               {/* Badge / Logo */}
               <div className="sts-badge-wrap" onClick={() => editMode && logoRef.current?.click()}>

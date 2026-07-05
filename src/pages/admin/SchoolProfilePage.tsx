@@ -142,7 +142,7 @@ export function SchoolProfilePage() {
           </div>
 
           <div style={{ padding: '0 28px 28px', marginTop: -40 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 20, flexWrap: 'wrap' }}>
 
               {/* Badge */}
               <div className="spg-badge-wrap" onClick={() => editMode && logoRef.current?.click()}>
@@ -272,7 +272,7 @@ export function SchoolProfilePage() {
                   {logoPreview && <img src={logoPreview} alt="" style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 6, marginLeft: 'auto', border: '1px solid var(--border)' }} />}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', display: 'block', marginBottom: 5 }}>SHORT NAME</label>
                     <input className="sui-input" value={shortName} onChange={e => setShortName(e.target.value)} placeholder="e.g. KGGS" style={{ fontFamily: 'var(--font3)', fontWeight: 700 }} />
