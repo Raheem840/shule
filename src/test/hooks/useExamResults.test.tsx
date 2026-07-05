@@ -285,6 +285,24 @@ describe('useSaveMarks — grace-period lock', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(mockFrom).not.toHaveBeenCalledWith('audit_log')
   })
+
+  it('surfaces an error when the audit_log write fails, even though marks were already saved', async () => {
+    setResponse('exam_journal', { data: { status: 'published', published_at: expiredPublishedAt }, error: null })
+    setResponse('exam_results', { data: null, error: null })
+    setResponse('audit_log', { data: null, error: { message: 'RLS denied' } })
+    const { result } = renderHook(() => useSaveMarks(), { wrapper: createWrapper() })
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          journalId: 'j-1', subjectId: 'sub-1', assessmentType: 'mid_term', totalMarks: 80,
+          term: '1', year: 2025,
+          marks: [{ studentId: 'stu-1', score: 60, isAbsent: false }],
+          overrideReason: 'Student complaint',
+        })
+      ).rejects.toThrow('audit record failed')
+    })
+  })
 })
 
 describe('schema boundary: exam_results', () => {

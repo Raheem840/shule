@@ -6,7 +6,6 @@ import {
   ReferenceLine, ResponsiveContainer, Cell,
 } from 'recharts'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useQueryClient } from '@tanstack/react-query'
 import { useExamJournalById, usePublishJournal, isJournalLocked, MARKS_GRACE_PERIOD_DAYS } from '../../hooks/useExamJournal'
 import { useExamResults, useSaveMarks } from '../../hooks/useExamResults'
 import { useStudents } from '../../hooks/useStudents'
@@ -21,7 +20,6 @@ import {
   type ImportResult,
   type ConflictStrategy,
 } from '../../components/shared/ImportWizard'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import type { Student } from '../../types/app'
 import type { MarkRow } from '../../hooks/useExamResults'
@@ -712,7 +710,6 @@ export function MarkEntryPage() {
   const navigate        = useNavigate()
   const [searchParams]  = useSearchParams()
   const isMobile        = useIsMobile()
-  const qc              = useQueryClient()
   const { user }        = useAuth()
 
   const { data: journal, isLoading: journalLoading } = useExamJournalById(journalId)
@@ -728,8 +725,8 @@ export function MarkEntryPage() {
 
   const [marks, setMarks]       = useState<Map<string, { score: number | null; isAbsent: boolean }>>(new Map())
   const [saved, setSaved]       = useState(false)
-  // Open import modal automatically when ?import=1 is present
-  const [importOpen, setImportOpen] = useState(() => searchParams.get('import') === '1')
+  const [importOpen, setImportOpen] = useState(false)
+  const deepLinkImportHandled = useRef(false)
 
   // ── Provisional / locked results ────────────────────────────
   // A published journal stays freely editable for MARKS_GRACE_PERIOD_DAYS —
@@ -797,7 +794,22 @@ export function MarkEntryPage() {
       setShowReasonModal(null)
       setOverrideReason('')
     } catch (e) {
-      if (showReasonModal === 'save') setOverrideError(e instanceof Error ? e.message : 'Save failed')
+      const msg = e instanceof Error ? e.message : 'Save failed'
+      // The client's `locked` flag is computed from a possibly-stale cached
+      // journal — if the journal actually crossed the grace-period boundary
+      // between page load and this click, `locked` was still false, no
+      // reason modal was shown, and useSaveMarks's live re-check is the one
+      // that just rejected it. Recover by opening the reason modal now
+      // (branching on the error itself, not on whether the modal happened to
+      // already be open) rather than leaving the teacher stuck with a
+      // generic error banner and no way to provide a reason short of a
+      // page refresh.
+      if (msg.toLowerCase().includes('locked')) {
+        setOverrideError(reason ? msg : null)
+        setShowReasonModal('save')
+        return
+      }
+      if (reason) setOverrideError(msg)
       else throw e
     }
   }
@@ -813,6 +825,20 @@ export function MarkEntryPage() {
     setImportOpen(true)
   }
 
+  // ExamJournalPage links here with ?import=1 to jump straight into the
+  // import wizard. That must go through the same lock gate as the in-page
+  // button — routing it through handleImportClick (rather than opening the
+  // wizard directly from useState's initializer, which ran before `journal`
+  // had loaded and so couldn't know whether the journal was locked) closes
+  // a gap where a locked journal's import wizard opened with no reason prompt.
+  useEffect(() => {
+    if (deepLinkImportHandled.current) return
+    if (searchParams.get('import') !== '1' || !journal) return
+    deepLinkImportHandled.current = true
+    handleImportClick()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [journal, searchParams])
+
   function confirmOverrideReason() {
     const reason = overrideReason.trim()
     if (!reason) { setOverrideError('A reason is required to edit locked results.'); return }
@@ -827,6 +853,15 @@ export function MarkEntryPage() {
   }
 
   // ── Bulk mark import via ImportWizard ──────────────────────
+  // Routes through useSaveMarks rather than its own upsert — that hook
+  // already owns the live lock re-check, 100-row batching, grade calc, and
+  // audited override write. An earlier version reimplemented all of that
+  // here by hand, and the two copies had already drifted (a stricter
+  // teacher_id fallback in one, no batching in the other, slightly
+  // different audit_log payload shapes) — one code path for both entry
+  // methods keeps them impossible to disagree.
+  const ABSENT_TRUE_VALUES = new Set(['true', 'yes', 'y', '1'])
+
   async function handleMarkImport(
     rows: ParsedRow[],
     _strategy: ConflictStrategy,
@@ -834,31 +869,8 @@ export function MarkEntryPage() {
     const result: ImportResult = { imported: 0, updated: 0, skipped: 0, failed: [] }
     if (!journal || !user || rows.length === 0) return result
 
-    // Re-check lock state against the live DB row (mirrors useSaveMarks) —
-    // the ImportWizard is only opened after the reason modal already ran for
-    // a locked journal, but this closure could still be stale if the journal
-    // was locked in the moments between opening the wizard and completing it.
-    const { data: journalRow, error: jErr } = await supabase
-      .from('exam_journal')
-      .select('status, published_at')
-      .eq('id', journal.id)
-      .eq('school_id', user.schoolId)
-      .single()
-    if (jErr) { result.failed.push({ row: 0, reason: jErr.message }); return result }
-
-    const stillLocked = isJournalLocked({
-      status:      journalRow.status as 'draft' | 'published',
-      publishedAt: journalRow.published_at as string | null,
-    })
-    if (stillLocked && !overrideReason.trim()) {
-      result.failed.push({ row: 0, reason: 'These results are locked. Provide a reason to make a correction.' })
-      return result
-    }
-
-    // Build admission_number → student_id map
     const admMap = new Map(students.map(s => [s.admissionNumber.trim().toLowerCase(), s.id]))
-
-    const validRows: Array<{ studentId: string; score: number; isAbsent: boolean }> = []
+    const validRows: MarkRow[] = []
 
     rows.forEach((row, idx) => {
       const adm = (row.admission_number ?? '').trim().toLowerCase()
@@ -868,69 +880,33 @@ export function MarkEntryPage() {
         return
       }
       const scoreNum = Number(row.score)
-      if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > (journal?.totalMarks ?? Infinity)) {
-        result.failed.push({ row: idx + 1, reason: `Invalid score: "${row.score}" (max ${journal?.totalMarks ?? '?'})` })
+      if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > journal.totalMarks) {
+        result.failed.push({ row: idx + 1, reason: `Invalid score: "${row.score}" (max ${journal.totalMarks})` })
         return
       }
-      const absent = (row.is_absent ?? '').toLowerCase() === 'true'
-      validRows.push({ studentId, score: scoreNum, isAbsent: absent })
+      const absent = ABSENT_TRUE_VALUES.has((row.is_absent ?? '').trim().toLowerCase())
+      validRows.push({ studentId, score: absent ? null : scoreNum, isAbsent: absent })
     })
 
     if (validRows.length === 0) return result
-    if (!user?.schoolId) return result
 
-    const { error } = await supabase.from('exam_results').upsert(
-      validRows.map(r => {
-        let grade: string | null = null
-        if (!r.isAbsent && r.score !== null && journal.assessmentType !== 'end_of_term') {
-          if (journal.assessmentType === 'ca') {
-            grade = calculateCBCGrade((r.score / 3) * 100)
-          } else if (journal.totalMarks > 0) {
-            grade = calculateCBCGrade((r.score / journal.totalMarks) * 100)
-          }
-        }
-        return {
-          school_id:       user.schoolId,
-          exam_journal_id: journal.id,
-          student_id:      r.studentId,
-          teacher_id:      user.staffId ?? user.id,
-          subject_id:      journal.subjectId,
-          score:           r.isAbsent ? null : r.score,
-          grade,
-          is_absent:       r.isAbsent,
-          term:            journal.term,
-          year:            journal.year,
-        }
-      }),
-      { onConflict: 'exam_journal_id,student_id' },
-    )
-
-    if (error) {
-      validRows.forEach((_, i) => result.failed.push({ row: i + 1, reason: error.message }))
-      return result
-    }
-
-    result.imported = validRows.length
-
-    if (stillLocked && overrideReason.trim()) {
-      await supabase.from('audit_log').insert({
-        school_id:   user.schoolId,
-        user_id:     user.id,
-        role:        user.role,
-        action:      'MARKS_EDITED_AFTER_LOCK',
-        table_name:  'exam_results',
-        record_id:   journal.id,
-        entity_name: `Exam journal ${journal.id}`,
-        new_value:   { reason: overrideReason.trim(), studentsAffected: validRows.length, via: 'import' },
+    try {
+      await saveMarks.mutateAsync({
+        journalId:      journal.id,
+        subjectId:      journal.subjectId,
+        assessmentType: journal.assessmentType,
+        totalMarks:     journal.totalMarks,
+        term:           journal.term,
+        year:           journal.year,
+        marks:          validRows,
+        overrideReason,
       })
+      result.imported = validRows.length
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : 'Import failed'
+      validRows.forEach((_, i) => result.failed.push({ row: i + 1, reason }))
     }
 
-    qc.invalidateQueries({ queryKey: ['exam-results', user?.schoolId, journal.id] })
-    qc.invalidateQueries({ queryKey: ['dos-overview', user?.schoolId] })
-    qc.invalidateQueries({ queryKey: ['dos-class-perf', user?.schoolId] })
-    qc.invalidateQueries({ queryKey: ['principal-kpis', user?.schoolId] })
-    qc.invalidateQueries({ queryKey: ['secretary-briefing', user?.schoolId] })
-    qc.invalidateQueries({ queryKey: ['term-progress', user?.schoolId] })
     return result
   }
 
@@ -1196,7 +1172,7 @@ export function MarkEntryPage() {
         <div className="mob-action-bar">
           <button onClick={() => void handleSaveAll()} disabled={saveMarks.isPending}
             style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: '.5px solid var(--border)', background: saved ? 'rgba(16,185,129,.1)' : 'var(--surface2)', color: saved ? '#065f46' : 'var(--txt2)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-            {saveMarks.isPending ? 'Saving…' : saved ? '✓ Saved' : 'Save All'}
+            {saveMarks.isPending ? 'Saving…' : saved ? '✓ Saved' : locked ? 'Save (locked)' : 'Save All'}
           </button>
           {journal?.status === 'draft' && (
             <button onClick={() => void handlePublish()} disabled={saveMarks.isPending || publish.isPending}

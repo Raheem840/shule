@@ -141,7 +141,12 @@ export function useSaveMarks() {
       }
 
       if (locked && overrideReason) {
-        await supabase.from('audit_log').insert({
+        // The marks are already saved at this point — an audit-log failure
+        // must not be swallowed silently, since the whole point of this
+        // override flow is guaranteeing a compliance record exists. Surface
+        // it as an error so the teacher (and whoever handles the resulting
+        // support ticket) knows the correction landed but wasn't logged.
+        const { error: auditErr } = await supabase.from('audit_log').insert({
           school_id:   user.schoolId,
           user_id:     user.id,
           role:        user.role,
@@ -151,6 +156,9 @@ export function useSaveMarks() {
           entity_name: `Exam journal ${journalId}`,
           new_value:   { reason: overrideReason.trim(), studentsAffected: rows.length },
         })
+        if (auditErr) {
+          throw new Error(`Marks were saved, but the audit record failed: ${auditErr.message}`)
+        }
       }
 
       return journalId
