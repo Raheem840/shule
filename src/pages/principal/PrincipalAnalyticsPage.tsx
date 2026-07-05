@@ -7,7 +7,7 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { TermPicker } from '../../components/ui/TermPicker'
 import { useDosOverview } from '../../hooks/useDos'
-import { useClasses } from '../../hooks/useClasses'
+import { useClasses, useActiveAcademicYearId } from '../../hooks/useClasses'
 import {
   useSchoolFeeSummary,
   useAllClassPerformance,
@@ -194,7 +194,14 @@ export function PrincipalAnalyticsPage() {
   const { data: staffRoles, isLoading: staffRolesLoading  } = useStaffRoleBreakdown()
   const { data: discipline, isLoading: disciplineLoading  } = useMonthlyDiscipline()
   const { data: fees,       isLoading: feesLoading        } = useSchoolFeeSummary()
-  const { data: byClass,    isLoading: byClassLoading     } = useFeeCollectionByClass(Number(financeTerm), null)
+  // Scoped to the active academic year — without this, selecting a term
+  // aggregated fee_payments across every year that ever used that term
+  // number (e.g. Term 1 2025 + Term 1 2026 summed into one bar per class)
+  // while the chart title implied a single-year total.
+  const { data: activeYearId, isLoading: activeYearLoading } = useActiveAcademicYearId()
+  const { data: byClass,    isLoading: byClassLoading     } = useFeeCollectionByClass(
+    Number(financeTerm), activeYearId ?? null, !activeYearLoading
+  )
 
   const filteredClassPerf  = academicClassFilter   ? (classPerf   ?? []).filter(c => c.classId === academicClassFilter)   : classPerf
   const filteredAttByClass = attendanceClassFilter  ? (attByClass ?? []).filter(c => c.classId === attendanceClassFilter) : attByClass
@@ -554,7 +561,7 @@ export function PrincipalAnalyticsPage() {
                     </PieChart>
                   </ChartCard>
 
-                  {byClassLoading
+                  {(byClassLoading || activeYearLoading)
                     ? <div style={card}><Loading /></div>
                     : (
                       <div style={card}>

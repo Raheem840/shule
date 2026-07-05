@@ -35,9 +35,20 @@ const SKIP_FIELDS = new Set([
   'attachment_url','temp_password','photo_url',
 ])
 
-function friendlyRole(role: string) { return ROLE_LABELS[role] ?? role }
-function friendlyTable(table: string) {
+export function friendlyRole(role: string) { return ROLE_LABELS[role] ?? role }
+export function friendlyTable(table: string) {
   return TABLE_LABELS[table] ?? table.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+export { ACTION_META }
+
+// A staff row UPDATE that only touches last_login_at is a login stamp, not a
+// real profile edit — used by both the full Activity Log and the Dashboard's
+// "Recent Audit Log" widget so neither misrepresents a routine login as an edit.
+export function isLoginStampOnly(entry: AuditEntry): boolean {
+  if (entry.action !== 'UPDATE' || entry.tableName !== 'staff') return false
+  const keys = Array.from(new Set([...Object.keys(entry.oldData ?? {}), ...Object.keys(entry.newData ?? {})]))
+  const changed = keys.filter(k => JSON.stringify(entry.oldData?.[k]) !== JSON.stringify(entry.newData?.[k]))
+  return changed.length === 1 && changed[0] === 'last_login_at'
 }
 function prettifyField(field: string): string {
   const MAP: Record<string, string> = {
@@ -71,12 +82,8 @@ function buildNarrative(action: string, table: string, entityName: string | null
 
   // Staff row updates that only touch last_login_at are login stamps, not edits —
   // show them distinctly instead of the generic "updated a staff profile" message.
-  if (action === 'UPDATE' && table === 'staff' && entry) {
-    const keys = Array.from(new Set([...Object.keys(entry.oldData ?? {}), ...Object.keys(entry.newData ?? {})]))
-    const changed = keys.filter(k => JSON.stringify(entry.oldData?.[k]) !== JSON.stringify(entry.newData?.[k]))
-    if (changed.length === 1 && changed[0] === 'last_login_at') {
-      return `${actor} logged in${entity}`
-    }
+  if (entry && isLoginStampOnly(entry)) {
+    return `${actor} logged in${entity}`
   }
 
   const key    = `${action}:${table}`
@@ -499,19 +506,26 @@ type MessageLogRow = {
 function useMessageLog(dateFrom: string, dateTo: string) {
   const { user } = useAuth()
 
-  const { data: staffNames = {}, isSuccess: staffNamesReady } = useQuery({
-    queryKey: ['staff-name-map', user?.schoolId],
+  // messages.from_user_id/to_user_id can be a staff, parent, OR student
+  // auth_user_id (parent/student messaging was enabled in a later migration
+  // than this name-map originally supported) — resolve against all three
+  // tables, not just staff, or non-staff senders show as "Unknown".
+  const { data: userNames = {}, isSuccess: staffNamesReady } = useQuery({
+    queryKey: ['user-name-map', user?.schoolId],
     enabled: !!user,
     queryFn: async (): Promise<Record<string, string>> => {
-      const { data } = await supabase
-        .from('staff')
-        .select('auth_user_id, first_name, last_name, role')
-        .eq('school_id', user!.schoolId)
-        .not('auth_user_id', 'is', null)
+      const [{ data: staff }, { data: parents }, { data: students }] = await Promise.all([
+        supabase.from('staff').select('auth_user_id, first_name, last_name')
+          .eq('school_id', user!.schoolId).not('auth_user_id', 'is', null),
+        supabase.from('parent_accounts').select('auth_user_id, full_name')
+          .eq('school_id', user!.schoolId).not('auth_user_id', 'is', null),
+        supabase.from('students').select('auth_user_id, first_name, last_name')
+          .eq('school_id', user!.schoolId).not('auth_user_id', 'is', null),
+      ])
       const map: Record<string, string> = {}
-      for (const s of data ?? []) {
-        if (s.auth_user_id) map[s.auth_user_id] = `${s.first_name} ${s.last_name}`
-      }
+      for (const s of staff ?? [])    if (s.auth_user_id) map[s.auth_user_id] = `${s.first_name} ${s.last_name}`
+      for (const p of parents ?? [])  if (p.auth_user_id) map[p.auth_user_id] = `${p.full_name} (Parent)`
+      for (const s of students ?? []) if (s.auth_user_id) map[s.auth_user_id] = `${s.first_name} ${s.last_name} (Student)`
       return map
     },
     staleTime: 5 * 60_000,
@@ -533,8 +547,8 @@ function useMessageLog(dateFrom: string, dateTo: string) {
       if (error) throw error
       return (data ?? []).map((r: any) => ({
         id:            r.id,
-        fromName:      staffNames[r.from_user_id] ?? 'Unknown',
-        toName:        r.is_announcement ? 'All staff (announcement)' : (staffNames[r.to_user_id] ?? 'Unknown'),
+        fromName:      userNames[r.from_user_id] ?? 'Unknown',
+        toName:        r.is_announcement ? 'All staff (announcement)' : (userNames[r.to_user_id] ?? 'Unknown'),
         body:          r.body ?? '',
         sentAt:        r.sent_at,
         attachmentUrl: r.attachment_url ?? null,

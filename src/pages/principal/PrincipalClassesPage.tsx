@@ -211,7 +211,10 @@ function ClassCard({ c, studentCount, studentsByStream, expanded, onToggle }: {
 // ═══════════════════════════════════════════════════════════════════════════════
 export function PrincipalClassesPage() {
   const { data: classes  = [], isLoading } = useClasses()
-  const { data: students = [] }            = useStudents()
+  // Scoped to active students only — matches usePrincipalKpis' "Total Students"
+  // convention. Without this, suspended/expelled students were counted as
+  // enrolled here, disagreeing with every other student-count on the app.
+  const { data: students = [] }            = useStudents({ status: 'active' })
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const studentsByClass  = new Map<string, number>()

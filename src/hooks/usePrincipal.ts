@@ -66,11 +66,16 @@ export function usePrincipalKpis() {
         if (graded.length > 0) overallPassRate = Math.round((passed.length / graded.length) * 100)
       }
 
-      // Fee collection rate — server-side filtered to active year; empty when no active year
-      const totalExpected  = (paymentsRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_due  ?? 0), 0)
-      const totalCollected = (paymentsRes.data ?? []).reduce((s: number, r: any) => s + (r.amount_paid ?? 0), 0)
-      const feeCollectionRate = totalExpected > 0
-        ? Math.round((totalCollected / totalExpected) * 100) : 0
+      // Fee collection rate — server-side filtered to active year; null (not 0)
+      // when there's no active year or no fee_payments rows at all yet, so a
+      // newly onboarded school with no data isn't shown a false "0% collected,
+      // crisis" tile — matches overallPassRate's null = "no data" convention.
+      const feePayments = paymentsRes.data ?? []
+      const totalExpected  = feePayments.reduce((s: number, r: any) => s + (r.amount_due  ?? 0), 0)
+      const totalCollected = feePayments.reduce((s: number, r: any) => s + (r.amount_paid ?? 0), 0)
+      const feeCollectionRate = (!activeYearId || feePayments.length === 0)
+        ? null
+        : (totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0)
 
       // Attendance this week
       const attRows = attendanceRes.data ?? []
@@ -224,7 +229,10 @@ export function useAuditLog(params?: {
       if (params?.role)     q = q.eq('role', params.role)
       if (params?.action)   q = q.eq('action', params.action)
       if (params?.dateFrom) q = q.gte('created_at', params.dateFrom)
-      if (params?.dateTo)   q = q.lte('created_at', params.dateTo)
+      // Append end-of-day so the "To" date is inclusive — otherwise Postgres
+      // casts the plain date to midnight and silently drops every entry
+      // recorded later that same day (matches useMessageLog's existing fix).
+      if (params?.dateTo)   q = q.lte('created_at', params.dateTo + 'T23:59:59')
 
       const { data, error } = await q
 

@@ -103,12 +103,12 @@ export type ClassFeeData = {
   outstanding: number
 }
 
-export function useFeeCollectionByClass(term: number, academicYearId: string | null) {
+export function useFeeCollectionByClass(term: number, academicYearId: string | null, enabled = true) {
   const { user } = useAuth()
 
   return useQuery({
     queryKey: ['fee-by-class', user?.schoolId, term, academicYearId],
-    enabled:  !!user?.schoolId && isFinanceRole(user?.role),
+    enabled:  !!user?.schoolId && isFinanceRole(user?.role) && enabled,
     queryFn: async () => {
       let feeQ = supabase
         .from('fee_payments')

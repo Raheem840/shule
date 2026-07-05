@@ -3,6 +3,27 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import type { Class, Stream, Subject, Department } from '../types/app'
 
+// Small standalone lookup for pages that need just the active year's id
+// (e.g. to scope a finance chart to the current year instead of aggregating
+// across every year's fee_payments rows) without pulling the full class list.
+export function useActiveAcademicYearId() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['active-academic-year-id', user?.schoolId],
+    enabled:  !!user?.schoolId,
+    queryFn: async (): Promise<string | null> => {
+      const { data } = await supabase
+        .from('academic_years')
+        .select('id')
+        .eq('school_id', user!.schoolId)
+        .eq('is_active', true)
+        .maybeSingle()
+      return data?.id ?? null
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
 // ── useClasses ─────────────────────────────────────────────────
 // Used in registration wizard and filter dropdowns. Classes are year-scoped
 // (academic_year_id is required — each academic year gets its own class rows,

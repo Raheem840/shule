@@ -211,6 +211,33 @@ describe('PrincipalDashboard', () => {
     expect(screen.getByText(/Grace Apio/)).toBeInTheDocument()
   })
 
+  // A staff row UPDATE that only touches last_login_at is a routine login, not
+  // a profile edit — this widget previously showed it as "Changed Staff Member"
+  // (misleading, implies someone edited John Doe's profile). Verifies the
+  // dashboard widget now shares the same login-stamp detection as the full
+  // Activity Log page.
+  it('shows "Logged in" (not "Changed") for a staff row update that only touches last_login_at', () => {
+    mockKpis.mockReturnValue({ data: KPI_DATA, isLoading: false, isError: false })
+    mockTopClasses.mockReturnValue({ data: [], isLoading: false, isError: false })
+    mockFeeSummary.mockReturnValue({ data: null, isLoading: false })
+    mockDiscipline.mockReturnValue({ data: [], isLoading: false })
+    mockAuditLog.mockReturnValue({
+      data: [{
+        id: 'a2', action: 'UPDATE', tableName: 'staff',
+        entityName: 'John Doe', userRole: 'teacher',
+        createdAt: '2026-06-30T08:00:00Z',
+        oldData: { last_login_at: '2026-06-29T08:00:00Z' },
+        newData: { last_login_at: '2026-06-30T08:00:00Z' },
+      }],
+      isLoading: false,
+    })
+
+    render(<PrincipalDashboard />)
+    expect(screen.getByText('Logged in')).toBeInTheDocument()
+    expect(screen.queryByText('Changed')).not.toBeInTheDocument()
+    expect(screen.queryByText(/John Doe/)).not.toBeInTheDocument()
+  })
+
   it('shows error message when KPIs fail to load', () => {
     mockKpis.mockReturnValue({ data: null, isLoading: false, isError: true })
     mockTopClasses.mockReturnValue({ data: [], isLoading: false, isError: false })

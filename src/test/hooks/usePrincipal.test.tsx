@@ -80,8 +80,24 @@ describe('usePrincipalKpis', () => {
     expect(kpis.totalStudents).toBe(0)
     expect(kpis.totalStaff).toBe(0)
     expect(kpis.overallPassRate).toBe(null)
-    expect(kpis.feeCollectionRate).toBe(0)
+    // No active year at all (academic_years query returns null) — feeCollectionRate
+    // is null ("no data yet"), not a misleading 0% collected.
+    expect(kpis.feeCollectionRate).toBe(null)
     expect(kpis.pendingReportCards).toBe(0)
+  })
+
+  it('returns 0% (not null) fee collection when an active year exists with fee_payments rows but nothing paid', async () => {
+    setResponse('academic_years', { data: { id: 'year-1' }, error: null })
+    setResponse('students',       { data: [], error: null })
+    setResponse('staff',          { data: [], error: null })
+    setResponse('exam_journal',   { data: [], error: null })
+    setResponse('fee_payments',   { data: [{ amount_due: 100000, amount_paid: 0 }], error: null })
+    setResponse('attendance',     { data: [], error: null })
+    setResponse('report_cards',   { data: [], error: null })
+
+    const { result } = renderHook(() => usePrincipalKpis(), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data!.feeCollectionRate).toBe(0)
   })
 
   it('calculates correct pass rate from exam results', async () => {

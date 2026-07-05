@@ -22,6 +22,7 @@ const { CLASSES } = vi.hoisted(() => ({
 
 vi.mock('../../hooks/useClasses', () => ({
   useClasses: vi.fn().mockReturnValue({ data: CLASSES, isLoading: false }),
+  useActiveAcademicYearId: vi.fn().mockReturnValue({ data: 'year-1', isLoading: false }),
 }))
 
 vi.mock('../../hooks/useDos', () => ({
@@ -102,9 +103,12 @@ describe('PrincipalAnalyticsPage — Class/Term pickers', () => {
     render(<PrincipalAnalyticsPage />)
 
     await user.click(screen.getByRole('button', { name: 'Finance' }))
-    await waitFor(() => expect(mockUseFeeCollectionByClass).toHaveBeenCalledWith(1, null))
+    // Scoped to the active academic year id (from useActiveAcademicYearId,
+    // mocked as 'year-1') — not aggregated across every year, per the fix
+    // for the cross-year fee-data leak this chart previously had.
+    await waitFor(() => expect(mockUseFeeCollectionByClass).toHaveBeenCalledWith(1, 'year-1', true))
 
     await user.click(screen.getByRole('button', { name: 'Term 2' }))
-    await waitFor(() => expect(mockUseFeeCollectionByClass).toHaveBeenCalledWith(2, null))
+    await waitFor(() => expect(mockUseFeeCollectionByClass).toHaveBeenCalledWith(2, 'year-1', true))
   })
 })

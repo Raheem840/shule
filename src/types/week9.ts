@@ -310,7 +310,7 @@ export type PrincipalKpis = {
   totalStudents: number
   totalStaff: number
   overallPassRate: number | null   // null = no exam data for active year yet
-  feeCollectionRate: number
+  feeCollectionRate: number | null   // null = no active year or no fee_payments rows yet
   attendanceRateThisWeek: number
   pendingReportCards: number
 }

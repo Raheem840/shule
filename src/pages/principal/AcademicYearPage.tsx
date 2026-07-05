@@ -60,8 +60,14 @@ function useSetActiveYear() {
   return useMutation({
     mutationFn: async (yearId: string) => {
       if (!user) throw new Error('Not authenticated')
-      await supabase.from('academic_years').update({ is_active: false }).eq('school_id', user.schoolId)
-      const { error } = await supabase.from('academic_years').update({ is_active: true }).eq('id', yearId).eq('school_id', user.schoolId)
+      // Single atomic UPDATE via RPC (set_active_academic_year) instead of two
+      // sequential client-side updates — the old version could leave a school
+      // with 0 or 2 active years if the second call failed after the first
+      // succeeded, and silently ignored an error from the first call entirely.
+      const { error } = await supabase.rpc('set_active_academic_year', {
+        p_school_id: user.schoolId,
+        p_year_id:   yearId,
+      })
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
@@ -141,13 +147,31 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString('en-UG', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+// Date-only ("YYYY-MM-DD") comparisons must use the browser's LOCAL calendar
+// date, not new Date().toISOString() (which is UTC) — for a school in a
+// UTC+3 timezone, toISOString() reports the previous day for the first ~3
+// hours after local midnight, wrongly flagging same-day years as "future" and
+// vice versa. Build the local date string directly from Y/M/D getters.
+function localToday(): string {
+  const d = new Date()
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// A date-only string like "2026-04-20" parses via `new Date()` as UTC
+// midnight, not local midnight — so comparing it against Date.now() marks a
+// term "completed" hours before its last local day is actually over.
+// Appending an explicit local time-of-day forces local-time interpretation.
+function localStartOfDay(dateStr: string): number { return new Date(`${dateStr}T00:00:00`).getTime() }
+function localEndOfDay(dateStr: string): number { return new Date(`${dateStr}T23:59:59`).getTime() }
+
 // ── Shared future-date warning banner ─────────────────────────────────────
 function FutureDateWarning({ startDate, confirmed, onConfirm }: {
   startDate: string
   confirmed: boolean
   onConfirm: (v: boolean) => void
 }) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = localToday()
   if (startDate <= today) return null
   const days = Math.round((new Date(startDate).getTime() - Date.now()) / 86_400_000)
   return (
@@ -237,11 +261,12 @@ function CreateYearModal({ onClose }: { onClose: () => void }) {
     return (e: React.ChangeEvent<HTMLInputElement>) => setVals(v => ({ ...v, [key]: e.target.value }))
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = localToday()
   const isFuture = vals.startDate > today
   const canSubmit = !create.isPending && !!vals.name.trim() && (!isFuture || futureConfirmed)
 
   async function handleCreate() {
+    if (create.isPending) return
     try {
       await create.mutateAsync(vals)
       ok('Academic year created.')
@@ -294,11 +319,12 @@ function EditYearModal({ year, onClose }: { year: AcademicYearRow; onClose: () =
     return (e: React.ChangeEvent<HTMLInputElement>) => setVals(v => ({ ...v, [key]: e.target.value }))
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = localToday()
   const isFuture = vals.startDate > today
   const canSubmit = !update.isPending && !!vals.name.trim() && (!isFuture || futureConfirmed)
 
   async function handleSave() {
+    if (update.isPending) return
     try {
       await update.mutateAsync({ id: year.id, ...vals })
       ok('Academic year updated.')
@@ -347,14 +373,14 @@ const TERM_META = [
 
 function termStatus(start: string | null, end: string | null) {
   if (!start || !end) return 'unknown' as const
-  const now = Date.now(), s = new Date(start).getTime(), e = new Date(end).getTime()
+  const now = Date.now(), s = localStartOfDay(start), e = localEndOfDay(end)
   if (now < s) return 'upcoming' as const
   if (now > e) return 'completed' as const
   return 'current' as const
 }
 function termPct(start: string | null, end: string | null) {
   if (!start || !end) return 0
-  const s = new Date(start).getTime(), e = new Date(end).getTime()
+  const s = localStartOfDay(start), e = localEndOfDay(end)
   return Math.min(100, Math.max(0, ((Date.now() - s) / (e - s)) * 100))
 }
 function termWeeks(start: string | null, end: string | null) {
@@ -385,8 +411,8 @@ function AcademicTimeline({ year }: { year: AcademicYearRow }) {
     { ...TERM_META[2], start: year.term3Start, end: year.term3End },
   ]
 
-  const yearStartMs = year.startDate ? new Date(year.startDate).getTime() : null
-  const yearEndMs   = year.endDate   ? new Date(year.endDate).getTime()   : null
+  const yearStartMs = year.startDate ? localStartOfDay(year.startDate) : null
+  const yearEndMs   = year.endDate   ? localEndOfDay(year.endDate)     : null
   const yearPct = yearStartMs && yearEndMs
     ? Math.min(100, Math.max(0, ((Date.now() - yearStartMs) / (yearEndMs - yearStartMs)) * 100))
     : null
@@ -565,7 +591,7 @@ export function AcademicYearPage() {
   const isSecretary   = user?.role === 'secretary'
   const canManageYear = isPrincipal || isSecretary
 
-  const { data = [], isLoading } = useAcademicYearsFull()
+  const { data = [], isLoading, isError } = useAcademicYearsFull()
   const { success: ok, error: err } = useToast()
   const setActive    = useSetActiveYear()
   const toggleSurvey = useToggleSurvey()
@@ -574,9 +600,10 @@ export function AcademicYearPage() {
   const [editingYear,  setEditingYear]  = useState<AcademicYearRow | null>(null)
   const [futureActiveYear, setFutureActiveYear] = useState<AcademicYearRow | null>(null)
 
-  const today       = new Date().toISOString().split('T')[0]
+  const today       = localToday()
 
   async function handleSetActive(year: AcademicYearRow) {
+    if (setActive.isPending) return
     // Warn if the year hasn't started yet — principal must acknowledge
     if (year.startDate > today) {
       setFutureActiveYear(year)
@@ -589,6 +616,7 @@ export function AcademicYearPage() {
   }
 
   async function confirmSetActive(year: AcademicYearRow) {
+    if (setActive.isPending) return
     setFutureActiveYear(null)
     try {
       await setActive.mutateAsync(year.id)
@@ -597,6 +625,7 @@ export function AcademicYearPage() {
   }
 
   async function handleToggleSurvey(yearId: string, current: boolean) {
+    if (toggleSurvey.isPending) return
     try {
       await toggleSurvey.mutateAsync({ yearId, active: !current })
       ok(`Survey ${!current ? 'opened' : 'closed'}.`)
@@ -631,7 +660,13 @@ export function AcademicYearPage() {
         </div>
       )}
 
-      {!isLoading && (
+      {!isLoading && isError && (
+        <div style={{ textAlign: 'center', padding: 48, color: 'var(--danger)' }}>
+          Couldn't load academic years. Check your connection and try again.
+        </div>
+      )}
+
+      {!isLoading && !isError && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {data.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 48, color: 'var(--txt3)' }}>No academic years configured.</div>
@@ -686,9 +721,11 @@ export function AcademicYearPage() {
                   {isPrincipal && (
                     <button
                       onClick={() => handleToggleSurvey(year.id, year.surveyActive)}
+                      disabled={toggleSurvey.isPending}
                       style={{
                         padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                        cursor: 'pointer', border: 'none',
+                        cursor: toggleSurvey.isPending ? 'default' : 'pointer', border: 'none',
+                        opacity: toggleSurvey.isPending ? 0.6 : 1,
                         background: year.surveyActive ? 'var(--success-bg)' : 'var(--surface2)',
                         color:      year.surveyActive ? 'var(--success)'    : 'var(--txt3)',
                       }}

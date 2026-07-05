@@ -12,6 +12,7 @@ import {
 } from '../../hooks/usePrincipal'
 import { useDisciplineRecords } from '../../hooks/useDeputy'
 import type { AuditEntry } from '../../types/week9'
+import { ACTION_META, friendlyRole, friendlyTable, isLoginStampOnly } from './AuditLogPage'
 
 // ── KPI Card — premium v2 with icon + accent stripe ──────────────────────
 const KPI_ICONS: Record<string, string> = {
@@ -189,10 +190,11 @@ function RecentActivity() {
           </div>
         ) : (
           auditEntries.map((e: AuditEntry) => {
-            const actionLabel = ({ INSERT: 'Added', UPDATE: 'Changed', DELETE: 'Removed' } as Record<string,string>)[e.action] ?? e.action
-            const tableLabel  = e.tableName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-            const roleLabel   = ({ principal:'Principal', deputy:'Deputy Principal', dos:'Director of Studies', secretary:'Secretary', bursar:'Bursar', class_teacher:'Class Teacher', teacher:'Teacher', it_admin:'IT Admin' } as Record<string,string>)[e.userRole] ?? e.userRole
-            const actionColor = ({ INSERT: 'var(--success)', UPDATE: 'var(--info)', DELETE: 'var(--danger)' } as Record<string,string>)[e.action] ?? 'var(--txt3)'
+            const loginStamp  = isLoginStampOnly(e)
+            const actionLabel = loginStamp ? 'Logged in' : (ACTION_META[e.action]?.label ?? e.action)
+            const tableLabel  = friendlyTable(e.tableName)
+            const roleLabel   = friendlyRole(e.userRole)
+            const actionColor = loginStamp ? 'var(--txt3)' : (ACTION_META[e.action]?.color ?? 'var(--txt3)')
             return (
               <div key={e.id} style={{
                 padding: '10px 16px', borderBottom: '1px solid var(--border)',
@@ -200,9 +202,11 @@ function RecentActivity() {
               }}>
                 <div>
                   <span style={{ fontWeight: 800, fontSize: 12, color: actionColor }}>{actionLabel}</span>
-                  <span style={{ fontSize: 12, color: 'var(--txt)', marginLeft: 5 }}>
-                    {tableLabel}{e.entityName ? ` — ${e.entityName}` : ''}
-                  </span>
+                  {!loginStamp && (
+                    <span style={{ fontSize: 12, color: 'var(--txt)', marginLeft: 5 }}>
+                      {tableLabel}{e.entityName ? ` — ${e.entityName}` : ''}
+                    </span>
+                  )}
                   <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 1 }}>by {roleLabel}</div>
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--txt3)', whiteSpace: 'nowrap' }}>
@@ -301,8 +305,10 @@ export function PrincipalDashboard() {
               value={kpis.overallPassRate != null ? `${kpis.overallPassRate}%` : 'N/A'}
               sub={kpis.overallPassRate != null ? 'This term' : 'No exams published yet'}
               accent="success" iconKey="pass" />
-            <KpiCard label="Fee Collection" value={`${kpis.feeCollectionRate}%`}
-              sub="of expected fees" danger={kpis.feeCollectionRate < 80}
+            <KpiCard label="Fee Collection"
+              value={kpis.feeCollectionRate != null ? `${kpis.feeCollectionRate}%` : 'N/A'}
+              sub={kpis.feeCollectionRate != null ? 'of expected fees' : 'No fee data yet'}
+              danger={kpis.feeCollectionRate != null && kpis.feeCollectionRate < 80}
               accent="brand" iconKey="fees" />
             <KpiCard label="Attendance" value={`${kpis.attendanceRateThisWeek}%`}
               sub="This week" danger={kpis.attendanceRateThisWeek < 80}

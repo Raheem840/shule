@@ -194,4 +194,44 @@ describe('AuditLogPage', () => {
       expect(screen.getByText(/from date/i)).toBeInTheDocument()
     })
   })
+
+  // useMessageLog previously only resolved sender/recipient names against the
+  // staff table, so any message sent by a parent or student (enabled in a
+  // later migration) showed as "Unknown" in the log. Verifies the fix looks
+  // up parent_accounts/students too.
+  describe('Message Log — parent/student attribution', () => {
+    it('resolves a parent sender name instead of showing "Unknown"', async () => {
+      const { supabase } = await import('../../lib/supabase')
+      vi.mocked(supabase.from).mockImplementation(((table: string) => {
+        const mk = (data: any[]) => {
+          const b: any = {}
+          // staff/parent_accounts/students terminate the chain on `.not()`;
+          // messages terminates on `.limit()` (or `.gte()`/`.lte()` if date
+          // filters are applied) — all of them must resolve, not chain.
+          ;['select', 'eq', 'order'].forEach(k => { b[k] = vi.fn().mockReturnValue(b) })
+          ;['not', 'limit', 'gte', 'lte'].forEach(k => { b[k] = vi.fn().mockResolvedValue({ data, error: null }) })
+          return b
+        }
+        if (table === 'staff')           return mk([{ auth_user_id: 'staff-1', first_name: 'Sam', last_name: 'Okot' }])
+        if (table === 'parent_accounts') return mk([{ auth_user_id: 'parent-1', full_name: 'Jane Okello' }])
+        if (table === 'students')        return mk([])
+        if (table === 'messages') return mk([{
+          id: 'm1', from_user_id: 'parent-1', to_user_id: 'staff-1',
+          is_announcement: false, body: 'Hello', sent_at: '2026-06-30T08:00:00Z', attachment_url: null,
+        }])
+        return mk([])
+      }) as any)
+
+      setupMocks([])
+      const user = userEvent.setup()
+      render(<AuditLogPage />)
+      const msgTabBtn = screen.getAllByText(/message log/i).find(el => el.tagName.toLowerCase() === 'button')!
+      await user.click(msgTabBtn)
+
+      await waitFor(() => expect(screen.getByText(/jane okello/i)).toBeInTheDocument())
+      expect(screen.queryByText('Unknown')).not.toBeInTheDocument()
+
+      vi.mocked(supabase.from).mockReturnValue(chainStub as any)
+    })
+  })
 })

@@ -25,7 +25,9 @@ vi.mock('../../hooks/useAdmin', () => ({
 
 const insertCalls: any[] = []
 const updateCalls: any[] = []
+const rpcCalls: any[] = []
 let listResponse: any = { data: [], error: null }
+let rpcResponse: any = { data: null, error: null }
 
 vi.mock('../../lib/supabase', () => {
   function makeBuilder(): any {
@@ -49,6 +51,10 @@ vi.mock('../../lib/supabase', () => {
     supabase: {
       auth: { getSession: vi.fn().mockResolvedValue({ data: { session: null } }) },
       from: vi.fn().mockImplementation(makeBuilder),
+      rpc:  vi.fn((fn: string, params: any) => {
+        rpcCalls.push({ fn, params })
+        return Promise.resolve(rpcResponse)
+      }),
     },
   }
 })
@@ -67,10 +73,24 @@ const EXISTING_YEAR = {
   term3_start: '2026-09-01', term3_end: '2026-12-05',
 }
 
+const PAST_INACTIVE_YEAR = {
+  id: 'year-0',
+  label: '2025',
+  start_date: '2025-01-01',
+  end_date: '2025-12-31',
+  is_active: false,
+  survey_active: false,
+  term1_start: '2025-01-20', term1_end: '2025-04-20',
+  term2_start: '2025-05-06', term2_end: '2025-08-10',
+  term3_start: '2025-09-01', term3_end: '2025-12-05',
+}
+
 beforeEach(() => {
   insertCalls.length = 0
   updateCalls.length = 0
+  rpcCalls.length = 0
   listResponse = { data: [EXISTING_YEAR], error: null }
+  rpcResponse = { data: null, error: null }
 })
 
 // FieldRow renders a plain <label> sibling to its <input> with no htmlFor/id
@@ -119,5 +139,24 @@ describe('AcademicYearPage — nullIfEmpty on date fields', () => {
 
     await waitFor(() => expect(insertCalls.length).toBeGreaterThan(0))
     expect(insertCalls[0].term3_end).toBeNull()
+  })
+})
+
+// useSetActiveYear was rewritten to call the set_active_academic_year RPC
+// (single atomic UPDATE) instead of two sequential client-side update() calls,
+// so activating a year should now go through supabase.rpc, not supabase.from.
+describe('AcademicYearPage — Set Active uses the atomic RPC', () => {
+  it('calls set_active_academic_year with the school and target year ids', async () => {
+    const user = userEvent.setup()
+    listResponse = { data: [EXISTING_YEAR, PAST_INACTIVE_YEAR], error: null }
+    render(<AcademicYearPage />)
+
+    await waitFor(() => expect(screen.getByText('2025')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /set active/i }))
+
+    await waitFor(() => expect(rpcCalls.length).toBeGreaterThan(0))
+    expect(rpcCalls[0].fn).toBe('set_active_academic_year')
+    expect(rpcCalls[0].params).toEqual({ p_school_id: 's1', p_year_id: 'year-0' })
+    expect(updateCalls.length).toBe(0)
   })
 })
