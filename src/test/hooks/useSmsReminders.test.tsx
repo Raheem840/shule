@@ -187,6 +187,60 @@ describe('useSendReminders', () => {
     expect(mockSendNotifications).toHaveBeenCalledWith(expect.objectContaining({ userIds: ['parent-auth-2'], body: 'Msg for stu-2' }))
   })
 
+  it('also notifies the student in-app, in case the parent is unreachable', async () => {
+    setResponse('send_queue', { data: null, error: null })
+    setResponse('parent_accounts', {
+      data: [{ auth_user_id: 'parent-auth-1', student_ids: ['stu-1'] }],
+      error: null,
+    })
+    setResponse('students', {
+      data: [{ id: 'stu-1', auth_user_id: 'student-auth-1' }],
+      error: null,
+    })
+
+    const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
+    await act(async () => {
+      await result.current.mutateAsync([
+        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Pay fees, Amina' },
+      ])
+    })
+
+    expect(mockFrom).toHaveBeenCalledWith('students')
+    expect(mockSendNotifications).toHaveBeenCalledWith({
+      schoolId: 'school-1',
+      userIds:  ['parent-auth-1'],
+      type:     'fee',
+      title:    'Fee Reminder',
+      body:     'Pay fees, Amina',
+      link:     '/parent',
+    })
+    expect(mockSendNotifications).toHaveBeenCalledWith({
+      schoolId: 'school-1',
+      userIds:  ['student-auth-1'],
+      type:     'fee',
+      title:    'Fee Reminder',
+      body:     'Pay fees, Amina',
+      link:     '/student',
+    })
+  })
+
+  it('skips a student with no activated auth account — no student notification, no crash', async () => {
+    setResponse('send_queue', { data: null, error: null })
+    setResponse('parent_accounts', { data: [], error: null })
+    setResponse('students', { data: [], error: null })
+
+    const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
+    let count: number | undefined
+    await act(async () => {
+      count = await result.current.mutateAsync([
+        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Pay fees' },
+      ])
+    })
+
+    expect(count).toBe(1)
+    expect(mockSendNotifications).not.toHaveBeenCalled()
+  })
+
   it('skips a student with no linked parent account — no notification, no crash', async () => {
     setResponse('send_queue', { data: null, error: null })
     setResponse('parent_accounts', { data: [], error: null })

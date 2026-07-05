@@ -303,6 +303,36 @@ export function useSendReminders() {
         }
       }
 
+      // Students also get an in-app copy — in case a parent is unreachable
+      // (phone off, no activated portal account), the student themselves
+      // still sees the balance reminder next time they open their portal.
+      const { data: studentRows } = await supabase
+        .from('students')
+        .select('id, auth_user_id')
+        .eq('school_id', user!.schoolId)
+        .in('id', studentIds)
+        .not('auth_user_id', 'is', null)
+
+      if (studentRows && studentRows.length > 0) {
+        const studentAuthByStudentId = new Map(studentRows.map(s => [s.id as string, s.auth_user_id as string]))
+        for (const r of reminders) {
+          const studentAuthId = studentAuthByStudentId.get(r.studentId)
+          if (!studentAuthId) continue
+          try {
+            await sendNotifications({
+              schoolId: user!.schoolId,
+              userIds:  [studentAuthId],
+              type:     'fee',
+              title:    'Fee Reminder',
+              body:     r.message,
+              link:     '/student',
+            })
+          } catch (e) {
+            console.warn('[useSendReminders] student in-app notification failed:', e)
+          }
+        }
+      }
+
       return reminders.length
     },
     onSuccess: () => {
