@@ -146,7 +146,9 @@ export function AppShell() {
   const [showOnboarding, setShowOnboarding]   = useState(false)
   const [isFirstLogin, setIsFirstLogin]       = useState(false)
   const [searchOpen, setSearchOpen]           = useState(false)
-  const [sidebarMini, setSidebarMini]         = useState(() => localStorage.getItem('shule-sb-mini') === '1')
+  // Sidebar rests collapsed (icon + badge only) and expands on hover by
+  // default — "pinned" opts out of that, keeping it permanently expanded.
+  const [sidebarPinned, setSidebarPinned]     = useState(() => localStorage.getItem('shule-sb-pinned') === '1')
 
   const openSearch  = useCallback(() => setSearchOpen(true),  [])
   const closeSearch = useCallback(() => setSearchOpen(false), [])
@@ -191,7 +193,7 @@ export function AppShell() {
   })
 
   useEffect(() => { localStorage.setItem('shule-theme', theme) }, [theme])
-  useEffect(() => { localStorage.setItem('shule-sb-mini', sidebarMini ? '1' : '0') }, [sidebarMini])
+  useEffect(() => { localStorage.setItem('shule-sb-pinned', sidebarPinned ? '1' : '0') }, [sidebarPinned])
 
   // Global Ctrl+K (search) and Ctrl+B (sidebar toggle) shortcuts
   useEffect(() => {
@@ -202,7 +204,7 @@ export function AppShell() {
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'b' && !isMobile) {
         e.preventDefault()
-        setSidebarMini(m => !m)
+        setSidebarPinned(p => !p)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -260,7 +262,7 @@ export function AppShell() {
   const showWizard = schoolNeedsSetup || showOnboarding
 
   return (
-    <div className={`ar${sidebarMini && !isMobile ? ' sb-mini-mode' : ''}`} data-theme={theme}>
+    <div className={`ar${sidebarPinned && !isMobile ? ' sb-pinned-mode' : ''}`} data-theme={theme}>
       {showWizard && (
         <OnboardingWizard
           isFirstLogin={isFirstLogin}
@@ -290,8 +292,8 @@ export function AppShell() {
         schoolLogoUrl={schoolSettings?.logoUrl ?? null}
         drawerOpen={drawerOpen}
         onClose={() => setDrawer(false)}
-        mini={sidebarMini && !isMobile}
-        onToggleMini={() => setSidebarMini(m => !m)}
+        pinned={sidebarPinned && !isMobile}
+        onTogglePinned={() => setSidebarPinned(p => !p)}
       />
 
       {/* ── RIGHT PANEL ──────────────────────────────────────────── */}
@@ -493,13 +495,13 @@ type SidebarProps = {
   schoolName:    string | null
   schoolMotto:   string | null
   schoolLogoUrl: string | null
-  drawerOpen?:   boolean
-  onClose?:      () => void
-  mini?:         boolean
-  onToggleMini?: () => void
+  drawerOpen?:      boolean
+  onClose?:         () => void
+  pinned?:          boolean
+  onTogglePinned?:  () => void
 }
 
-function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolName, schoolMotto, schoolLogoUrl, drawerOpen, onClose, mini, onToggleMini }: SidebarProps) {
+function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolName, schoolMotto, schoolLogoUrl, drawerOpen, onClose, pinned, onTogglePinned }: SidebarProps) {
   const navigate = useNavigate()
   const { data: msgUnread = 0 } = useUnreadCount()
 
@@ -524,7 +526,7 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
   const schoolInitial = hasSchoolName ? (displayName.trim()[0]?.toUpperCase() ?? 'S') : null
 
   return (
-    <nav className={`sb${drawerOpen ? ' sb-open' : ''}${mini ? ' sb-mini' : ''}`}>
+    <nav className={`sb${drawerOpen ? ' sb-open' : ''}${pinned ? ' sb-pinned' : ''}`}>
       {/* Mobile drawer close button */}
       {onClose && (
         <button
@@ -543,26 +545,20 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
         >×</button>
       )}
 
-      {/* Mini toggle button — desktop only, positioned at top-right of sidebar */}
-      {onToggleMini && (
+      {/* Pin toggle — desktop only. Sidebar rests collapsed and expands on
+          hover by default; pinning keeps it permanently expanded. Fixed
+          top-right position works in both the collapsed (64px) and
+          expanded (228px) widths, so it doesn't need to react to hover. */}
+      {onTogglePinned && (
         <button
-          onClick={onToggleMini}
-          title={mini ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
-          style={{
-            position: 'absolute', top: 12, right: mini ? 8 : 12,
-            width: 24, height: 24, borderRadius: 6, border: 'none',
-            background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'opacity 0.15s', zIndex: 1,
-          }}
-          className="mob-hide-btn"
-          aria-label={mini ? 'Expand sidebar' : 'Collapse sidebar'}
+          onClick={onTogglePinned}
+          title={pinned ? 'Unpin sidebar — collapse when not hovered (Ctrl+B)' : 'Pin sidebar open (Ctrl+B)'}
+          className="sb-pin-btn mob-hide-btn"
+          aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar open'}
+          aria-pressed={pinned}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            {mini
-              ? <><polyline points="9 18 15 12 9 6"/></>
-              : <><polyline points="15 18 9 12 15 6"/></>
-            }
+          <svg width="13" height="13" viewBox="0 0 24 24" fill={pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+            <path d="M12 17v5M9 10.5V4h6v6.5l2 3.5H7l2-3.5z"/>
           </svg>
         </button>
       )}

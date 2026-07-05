@@ -168,9 +168,14 @@ html, body, #root {
   transition: background 0.25s, color 0.25s;
 }
 
-/* ── Sidebar ── */
+/* ── Sidebar ──
+   Rests collapsed (icon rail + school badge only) by default and expands
+   to full width on hover — an overlay peek, not a layout push, since
+   .shell-r's margin-left stays at the collapsed width regardless of hover.
+   "Pinned" (Ctrl+B / the pin button) opts out, keeping it permanently
+   expanded and pushing .shell-r over to match. */
 .sb {
-  width: 228px;
+  width: 64px;
   flex-shrink: 0;
   background: var(--sb-bg);
   display: flex;
@@ -182,53 +187,75 @@ html, body, #root {
   overflow-x: hidden;
   scrollbar-width: none;
   z-index: 40;
-  transition: width 0.22s cubic-bezier(0.4,0,0.2,1), background 0.25s;
+  transition: width 0.28s cubic-bezier(0.4,0,0.2,1), background 0.25s, box-shadow 0.28s ease;
 }
 .sb::-webkit-scrollbar { display: none; }
 
-/* ── Sidebar mini-mode (Ctrl+B) ── */
-.sb.sb-mini { width: 64px; }
-.sb.sb-mini .sname,
-.sb.sb-mini .ssub,
-.sb.sb-mini .ngl,
-.sb.sb-mini .school-pill-text,
-.sb.sb-mini .u-name,
-.sb.sb-mini .u-role,
-.sb.sb-mini .u-dot,
-.sb.sb-mini .nb { display: none !important; }
-.sb.sb-mini .sbrand { justify-content: center; padding: 0 !important; }
-.sb.sb-mini .slogo  { margin: 0 auto; }
-.sb.sb-mini .school-pill { justify-content: center; padding: 8px 0 !important; }
-.sb.sb-mini .school-ico  { margin: 0 auto; }
-.sb.sb-mini .school-logo-img { width: 32px; height: 32px; margin: 0 auto; }
-.sb.sb-mini .ni   { justify-content: center; padding: 10px !important; }
-.sb.sb-mini .ni .ico { margin: 0 !important; }
-.sb.sb-mini .upill { flex-direction: column; align-items: center; padding: 8px 4px !important; gap: 4px; }
-.sb.sb-mini .uava  { flex-shrink: 0; }
-.sb.sb-mini .sb-signout-btn { justify-content: center; padding: 10px !important; }
-/* Mini mode tooltip on nav items */
-.sb.sb-mini .ni { position: relative; }
-.sb.sb-mini .ni:hover::after {
-  content: attr(title);
-  position: absolute; left: calc(100% + 10px); top: 50%;
-  transform: translateY(-50%);
-  background: var(--txt); color: var(--bg);
-  padding: 4px 10px; border-radius: 6px;
-  font-size: 12px; font-weight: 600; white-space: nowrap;
-  pointer-events: none; z-index: 100;
+/* Collapsed (resting) state — hide labels, center icons/badge */
+.sb .sname,
+.sb .ssub,
+.sb .ngl,
+.sb .school-pill-text,
+.sb .u-name,
+.sb .u-role,
+.sb .u-dot,
+.sb .nb { display: none !important; }
+.sb .sbrand { justify-content: center; padding: 0 !important; }
+.sb .slogo  { margin: 0 auto; }
+.sb .school-pill { justify-content: center; padding: 8px 0 !important; }
+.sb .school-ico  { width: 40px; height: 40px; font-size: 14px; margin: 0 auto; }
+.sb .school-logo-img { width: 40px; height: 40px; margin: 0 auto; }
+.sb .ni   { justify-content: center; padding: 10px !important; }
+.sb .ni .ico { margin: 0 !important; }
+.sb .upill { flex-direction: column; align-items: center; padding: 8px 4px !important; gap: 4px; }
+.sb .uava  { flex-shrink: 0; }
+.sb .sb-signout-btn { justify-content: center; padding: 10px !important; }
+
+/* Expanded — either hovered (peek) or pinned open */
+.sb:hover,
+.sb.sb-pinned {
+  width: 228px;
 }
+.sb:hover .sname,       .sb.sb-pinned .sname,
+.sb:hover .ssub,        .sb.sb-pinned .ssub,
+.sb:hover .ngl,         .sb.sb-pinned .ngl,
+.sb:hover .school-pill-text, .sb.sb-pinned .school-pill-text,
+.sb:hover .u-name,      .sb.sb-pinned .u-name,
+.sb:hover .u-role,      .sb.sb-pinned .u-role,
+.sb:hover .u-dot,       .sb.sb-pinned .u-dot,
+.sb:hover .nb,          .sb.sb-pinned .nb { display: revert !important; }
+.sb:hover .sbrand,        .sb.sb-pinned .sbrand { justify-content: flex-start; padding: revert !important; }
+.sb:hover .slogo,         .sb.sb-pinned .slogo { margin: revert; }
+.sb:hover .school-pill,   .sb.sb-pinned .school-pill { justify-content: flex-start; padding: revert !important; }
+.sb:hover .school-ico,    .sb.sb-pinned .school-ico { width: revert; height: revert; font-size: revert; margin: revert; }
+.sb:hover .school-logo-img, .sb.sb-pinned .school-logo-img { width: 30px; height: 30px; margin: revert; }
+.sb:hover .ni,            .sb.sb-pinned .ni { justify-content: flex-start; padding: revert !important; }
+.sb:hover .ni .ico,       .sb.sb-pinned .ni .ico { margin: revert !important; }
+.sb:hover .upill,         .sb.sb-pinned .upill { flex-direction: row; align-items: center; padding: revert !important; gap: revert; }
+.sb:hover .sb-signout-btn, .sb.sb-pinned .sb-signout-btn { justify-content: flex-start; padding: revert !important; }
+
+/* Pin toggle button — fixed position works at both widths */
+.sb-pin-btn {
+  position: absolute; top: 12px; right: 12px;
+  width: 24px; height: 24px; border-radius: 6px; border: none;
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s; z-index: 2;
+}
+.sb-pin-btn:hover { background: rgba(255,255,255,0.16); color: rgba(255,255,255,0.85); }
+.sb-pin-btn[aria-pressed="true"] { color: var(--brand); background: rgba(255,255,255,0.14); }
 
 /* ── Shell right (topbar + main) ── */
 .shell-r {
   flex: 1;
-  margin-left: 228px;
+  margin-left: 64px;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   overflow: hidden;
-  transition: margin-left 0.22s cubic-bezier(0.4,0,0.2,1);
+  transition: margin-left 0.28s cubic-bezier(0.4,0,0.2,1);
 }
-.ar.sb-mini-mode .shell-r { margin-left: 64px; }
+.ar.sb-pinned-mode .shell-r { margin-left: 228px; }
 
 /* ── TopBar ── */
 .topbar {
