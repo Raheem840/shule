@@ -1025,30 +1025,33 @@ function ChatThread({ contact, parentId }: { contact: StaffContact; parentId: st
 // Shows the bursar plus ONE contact per distinct class among the parent's
 // children — a parent with two children in different classes sees two
 // class-teacher contacts, each labeled with the child(ren) they teach.
+const EMPTY_TEACHER_MAP = new Map<string, StaffContact>()
+
 function MessagesTab({ children }: { children: Student[] }) {
   const { user } = useAuth()
   const { data: bursar,      isLoading: bursarLoad   } = useFindBursar()
   const classIds = useMemo(() => children.map(c => c.classId), [children])
-  const { data: teacherMap = new Map<string, StaffContact>(), isLoading: teacherLoad } = useClassTeachersForClasses(classIds)
+  const { data: teacherMap = EMPTY_TEACHER_MAP, isLoading: teacherLoad } = useClassTeachersForClasses(classIds)
   const [selectedContact, setSelectedContact] = useState<StaffContact | null>(null)
 
   const contacts: StaffContact[] = useMemo(() => {
     const list: StaffContact[] = []
     if (bursar) list.push({ ...bursar, role: 'bursar' })
 
-    const seenTeachers = new Map<string, StaffContact>()
+    // Group child names by teacher authUserId first, so a teacher shared by
+    // multiple children gets one contact with a combined label — no mutation
+    // of already-built contact objects.
+    const namesByTeacher = new Map<string, { teacher: StaffContact; names: string[] }>()
     for (const child of children) {
       if (!child.classId) continue
       const teacher = teacherMap.get(child.classId)
       if (!teacher) continue
-      const existing = seenTeachers.get(teacher.authUserId)
-      if (existing) {
-        existing.contextLabel = `${existing.contextLabel} & ${child.firstName}`
-      } else {
-        const contact = { ...teacher, contextLabel: child.firstName }
-        seenTeachers.set(teacher.authUserId, contact)
-        list.push(contact)
-      }
+      const entry = namesByTeacher.get(teacher.authUserId)
+      if (entry) entry.names.push(child.firstName)
+      else namesByTeacher.set(teacher.authUserId, { teacher, names: [child.firstName] })
+    }
+    for (const { teacher, names } of namesByTeacher.values()) {
+      list.push({ ...teacher, contextLabel: names.join(' & ') })
     }
     return list
   }, [bursar, teacherMap, children])

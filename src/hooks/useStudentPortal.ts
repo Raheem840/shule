@@ -195,20 +195,26 @@ export function useMyExamResults(studentId: string | null) {
       const subjectMap = new Map<string, string>()
       for (const s of (subjects ?? []) as AnyRow[]) subjectMap.set(s.id as string, s.name as string)
 
-      return (data as AnyRow[]).map(r => {
-        const j = journalMap.get(r.exam_journal_id as string)
-        return {
-          subjectName:    j ? (subjectMap.get(j.subject_id as string) ?? '—') : '—',
-          assessmentType: (j?.assessment_type as string) ?? '—',
-          journalName:    (j?.name as string) ?? '—',
-          score:          (r.score as number) ?? null,
-          grade:          (r.grade as string) ?? null,
-          totalMarks:     (j?.total_marks as number) ?? 0,
-          term:           r.term as string,
-          year:           r.year as number,
-          isAbsent:       (r.is_absent as boolean) ?? false,
-        } satisfies ExamResultRow
-      })
+      // Only published journals are in journalMap — a result tied to a draft
+      // journal is dropped rather than shown with '—' placeholders, since the
+      // real score/grade would otherwise leak ahead of publication. Mirrors
+      // useStudentExamSummary's parent-portal equivalent in useParentPortal.ts.
+      return (data as AnyRow[])
+        .filter(r => journalMap.has(r.exam_journal_id as string))
+        .map(r => {
+          const j = journalMap.get(r.exam_journal_id as string)!
+          return {
+            subjectName:    subjectMap.get(j.subject_id as string) ?? '—',
+            assessmentType: (j.assessment_type as string) ?? '—',
+            journalName:    (j.name as string) ?? '—',
+            score:          (r.score as number) ?? null,
+            grade:          (r.grade as string) ?? null,
+            totalMarks:     (j.total_marks as number) ?? 0,
+            term:           r.term as string,
+            year:           r.year as number,
+            isAbsent:       (r.is_absent as boolean) ?? false,
+          } satisfies ExamResultRow
+        })
     },
   })
 }

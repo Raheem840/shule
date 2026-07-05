@@ -234,4 +234,27 @@ describe('useTermProgress — includeJournalEvents: false (parent portal)', () =
     expect(ids).not.toContain('ev-1')
     expect(ids).toContain('ev-2')
   })
+
+  it('excludes a class-specific event when classId is null (child not yet assigned a class)', async () => {
+    // A parent whose child has no class_id yet must not see another class's
+    // events just because there's no classId to compare against.
+    setResponse('academic_years', { data: activeYear, error: null })
+    setResponse('school_events', {
+      data: [
+        { id: 'ev-1', title: 'Form 2 Exam', event_date: '2025-02-01', event_type: 'exam', subject_id: null, class_id: 'form-2', visible_to_parents: true },
+        { id: 'ev-2', title: 'Whole School Assembly', event_date: '2025-02-05', event_type: 'general', subject_id: null, class_id: null, visible_to_parents: true },
+      ],
+      error: null,
+    })
+
+    const { result } = renderHook(
+      () => useTermProgress(null, { includeJournalEvents: false }),
+      { wrapper: createWrapper() },
+    )
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const ids = result.current.data!.events.map(e => e.id)
+    expect(ids).not.toContain('ev-1')
+    expect(ids).toContain('ev-2')
+  })
 })

@@ -139,6 +139,29 @@ describe('student data isolation', () => {
     expect(result.current.data).toEqual([])
   })
 
+  it('useMyExamResults filters out results whose exam_journal is not published', async () => {
+    setResponse('exam_results', {
+      data: [
+        { score: 85, grade: 'A', term: '1', year: 2026, exam_journal_id: 'j-published', is_absent: false },
+        { score: 60, grade: 'C', term: '1', year: 2026, exam_journal_id: 'j-draft', is_absent: false },
+      ],
+      error: null,
+    })
+    setResponse('exam_journal', {
+      data: [
+        { id: 'j-published', name: 'Mid Term', assessment_type: 'ca', total_marks: 100, subject_id: 'sub-1' },
+      ],
+      error: null,
+    })
+    setResponse('subjects', { data: [{ id: 'sub-1', name: 'Maths' }], error: null })
+
+    const { result } = renderHook(() => useMyExamResults('stu-1'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toHaveLength(1)
+    expect(result.current.data![0].score).toBe(85)
+  })
+
   it('useMyFeeBalance queries fee_payments for the student', async () => {
     setResponse('fee_payments', {
       data: [{

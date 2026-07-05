@@ -202,14 +202,14 @@ export function useTermProgress(classId?: string | null, opts?: { includeJournal
         // classId scoping (student portal): only general events (no class) or
         // events for the student's own class, and only ones explicitly marked
         // visible_to_parents — students see the same "shared" events parents do.
-        // Parent-mode (includeJournalEvents=false) always requires
-        // visible_to_parents regardless of classId, since parents should only
-        // ever see events explicitly dedicated to them at creation time.
-        if (classId) {
+        // Parent-mode (includeJournalEvents=false) always enforces BOTH class
+        // scoping and visible_to_parents regardless of whether classId itself
+        // is set — a child with no class assigned yet must only see general
+        // (class_id null) events, never leak another class's events just
+        // because there's no classId to compare against.
+        if (classId || !includeJournalEvents) {
           const eventClassId = (e.class_id as string | null) ?? null
           if (eventClassId && eventClassId !== classId) continue
-          if (!e.visible_to_parents) continue
-        } else if (!includeJournalEvents) {
           if (!e.visible_to_parents) continue
         }
         events.push({

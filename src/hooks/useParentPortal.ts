@@ -58,7 +58,7 @@ export function useParentPortalRealtime(studentIds: string[]) {
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'students', filter: `school_id=eq.${user.schoolId}` },
         (payload) => {
-          const row = payload.new as AnyRow | undefined
+          const row = (payload.new ?? payload.old) as AnyRow | undefined
           if (!row || !idSet.has(row.id as string)) return
           void qc.invalidateQueries({ queryKey: ['parent-students', user.schoolId] })
         })
@@ -103,18 +103,22 @@ export type StudentFeeRecord = {
   status:         'paid' | 'partial' | 'unpaid'
 }
 
-// ── useParentStudents ─────────────────────────────────────────
-// Fetches all students linked to the parent's account.
-// Primary source: student_ids JWT claim.
-// Fallback: query parent_accounts directly if JWT claim is empty
-// (happens when the account was linked after the current JWT was issued).
-export function useParentStudents() {
+// ── useOwnedStudentIds ─────────────────────────────────────────
+// The single source of truth for "which student IDs does this parent
+// legitimately own." Primary source: student_ids JWT claim. Fallback: query
+// parent_accounts directly if the JWT claim is empty (happens when the
+// account was linked to a child after the current JWT was issued). Every
+// student-scoped hook's ownership guard uses this — checking the raw JWT
+// claim directly (as this file used to) would incorrectly reject a
+// legitimately-owned student whenever the JWT is stale, since useParentStudents
+// itself already falls back in that exact case.
+export function useOwnedStudentIds() {
   const { user } = useAuth()
   const jwtStudentIds = user?.studentIds ?? []
 
   // Fallback query — only fires when JWT has no student_ids.
   // Kept separate so it can't block the main loading indicator forever.
-  const { data: fallbackIds = [], isLoading: idsLoading } = useQuery({
+  const { data: fallbackIds = [], isLoading } = useQuery({
     queryKey: ['parent-account-ids', user?.id],
     enabled:  user?.role === 'parent' && !!user?.id && jwtStudentIds.length === 0,
     staleTime: 60_000,
@@ -130,7 +134,17 @@ export function useParentStudents() {
     },
   })
 
-  const effectiveIds = jwtStudentIds.length > 0 ? jwtStudentIds : fallbackIds
+  return {
+    ids:       jwtStudentIds.length > 0 ? jwtStudentIds : fallbackIds,
+    isLoading: jwtStudentIds.length === 0 && isLoading,
+  }
+}
+
+// ── useParentStudents ─────────────────────────────────────────
+// Fetches all students linked to the parent's account.
+export function useParentStudents() {
+  const { user } = useAuth()
+  const { ids: effectiveIds, isLoading: idsLoading } = useOwnedStudentIds()
 
   const studentsQuery = useQuery({
     queryKey: ['parent-students', user?.schoolId, effectiveIds],
@@ -179,12 +193,13 @@ export function useParentStudents() {
 // ── useStudentReleasedReportCards ─────────────────────────────
 export function useStudentReleasedReportCards(studentId: string | null) {
   const { user } = useAuth()
+  const { ids: ownedIds, isLoading: idsLoading } = useOwnedStudentIds()
 
   return useQuery({
     queryKey: ['parent-report-cards', user?.schoolId, studentId],
-    enabled:  user?.role === 'parent' && !!studentId && !!user?.schoolId,
+    enabled:  user?.role === 'parent' && !!studentId && !!user?.schoolId && !idsLoading,
     queryFn: async () => {
-      if (studentId && !(user?.studentIds ?? []).includes(studentId)) {
+      if (studentId && !ownedIds.includes(studentId)) {
         throw new Error('Forbidden')
       }
       const { data, error } = await supabase
@@ -213,12 +228,13 @@ export function useStudentReleasedReportCards(studentId: string | null) {
 // ── useStudentExamSummary ─────────────────────────────────────
 export function useStudentExamSummary(studentId: string | null) {
   const { user } = useAuth()
+  const { ids: ownedIds, isLoading: idsLoading } = useOwnedStudentIds()
 
   return useQuery({
     queryKey: ['parent-exam-summary', user?.schoolId, studentId],
-    enabled:  user?.role === 'parent' && !!studentId && !!user?.schoolId,
+    enabled:  user?.role === 'parent' && !!studentId && !!user?.schoolId && !idsLoading,
     queryFn: async () => {
-      if (studentId && !(user?.studentIds ?? []).includes(studentId)) {
+      if (studentId && !ownedIds.includes(studentId)) {
         throw new Error('Forbidden')
       }
       const { data, error } = await supabase
@@ -277,14 +293,18 @@ export function useStudentExamSummary(studentId: string | null) {
 // ── useStudentFeeBalance ──────────────────────────────────────
 export function useStudentFeeBalance(studentId: string | null) {
   const { user } = useAuth()
+  const { ids: ownedIds, isLoading: idsLoading } = useOwnedStudentIds()
 
   return useQuery({
     queryKey: ['parent-fee-balance', user?.schoolId, studentId],
-    enabled:  user?.role === 'parent' && !!studentId && !!user?.schoolId,
+    enabled:  user?.role === 'parent' && !!studentId && !!user?.schoolId && !idsLoading,
     queryFn: async () => {
       if (user?.role !== 'parent') throw new Error('Forbidden')
-      // Guard fires for empty studentIds (stale JWT) AND mismatched studentIds
-      if (studentId && !(user?.studentIds ?? []).includes(studentId)) {
+      // Checks ownedIds (JWT studentIds, falling back to a live parent_accounts
+      // lookup when the JWT is stale) — not the raw JWT claim alone, since a
+      // parent linked to a child after their JWT was issued would otherwise
+      // be wrongly rejected for a student they legitimately own.
+      if (studentId && !ownedIds.includes(studentId)) {
         throw new Error('Forbidden')
       }
       const [paymentsRes, fsRes] = await Promise.all([
@@ -475,9 +495,7 @@ export function useSendMessageToBursar() {
   })
 }
 
-// ── useFindClassTeacher ───────────────────────────────────────
-// Finds the class teacher for a student's class (stream class_teacher_id first,
-// then staff with class in their classes array).
+// ── StaffContact ───────────────────────────────────────────────
 export type StaffContact = {
   authUserId:    string
   firstName:     string
@@ -486,63 +504,12 @@ export type StaffContact = {
   contextLabel?: string
 }
 
-export function useFindClassTeacher(classId: string | null | undefined) {
-  const { user } = useAuth()
-
-  return useQuery({
-    queryKey: ['find-class-teacher', user?.schoolId, classId],
-    enabled:  !!user?.schoolId && !!classId,
-    staleTime: 10 * 60 * 1000,
-    queryFn: async () => {
-      // Try streams first for a class_teacher_id link
-      const { data: streamData } = await supabase
-        .from('streams')
-        .select('class_teacher_id')
-        .eq('school_id', user!.schoolId)
-        .eq('class_id',  classId!)
-        .not('class_teacher_id', 'is', null)
-        .limit(1)
-        .maybeSingle()
-
-      const teacherStaffId = (streamData as AnyRow | null)?.class_teacher_id as string | null
-
-      if (teacherStaffId) {
-        const { data } = await supabase
-          .from('staff')
-          .select('auth_user_id, first_name, last_name, role')
-          .eq('id', teacherStaffId)
-          .eq('school_id', user!.schoolId)
-          .not('auth_user_id', 'is', null)
-          .maybeSingle()
-        if (data) {
-          const r = data as AnyRow
-          return { authUserId: r.auth_user_id as string, firstName: r.first_name as string, lastName: r.last_name as string, role: 'class_teacher' } satisfies StaffContact
-        }
-      }
-
-      // Fallback: staff with this class in their classes array and role class_teacher
-      const { data: fallback } = await supabase
-        .from('staff')
-        .select('auth_user_id, first_name, last_name, role')
-        .eq('school_id', user!.schoolId)
-        .eq('role', 'class_teacher')
-        .contains('classes', [classId!])
-        .not('auth_user_id', 'is', null)
-        .limit(1)
-        .maybeSingle()
-
-      if (!fallback) return null
-      const r = fallback as AnyRow
-      return { authUserId: r.auth_user_id as string, firstName: r.first_name as string, lastName: r.last_name as string, role: 'class_teacher' } satisfies StaffContact
-    },
-  })
-}
-
 // ── useClassTeachersForClasses ────────────────────────────────
-// Batched version of useFindClassTeacher for a parent with multiple children
-// in different classes — resolves one class teacher per distinct classId in
-// a single pair of queries instead of calling the hook per-child (which
-// would require calling a hook inside a loop/map).
+// Resolves the class teacher for one or more classIds — stream
+// class_teacher_id first, then staff with the class in their classes[]
+// array. Batches all of a parent's children's classIds into one query pair
+// instead of calling a hook per-child (which would require calling a hook
+// inside a loop/map).
 export function useClassTeachersForClasses(classIds: (string | null | undefined)[]) {
   const { user } = useAuth()
   const ids = [...new Set(classIds.filter((id): id is string => !!id))]
