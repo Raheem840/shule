@@ -32,7 +32,6 @@ type ImportRow = {
 // ─── Import fee structure modal ───────────────────────────────────────────────
 function ImportFeeStructureModal({ onClose }: { onClose: () => void }) {
   const { data: years   = [] } = useAcademicYears()
-  const { data: classes = [] } = useClasses()
   const addMut = useAddFeeType()
   const { success: ok, error: err } = useToast()
 
@@ -40,6 +39,9 @@ function ImportFeeStructureModal({ onClose }: { onClose: () => void }) {
   const [rawText,     setRawText]     = useState('')
   const [rows,        setRows]        = useState<ImportRow[]>([])
   const [yearId,      setYearId]      = useState(years.find(y => y.isActive)?.id ?? years[0]?.id ?? '')
+  // Scoped to whichever year the bursar picks below — importing fee items for
+  // a non-active (e.g. next) year needs THAT year's classes, not the active one.
+  const { data: classes = [] } = useClasses(yearId || null)
   const [importing,   setImporting]   = useState(false)
   const [result,      setResult]      = useState<{ imported: number; failed: string[] } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -395,7 +397,6 @@ function AmountCell({ fee }: { fee: FeeStructure }) {
 // ─── Edit fee modal ───────────────────────────────────────────────────────────
 function EditFeeModal({ fee, onClose }: { fee: FeeStructure; onClose: () => void }) {
   const { data: years   = [] } = useAcademicYears()
-  const { data: classes = [] } = useClasses()
   const updateMut = useUpdateFeeItem()
   const { success: ok, error: err } = useToast()
 
@@ -409,6 +410,10 @@ function EditFeeModal({ fee, onClose }: { fee: FeeStructure; onClose: () => void
     isCompulsory:   fee.isCompulsory,
     autoCharge:     false,
   })
+  // Scoped to whichever year is currently selected in the form (starts as the
+  // fee's own year, which may not be the active one) — editing a fee item
+  // from a past/future year needs THAT year's classes in the dropdown.
+  const { data: classes = [] } = useClasses(form.academicYearId || null)
 
   const portal = document.querySelector('.ar') as HTMLElement ?? document.body
 
@@ -632,7 +637,6 @@ function FeeCard({ fee, className, classBadges, onDelete, onAutoCharge, onEnable
 // ─── Add Fee Modal ────────────────────────────────────────────────────────────
 function AddFeeModal({ onClose }: { onClose: () => void }) {
   const { data: years = [] }   = useAcademicYears()
-  const { data: classes = [] } = useClasses()
   const addMut      = useAddFeeType()
   const chargeMut   = useAutoChargeFees()
   const { success: ok, error: err } = useToast()
@@ -648,6 +652,11 @@ function AddFeeModal({ onClose }: { onClose: () => void }) {
       classId: null, isCompulsory: true, autoCharge: true,
     },
   })
+
+  // Scoped to whichever year is picked in the form below (defaults to active,
+  // but the bursar can target a different — e.g. upcoming — year).
+  const selectedYearId = watch('academicYearId')
+  const { data: classes = [] } = useClasses(selectedYearId || null)
 
   // Multi-class selection: empty = all classes, otherwise one fee row per selected class
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
@@ -895,6 +904,11 @@ export function FeeStructurePage() {
   const [filterClass, setFilterClass] = useState<string | null>(null)
   const { data: years = [] }    = useAcademicYears()
   const { data: classes = [] }  = useClasses()
+  // fees spans every year by default (useFeeStructure() below has no year
+  // filter), so resolving a fee row's class name needs every year's classes —
+  // not just the active year's, which `classes` above (used for the "All
+  // Classes" filter dropdown, correctly scoped to now) is limited to.
+  const { data: allYearsClasses = [] } = useClasses(null)
   const { data: fees = [], isLoading } = useFeeStructure()
   const deleteMut   = useDeleteFeeType()
   const chargeMut   = useAutoChargeFees()
@@ -932,7 +946,7 @@ export function FeeStructurePage() {
 
   const activeYear = years.find(y => y.isActive) ?? years[0]
 
-  const classMap = useMemo(() => new Map(classes.map(c => [c.id, c.name])), [classes])
+  const classMap = useMemo(() => new Map(allYearsClasses.map(c => [c.id, c.name])), [allYearsClasses])
 
   const filtered = useMemo(() => {
     let f = fees

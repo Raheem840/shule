@@ -393,10 +393,12 @@ function shiftDate(d: string | null, days: number): string | null {
 }
 
 // Resolves the academic year that comes chronologically after the school's
-// active year. If none exists yet, creates one — mirroring the active year's
-// date structure one year forward, matching the convention already used by
-// AcademicYearPage's own "+ New Year" default (same-length year, is_active=false
-// until the principal explicitly activates it via that page).
+// active year. If none exists yet, creates one — shifting the active year's
+// own date structure (and each term's dates) forward by its exact day-count,
+// so an irregular (non-Jan-Dec) calendar is preserved rather than reset to
+// AcademicYearPage's generic Jan 1 – Dec 31 "+ New Year" default. Always
+// is_active=false — the principal still explicitly activates it via that
+// page when the new year actually begins.
 async function resolveOrCreateNextAcademicYear(schoolId: string): Promise<{ id: string; label: string }> {
   const { data: yearsData, error } = await supabase
     .from('academic_years')
@@ -420,8 +422,11 @@ async function resolveOrCreateNextAcademicYear(schoolId: string): Promise<{ id: 
   }
   const nextStart = shiftDate(active.end_date, 1)
   const nextEnd   = active.start_date && active.end_date ? shiftDate(nextStart, offsetDays - 1) : null
-  const yearMatch = active.label.match(/\d{4}/)
-  const nextLabel = yearMatch ? active.label.replace(yearMatch[0], String(Number(yearMatch[0]) + 1)) : `${active.label} (Next)`
+  // Increment EVERY 4-digit year found (not just the first) — a "2025/2026"
+  // range label must become "2026/2027", not "2026/2026".
+  const nextLabel = /\d{4}/.test(active.label)
+    ? active.label.replace(/\d{4}/g, m => String(Number(m) + 1))
+    : `${active.label} (Next)`
 
   const { data: created, error: createErr } = await supabase
     .from('academic_years')
@@ -514,7 +519,7 @@ async function ensureClassesForYear(schoolId: string, sourceYearId: string, targ
     }
   }
 
-  return { sourceToTargetClassId, targetStreamsByClass }
+  return { sourceToTargetClassId, targetStreamsByClass, sourceClasses }
 }
 
 function parseLevel(level: string | null): number | null {
@@ -530,7 +535,10 @@ export type PromotionOutcome = { promoted: number; completed: number; skipped: n
 // class/stream structure forward, then moves each student to the class one
 // level up IN THAT YEAR (never just the same year's differently-named class —
 // classes are year-scoped, so "promoting" must mean moving year, not just level).
-async function runPromotion(schoolId: string, scope: 'all' | string[]): Promise<PromotionOutcome> {
+async function runPromotion(
+  schoolId: string, scope: 'all' | string[],
+  onProgress?: (current: number, total: number) => void,
+): Promise<PromotionOutcome> {
   let sq = supabase.from('students').select('id, class_id, stream_id').eq('school_id', schoolId).eq('status', 'active')
   if (scope !== 'all') sq = sq.in('id', scope)
   const { data: studentsData, error: stuErr } = await sq
@@ -546,12 +554,7 @@ async function runPromotion(schoolId: string, scope: 'all' | string[]): Promise<
   const sourceYearId = activeYearRow.id as string
 
   const { id: targetYearId, label: nextYearLabel } = await resolveOrCreateNextAcademicYear(schoolId)
-  const { sourceToTargetClassId, targetStreamsByClass } = await ensureClassesForYear(schoolId, sourceYearId, targetYearId)
-
-  const { data: sourceClassesData, error: srcClassErr } = await supabase
-    .from('classes').select('id, level').eq('school_id', schoolId).eq('academic_year_id', sourceYearId)
-  if (srcClassErr) throw new Error(srcClassErr.message)
-  const sourceClasses = (sourceClassesData ?? []) as { id: string; level: string | null }[]
+  const { sourceToTargetClassId, targetStreamsByClass, sourceClasses } = await ensureClassesForYear(schoolId, sourceYearId, targetYearId)
 
   const levelById = new Map<string, number | null>()
   let maxLevel: number | null = null
@@ -562,10 +565,17 @@ async function runPromotion(schoolId: string, scope: 'all' | string[]): Promise<
   }
   // level -> this year's class id, so we can find "level+1" then map that
   // source class id through sourceToTargetClassId to the actual next-year class.
+  // If two classes share the same level (e.g. parallel classes modeled as
+  // separate `classes` rows instead of `streams`), the mapping is genuinely
+  // ambiguous — mark it so affected students are skipped with a clear count
+  // instead of silently collapsing onto whichever class was seen last.
   const sourceClassIdByLevel = new Map<number, string>()
+  const ambiguousLevels = new Set<number>()
   for (const c of sourceClasses) {
     const lvl = levelById.get(c.id)
-    if (lvl != null) sourceClassIdByLevel.set(lvl, c.id)
+    if (lvl == null) continue
+    if (sourceClassIdByLevel.has(lvl) && sourceClassIdByLevel.get(lvl) !== c.id) ambiguousLevels.add(lvl)
+    else sourceClassIdByLevel.set(lvl, c.id)
   }
 
   const relevantClassIds = [...new Set(students.map(s => s.class_id).filter((id): id is string => !!id))]
@@ -583,6 +593,7 @@ async function runPromotion(schoolId: string, scope: 'all' | string[]): Promise<
     const level = s.class_id ? levelById.get(s.class_id) : undefined
     if (!s.class_id || level == null) { skipped.push(s.id); continue }
     if (maxLevel != null && level === maxLevel) { toComplete.push(s.id); continue }
+    if (ambiguousLevels.has(level + 1)) { skipped.push(s.id); continue }
 
     const nextSourceClassId = sourceClassIdByLevel.get(level + 1)
     const targetClassId     = nextSourceClassId ? sourceToTargetClassId.get(nextSourceClassId) : undefined
@@ -596,6 +607,7 @@ async function runPromotion(schoolId: string, scope: 'all' | string[]): Promise<
     toPromoteMap.get(key)!.ids.push(s.id)
   }
 
+  let processed = 0
   if (toComplete.length > 0) {
     for (let i = 0; i < toComplete.length; i += 100) {
       const { error } = await supabase.from('students')
@@ -603,6 +615,8 @@ async function runPromotion(schoolId: string, scope: 'all' | string[]): Promise<
         .eq('school_id', schoolId)
         .in('id', toComplete.slice(i, i + 100))
       if (error) throw new Error(error.message)
+      processed += Math.min(100, toComplete.length - i)
+      onProgress?.(processed, total)
     }
   }
 
@@ -613,6 +627,8 @@ async function runPromotion(schoolId: string, scope: 'all' | string[]): Promise<
         .eq('school_id', schoolId)
         .in('id', ids.slice(i, i + 100))
       if (error) throw new Error(error.message)
+      processed += Math.min(100, ids.length - i)
+      onProgress?.(processed, total)
     }
   }
 
@@ -628,10 +644,10 @@ export function usePromoteStudents() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async (_onProgress?: (current: number, total: number) => void): Promise<PromotionOutcome> => {
+    mutationFn: async (onProgress?: (current: number, total: number) => void): Promise<PromotionOutcome> => {
       if (!user) throw new Error('Not authenticated')
       if (!['deputy', 'secretary'].includes(user.role)) throw new Error('Forbidden')
-      return runPromotion(user.schoolId, 'all')
+      return runPromotion(user.schoolId, 'all', onProgress)
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
@@ -677,6 +693,14 @@ export function useLoadPromotionCandidates() {
       if (!['deputy', 'secretary'].includes(user.role)) throw new Error('Forbidden')
       const sid = user.schoolId
 
+      // Same active-year scoping runPromotion itself uses for maxLevel/terminal
+      // detection — otherwise a stale/duplicate class row from another year
+      // could shift maxLevel and make this preview disagree with what the
+      // actual promotion run does for the same student.
+      const { data: activeYearRow, error: activeYearErr } = await supabase
+        .from('academic_years').select('id').eq('school_id', sid).eq('is_active', true).maybeSingle()
+      if (activeYearErr) throw new Error(activeYearErr.message)
+
       // Load students + classes in parallel with exam results aggregated in JS
       const [studentsRes, classesRes, resultsRes] = await Promise.all([
         supabase
@@ -684,10 +708,11 @@ export function useLoadPromotionCandidates() {
           .select('id, first_name, last_name, admission_number, class_id')
           .eq('school_id', sid)
           .eq('status', 'active'),
-        supabase
-          .from('classes')
-          .select('id, name, level')
-          .eq('school_id', sid),
+        (() => {
+          let q = supabase.from('classes').select('id, name, level').eq('school_id', sid)
+          if (activeYearRow?.id) q = q.eq('academic_year_id', activeYearRow.id)
+          return q
+        })(),
         supabase
           .from('exam_results')
           .select('student_id, score')

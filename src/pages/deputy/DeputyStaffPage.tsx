@@ -116,7 +116,9 @@ function ColorChip({ label, index }: { label: string; index: number }) {
 function StaffDetailModal({ staff, onClose }: { staff: DeputyStaffRow; onClose: () => void }) {
   const navigate = useNavigate()
   const { data: allSubjects = [] } = useSubjects()
-  const { data: allClasses  = [] } = useClasses()
+  // null = all years — staff.classes[] can reference a class from any past
+  // year the teacher was assigned to, not just the currently active one.
+  const { data: allClasses  = [] } = useClasses(null)
 
   const subjectNames = useMemo(() => {
     const map = new Map(allSubjects.map(s => [s.id, s.name]))

@@ -9,7 +9,10 @@ export function DosCurriculumPage() {
   const [term,      setTerm]      = useState('')
   const [year,      setYear]      = useState(currentYear)
 
-  const { data: classes  = [] } = useClasses()
+  // null = all years — this page browses curriculum plans by an explicit
+  // year selector (currentYear-1/currentYear/currentYear+1), so both the
+  // class filter and any class-name lookup need every year's classes.
+  const { data: classes  = [] } = useClasses(null)
   const { data: subjects = [] } = useSubjects()
   // coveredByName is resolved server-side in useDosCurriculumPlan, scoped to
   // just the auth_user_ids present in this class/subject's topics — not the

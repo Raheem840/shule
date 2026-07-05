@@ -18,6 +18,7 @@ const { mockFrom, currentUser } = vi.hoisted(() => {
       eq:     vi.fn().mockReturnThis(),
       in:     vi.fn().mockReturnThis(),
       update: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
       then: (resolve: any, reject?: any) =>
         Promise.resolve({ data: [], error: null }).then(resolve, reject),
     }
@@ -261,5 +262,106 @@ describe('runPromotion (via usePromoteStudents/useSelectivePromote) — real log
       { id: 'stu-1', class_id: 'clsA-1', stream_id: 'strA-1', status: 'active' },
       { id: 'stu-2', class_id: 'clsA-2', stream_id: null,     status: 'active' },
     ]
+  })
+
+  it('reports progress via onProgress instead of leaving the caller\'s progress bar frozen', async () => {
+    currentUser.role = 'deputy'
+    setupRealisticMock()
+
+    const onProgress = vi.fn()
+    const { result } = renderHook(() => usePromoteStudents(), { wrapper: createWrapper() })
+    await result.current.mutateAsync(onProgress)
+
+    expect(onProgress).toHaveBeenCalled()
+    const lastCall = onProgress.mock.calls[onProgress.mock.calls.length - 1]
+    expect(lastCall[1]).toBe(2) // total students in the fixture
+  })
+
+  it('skips (rather than silently merges) students at a level shared by two classes', async () => {
+    currentUser.role = 'deputy'
+    const originalClasses = DB.classes
+    const originalStudents = DB.students
+    // Two source-year classes both claim level '1' — ambiguous which is the
+    // "real" level-1 class, so level 2 (level+1 for a level-1 student) is fine,
+    // but promoting FROM level 1 requires resolving level 2 unambiguously —
+    // here we make level 2 itself ambiguous in the source year.
+    DB.classes = [
+      { id: 'clsA-1', name: 'S.1', level: '1', academic_year_id: 'year-A' },
+      { id: 'clsA-2a', name: 'S.2 Science', level: '2', academic_year_id: 'year-A' },
+      { id: 'clsA-2b', name: 'S.2 Arts',    level: '2', academic_year_id: 'year-A' },
+      { id: 'clsB-1', name: 'S.1', level: '1', academic_year_id: 'year-B' },
+    ]
+    DB.students = [{ id: 'stu-4', class_id: 'clsA-1', stream_id: null, status: 'active' }]
+    setupRealisticMock()
+
+    const { result } = renderHook(() => usePromoteStudents(), { wrapper: createWrapper() })
+    const out = await result.current.mutateAsync(undefined)
+
+    expect(out.skipped).toBe(1)
+    expect(out.promoted).toBe(0)
+
+    DB.classes = originalClasses
+    DB.students = originalStudents
+  })
+})
+
+describe('resolveOrCreateNextAcademicYear label increment (via usePromoteStudents)', () => {
+  it('increments every 4-digit year in a "YYYY/YYYY"-style label, not just the first', async () => {
+    currentUser.role = 'deputy'
+    const DB2 = {
+      academicYears: [
+        { id: 'year-A', label: '2026/2027', start_date: '2026-01-01', end_date: '2026-12-15', is_active: true,
+          term1_start: null, term1_end: null, term2_start: null, term2_end: null, term3_start: null, term3_end: null },
+      ],
+      classes: [{ id: 'clsA-1', name: 'S.1', level: '1', academic_year_id: 'year-A' }],
+      streams: [] as any[],
+      students: [{ id: 'stu-5', class_id: 'clsA-1', stream_id: null, status: 'active' }],
+    }
+
+    mockFrom.mockImplementation((table: string) => {
+      const eqs: Record<string, any> = {}
+      let inFilter: string[] | undefined
+      function rows(): any[] {
+        if (table === 'students') return DB2.students.filter(s => !eqs.status || s.status === eqs.status)
+        if (table === 'academic_years') return DB2.academicYears
+        if (table === 'classes') {
+          let r = [...DB2.classes]
+          if (eqs.academic_year_id) r = r.filter(c => c.academic_year_id === eqs.academic_year_id)
+          return r
+        }
+        if (table === 'streams') return []
+        return []
+      }
+      const b: any = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockImplementation((col: string, val: any) => { eqs[col] = val; return b }),
+        in: vi.fn().mockImplementation((_col: string, vals: string[]) => { inFilter = vals; return b }),
+        order: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockImplementation(() => Promise.resolve({ data: rows()[0] ?? null, error: null })),
+        insert: vi.fn().mockImplementation((payload: any) => {
+          const arr = Array.isArray(payload) ? payload : [payload]
+          const chain: any = {
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { id: 'new-year-1' }, error: null }),
+            }),
+            then: (resolve: any) => Promise.resolve({ error: null }).then(resolve),
+          }
+          void arr
+          return chain
+        }),
+        update: vi.fn().mockImplementation(() => ({
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ error: null }),
+        })),
+        then: (resolve: any, reject?: any) => Promise.resolve({ data: rows(), error: null }).then(resolve, reject),
+      }
+      void inFilter
+      return b
+    })
+
+    const { result } = renderHook(() => usePromoteStudents(), { wrapper: createWrapper() })
+    const out = await result.current.mutateAsync(undefined)
+
+    expect(out.nextYearLabel).toBe('2027/2028')
   })
 })

@@ -338,7 +338,9 @@ export function PrincipalStaffPage() {
 
   const { data: staffList = [], isLoading } = useStaff(filters)
   const { data: depts     = [] }            = useDepartments()
-  const { data: classes   = [] }            = useClasses()
+  // null = all years — resolves staff.classes[] which can reference a class
+  // from any past year the teacher was assigned to.
+  const { data: classes   = [] }            = useClasses(null)
   const deptMap  = new Map(depts.map(d => [d.id, d.name]))
   const classMap = useMemo(() => new Map(classes.map(c => [c.id, c.name])), [classes])
 

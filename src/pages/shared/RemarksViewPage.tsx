@@ -20,7 +20,10 @@ export function RemarksViewPage() {
   const [search,      setSearch]      = useState('')
 
   const { data: allStudents = [], isLoading: studentsLoading } = useStudents()
-  const { data: classes = [] }  = useClasses()
+  // null = all years — this page has its own term/year selector and browses
+  // historical remarks, so both the lookup map and the class filter need
+  // every year's classes, not just the currently active one.
+  const { data: classes = [] }  = useClasses(null)
   const { data: streams = [] }  = useStreams()
   const { data: staff = [] }    = useStaff()
   const { data: remarksMapRaw, isLoading: remarksLoading } = useAllTeacherRemarks({ term, year })

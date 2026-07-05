@@ -266,7 +266,9 @@ function TeacherDetailModal({ teacher, onClose }: { teacher: TeacherPerfRow; onC
   const [showAssign,         setShowAssign]         = useState(false)
   const [showManageSubj,     setShowManageSubj]     = useState(false)
   const [showManageClasses,  setShowManageClasses]  = useState(false)
-  const { data: allClasses=[] } = useClasses()
+  // null = all years — resolves staff.classes[] which can reference a class
+  // from any past year the teacher was assigned to.
+  const { data: allClasses=[] } = useClasses(null)
   const classMap = Object.fromEntries(allClasses.map(c=>[c.id,c.name]))
   const { data: allSubjects=[] } = useSubjects()
   const subjectNameMap = Object.fromEntries(allSubjects.map(s=>[s.id,s.name]))
