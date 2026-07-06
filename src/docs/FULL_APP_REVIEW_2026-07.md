@@ -32,7 +32,7 @@ Findings that are real but low-severity/pre-existing/out-of-scope are logged **D
 |---|-------|-------|--------|-------|----------|--------|
 | 1 | Principal A | AcademicYearPage, AuditLogPage, PrincipalAnalyticsPage, PrincipalDashboard, PrincipalClassesPage | done | 9 | 11 | `b42057f` |
 | 2 | Principal B | PrincipalReportCardsPage, PrincipalSettingsPage, PrincipalStaffPage, PrincipalStaffProfilePage, PrincipalStudentsPage, StudentFullProfilePage | done | 12 | 14 | `7ed44b7` |
-| 3 | Deputy | DeputyDashboard, DeputyDepartmentsPage, DeputyStaffPage, DeputyStudentsPage, DeputyTimetablePage, DisciplinePage | done | 10 | 12 | (pending) |
+| 3 | Deputy | DeputyDashboard, DeputyDepartmentsPage, DeputyStaffPage, DeputyStudentsPage, DeputyTimetablePage, DisciplinePage | done | 10 | 12 | `d20b7f0` |
 | 4 | DOS A | DosDashboard, DosClassesPage, DosStudentsPage, DosSubjectsPage, DosSurveysPage | pending | | | |
 | 5 | DOS B | DosJournalsPage, DosTeachersPage, DosTimetablePage, DosCurriculumPage | pending | | | |
 | 6 | Secretary A | StudentRegistrationWizard, StaffRegistrationWizard, StudentsPage, SecretaryStudentsPage, SecretaryStudentEditPage | pending | | | |
