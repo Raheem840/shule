@@ -37,7 +37,10 @@ vi.mock('../../components/shared/Avatar', () => ({
 // ── Hook mocks ─────────────────────────────────────────────────────────────
 vi.mock('../../hooks/useStaff', () => ({
   useStaff:         vi.fn(),
-  useSetStaffActive: vi.fn(),
+}))
+
+vi.mock('../../hooks/usePrincipal', () => ({
+  useSuspendStaff: vi.fn(),
 }))
 
 vi.mock('../../hooks/useClasses', () => ({
@@ -45,12 +48,13 @@ vi.mock('../../hooks/useClasses', () => ({
   useClasses:     vi.fn(),
 }))
 
-import { useStaff, useSetStaffActive } from '../../hooks/useStaff'
+import { useStaff } from '../../hooks/useStaff'
+import { useSuspendStaff } from '../../hooks/usePrincipal'
 import { useDepartments, useClasses } from '../../hooks/useClasses'
 import { PrincipalStaffPage } from '../../pages/principal/PrincipalStaffPage'
 
 const mockStaff      = useStaff         as ReturnType<typeof vi.fn>
-const mockSetActive  = useSetStaffActive as ReturnType<typeof vi.fn>
+const mockSetActive  = useSuspendStaff  as ReturnType<typeof vi.fn>
 const mockDepts      = useDepartments   as ReturnType<typeof vi.fn>
 const mockClasses    = useClasses       as ReturnType<typeof vi.fn>
 

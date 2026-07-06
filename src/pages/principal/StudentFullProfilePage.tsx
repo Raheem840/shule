@@ -32,7 +32,7 @@ export function StudentFullProfilePage() {
   const canSeeFinance = user?.role === 'principal'
   const { data: profile, isLoading, isError } = useStudentFullProfile(studentId ?? null)
   const suspendMut = useSuspendStudent()
-  const [confirmAction, setConfirmAction] = useState<'suspended' | 'expelled' | null>(null)
+  const [confirmAction, setConfirmAction] = useState<'suspended' | 'expelled' | 'active' | null>(null)
   const [confirmText, setConfirmText]     = useState('')
 
   if (isLoading) return <div style={{ color: 'var(--txt3)', padding: 32 }}>Loading student profile…</div>
@@ -44,7 +44,7 @@ export function StudentFullProfilePage() {
 
   const statusStyle = STATUS_COLOR[profile.status] ?? STATUS_COLOR.active
 
-  async function handleStatusChange(newStatus: 'suspended' | 'expelled') {
+  async function handleStatusChange(newStatus: 'suspended' | 'expelled' | 'active') {
     try {
       await suspendMut.mutateAsync({ studentId: studentId!, status: newStatus })
       setConfirmAction(null)
@@ -243,7 +243,7 @@ export function StudentFullProfilePage() {
           )}
           {profile.status === 'suspended' && (
             <button
-              onClick={() => { suspendMut.mutate({ studentId: studentId!, status: 'active' }) }}
+              onClick={() => setConfirmAction('active')}
               className="sui-btn-primary"
             >
               Reinstate
@@ -274,19 +274,27 @@ export function StudentFullProfilePage() {
             background: 'var(--surface)', borderRadius: 20, padding: 28,
             width: 400, maxWidth: '90vw',
           }}>
-            <h3 style={{ fontFamily: 'var(--font2)', fontWeight: 800, color: 'var(--danger)', marginTop: 0 }}>
-              Confirm {confirmAction === 'suspended' ? 'Suspension' : 'Expulsion'}
+            <h3 style={{ fontFamily: 'var(--font2)', fontWeight: 800, color: confirmAction === 'active' ? 'var(--brand)' : 'var(--danger)', marginTop: 0 }}>
+              Confirm {confirmAction === 'suspended' ? 'Suspension' : confirmAction === 'expelled' ? 'Expulsion' : 'Reinstatement'}
             </h3>
-            <p style={{ fontSize: 13, color: 'var(--txt2)' }}>
-              Type the student's name to confirm: <strong>{profile.firstName} {profile.lastName}</strong>
-            </p>
-            <input
-              value={confirmText}
-              onChange={e => setConfirmText(e.target.value)}
-              className="sui-input"
-              style={{ width: '100%', marginBottom: 16 }}
-              placeholder="Type full name to confirm…"
-            />
+            {confirmAction === 'active' ? (
+              <p style={{ fontSize: 13, color: 'var(--txt2)' }}>
+                Reinstate <strong>{profile.firstName} {profile.lastName}</strong> to active status? Their login access will be restored.
+              </p>
+            ) : (
+              <>
+                <p style={{ fontSize: 13, color: 'var(--txt2)' }}>
+                  Type the student's name to confirm: <strong>{profile.firstName} {profile.lastName}</strong>
+                </p>
+                <input
+                  value={confirmText}
+                  onChange={e => setConfirmText(e.target.value)}
+                  className="sui-input"
+                  style={{ width: '100%', marginBottom: 16 }}
+                  placeholder="Type full name to confirm…"
+                />
+              </>
+            )}
             {suspendMut.isError && (
               <div style={{ color: 'var(--danger)', fontSize: 12, marginBottom: 12 }}>
                 {suspendMut.error?.message ?? 'Action failed.'}
@@ -295,11 +303,12 @@ export function StudentFullProfilePage() {
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button onClick={() => { setConfirmAction(null); setConfirmText('') }} className="sui-btn-outline">Cancel</button>
               <button
-                disabled={confirmText.trim() !== `${profile.firstName} ${profile.lastName}` || suspendMut.isPending}
+                disabled={(confirmAction !== 'active' && confirmText.trim() !== `${profile.firstName} ${profile.lastName}`) || suspendMut.isPending}
                 onClick={() => void handleStatusChange(confirmAction)}
                 style={{ padding: '8px 16px', borderRadius: 10, border: 'none',
-                  background: 'var(--danger)', color: '#fff',
-                  fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: confirmText.trim() !== `${profile.firstName} ${profile.lastName}` ? 0.4 : 1 }}
+                  background: confirmAction === 'active' ? 'var(--brand)' : 'var(--danger)', color: '#fff',
+                  fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                  opacity: (confirmAction !== 'active' && confirmText.trim() !== `${profile.firstName} ${profile.lastName}`) ? 0.4 : 1 }}
               >
                 {suspendMut.isPending ? 'Processing…' : 'Confirm'}
               </button>

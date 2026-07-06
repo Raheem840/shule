@@ -133,6 +133,37 @@ describe('useStaff', () => {
     expect(result.current.data![0].firstName).toBe('Grace')
   })
 
+  // Previously only matched firstName/lastName independently, so searching a
+  // full name like "Grace Apio" returned zero results even though the staff
+  // member exists — the same bug class already fixed for teacher/bursar
+  // messaging search in an earlier session, but missed here.
+  it('filters client-side by full name search ("first last")', async () => {
+    setResponse('staff', {
+      data: [
+        dbStaffRow,
+        { ...dbStaffRow, id: 'staff-2', first_name: 'Grace', last_name: 'Apio', staff_number: 'KJA/STAFF/002' },
+      ],
+      error: null,
+    })
+
+    const { result } = renderHook(() => useStaff({ search: 'Grace Apio' }), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toHaveLength(1)
+    expect(result.current.data![0].firstName).toBe('Grace')
+  })
+
+  // classes was missing from LIST_COLS, so the Staff Directory's "teaching
+  // classes" chips could never render for any teacher regardless of real
+  // assignments — the DB row had the data, the SELECT just never fetched it.
+  it('includes classes in the mapped Staff object from the list query', async () => {
+    setResponse('staff', { data: [{ ...dbStaffRow, classes: ['class-1', 'class-2'] }], error: null })
+    const { result } = renderHook(() => useStaff(), { wrapper: createWrapper() })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data![0].classes).toEqual(['class-1', 'class-2'])
+  })
+
   it('exposes error state when Supabase fails', async () => {
     setResponse('staff', { data: null, error: { message: 'Permission denied' } })
     const { result } = renderHook(() => useStaff(), { wrapper: createWrapper() })

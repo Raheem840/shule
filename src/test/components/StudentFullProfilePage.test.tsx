@@ -4,6 +4,7 @@
 // the logged-in user is a deputy. Principal sees a read-only note instead.
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Route, Routes, MemoryRouter } from 'react-router-dom'
 
 vi.mock('../../lib/supabase', () => ({
@@ -58,6 +59,7 @@ vi.mock('../../hooks/usePrincipal', () => ({
 }))
 
 import { StudentFullProfilePage } from '../../pages/principal/StudentFullProfilePage'
+import { useStudentFullProfile, useSuspendStudent } from '../../hooks/usePrincipal'
 
 function renderAt(path: string) {
   return render(
@@ -136,5 +138,33 @@ describe('StudentFullProfilePage — as DOS (pure academics only)', () => {
     renderAt('/dos/students/stu-1')
     expect(screen.queryByText('Suspend Student')).not.toBeInTheDocument()
     expect(screen.queryByText('Expel Student')).not.toBeInTheDocument()
+  })
+})
+
+// Reinstate previously called suspendMut.mutate(...) directly on click with
+// zero confirmation, unlike Suspend/Expel which both require typing the
+// student's full name — a misclick instantly reactivated a suspended
+// student's account. Now routes through the same confirm-dialog flow.
+describe('StudentFullProfilePage — Reinstate requires confirmation', () => {
+  const mockMutateAsync = vi.fn().mockResolvedValue(undefined)
+
+  it('does not call the mutation immediately on click — opens a confirm dialog instead', async () => {
+    authState.role = 'deputy'
+    vi.mocked(useStudentFullProfile).mockReturnValue({
+      data: { ...PROFILE, status: 'suspended' }, isLoading: false, isError: false,
+    } as any)
+    vi.mocked(useSuspendStudent).mockReturnValue({
+      mutateAsync: mockMutateAsync, isPending: false, isError: false,
+    } as any)
+
+    const user = userEvent.setup()
+    renderAt('/deputy/students/stu-1')
+
+    await user.click(screen.getByText('Reinstate'))
+    expect(mockMutateAsync).not.toHaveBeenCalled()
+    expect(screen.getByText('Confirm Reinstatement')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Confirm'))
+    expect(mockMutateAsync).toHaveBeenCalledWith({ studentId: 'stu-1', status: 'active' })
   })
 })

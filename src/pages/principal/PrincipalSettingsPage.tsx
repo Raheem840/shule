@@ -14,6 +14,7 @@ function useSave() {
   return useMutation({
     mutationFn: async (updates: { schoolName: string; shortName: string; motto: string; primaryColor: string; logoUrl?: string }) => {
       if (!user) throw new Error('Not authenticated')
+      if (!['principal', 'it_admin'].includes(user.role)) throw new Error('Forbidden')
       const { error } = await supabase
         .from('school_profile')
         .update({
@@ -28,7 +29,9 @@ function useSave() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['school-settings'] })
-      // DB trigger re-prefixes all staff numbers when short_name changes
+      // generate_staff_number()/generate_admission_number() only fire on INSERT
+      // with a blank number — changing short_name here does NOT retroactively
+      // re-prefix any existing staff/admission numbers, only future ones.
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['next-staff-num', user?.schoolId] })
     },
@@ -54,9 +57,12 @@ function usePortalOpen(schoolId: string | undefined) {
 }
 
 function useTogglePortal(schoolId: string | undefined) {
+  const { user } = useAuth()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (open: boolean) => {
+      if (!user) throw new Error('Not authenticated')
+      if (!['principal', 'it_admin'].includes(user.role)) throw new Error('Forbidden')
       const { error } = await supabase
         .from('school_profile')
         .update({ parent_portal_open: open })
@@ -166,7 +172,7 @@ export function PrincipalSettingsPage() {
       await save.mutateAsync({ schoolName, shortName, motto, primaryColor, logoUrl: logoUrl ?? undefined })
       applyBrandColor(primaryColor)
       if (shortNameChanged && shortName.trim()) {
-        ok('School short name updated — all staff numbers have been refreshed.')
+        ok('School short name updated — new staff/student numbers will use the new prefix.')
       } else {
         ok('Settings saved.')
       }
@@ -406,8 +412,9 @@ export function PrincipalSettingsPage() {
                           <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                         </svg>
                         <span style={{ fontSize: 10, color: '#d97706', lineHeight: 1.5 }}>
-                          Changing this will update the prefix on all staff numbers
-                          (e.g. <strong>{settings?.shortName || 'OLD'}/STAFF/001</strong> → <strong>{shortName.trim()}/STAFF/001</strong>)
+                          This only affects the prefix on <strong>new</strong> staff/student numbers going forward —
+                          existing numbers keep their current prefix
+                          (e.g. new staff will get <strong>{shortName.trim()}/STAFF/001</strong> instead of <strong>{settings?.shortName || 'OLD'}/STAFF/001</strong>)
                         </span>
                       </div>
                     ) : (

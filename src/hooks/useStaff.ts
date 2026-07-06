@@ -22,7 +22,7 @@ type AnyRow = Record<string, unknown>
 
 const LIST_COLS = [
   'id', 'school_id', 'auth_user_id', 'staff_number', 'first_name', 'last_name',
-  'role', 'department_id', 'phone', 'email', 'join_date',
+  'role', 'department_id', 'classes', 'phone', 'email', 'join_date',
   'employment_type', 'photo_url', 'is_active',
 ].join(', ')
 // temp_password intentionally omitted from LIST_COLS — only fetch in DETAIL_COLS
@@ -102,6 +102,7 @@ export function useStaff(filters: StaffFilters = {}) {
         return list.filter(s =>
           s.firstName.toLowerCase().includes(term) ||
           s.lastName.toLowerCase().includes(term)  ||
+          `${s.firstName} ${s.lastName}`.toLowerCase().includes(term) ||
           s.staffNumber.toLowerCase().includes(term)
         )
       }
@@ -324,25 +325,3 @@ export function useRegisterStaff() {
   })
 }
 
-// ── useSetStaffActive ───────────────────────────────────────────
-// Deactivate (isActive: false) or reactivate (isActive: true) a staff member.
-export function useSetStaffActive() {
-  const { user } = useAuth()
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      if (!user) throw new Error('Not authenticated')
-      const { error } = await supabase
-        .from('staff')
-        .update({ is_active: isActive })
-        .eq('id', id)
-        .eq('school_id', user!.schoolId)
-      if (error) throw error
-      return id
-    },
-    onSuccess: id => {
-      qc.invalidateQueries({ queryKey: ['staff',        user?.schoolId] })
-      qc.invalidateQueries({ queryKey: ['staff-member', user?.schoolId, id] })
-    },
-  })
-}

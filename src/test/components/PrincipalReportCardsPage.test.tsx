@@ -194,6 +194,48 @@ describe('PrincipalReportCardsPage', () => {
     })
   })
 
+  it('surfaces an error in the Approve modal when the mutation rejects, instead of failing silently', async () => {
+    const cards = [{
+      id: 'rc1',
+      studentId: 'st1',
+      term: '1',
+      year: 2026,
+      status: 'ready',
+      pdfUrl: null,
+      principalRemarks: null,
+      generatedAt: '2026-06-01T00:00:00Z',
+    }]
+    setupMocks(cards)
+    mockStudents.mockReturnValue({
+      data: [{ id: 'st1', firstName: 'Grace', lastName: 'Apio', classId: 'c1', streamId: null, admissionNumber: 'KAB/2026/001' }],
+      isLoading: false,
+    })
+    mockReadiness.mockReturnValue({
+      data: [{ studentId: 'st1', admissionNumber: 'KAB/2026/001' }],
+    })
+    mockApprove.mockReturnValue({
+      mutateAsync: vi.fn().mockRejectedValue(new Error('Row was already released')),
+      isPending: false,
+    })
+
+    const user = userEvent.setup()
+    render(<PrincipalReportCardsPage />)
+
+    const classSelect = screen.getAllByRole('combobox')[1]
+    await user.selectOptions(classSelect, 'c1')
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /^approve$/i })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /^approve$/i }))
+
+    // Opening the modal adds a second "Approve" button (its footer's confirm
+    // button) alongside the row's own — click the modal's to confirm.
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /^approve$/i }).length).toBe(2))
+    const approveButtons = screen.getAllByRole('button', { name: /^approve$/i })
+    await user.click(approveButtons[1])
+
+    await waitFor(() => expect(screen.getByText('Row was already released')).toBeInTheDocument())
+  })
+
   it('shows Release button for approved cards', async () => {
     const cards = [{
       id: 'rc2',

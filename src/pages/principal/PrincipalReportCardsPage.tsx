@@ -25,12 +25,16 @@ function UnlockModal({ card, studentName, onClose }: {
   onClose:     () => void
 }) {
   const [reason, setReason] = useState('')
+  const [err, setErr] = useState<string | null>(null)
   const unlock = useUnlockReportCard()
 
   async function handleUnlock() {
-    if (!reason.trim()) return
-    await unlock.mutateAsync({ reportCardId: card.id, unlockReason: reason.trim() })
-    onClose()
+    if (!reason.trim() || unlock.isPending) return
+    setErr(null)
+    try {
+      await unlock.mutateAsync({ reportCardId: card.id, unlockReason: reason.trim() })
+      onClose()
+    } catch (e: any) { setErr(e?.message ?? 'Failed to unlock report card.') }
   }
 
   return (
@@ -64,6 +68,7 @@ function UnlockModal({ card, studentName, onClose }: {
             }}
           />
         </label>
+        {err && <div style={{ color: 'var(--danger)', fontSize: 12 }}>{err}</div>}
       </div>
     </Modal>
   )
@@ -76,14 +81,19 @@ function ApproveModal({ card, studentName, onClose }: {
   onClose:     () => void
 }) {
   const [remarks, setRemarks] = useState(card.principalRemarks ?? '')
+  const [err, setErr] = useState<string | null>(null)
   const approve = useApproveReportCard()
 
   async function handleApprove() {
-    await approve.mutateAsync({
-      reportCardId:    card.id,
-      principalRemarks: remarks.trim() || null,
-    })
-    onClose()
+    if (approve.isPending) return
+    setErr(null)
+    try {
+      await approve.mutateAsync({
+        reportCardId:    card.id,
+        principalRemarks: remarks.trim() || null,
+      })
+      onClose()
+    } catch (e: any) { setErr(e?.message ?? 'Failed to approve report card.') }
   }
 
   return (
@@ -113,6 +123,7 @@ function ApproveModal({ card, studentName, onClose }: {
             }}
           />
         </label>
+        {err && <div style={{ color: 'var(--danger)', fontSize: 12 }}>{err}</div>}
       </div>
     </Modal>
   )
@@ -291,6 +302,7 @@ function RCTable({
               )}
               {(card.status === 'approved' || card.status === 'released') && onUnlock && (
                 <Button size="sm" variant="danger"
+                  disabled={bulkInProgress}
                   onClick={() => onUnlock(card, name)}>
                   Unlock
                 </Button>

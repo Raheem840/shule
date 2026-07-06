@@ -267,7 +267,7 @@ export function useStudentFullProfile(studentId: string | null) {
     queryFn: async () => {
       const sid = user!.schoolId
 
-      const [studentRes, resultsRes, publishedJournalsRes, attendanceRes, disciplineRes, feeRes] = await Promise.all([
+      const [studentRes, resultsRes, publishedJournalsRes, attendanceRes, disciplineRes, disciplineCountRes, feeRes] = await Promise.all([
         supabase
           .from('students')
           .select(
@@ -302,6 +302,14 @@ export function useStudentFullProfile(studentId: string | null) {
           .eq('student_id', studentId!)
           .order('incident_date', { ascending: false })
           .limit(10),
+        // Separate exact-count query — the row above is capped at 10 for the
+        // preview list, so using its .length as "the total" undercounted any
+        // student with more than 10 discipline records.
+        supabase
+          .from('discipline_records')
+          .select('id', { count: 'exact', head: true })
+          .eq('school_id', sid)
+          .eq('student_id', studentId!),
         supabase
           .from('fee_payments')
           .select('amount_paid, amount_due')
@@ -369,7 +377,7 @@ export function useStudentFullProfile(studentId: string | null) {
         attendanceRate,
         totalDays,
         presentDays,
-        disciplineCount:  (disciplineRes.data ?? []).length,
+        disciplineCount:  disciplineCountRes.count ?? 0,
         recentDiscipline: disciplineRes.data ?? [],
         examResults: rawResults.map((r: any) => ({
           ...r,
@@ -505,6 +513,12 @@ export function useSuspendStaff() {
       void qc.invalidateQueries({ queryKey: ['staff-full-profile', user?.schoolId, vars.staffId] })
       void qc.invalidateQueries({ queryKey: ['principal-kpis',    user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['user-management',   user?.schoolId] })
+      // Also invalidate the staff-directory list/single-record keys used by
+      // useStaff() — PrincipalStaffPage's directory now uses this mutation
+      // (in place of the removed, buggy useSetStaffActive) and needs its
+      // grid to refresh immediately, not just the full-profile view.
+      void qc.invalidateQueries({ queryKey: ['staff',        user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['staff-member', user?.schoolId, vars.staffId] })
     },
   })
 }

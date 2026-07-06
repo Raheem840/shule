@@ -52,7 +52,7 @@ vi.mock('../../store/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }))
 
-import { usePrincipalKpis, useTopClasses, useSuspendStudent, useSuspendStaff } from '../../hooks/usePrincipal'
+import { usePrincipalKpis, useTopClasses, useSuspendStudent, useSuspendStaff, useStudentFullProfile } from '../../hooks/usePrincipal'
 
 function createWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -219,5 +219,40 @@ describe('useSuspendStaff', () => {
     expect(mockInvoke).toHaveBeenCalledWith('set-user-disabled', {
       body: { authUserId: 'auth-staff-1', disabled: false },
     })
+  })
+})
+
+describe('useStudentFullProfile', () => {
+  // disciplineCount previously reused the same capped-at-10 query built for
+  // the preview list, so a student with more than 10 records showed an
+  // undercounted total. Now uses a separate exact-count query.
+  it('reports the true discipline record count, not capped at the 10-row preview limit', async () => {
+    authState.role = 'principal'
+    setResponse('students', {
+      data: {
+        id: 'stu-1', first_name: 'Grace', last_name: 'Apio', admission_number: 'KAB/2026/001',
+        dob: '2010-01-01', gender: 'female', status: 'active', class_id: null, stream_id: null,
+        photo_url: null, nationality: 'Ugandan', religion: null, medical_notes: null,
+        student_type: 'day', previous_school: null, enrolled_at: '2026-01-10',
+      },
+      error: null,
+    })
+    setResponse('exam_results', { data: [], error: null })
+    setResponse('exam_journal', { data: [], error: null })
+    setResponse('attendance', { data: [], error: null })
+    // Same mocked response object serves both the capped-10 list query and
+    // the separate exact-count query — 10 rows returned, but count is 14.
+    setResponse('discipline_records', {
+      data: Array.from({ length: 10 }, (_, i) => ({ id: `d${i}`, incident_date: '2026-01-01', nature: 'late', resolution: 'warned' })),
+      count: 14,
+      error: null,
+    })
+    setResponse('fee_payments', { data: [], error: null })
+
+    const { result } = renderHook(() => useStudentFullProfile('stu-1'), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data!.disciplineCount).toBe(14)
+    expect(result.current.data!.recentDiscipline).toHaveLength(10)
   })
 })

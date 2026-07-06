@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useStaff, useSetStaffActive, type StaffFilters } from '../../hooks/useStaff'
+import { useStaff, type StaffFilters } from '../../hooks/useStaff'
+import { useSuspendStaff } from '../../hooks/usePrincipal'
 import { useDepartments, useClasses } from '../../hooks/useClasses'
 import { Avatar } from '../../components/shared/Avatar'
 import { useAuth } from '../../store/AuthContext'
@@ -93,7 +94,16 @@ function StaffCard({
     if (!menuOpen) return
     function close() { setMenuOpen(false) }
     document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    // The menu's position is computed once, at open time, from the button's
+    // fixed-viewport coordinates — it doesn't track the button as the page
+    // (or any scrollable ancestor) scrolls, so close it on scroll instead of
+    // letting it drift away from the button (same fix as PrincipalStudentsPage's
+    // card menu). `capture: true` catches nested scroll containers too.
+    window.addEventListener('scroll', close, true)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      window.removeEventListener('scroll', close, true)
+    }
   }, [menuOpen])
 
   return (
@@ -327,7 +337,11 @@ function SkeletonCard() {
 export function PrincipalStaffPage() {
   const { user }                    = useAuth()
   const { success: ok, error: err } = useToast()
-  const setActive                   = useSetStaffActive()
+  // useSuspendStaff (not a separate useSetStaffActive) — that hook duplicated
+  // this deactivate/reactivate action but never revoked the staff member's
+  // auth session (no set-user-disabled call) and had no role guard, unlike
+  // this one. Removed as dead code below.
+  const setActive                   = useSuspendStaff()
   const [search,     setSearch]     = useState('')
   const [roleFilter, setRoleFilter] = useState('')
 
@@ -357,7 +371,7 @@ export function PrincipalStaffPage() {
 
   async function handleActivate(id: string, name: string, isActive: boolean) {
     try {
-      await setActive.mutateAsync({ id, isActive: !isActive })
+      await setActive.mutateAsync({ staffId: id, isActive: !isActive })
       ok(`${name} is now ${!isActive ? 'active' : 'deactivated'}`)
     } catch (e: any) { err(e?.message ?? 'Action failed') }
   }
@@ -406,7 +420,9 @@ export function PrincipalStaffPage() {
         s.email ?? '—',
         s.phone ?? '—',
         s.employmentType ? s.employmentType.charAt(0).toUpperCase() + s.employmentType.slice(1) : '—',
-        s.joinDate ? new Date(s.joinDate).toLocaleDateString('en-GB') : '—',
+        // joinDate is date-only ("YYYY-MM-DD") — force local interpretation
+        // (see PrincipalStaffProfilePage.tsx for the same fix + explanation).
+        s.joinDate ? new Date(`${s.joinDate}T00:00:00`).toLocaleDateString('en-GB') : '—',
         s.isActive ? 'Active' : 'Inactive',
       ])
       row.height = 16

@@ -24,7 +24,7 @@ function RateBar({ value }: { value: number }) {
 }
 
 // Teacher performance — same metrics DOS sees (curriculum coverage, pass rate)
-function TeacherPerformanceSection({ staffId }: { staffId: string }) {
+function TeacherPerformanceSection({ staffId, isActive }: { staffId: string; isActive: boolean }) {
   const { data = [], isLoading } = useDosTeacherPerformance()
   const row = data.find(t => t.staffId === staffId)
 
@@ -32,9 +32,15 @@ function TeacherPerformanceSection({ staffId }: { staffId: string }) {
     return <div style={{ color: 'var(--txt3)', fontSize: 13, padding: 20 }}>Loading performance…</div>
   }
   if (!row) {
+    // useDosTeacherPerformance only queries active staff — a suspended/inactive
+    // teacher will never appear in `data` regardless of their actual history,
+    // so the generic "hasn't been assigned subjects" message would be false
+    // for them specifically. Distinguish the two cases.
     return (
       <div style={{ color: 'var(--txt3)', fontSize: 13, padding: 20, textAlign: 'center' }}>
-        No performance data yet — this teacher hasn't been assigned subjects or published any assessments.
+        {isActive
+          ? "No performance data yet — this teacher hasn't been assigned subjects or published any assessments."
+          : 'Performance history is not shown for suspended/inactive staff.'}
       </div>
     )
   }
@@ -84,7 +90,7 @@ export function PrincipalStaffProfilePage() {
   const fullName = `${staff.firstName} ${staff.lastName}`
 
   async function handleSuspend() {
-    if (confirmText !== fullName) return
+    if (confirmText !== fullName || isSuspending) return
     try {
       await suspendStaff({ staffId: staff!.id, isActive: false })
       setShowSuspendModal(false)
@@ -158,7 +164,10 @@ export function PrincipalStaffProfilePage() {
         <InfoRow label="Email"           value={staff.email ?? '—'} />
         <InfoRow label="Phone"           value={staff.phone ?? '—'} />
         <InfoRow label="Employment Type" value={staff.employmentType?.replace('_', ' ') ?? '—'} />
-        <InfoRow label="Join Date"       value={staff.joinDate ? new Date(staff.joinDate).toLocaleDateString('en-GB') : '—'} />
+        {/* joinDate is a date-only column ("YYYY-MM-DD"); `new Date(dateOnly)`
+            parses as UTC midnight, so a naive toLocaleDateString() renders a day
+            early for any browser timezone behind UTC. Force local interpretation. */}
+        <InfoRow label="Join Date"       value={staff.joinDate ? new Date(`${staff.joinDate}T00:00:00`).toLocaleDateString('en-GB') : '—'} />
         <InfoRow label="Qualification"   value={staff.qualificationLevel ? QUAL_LABELS[staff.qualificationLevel] ?? `Level ${staff.qualificationLevel}` : '—'} />
         {staff.qualificationTitle && (
           <InfoRow label="Qualification Title" value={staff.qualificationTitle} />
@@ -177,7 +186,7 @@ export function PrincipalStaffProfilePage() {
           <h2 style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 15, color: 'var(--txt)', margin: '0 0 16px' }}>
             Teaching Performance
           </h2>
-          <TeacherPerformanceSection staffId={staff.id} />
+          <TeacherPerformanceSection staffId={staff.id} isActive={staff.isActive} />
         </div>
       )}
 
