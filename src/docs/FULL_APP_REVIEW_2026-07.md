@@ -31,7 +31,7 @@ Findings that are real but low-severity/pre-existing/out-of-scope are logged **D
 | # | Batch | Files | Status | Fixed | Deferred | Commit |
 |---|-------|-------|--------|-------|----------|--------|
 | 1 | Principal A | AcademicYearPage, AuditLogPage, PrincipalAnalyticsPage, PrincipalDashboard, PrincipalClassesPage | done | 9 | 11 | `b42057f` |
-| 2 | Principal B | PrincipalReportCardsPage, PrincipalSettingsPage, PrincipalStaffPage, PrincipalStaffProfilePage, PrincipalStudentsPage, StudentFullProfilePage | done | 12 | 14 | (pending) |
+| 2 | Principal B | PrincipalReportCardsPage, PrincipalSettingsPage, PrincipalStaffPage, PrincipalStaffProfilePage, PrincipalStudentsPage, StudentFullProfilePage | done | 12 | 14 | `7ed44b7` |
 | 3 | Deputy | DeputyDashboard, DeputyDepartmentsPage, DeputyStaffPage, DeputyStudentsPage, DeputyTimetablePage, DisciplinePage | pending | | | |
 | 4 | DOS A | DosDashboard, DosClassesPage, DosStudentsPage, DosSubjectsPage, DosSurveysPage | pending | | | |
 | 5 | DOS B | DosJournalsPage, DosTeachersPage, DosTimetablePage, DosCurriculumPage | pending | | | |
