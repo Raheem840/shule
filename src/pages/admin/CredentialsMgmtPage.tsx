@@ -442,10 +442,10 @@ function StaffPanel({
     if (!staff.authUserId) return
     setBusy(staff.id, true)
     try {
-      await resetPw.mutateAsync({ authUserId: staff.authUserId, staffId: staff.id, email: staff.email ?? '', name: `${staff.firstName} ${staff.lastName}` })
+      const r = await resetPw.mutateAsync({ authUserId: staff.authUserId, staffId: staff.id, email: staff.email ?? '', name: `${staff.firstName} ${staff.lastName}` })
       const displayEmail = staff.email ?? '(email not set — check staff profile)'
-      onPasswordResult({ id: staff.id, name: `${staff.firstName} ${staff.lastName}`, email: displayEmail, type: 'staff' })
-      ok('Reset email sent')
+      onPasswordResult({ id: staff.id, name: `${staff.firstName} ${staff.lastName}`, email: displayEmail, password: r.tempPassword, type: 'staff' })
+      ok('Password reset')
     } catch (e) { err(e instanceof Error ? e.message : 'Reset failed') }
     finally { setBusy(staff.id, false) }
   }

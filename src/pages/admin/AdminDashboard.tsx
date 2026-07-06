@@ -133,6 +133,7 @@ function UserManagementSection() {
   const [resetTarget,  setResetTarget]  = useState<UserRow | null>(null)
   const [resetDone,    setResetDone]    = useState(false)
   const [resetEmail, setResetEmail] = useState('')
+  const [resetPassword, setResetPassword] = useState('')
   const [resetError,   setResetError]   = useState('')
   const [search,       setSearch]       = useState('')
   const listRef = useRef<HTMLDivElement>(null)
@@ -155,8 +156,9 @@ function UserManagementSection() {
     if (!resetTarget?.authUserId) return
     setResetError('')
     try {
-      const { email } = await resetPwd(resetTarget.authUserId)
+      const { email, tempPassword } = await resetPwd({ authUserId: resetTarget.authUserId, staffId: resetTarget.staffId })
       setResetEmail(email)
+      setResetPassword(tempPassword)
       setResetDone(true)
     } catch (err: any) {
       setResetError(err.message ?? 'Reset failed')
@@ -359,16 +361,23 @@ function UserManagementSection() {
               <>
                 <div style={{
                   background: 'var(--success-bg)', color: 'var(--success)',
-                  padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 16,
+                  padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12,
                 }}>
-                  Reset email sent to <strong>{resetEmail}</strong>. They'll get a link to set a new password themselves.
+                  Password reset for <strong>{resetEmail}</strong>. Share the new password below with them directly.
                 </div>
-                <button onClick={() => { setResetTarget(null); setResetDone(false); setResetEmail('') }} className="sui-btn-primary">Done</button>
+                <div style={{
+                  background: 'var(--surface2)', border: '1px solid var(--border)',
+                  borderRadius: 10, padding: '10px 14px', marginBottom: 16,
+                  fontFamily: 'var(--font3)', fontSize: 15, fontWeight: 700, textAlign: 'center',
+                }}>
+                  {resetPassword}
+                </div>
+                <button onClick={() => { setResetTarget(null); setResetDone(false); setResetEmail(''); setResetPassword('') }} className="sui-btn-primary">Done</button>
               </>
             ) : (
               <>
                 <p style={{ color: 'var(--txt2)', fontSize: 13 }}>
-                  Send a password reset email to <strong>{resetTarget.name}</strong>? They'll receive a link to set a new password themselves.
+                  Reset <strong>{resetTarget.name}</strong>'s password? A new password will be generated immediately — you'll share it with them directly.
                 </p>
                 {resetError && (
                   <div style={{ background: 'var(--danger-bg)', color: 'var(--danger)',
@@ -383,7 +392,7 @@ function UserManagementSection() {
                     disabled={resetting}
                     className="sui-btn-primary"
                   >
-                    {resetting ? 'Sending…' : 'Send Reset Email'}
+                    {resetting ? 'Resetting…' : 'Reset Password'}
                   </button>
                 </div>
               </>

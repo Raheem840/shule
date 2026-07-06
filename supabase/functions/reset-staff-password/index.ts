@@ -15,9 +15,13 @@ function json(data: unknown, status = 200): Response {
   })
 }
 
-// Sends the staff member a password-reset EMAIL — the same "Forgot password"
-// mechanism used on the login page. IT admin / principal can no longer set or
-// see a staff member's password directly; they can only trigger this email.
+// Sets the staff member's password directly, server-side, and stores it as
+// temp_password for IT admin/principal to view and share — the same pattern
+// already used by reset-student-password/reset-parent-password. This used to
+// send a Supabase Auth "reset password" EMAIL instead, which depends on the
+// project having a verified sending domain / configured SMTP — undocumented
+// and not true for most school deployments, so every reset silently failed
+// with a generic non-2xx error and no way to actually recover the account.
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS })
@@ -47,37 +51,64 @@ serve(async (req) => {
     // passwords — the exact gap migration 20260701_000001 was meant to close.
     const { data: callerStaff } = await serviceClient
       .from('staff')
-      .select('role')
+      .select('role, school_id')
       .eq('auth_user_id', user.id)
       .eq('is_active', true)
       .maybeSingle()
     const userRole = (callerStaff?.role as string | undefined) ?? ''
+    const callerSchoolId = (callerStaff?.school_id as string | undefined) ?? ''
 
     if (!userRole || !ALLOWED_ROLES.includes(userRole)) {
       return json({ error: 'Insufficient permissions — IT Admin or Principal required' }, 403)
     }
 
-    const body = await req.json() as { userId?: string; redirectTo?: string }
-    const { userId, redirectTo } = body
+    const body = await req.json() as { userId?: string; newPassword?: string; staffId?: string }
+    const { userId, newPassword, staffId } = body
 
-    if (!userId) {
-      return json({ error: 'userId is required' }, 400)
+    if (!userId || !newPassword || !staffId) {
+      return json({ error: 'userId, staffId and newPassword are required' }, 400)
+    }
+    if (newPassword.length < 8) {
+      return json({ error: 'Password must be at least 8 characters' }, 400)
+    }
+
+    // Verify the target staff row belongs to the caller's own school AND
+    // that its auth_user_id actually matches the supplied userId — without
+    // this, any it_admin/principal could pass an arbitrary auth.users id
+    // (e.g. another school's staff member) and change that account's
+    // password, since Supabase Auth's admin API has no per-school concept.
+    const { data: targetStaff } = await serviceClient
+      .from('staff')
+      .select('auth_user_id')
+      .eq('id', staffId)
+      .eq('school_id', callerSchoolId)
+      .maybeSingle()
+
+    if (!targetStaff || targetStaff.auth_user_id !== userId) {
+      return json({ error: 'Staff member not found in your school' }, 404)
     }
 
     // Look up the target's email server-side (authoritative — never trust a
-    // client-supplied email for this).
+    // client-supplied email for this) for the confirmation response only.
     const { data: targetUser, error: getUserErr } = await serviceClient.auth.admin.getUserById(userId)
     if (getUserErr || !targetUser?.user?.email) {
       return json({ error: 'Could not resolve an email address for this account' }, 400)
     }
 
-    const { error: resetErr } = await anonClient.auth.resetPasswordForEmail(targetUser.user.email, {
-      redirectTo: redirectTo || undefined,
+    const { error: updateError } = await serviceClient.auth.admin.updateUserById(userId, {
+      password: newPassword,
     })
 
-    if (resetErr) {
-      return json({ error: 'Failed to send reset email', detail: resetErr.message }, 500)
+    if (updateError) {
+      return json({ error: 'Failed to update password', detail: updateError.message }, 500)
     }
+
+    // Persist new temp_password on the staff row for IT admin credential retrieval.
+    await serviceClient
+      .from('staff')
+      .update({ temp_password: newPassword })
+      .eq('id', staffId)
+      .eq('school_id', callerSchoolId)
 
     return json({ success: true, email: targetUser.user.email })
 

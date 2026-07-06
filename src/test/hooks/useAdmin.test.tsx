@@ -125,23 +125,28 @@ describe('useUserManagement', () => {
 })
 
 // ── useResetPassword ───────────────────────────────────────────────────────
+// Sets the password directly (matching useResetStudentPassword's pattern),
+// not an emailed reset link — the email approach depended on the project
+// having configured SMTP, which most deployments don't have, so every reset
+// failed with a generic non-2xx error and no way to actually recover the account.
 describe('useResetPassword', () => {
-  it('calls supabase.functions.invoke with reset-staff-password (email-based, no password generated)', async () => {
+  it('calls supabase.functions.invoke with reset-staff-password including a generated newPassword', async () => {
     mockFunctions.invoke.mockResolvedValueOnce({ data: { success: true, email: 'staff@k.ug' }, error: null })
     const { result } = renderHook(() => useResetPassword(), { wrapper: createWrapper() })
-    let returned: { email: string } | undefined
+    let returned: { email: string; tempPassword: string } | undefined
     await act(async () => {
-      returned = await result.current.mutateAsync('auth-user-123')
+      returned = await result.current.mutateAsync({ authUserId: 'auth-user-123', staffId: 'staff-123' })
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(mockFunctions.invoke).toHaveBeenCalledWith('reset-staff-password', {
-      body: expect.objectContaining({ userId: 'auth-user-123' }),
+      body: expect.objectContaining({ userId: 'auth-user-123', staffId: 'staff-123' }),
     })
-    // No password should ever be sent to the edge function — it's email-based now
     const sentBody = (mockFunctions.invoke.mock.calls.at(-1) as any)[1].body
-    expect(sentBody.newPassword).toBeUndefined()
+    expect(typeof sentBody.newPassword).toBe('string')
+    expect(sentBody.newPassword.length).toBeGreaterThanOrEqual(8)
     expect(returned?.email).toBe('staff@k.ug')
+    expect(returned?.tempPassword).toBe(sentBody.newPassword)
   })
 
   it('throws when the Edge Function returns an error', async () => {
@@ -149,7 +154,7 @@ describe('useResetPassword', () => {
 
     const { result } = renderHook(() => useResetPassword(), { wrapper: createWrapper() })
     await act(async () => {
-      await expect(result.current.mutateAsync('auth-user-bad')).rejects.toThrow('Function error')
+      await expect(result.current.mutateAsync({ authUserId: 'auth-user-bad', staffId: 'staff-bad' })).rejects.toThrow('Function error')
     })
   })
 })

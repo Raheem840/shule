@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
+import { getFunctionErrorMessage } from '../lib/functionsError'
+import { generateTempPassword } from '../lib/passwords'
 
 // ── useActivateStaffLogin ──────────────────────────────────────────────────
 // Calls 'create-staff-auth-user' Edge Function which:
@@ -101,9 +103,13 @@ export function useLinkAuthUser() {
 }
 
 // ── useResetStaffPassword ──────────────────────────────────────────────────
-// Sends the staff member a password-reset EMAIL via the reset-staff-password
-// Edge Function — the same "Forgot password" mechanism as the login page.
-// IT admin / principal never see or set the password directly.
+// Sets the staff member's password directly via the reset-staff-password Edge
+// Function and returns the new temp password for the IT admin/principal to
+// share — the same pattern as useResetStudentPassword. This previously sent
+// a Supabase Auth reset EMAIL instead, which depends on the project having a
+// verified sending domain/SMTP configured — not true for most deployments,
+// so every reset failed with a generic "non-2xx" error and no way to recover
+// the account at all.
 export function useResetStaffPassword() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -111,11 +117,13 @@ export function useResetStaffPassword() {
   return useMutation({
     mutationFn: async ({ authUserId, staffId, name }: {
       authUserId: string; staffId: string; email?: string; name: string
-    }): Promise<{ email: string }> => {
+    }): Promise<{ email: string; tempPassword: string }> => {
       if (!user) throw new Error('Not authenticated')
 
+      const tempPassword = generateTempPassword()
+
       const { data, error: fnError } = await supabase.functions.invoke('reset-staff-password', {
-        body: { userId: authUserId, redirectTo: `${window.location.origin}/reset-password` },
+        body: { userId: authUserId, staffId, newPassword: tempPassword },
       })
 
       // Record in audit_log regardless of success/failure
@@ -127,11 +135,11 @@ export function useResetStaffPassword() {
         table_name:  'staff',
         record_id:   staffId,
         entity_name: name,
-        new_value:   { reset_by: user!.email, method: 'email', timestamp: new Date().toISOString() },
+        new_value:   { reset_by: user!.email, method: 'direct', timestamp: new Date().toISOString() },
       })
 
-      if (fnError) throw new Error(`Password reset failed: ${fnError.message}`)
-      return { email: (data as { email?: string } | null)?.email ?? '' }
+      if (fnError) throw new Error(`Password reset failed: ${await getFunctionErrorMessage(fnError)}`)
+      return { email: (data as { email?: string } | null)?.email ?? '', tempPassword }
     },
     onSuccess: (_data, { staffId }) => {
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })

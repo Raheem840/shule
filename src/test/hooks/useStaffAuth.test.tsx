@@ -132,7 +132,11 @@ describe('useLinkAuthUser', () => {
 })
 
 describe('useResetStaffPassword', () => {
-  it('sends a reset email (no password generated) and logs to audit_log', async () => {
+  // Sets the password directly (matching useResetStudentPassword's pattern),
+  // not an emailed reset link — the email approach depended on the project
+  // having configured SMTP, which most deployments don't have, so every
+  // reset failed with a generic non-2xx error and no way to recover the account.
+  it('sends a generated password directly and logs to audit_log', async () => {
     mockFunctions.invoke.mockResolvedValue({ data: { success: true, email: 'john@k.ug' }, error: null })
 
     const { result } = renderHook(() => useResetStaffPassword(), { wrapper: createWrapper() })
@@ -143,10 +147,12 @@ describe('useResetStaffPassword', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     expect(outcome.email).toBe('john@k.ug')
-    expect(outcome.tempPassword).toBeUndefined()
+    expect(typeof outcome.tempPassword).toBe('string')
+    expect(outcome.tempPassword.length).toBeGreaterThanOrEqual(8)
     const sentBody = (mockFunctions.invoke.mock.calls.find((c: any) => c[0] === 'reset-staff-password')?.[1]).body
-    expect(sentBody.newPassword).toBeUndefined()
+    expect(sentBody.newPassword).toBe(outcome.tempPassword)
     expect(sentBody.userId).toBe('auth-1')
+    expect(sentBody.staffId).toBe('staff-1')
     // Audit log entry written regardless
     expect(mockFrom).toHaveBeenCalledWith('audit_log')
   })
