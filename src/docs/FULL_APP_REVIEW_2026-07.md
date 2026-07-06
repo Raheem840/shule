@@ -32,7 +32,7 @@ Findings that are real but low-severity/pre-existing/out-of-scope are logged **D
 |---|-------|-------|--------|-------|----------|--------|
 | 1 | Principal A | AcademicYearPage, AuditLogPage, PrincipalAnalyticsPage, PrincipalDashboard, PrincipalClassesPage | done | 9 | 11 | `b42057f` |
 | 2 | Principal B | PrincipalReportCardsPage, PrincipalSettingsPage, PrincipalStaffPage, PrincipalStaffProfilePage, PrincipalStudentsPage, StudentFullProfilePage | done | 12 | 14 | `7ed44b7` |
-| 3 | Deputy | DeputyDashboard, DeputyDepartmentsPage, DeputyStaffPage, DeputyStudentsPage, DeputyTimetablePage, DisciplinePage | pending | | | |
+| 3 | Deputy | DeputyDashboard, DeputyDepartmentsPage, DeputyStaffPage, DeputyStudentsPage, DeputyTimetablePage, DisciplinePage | done | 10 | 12 | (pending) |
 | 4 | DOS A | DosDashboard, DosClassesPage, DosStudentsPage, DosSubjectsPage, DosSurveysPage | pending | | | |
 | 5 | DOS B | DosJournalsPage, DosTeachersPage, DosTimetablePage, DosCurriculumPage | pending | | | |
 | 6 | Secretary A | StudentRegistrationWizard, StaffRegistrationWizard, StudentsPage, SecretaryStudentsPage, SecretaryStudentEditPage | pending | | | |
@@ -69,6 +69,7 @@ _Per user direction (2026-07-05): migrations found necessary during this review 
 |---|---|---|---|
 | `20260705_000006_atomic_set_active_academic_year.sql` | Principal A | Adds `set_active_academic_year(school_id, year_id)` RPC — single atomic UPDATE via CASE instead of two sequential client-side updates | `useSetActiveYear` was non-atomic (2 round trips, first error unread) — could leave a school with 0 or 2 active academic years on partial failure |
 | `20260706_000001_enable_rls_school_profile.sql` | Principal B | **CRITICAL.** Enables RLS on `school_profile` (was fully disabled) + 4 policies: SELECT open (public/anon, preserves the pre-login connectivity ping and branding read), INSERT/UPDATE/DELETE restricted to principal/it_admin, scoped to the caller's own school | Confirmed live via direct DB query: `anon` (the public key embedded in every frontend bundle) had DELETE/INSERT/SELECT/UPDATE/TRUNCATE on a table storing real API secrets (Africa's Talking/SMS/WhatsApp tokens) with zero RLS and zero policies — any unauthenticated request, from anywhere, could read every school's secrets or overwrite/delete their profile row |
+| `20260706_000002_fix_discipline_records_delete_rls.sql` | Deputy | Drops two overlapping/broken DELETE policies on `discipline_records`, replaces with one correct policy (principal: any record in school; deputy: only records they personally authored, resolved via staff.auth_user_id) | Confirmed live: a broad policy (any deputy/principal, no ownership check) made a narrower "ownership" policy a dead no-op — and that narrower policy's own check was independently wrong too (compared `recorded_by`, a staff.id, against `auth.uid()`, which never match). Any deputy could delete any other deputy's discipline records. Same class of bug already fixed once for `attendance` UPDATE. |
 
 ## Findings Log
 
@@ -133,5 +134,49 @@ _Per user direction (2026-07-05): migrations found necessary during this review 
 - CSV export in `PrincipalStaffPage.tsx` does an O(n) linear class-array scan per staff row instead of using the already-available `classMap` — cleanup/efficiency, cheap but not urgent.
 
 **Tests added:** RPC/atomicity-adjacent tests already covered in batch 1; this batch added an Approve-modal error-surfacing test, a Reinstate-confirmation-flow test, full-name search + `classes`-column tests for `useStaff`, and a `disciplineCount` exact-count test for `useStudentFullProfile` — plus mock updates for the `useSuspendStaff` swap in `PrincipalStaffPage.test.tsx`.
+
+### Batch 3 — Deputy
+
+**Fixed (10):**
+1. `discipline_records` DELETE RLS — two overlapping/broken policies (one made ownership checking a dead no-op; the surviving "ownership" check itself compared the wrong id types) meant any deputy could delete any other deputy's discipline records. Fixed via migration to one correct policy.
+2. `useDeputy.ts` `useAddDisciplineRecord` — `recorded_by` (a FK to `staff.id`) silently fell back to writing the raw `auth.uid()` into that column when the staff-row lookup failed, corrupting the FK. Now throws `'Staff record not found for this user.'`, matching `useAttendance`'s existing guard.
+3. `useClasses.ts` `useDepartments()` was missing `description` from its SELECT entirely (and the `Department` type had no such field) — editing a department always showed a blank description textarea and silently wiped out any previously-saved description on save. Fixed the query, type, and removed the `as any` workaround cast.
+4. `DeputyDepartmentsPage.tsx` — the Head-of-Department dropdown listed every staff member including deactivated/suspended ones with no indication, unlike the page's own "Staff Assigned" KPI which already scopes to active-only. Now filtered to active staff for new HoD selection (name resolution for an already-assigned inactive head still works, so an existing inactive HoD's name doesn't just disappear).
+5. Double-submit guards added to `DeptModal.handleSave`, `DeputyDepartmentsPage.handleToggleArchive`, and `DisciplinePage`'s `RecordModal.submit` — all previously relied on the submit button's `disabled` prop alone.
+6. `isError` silently swallowed on `DisciplinePage`'s records fetch and `DeputyStudentsPage`'s students fetch — a failed load rendered the "no records/students" empty state, indistinguishable from a genuinely empty school. Both now show a distinct error state.
+7. `DisciplinePage.tsx`'s default "Incident Date" used `toISOString()` (UTC) — for a UTC+3 school, wrongly pre-filled the previous day's date for the first ~3 hours after local midnight. Same bug class fixed repeatedly in the Principal batches; fixed the same way (local Y/M/D getters).
+8. CSV export "Department" column in `DeputyStaffPage.tsx` was hardcoded to always blank (the underlying query never fetched `department_id` at all) — added the column, wired a `deptMap` lookup.
+9. CSV escaping bug repeated across `DeputyStaffPage.tsx`/`DeputyStudentsPage.tsx`/`DisciplinePage.tsx` exports — none escaped an embedded `"` character in a field (name/remark), which would corrupt column boundaries. Added a shared `src/lib/csv.ts` `csvField()` helper and applied it to all three; this helper should be adopted by other CSV exports found in later batches too rather than re-fixed ad hoc each time.
+10. `DeputyStaffPage.tsx`'s staff-card kebab menu was missing the scroll-close fix its sibling student-card menu already had (found and fixed once already for `PrincipalStaffPage.tsx` in batch 2) — ported the same fix.
+
+**Deferred (12, logged not silently dropped):**
+- Hardcoded hex colors across all 6 files (`NATURE_COLOR`, `ACCENT_PALETTE`, `CHIP_COLORS`, `CLASS_PALETTE`/`SUBJ_PALETTE`, `NATURE_META`) — same deferred bucket as batches 1-2 (Recharts/inline-JS-color constraint, needs a design-system-level fix).
+- `StaffDetailModal` (`DeputyStaffPage.tsx`) is a hand-rolled dialog, not the shared `Modal` component — same deferred Modal-consolidation bucket as prior batches.
+- `DeputyDepartmentsPage.tsx`/`DeputyStudentsPage.tsx` — duplicate/overlapping `staff`/`streams` fetches per page load (e.g. `useStreams(classId||null)` and `useStreams(null)` both resolve to the same "all streams" query when no class filter is active) — real inefficiency, not urgent.
+- `DeputyTimetablePage.tsx`'s per-cell `classColor`/`subjectColor` hash functions recompute uncached on every render across the whole school-wide grid — efficiency, not correctness.
+- `DisciplinePage.tsx`'s `StudentTypeahead` re-fetches the entire unfiltered student roster every time the Add/Edit modal opens, duplicating data the Students page already loads — efficiency.
+- `DeputyDashboard.tsx`'s 4th KPI card ("Timetable Gaps") is a permanent hardcoded stub with no backing query — dead UI, not a bug; needs a product decision (implement or remove) rather than a quick fix.
+- `DeputyTimetablePage.tsx`'s "Slots Published" KPI filters an already-server-filtered (`published: true`) list by `.isPublished` again — harmless dead code, not worth a one-off fix.
+- `DeputyStaffPage.tsx` has no virtualization/pagination for its desktop staff table (its sibling Students/Discipline pages both do) — same CLAUDE.md rule-2 violation already deferred repeatedly, recurring pattern better solved once app-wide.
+- `DisciplinePage.tsx`'s `RecordModal` has no path to edit a record's `class_id` after creation if it was set wrong at typeahead-select time — a design gap, not a regression; needs a product decision on whether that's intentional.
+- `DeputyReportCardsPage`-style hand-rolled `DeleteModal`/bulk-action duplication patterns (mirroring the Principal-batch findings) — cleanup, same future refactor-pass bucket.
+- `DeputyStaffPage.tsx`/`DeputyDepartmentsPage.tsx` — two independent `useMemo`s (`staffMap`/`staffForHead`) deriving from the same `allStaff` array instead of one shared derivation — cleanup.
+- `useDeputy.ts`'s parent-notification insert after filing a discipline record is fire-and-forget with no error surfacing — if it fails (RLS, bad data), the discipline record still saves and no one is told the parent was never notified. Real but lower-severity gap, logged for a future notification-reliability pass across the app (the same fire-and-forget pattern likely recurs elsewhere).
+
+**Tests added:** `useAddDisciplineRecord`'s "Staff record not found" throw path, `useDepartments`' `description` field mapping, inactive-staff-excluded-from-HoD-dropdown in `DeputyDepartmentsPage` — plus a mock fix for `useDepartments` missing from `DeputyStaffPage.test.tsx`'s `useClasses` mock (needed after wiring in the department-name CSV fix).
+
+---
+
+## Interrupt: urgent fixes handled mid-review (2026-07-06)
+
+Three user-flagged issues were fixed between batches 3 and 4, out of the planned batch order, per explicit "top priority" instructions:
+
+1. **Sidebar redesign** (`src/index.css`) — collapsed sidebar now hides everything except the Shule brand logo and school badge logo (nav items, user pill, sign-out — previously only labels were hidden, icons stayed). Both logos enlarged (56px/52px) and kept large in **both** collapsed and hover/pinned states (previously they shrank back down on hover). Hovering/pinning still reveals all other sidebar content with a smooth fade.
+
+2. **CRITICAL — staff password reset was completely broken.** `reset-staff-password` sent a Supabase Auth reset EMAIL, which depends on the project having a verified sending domain/configured SMTP — not true for this deployment, so every single reset attempt failed with a generic "Edge Function returned a non-2xx status code" with zero way to recover a staff account. CLAUDE.md's own schema documentation for `staff.temp_password` already said this function was supposed to set+store a password directly ("last issued password — stored by create-staff-auth-user + reset-staff-password edge fns") — confirming this was implementation drift, not a documentation error. Rewritten to match the already-working `reset-student-password` pattern: client generates a temp password, edge function sets it directly via `admin.updateUserById` and stores it on `staff.temp_password` for the admin to view/share — no email involved. Also closed a real cross-tenant gap found while rewriting: the old function never verified the target `userId` actually belonged to the caller's own school before changing its password (Supabase Auth's admin API has no per-school concept) — now requires `staffId` and cross-checks `staff.auth_user_id` scoped to the caller's `school_id` before allowing the update. Deployed live. Updated both call sites (`useResetStaffPassword` in `useStaffAuth.ts`, `useResetPassword` in `useAdmin.ts`) and their UI (`AdminDashboard.tsx`, `CredentialsMgmtPage.tsx`) to generate+display the new password instead of claiming an email was sent. Also added `src/lib/functionsError.ts` (`getFunctionErrorMessage`) — supabase-js's `FunctionsHttpError.message` is always the unhelpful generic "non-2xx" string; the real reason is in the JSON body of `error.context` (a Response object) and was never being read anywhere in this codebase. Applied to both hooks; **this helper should be adopted anywhere else `supabase.functions.invoke` errors are surfaced to a user**, since every one of those call sites has this same "generic error, real reason hidden" problem today.
+
+3. **Data reset** — `audit_log` table cleared (249 rows deleted) per explicit request ("starting afresh").
+
+All three verified: 0 TS errors, 1108 tests passing (2 pre-existing tests updated for the new direct-password-set behavior), build clean. The sidebar CSS change could not be visually verified in-browser (no browser access in this environment) — flagged to the user for their own visual check.
 
 _(next batch appended below as work completes)_
