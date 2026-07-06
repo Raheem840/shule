@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '../utils'
 import userEvent from '@testing-library/user-event'
 
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom')
+  return { ...actual, useNavigate: () => mockNavigate }
+})
+
 // Virtual scroller (TeacherPerformanceTab uses it)
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count }: { count: number }) => ({
@@ -201,6 +207,65 @@ describe('DosDashboard', () => {
     await waitFor(() => {
       expect(screen.getByText(/select a class to view performance/i)).toBeInTheDocument()
     })
+  })
+
+  // StudentDetailModal was a non-functional stub (just showed a raw student
+  // ID) while DosStudentsPage already navigated to a fully-wired profile
+  // route — clicking a top/bottom performer now navigates there too, instead
+  // of opening the stub.
+  it('clicking a Top 5 student navigates to the student profile route instead of opening a stub modal', async () => {
+    setupMocks()
+    mockClasses.mockReturnValue({ data: [{ id: 'c1', name: 'S.1', level: '1' }], isLoading: false })
+    mockClassPerf.mockReturnValue({
+      data: {
+        subjectBreakdown: [],
+        topStudents:    [{ studentId: 'stu-1', name: 'Grace Apio', average: 92 }],
+        bottomStudents: [],
+      },
+      isLoading: false,
+    })
+
+    const user = userEvent.setup()
+    render(<DosDashboard />)
+    await user.click(screen.getByRole('tab', { name: /class performance/i }))
+
+    const classSelect = await screen.findByRole('combobox')
+    await user.selectOptions(classSelect, 'c1')
+
+    await waitFor(() => expect(screen.getByText('Grace Apio')).toBeInTheDocument())
+    await user.click(screen.getByText('Grace Apio'))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/dos/students/stu-1')
+    expect(screen.queryByText(/academic profile/i)).not.toBeInTheDocument()
+  })
+
+  // subjectName is a string field — the sort comparator used to do
+  // `av - bv` regardless of field type, which is NaN for two strings.
+  // Array.sort() treats NaN as "equal", so clicking the "Subject" column
+  // header silently did nothing instead of alphabetizing.
+  it('sorting the Subject column by text actually reorders rows', async () => {
+    setupMocks({
+      overviewData: {
+        ...OVERVIEW_DATA,
+        subjectRankings: [
+          { subjectName: 'Physics', classAverage: 60, passRate: 70, highest: 90, lowest: 20 },
+          { subjectName: 'Biology', classAverage: 65, passRate: 75, highest: 88, lowest: 30 },
+        ],
+      },
+    })
+    const user = userEvent.setup()
+    render(<DosDashboard />)
+
+    const rowsInOrder = () => screen.getAllByRole('row').slice(1).map(r => r.textContent)
+
+    // Initial sort is classAverage desc — Biology (65) ranks above Physics (60).
+    await waitFor(() => expect(rowsInOrder()[0]).toContain('Biology'))
+
+    // First click on a new field defaults to desc — subjectName desc puts
+    // "Physics" (P > B) first. Before the fix this comparator returned NaN
+    // for every pair, so the row order never changed at all.
+    await user.click(screen.getByText('Subject'))
+    await waitFor(() => expect(rowsInOrder()[0]).toContain('Physics'))
   })
 
   it('clicking Teacher Performance tab shows teacher table headers', async () => {

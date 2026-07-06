@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import * as Tabs from '@radix-ui/react-tabs'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -62,58 +64,6 @@ function SortHeader({ label, field, sort, onSort }: {
   )
 }
 
-// ─── Student detail modal (read-only academic profile, NO fees) ────────────
-function StudentDetailModal({
-  studentId,
-  name,
-  onClose,
-}: {
-  studentId: string
-  name: string
-  onClose: () => void
-}) {
-  return (
-    <div
-      className="sui-overlay"
-      style={{
-        position: 'fixed', inset: 0, background: 'var(--modal-overlay)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-      }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div
-        className="sui-modal-dialog"
-        style={{
-          background: 'var(--modal-bg)', borderRadius: 20, padding: 28,
-          width: 480, maxWidth: '90vw', maxHeight: '80vh', overflow: 'auto',
-          border: '1px solid var(--modal-border)',
-          borderTop: '1px solid var(--modal-border-t)',
-          backdropFilter: 'blur(24px)',
-          boxShadow: 'var(--modal-shadow)',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h3 style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, margin: 0 }}>
-            {name} — Academic Profile
-          </h3>
-          <button onClick={onClose} className="sui-modal-close">
-            <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M1 1l12 12M13 1L1 13"/>
-            </svg>
-          </button>
-        </div>
-        <p style={{ color: 'var(--txt2)', fontSize: 13 }}>
-          Read-only academic profile. Finance, discipline, and personal contact data are
-          not accessible from this view.
-        </p>
-        <div style={{ color: 'var(--txt3)', fontSize: 12, marginTop: 12 }}>
-          Student ID: {studentId}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── TAB 1 — Overview ─────────────────────────────────────────────────────
 function OverviewTab() {
   const { data: overview, isLoading, isError } = useDosOverview()
@@ -131,10 +81,17 @@ function OverviewTab() {
   if (isLoading) return <div style={{ color: 'var(--txt3)', padding: 32 }}>Loading overview…</div>
   if (isError || !overview) return <div style={{ color: 'var(--danger)', padding: 32 }}>Failed to load data.</div>
 
+  // subjectName is a string field — subtracting two strings is NaN, which
+  // Array.sort() treats as "equal", so clicking that column header silently
+  // did nothing instead of alphabetizing.
   const sortedRankings = [...overview.subjectRankings].sort((a, b) => {
-    const av = a[sort.field as keyof SubjectRanking] as number
-    const bv = b[sort.field as keyof SubjectRanking] as number
-    return sort.dir === 'asc' ? av - bv : bv - av
+    const av = a[sort.field as keyof SubjectRanking]
+    const bv = b[sort.field as keyof SubjectRanking]
+    if (typeof av === 'string' && typeof bv === 'string') {
+      return sort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
+    }
+    const an = av as number, bn = bv as number
+    return sort.dir === 'asc' ? an - bn : bn - an
   })
 
   return (
@@ -231,9 +188,9 @@ function OverviewTab() {
 
 // ─── TAB 2 — Class Performance ────────────────────────────────────────────
 function ClassPerformanceTab() {
+  const navigate = useNavigate()
   const { data: classes = [] } = useClasses()
   const [selectedClass, setSelectedClass] = useState<string | null>(null)
-  const [detailStudent, setDetailStudent] = useState<{ id: string; name: string } | null>(null)
   const { data: perf, isLoading } = useDosClassPerformance(selectedClass)
 
   return (
@@ -317,7 +274,7 @@ function ClassPerformanceTab() {
                 {data.map((s, i) => (
                   <div
                     key={s.studentId}
-                    onClick={() => setDetailStudent({ id: s.studentId, name: s.name })}
+                    onClick={() => navigate(`/dos/students/${s.studentId}`)}
                     style={{
                       display: 'flex', justifyContent: 'space-between',
                       padding: '6px 0', borderBottom: i < data.length - 1 ? '1px solid var(--border)' : 'none',
@@ -334,14 +291,6 @@ function ClassPerformanceTab() {
             ))}
           </div>
         </>
-      )}
-
-      {detailStudent && (
-        <StudentDetailModal
-          studentId={detailStudent.id}
-          name={detailStudent.name}
-          onClose={() => setDetailStudent(null)}
-        />
       )}
     </div>
   )
@@ -380,7 +329,7 @@ function TeacherPerformanceTab() {
   }
 
   async function handleAssign() {
-    if (!assignModal || !targetStreamId) return
+    if (!assignModal || !targetStreamId || assignMut.isPending) return
     const stream = streams.find(s => s.id === targetStreamId)
     if (!stream) return
     try {
@@ -483,8 +432,12 @@ function TeacherPerformanceTab() {
         </table>
       </div>
 
-      {/* Assign Class Teacher Modal — matches DosTeachersPage modal */}
-      {assignModal && (
+      {/* Assign Class Teacher Modal — matches DosTeachersPage modal.
+          Portaled to .ar/document.body (not rendered inline in the tab tree)
+          — an animated ancestor (.sui-page-enter/.stagger-cards) sets a
+          transform mid-animation, which makes it the containing block for
+          any inline position:fixed descendant, mispositioning the overlay. */}
+      {assignModal && createPortal(
         <div
           className="sui-overlay"
           style={{
@@ -556,7 +509,8 @@ function TeacherPerformanceTab() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        (document.querySelector('.ar') as HTMLElement) ?? document.body
       )}
     </div>
   )

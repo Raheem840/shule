@@ -236,9 +236,14 @@ export function DosStudentsPage() {
   const males         = allStudents.filter(s => s.gender === 'male').length
   const females       = allStudents.filter(s => s.gender === 'female').length
 
-  // New this term: enrolled in current calendar year
+  // New this term: enrolled in current calendar year.
+  // enrolled_at is a date-only column ("YYYY-MM-DD") — new Date(dateOnly)
+  // parses it as UTC midnight, so for any school behind UTC (or, less
+  // severely, the first few hours after local midnight ahead of UTC), a
+  // student enrolled on the year's first/last day could be miscounted.
+  // Compare year prefixes as strings instead of going through Date at all.
   const currentYear = new Date().getFullYear()
-  const newThisTerm = allStudents.filter(s => s.enrolledAt && new Date(s.enrolledAt).getFullYear() === currentYear).length
+  const newThisTerm = allStudents.filter(s => s.enrolledAt && s.enrolledAt.slice(0, 4) === String(currentYear)).length
 
   // ── Filtered list ─────────────────────────────────────────────────────────
   const filteredStudents = useMemo(() => {

@@ -66,7 +66,7 @@ const STREAMS = [
   { id: 'st1', name: 'West', classId: 'c1', classTeacherId: null, schoolId: 's1', createdAt: '' },
 ]
 const STAFF = [
-  { id: 'stf1', firstName: 'Jane', lastName: 'Doe', role: 'teacher' },
+  { id: 'stf1', firstName: 'Jane', lastName: 'Doe', role: 'teacher', isActive: true },
 ]
 
 function setupMocks(opts: {
@@ -200,5 +200,27 @@ describe('DosClassesPage', () => {
       // Teacher list includes the mocked teacher
       expect(screen.getByText('Jane Doe')).toBeInTheDocument()
     })
+  })
+
+  // A deactivated/suspended teacher was previously still selectable and
+  // assignable as class teacher — the dropdown gave no indication they were
+  // inactive. Now excluded, matching useDosTeacherPerformance's convention.
+  it('excludes an inactive teacher from the Assign Teacher dropdown', async () => {
+    setupMocks({
+      classes: CLASSES, streams: STREAMS,
+      staff: [
+        { id: 'stf1', firstName: 'Jane', lastName: 'Doe', role: 'teacher', isActive: true },
+        { id: 'stf2', firstName: 'Bob', lastName: 'Kato', role: 'teacher', isActive: false },
+      ],
+    })
+    const user = userEvent.setup()
+    render(<DosClassesPage />)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /^assign$/i })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /^assign$/i }))
+
+    await waitFor(() => expect(screen.getByText('Assign Class Teacher')).toBeInTheDocument())
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+    expect(screen.queryByText('Bob Kato')).not.toBeInTheDocument()
   })
 })

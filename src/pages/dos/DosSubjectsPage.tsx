@@ -67,6 +67,7 @@ function SubjectModal({ initial, onClose }: {
   const f = (k: keyof SubjectForm, v: string) => setForm(p => ({ ...p, [k]: v }))
 
   async function save() {
+    if (saving) return
     if (!form.name.trim()) { err('Subject name is required'); return }
     setSaving(true)
     try {
@@ -118,7 +119,7 @@ function SubjectModal({ initial, onClose }: {
       <div style={{ padding: '14px 24px 18px', borderTop: '.5px solid var(--border)', flexShrink: 0, display: 'flex', gap: 10 }}>
         <button onClick={onClose} style={{ flex: 1, height: 46, borderRadius: 13, background: 'var(--surface2)', border: '.5px solid var(--border)', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: 'var(--txt2)', transition: 'background .13s' }}
           onMouseEnter={e => (e.currentTarget.style.background = 'var(--border)')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface2))')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface2)')}
         >Cancel</button>
         <button disabled={saving || !form.name.trim()} onClick={save}
           style={{ flex: 2, height: 46, borderRadius: 13, background: saving || !form.name.trim() ? 'var(--border)' : 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', border: 'none', fontWeight: 800, fontSize: 14, cursor: saving || !form.name.trim() ? 'default' : 'pointer', boxShadow: saving || !form.name.trim() ? 'none' : '0 4px 16px rgba(13,148,136,.38)', transition: 'all .18s' }}

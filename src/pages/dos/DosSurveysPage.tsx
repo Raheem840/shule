@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { TermPicker } from '../../components/ui/TermPicker'
+import { csvField } from '../../lib/csv'
 
 type SurveyResponse = {
   id: string; studentName: string; className: string
@@ -190,7 +191,10 @@ export function DosSurveysPage() {
 
   function exportCSV() {
     const header = 'Student,Class,Overall,Teacher,Hardest,Favourite,Suggestions,Submitted\n'
-    const csvRows = responses.map(r => `"${r.studentName}","${r.className}","${r.overallRating}","${r.teacherRating}","${r.hardestSubject ?? ''}","${r.favouriteSubject ?? ''}","${(r.suggestions ?? '').replace(/"/g, '""')}","${r.submittedAt}"`).join('\n')
+    const csvRows = responses.map(r =>
+      [r.studentName, r.className, r.overallRating, r.teacherRating, r.hardestSubject ?? '', r.favouriteSubject ?? '', r.suggestions ?? '', r.submittedAt]
+        .map(csvField).join(',')
+    ).join('\n')
     const blob   = new Blob([header + csvRows], { type: 'text/csv' })
     const url    = URL.createObjectURL(blob)
     const a      = document.createElement('a'); a.href = url; a.download = `surveys-t${term}-${year}.csv`; a.click()

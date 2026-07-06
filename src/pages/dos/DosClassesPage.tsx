@@ -25,6 +25,7 @@ function AddClassModal({ onClose }: { onClose: () => void }) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (createClass.isPending) return
     const trimmed = name.trim()
     if (!trimmed) return
     createClass.mutate({ name: trimmed, level: level || null }, {
@@ -93,10 +94,13 @@ function AssignTeacherModal({ stream, onClose }: { stream: Stream; onClose: () =
   const { data: staff = [] } = useStaff()
   const assign = useAssignClassTeacher()
   const [selectedId, setSelectedId] = useState('')
-  const teachers = staff.filter(s => s.role === 'teacher' || s.role === 'class_teacher')
+  // Excludes deactivated/suspended staff — matches useDosTeacherPerformance's
+  // active-only convention for "assignable teachers"; previously a suspended
+  // teacher was still selectable and could be confirmed as class teacher.
+  const teachers = staff.filter(s => (s.role === 'teacher' || s.role === 'class_teacher') && s.isActive)
 
   async function handleAssign() {
-    if (!selectedId) return
+    if (!selectedId || assign.isPending) return
     try {
       await assign.mutateAsync({ streamId: stream.id, classId: stream.classId, teacherId: selectedId })
       ok('Class teacher assigned.')

@@ -118,7 +118,11 @@ export function useSubjects(level?: string) {
         .eq('school_id', user!.schoolId)
         .order('name', { ascending: true })
 
-      if (level) q = q.eq('level', level)
+      // level=NULL means "Both" (applies to every level) — a subject
+      // filtered to a specific level should still include those, not just
+      // exact matches, or a cross-cutting subject silently disappears from
+      // the O-Level/A-Level filtered view even though it does apply there.
+      if (level) q = q.or(`level.eq.${level},level.is.null`)
 
       const { data, error } = await q
       if (error) throw error
