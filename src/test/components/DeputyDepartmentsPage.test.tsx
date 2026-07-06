@@ -155,6 +155,28 @@ describe('DeputyDepartmentsPage', () => {
     })
   })
 
+  // The Head-of-Department dropdown previously listed every staff member
+  // including deactivated/suspended ones, with no indication they were
+  // inactive — a suspended teacher could be (re-)assigned as HoD.
+  it('excludes inactive staff from the Head of Department dropdown', async () => {
+    setupMocks({
+      depts: DEPARTMENTS,
+      staff: [
+        { id: 'stf1', firstName: 'Alice', lastName: 'Namukasa', role: 'teacher', isActive: true },
+        { id: 'stf2', firstName: 'Bob',   lastName: 'Kato',     role: 'teacher', isActive: false },
+      ],
+    })
+    const user = userEvent.setup()
+    render(<DeputyDepartmentsPage />)
+
+    await user.click(screen.getByRole('button', { name: /new department/i }))
+    await waitFor(() => expect(screen.getByPlaceholderText(/e\.g\. science department/i)).toBeInTheDocument())
+
+    const options = screen.getAllByRole('option').map(o => o.textContent)
+    expect(options.some(t => t?.includes('Alice Namukasa'))).toBe(true)
+    expect(options.some(t => t?.includes('Bob Kato'))).toBe(false)
+  })
+
   it('clicking Edit on a department opens the edit modal', async () => {
     setupMocks({ depts: DEPARTMENTS })
     const user = userEvent.setup()

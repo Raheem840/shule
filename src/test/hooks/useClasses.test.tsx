@@ -125,6 +125,18 @@ describe('useDepartments', () => {
     expect(result.current.data![0].archived).toBe(false)
     expect(result.current.data![0].headTeacherId).toBeNull()
   })
+
+  // description was previously missing from this query entirely, so the
+  // edit modal always showed a blank textarea for a department that already
+  // had a saved description, and saving silently wiped it out.
+  it('includes description in the mapped Department object', async () => {
+    setResponse('departments', { data: [
+      { id: 'dep-3', school_id: 'school-1', name: 'Sciences', description: 'Chemistry, Biology, Physics', head_teacher_id: null, accent_color: null, archived: false },
+    ], error: null })
+    const { result } = renderHook(() => useDepartments(), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data![0].description).toBe('Chemistry, Biology, Physics')
+  })
 })
 
 // ── useSubjects ─────────────────────────────────────────────────

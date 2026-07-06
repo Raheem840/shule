@@ -222,7 +222,7 @@ export function useDepartments() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('departments')
-        .select('id, school_id, name, head_teacher_id, accent_color, archived')
+        .select('id, school_id, name, description, head_teacher_id, accent_color, archived')
         .eq('school_id', user!.schoolId)
         .order('name', { ascending: true })
 
@@ -232,6 +232,7 @@ export function useDepartments() {
         id:       r.id as string,
         schoolId: r.school_id as string,
         name:     r.name as string,
+        description: (r.description as string) ?? null,
         headTeacherId: (r.head_teacher_id as string) ?? null,
         accentColor:   (r.accent_color as string) ?? null,
         archived:      (r.archived as boolean) ?? false,

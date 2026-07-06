@@ -40,8 +40,9 @@ vi.mock('../../store/AuthContext', () => ({
 
 // ── Hook mocks — used by StaffDetailModal ────────────────────────────────────
 vi.mock('../../hooks/useClasses', () => ({
-  useClasses:  vi.fn().mockReturnValue({ data: [], isLoading: false }),
-  useSubjects: vi.fn().mockReturnValue({ data: [], isLoading: false }),
+  useClasses:     vi.fn().mockReturnValue({ data: [], isLoading: false }),
+  useSubjects:    vi.fn().mockReturnValue({ data: [], isLoading: false }),
+  useDepartments: vi.fn().mockReturnValue({ data: [], isLoading: false }),
 }))
 
 // Desktop mode — uses regular <table> (no virtualizer)

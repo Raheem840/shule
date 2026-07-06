@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
-import { useClasses, useSubjects } from '../../hooks/useClasses'
+import { useClasses, useSubjects, useDepartments } from '../../hooks/useClasses'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { csvField } from '../../lib/csv'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface DeputyStaffRow {
@@ -16,6 +17,7 @@ interface DeputyStaffRow {
   staffNumber: string
   subjects: string[]
   classes: string[]
+  departmentId: string | null
   email: string | null
   phone: string | null
   joinDate: string | null
@@ -32,7 +34,7 @@ function useDeputyStaff() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('staff')
-        .select('id, first_name, last_name, role, staff_number, subjects, classes, email, phone, join_date, photo_url, is_active')
+        .select('id, first_name, last_name, role, staff_number, subjects, classes, department_id, email, phone, join_date, photo_url, is_active')
         .eq('school_id', user!.schoolId)
         .eq('is_active', true)
         .order('last_name')
@@ -46,6 +48,7 @@ function useDeputyStaff() {
         staffNumber: r.staff_number as string,
         subjects:    (r.subjects as string[]) ?? [],
         classes:     (r.classes as string[]) ?? [],
+        departmentId: (r.department_id as string) ?? null,
         email:       (r.email as string) ?? null,
         phone:       (r.phone as string) ?? null,
         joinDate:    (r.join_date as string) ?? null,
@@ -271,6 +274,8 @@ export function DeputyStaffPage() {
   const [selected,   setSelected]   = useState<DeputyStaffRow | null>(null)
 
   const { data: staffList = [], isLoading, isError } = useDeputyStaff()
+  const { data: depts = [] } = useDepartments()
+  const deptMap = useMemo(() => new Map(depts.map(d => [d.id, d.name])), [depts])
 
   const rows = useMemo(() => {
     let r = staffList
@@ -306,7 +311,9 @@ export function DeputyStaffPage() {
             onClick={() => {
               const header = 'Name,Staff Number,Role,Email,Phone,Department\n'
               const csv = rows.map(s =>
-                `"${s.name}","${s.staffNumber}","${s.role}","${s.email ?? ''}","${s.phone ?? ''}",""`
+                [s.name, s.staffNumber, s.role, s.email ?? '', s.phone ?? '',
+                 s.departmentId ? (deptMap.get(s.departmentId) ?? '') : '']
+                  .map(csvField).join(',')
               ).join('\n')
               const blob = new Blob([header + csv], { type: 'text/csv' })
               const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `staff-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href)

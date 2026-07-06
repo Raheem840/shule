@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useStudents } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { csvField } from '../../lib/csv'
 import { Avatar } from '../../components/shared/Avatar'
 import { PromoteStudentsSection } from '../../components/shared/PromoteStudentsSection'
 
@@ -69,7 +70,7 @@ export function DeputyStudentsPage() {
   const { data: classes  = [] } = useClasses()
   const { data: streams  = [] } = useStreams(classId || null)
   const { data: allStreams = [] } = useStreams(null)
-  const { data: students = [], isLoading } = useStudents(
+  const { data: students = [], isLoading, isError } = useStudents(
     { classId: classId || undefined, streamId: streamId || undefined },
     true
   )
@@ -125,7 +126,9 @@ export function DeputyStudentsPage() {
             onClick={() => {
               const header = 'Name,Admission No,Class,Stream,Gender,Type,Status\n'
               const csv = rows.map(s =>
-                `"${s.firstName} ${s.lastName}","${s.admissionNumber}","${classMap.get(s.classId ?? '') ?? ''}","${streamMap.get(s.streamId ?? '') ?? ''}","${s.gender}","${s.studentType ?? ''}","${s.status}"`
+                [`${s.firstName} ${s.lastName}`, s.admissionNumber, classMap.get(s.classId ?? '') ?? '',
+                 streamMap.get(s.streamId ?? '') ?? '', s.gender, s.studentType ?? '', s.status]
+                  .map(csvField).join(',')
               ).join('\n')
               const blob = new Blob([header + csv], { type: 'text/csv' })
               const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `students-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href)
@@ -173,8 +176,15 @@ export function DeputyStudentsPage() {
         </div>
       )}
 
+      {/* ── Error state ── */}
+      {!isLoading && isError && (
+        <div style={{ padding: '52px 24px', textAlign: 'center', background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)', color: 'var(--danger)' }}>
+          Couldn't load students. Check your connection and try again.
+        </div>
+      )}
+
       {/* ── Empty state ── */}
-      {!isLoading && rows.length === 0 && (
+      {!isLoading && !isError && rows.length === 0 && (
         <div style={{ padding: '52px 24px', textAlign: 'center', background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)' }}>
           <div style={{ width: 60, height: 60, borderRadius: 18, background: 'var(--surface2)', border: '.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>

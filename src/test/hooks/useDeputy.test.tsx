@@ -214,6 +214,28 @@ describe('useAddDisciplineRecord', () => {
       ).rejects.toThrow('RLS denied')
     })
   })
+
+  // recorded_by is a FK to staff.id, not auth.uid() — previously silently
+  // fell back to writing the raw auth user id into that column when the
+  // staff-row lookup failed, corrupting the FK. Now throws instead, matching
+  // useAttendance's equivalent guard.
+  it('throws "Staff record not found" instead of silently writing auth.uid() into recorded_by', async () => {
+    setTableData('staff', { data: null, error: null })
+
+    const { result } = renderHook(() => useAddDisciplineRecord(), { wrapper: createWrapper() })
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          studentId:    'stu-1',
+          classId:      null,
+          incidentDate: '2026-05-24',
+          nature:       'lateness',
+          resolution:   'Warned',
+          notes:        null,
+        })
+      ).rejects.toThrow('Staff record not found for this user.')
+    })
+  })
 })
 
 // ── useTimetable ───────────────────────────────────────────────────────────

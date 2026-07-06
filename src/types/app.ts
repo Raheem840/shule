@@ -45,6 +45,7 @@ export type Department = {
   id: string
   schoolId: string
   name: string                  // e.g. "Sciences", "Humanities"
+  description: string | null
   headTeacherId: string | null   // FK -> staff.id
   accentColor: string | null     // hex colour shown on dept badges
   archived: boolean

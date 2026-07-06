@@ -61,13 +61,14 @@ function DeptModal({
   const isEdit = !!dept
 
   const [name,     setName]     = useState(dept?.name     ?? '')
-  const [desc,     setDesc]     = useState((dept as any)?.description ?? '')
+  const [desc,     setDesc]     = useState(dept?.description ?? '')
   const [color,    setColor]    = useState(dept?.accentColor ?? ACCENT_PALETTE[0])
   const [headId,   setHeadId]   = useState(dept?.headTeacherId ?? '')
 
   const busy = createMut.isPending || updateMut.isPending
 
   async function handleSave() {
+    if (busy) return
     if (!name.trim()) { err('Department name is required'); return }
     try {
       if (isEdit) {
@@ -290,8 +291,14 @@ export function DeputyDepartmentsPage() {
     [allStaff],
   )
 
+  // Only active staff should be selectable as a NEW head of department — the
+  // KPI "Staff Assigned" chip already scopes to active-only (useStaffCountByDept),
+  // but this dropdown previously let an already-deactivated/suspended staff
+  // member be (re-)assigned as HoD with no indication they're inactive.
+  // staffMap (below) stays unfiltered so an already-assigned inactive head's
+  // name still resolves on the card instead of silently disappearing.
   const staffForHead = useMemo(
-    () => allStaff.map(s => ({ id: s.id, firstName: s.firstName, lastName: s.lastName })),
+    () => allStaff.filter(s => s.isActive).map(s => ({ id: s.id, firstName: s.firstName, lastName: s.lastName })),
     [allStaff],
   )
 
@@ -301,6 +308,7 @@ export function DeputyDepartmentsPage() {
   const totalStaff = Object.values(staffCounts).reduce((a, b) => a + b, 0)
 
   async function handleToggleArchive(dept: Department) {
+    if (archiveMut.isPending) return
     try {
       await archiveMut.mutateAsync({ id: dept.id, archived: !dept.archived })
       ok(dept.archived ? `"${dept.name}" restored` : `"${dept.name}" archived`)

@@ -8,9 +8,19 @@ import { useStudents } from '../../hooks/useStudents'
 import { useClasses } from '../../hooks/useClasses'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { Modal } from '../../components/ui/Modal'
+import { csvField } from '../../lib/csv'
 import type { DisciplineRecord, DisciplineNature } from '../../types/week9'
 
 const NATURES: DisciplineNature[] = ['lateness', 'absenteeism', 'misconduct', 'violence', 'other']
+
+// new Date().toISOString() is UTC — for a UTC+3 school, this returns the
+// previous day's date for the first ~3 hours after local midnight. Build
+// the local calendar date directly from Y/M/D getters instead.
+function localToday(): string {
+  const d = new Date()
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
 const NATURE_META: Record<DisciplineNature, { label: string; color: string; bg: string; icon: string }> = {
   lateness:    { label: 'Lateness',    color: '#f59e0b', bg: 'rgba(245,158,11,.1)',   icon: 'M12 6v6l4 2M12 22a10 10 0 100-20 10 10 0 000 20z' },
@@ -109,7 +119,7 @@ function RecordModal({ initial, onClose }: { initial: DisciplineRecord | null; o
     initial ? { id: initial.studentId, name: initial.studentName ?? initial.studentId, classId: initial.classId ?? null } : null
   )
   const [classId,      setClassId]      = useState(initial?.classId ?? '')
-  const [incidentDate, setIncidentDate] = useState(initial?.incidentDate ?? new Date().toISOString().slice(0, 10))
+  const [incidentDate, setIncidentDate] = useState(initial?.incidentDate ?? localToday())
   const [nature,       setNature]       = useState<DisciplineNature>(initial?.nature ?? 'misconduct')
   const [resolution,   setResolution]   = useState(initial?.resolution ?? '')
   const [notes,        setNotes]        = useState(initial?.notes ?? '')
@@ -119,6 +129,7 @@ function RecordModal({ initial, onClose }: { initial: DisciplineRecord | null; o
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (isPending) return
     if (!student || !resolution.trim()) { setErr('Please select a student and enter a resolution.'); return }
     setErr('')
     try {
@@ -307,7 +318,7 @@ export function DisciplinePage() {
   const [modal,        setModal]        = useState<'add' | 'edit' | 'delete' | null>(null)
   const [selected,     setSelected]     = useState<DisciplineRecord | null>(null)
 
-  const { data: records = [], isLoading } = useDisciplineRecords({ classId: classFilter || undefined })
+  const { data: records = [], isLoading, isError } = useDisciplineRecords({ classId: classFilter || undefined })
   const { data: classes = [] } = useClasses()
 
   const filtered = useMemo(() => {
@@ -328,7 +339,10 @@ export function DisciplinePage() {
   function closeModal() { setModal(null); setSelected(null) }
 
   function exportCsv() {
-    const rows = filtered.map(r => `"${r.incidentDate}","${r.nature}","${r.studentName ?? r.studentId}","${r.className ?? ''}","${r.resolution}"`).join('\n')
+    const rows = filtered.map(r =>
+      [r.incidentDate, r.nature, r.studentName ?? r.studentId, r.className ?? '', r.resolution]
+        .map(csvField).join(',')
+    ).join('\n')
     const blob = new Blob(['Date,Nature,Student,Class,Resolution\n' + rows], { type: 'text/csv' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'discipline-records.csv'; a.click()
   }
@@ -405,8 +419,15 @@ export function DisciplinePage() {
         </div>
       )}
 
+      {/* ── Error ── */}
+      {!isLoading && isError && (
+        <div style={{ padding: '48px 24px', textAlign: 'center', background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)', color: 'var(--danger)' }}>
+          Couldn't load discipline records. Check your connection and try again.
+        </div>
+      )}
+
       {/* ── Empty ── */}
-      {!isLoading && filtered.length === 0 && (
+      {!isLoading && !isError && filtered.length === 0 && (
         <div style={{ padding: '48px 24px', textAlign: 'center', background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)' }}>
           <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="1.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>

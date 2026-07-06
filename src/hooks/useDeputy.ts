@@ -248,6 +248,9 @@ export function useAddDisciplineRecord() {
       if (!user) throw new Error('Not authenticated')
       if (!isDeputyRole(user.role)) throw new Error('Forbidden')
 
+      // recorded_by FK references staff.id, not auth.uid() — look up if
+      // staffId isn't in the JWT yet, and throw rather than silently writing
+      // the wrong id type into the FK (matches useAttendance's pattern).
       let staffId = user.staffId
       if (!staffId) {
         const { data: s } = await supabase
@@ -255,6 +258,7 @@ export function useAddDisciplineRecord() {
           .eq('auth_user_id', user.id).eq('school_id', user.schoolId).maybeSingle()
         staffId = (s as any)?.id
       }
+      if (!staffId) throw new Error('Staff record not found for this user.')
 
       const { error } = await supabase
         .from('discipline_records')
@@ -266,7 +270,7 @@ export function useAddDisciplineRecord() {
           nature:        input.nature,
           resolution:    input.resolution,
           notes:         input.notes,
-          recorded_by:   staffId ?? user.id,
+          recorded_by:   staffId,
         })
 
       if (error) throw new Error(error.message)
