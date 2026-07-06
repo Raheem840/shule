@@ -200,7 +200,10 @@ html, body, #root {
 }
 .sb::-webkit-scrollbar { display: none; }
 
-/* Collapsed (resting) state — hide labels, center icons/badge */
+/* Collapsed (resting) state — everything except the two logos (Shule brand
+   mark + school badge) disappears; hovering brings it all back (below).
+   Nav/user-pill/sign-out use opacity+visibility (not display:none) so they
+   still transition smoothly back in on hover instead of popping in. */
 .sb .sname,
 .sb .ssub,
 .sb .ngl,
@@ -210,15 +213,42 @@ html, body, #root {
 .sb .u-dot,
 .sb .nb { display: none !important; }
 .sb .sbrand { justify-content: center; padding: 0 !important; }
-.sb .slogo  { margin: 0 auto; }
 .sb .school-pill { justify-content: center; padding: 8px 0 !important; }
-.sb .school-ico  { width: 40px; height: 40px; font-size: 14px; margin: 0 auto; }
-.sb .school-logo-img { width: 40px; height: 40px; margin: 0 auto; }
-.sb .ni   { justify-content: center; padding: 10px !important; }
+.sb .ni {
+  justify-content: center; padding: 10px !important;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 0.18s ease;
+}
 .sb .ni .ico { margin: 0 !important; }
-.sb .upill { flex-direction: column; align-items: center; padding: 8px 4px !important; gap: 4px; }
+.sb .upill {
+  flex-direction: column; align-items: center; padding: 8px 4px !important; gap: 4px;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 0.18s ease;
+}
 .sb .uava  { flex-shrink: 0; }
-.sb .sb-signout-btn { justify-content: center; padding: 10px !important; }
+.sb .sb-signout-btn {
+  justify-content: center; padding: 10px !important;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+/* The two logos (Shule brand mark + school badge) stay large and prominent
+   in BOTH the collapsed and hovered/pinned states — they never shrink back
+   down, unlike everything else in the sidebar. */
+.sb .slogo,
+.sb:hover .slogo, .sb.sb-pinned .slogo {
+  width: 56px !important; height: 56px !important; margin: 0 auto;
+}
+.sb .school-ico,
+.sb:hover .school-ico, .sb.sb-pinned .school-ico {
+  width: 52px !important; height: 52px !important; font-size: 17px !important; margin: 0 auto;
+  box-shadow: 0 4px 18px rgba(13,148,136,0.6), 0 0 0 2px rgba(255,255,255,0.16);
+}
+.sb .school-logo-img,
+.sb:hover .school-logo-img, .sb.sb-pinned .school-logo-img {
+  width: 52px !important; height: 52px !important; margin: 0 auto;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.4), 0 0 0 2px rgba(255,255,255,0.16);
+}
 
 /* Expanded — either hovered (peek) or pinned open */
 .sb:hover,
@@ -234,14 +264,20 @@ html, body, #root {
 .sb:hover .u-dot,       .sb.sb-pinned .u-dot,
 .sb:hover .nb,          .sb.sb-pinned .nb { display: revert !important; }
 .sb:hover .sbrand,        .sb.sb-pinned .sbrand { justify-content: flex-start; padding: revert !important; }
-.sb:hover .slogo,         .sb.sb-pinned .slogo { margin: revert; }
 .sb:hover .school-pill,   .sb.sb-pinned .school-pill { justify-content: flex-start; padding: revert !important; }
-.sb:hover .school-ico,    .sb.sb-pinned .school-ico { width: revert; height: revert; font-size: revert; margin: revert; }
-.sb:hover .school-logo-img, .sb.sb-pinned .school-logo-img { width: 30px; height: 30px; margin: revert; }
-.sb:hover .ni,            .sb.sb-pinned .ni { justify-content: flex-start; padding: revert !important; }
+.sb:hover .ni,            .sb.sb-pinned .ni {
+  justify-content: flex-start; padding: revert !important;
+  opacity: 1; visibility: visible; pointer-events: auto;
+}
 .sb:hover .ni .ico,       .sb.sb-pinned .ni .ico { margin: revert !important; }
-.sb:hover .upill,         .sb.sb-pinned .upill { flex-direction: row; align-items: center; padding: revert !important; gap: revert; }
-.sb:hover .sb-signout-btn, .sb.sb-pinned .sb-signout-btn { justify-content: flex-start; padding: revert !important; }
+.sb:hover .upill,         .sb.sb-pinned .upill {
+  flex-direction: row; align-items: center; padding: revert !important; gap: revert;
+  opacity: 1; visibility: visible; pointer-events: auto;
+}
+.sb:hover .sb-signout-btn, .sb.sb-pinned .sb-signout-btn {
+  justify-content: flex-start; padding: revert !important;
+  opacity: 1; visibility: visible; pointer-events: auto;
+}
 
 /* Pin toggle button — fixed position works at both widths */
 .sb-pin-btn {
