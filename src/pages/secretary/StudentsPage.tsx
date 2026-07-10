@@ -3,12 +3,13 @@ import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useStudents, useStudentById, useCreateStudentLogin, useResetStudentPassword, type StudentFilters, type StudentLoginResult } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
-import { useGenerateParentAccess, type GeneratedAccess } from '../../hooks/useParentPortal'
+import { useGenerateParentAccess, useResetParentPassword, useParentAccounts, type GeneratedAccess } from '../../hooks/useParentPortal'
 import { useSendCredentialsSms } from '../../hooks/useStaffAuth'
 import { Avatar } from '../../components/shared/Avatar'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { generateTempPassword } from '../../lib/passwords'
+import { logPasswordResetWithReason } from '../../lib/passwordResetAudit'
 import type { Student, StudentGuardian } from '../../types/app'
 
 // ── Print credential slip ─────────────────────────────────────────────────────
@@ -204,15 +205,20 @@ function ParentLoginSection({
   student,
   className,
   schoolName,
+  existingAccount,
 }: {
   guardian: StudentGuardian
   student: Student
   className: string
   schoolName: string
+  existingAccount: { id: string; email: string; authUserId: string | null } | null
 }) {
+  const { user } = useAuth()
   const { mutateAsync: generateParent, isPending } = useGenerateParentAccess()
+  const { mutateAsync: resetParent, isPending: resetPending } = useResetParentPassword()
   const [result, setResult] = useState<GeneratedAccess | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showResetReason, setShowResetReason] = useState(false)
 
   const handleGenerate = async () => {
     setError(null)
@@ -224,9 +230,27 @@ function ParentLoginSection({
     }
   }
 
+  const handleReset = async (reason: string) => {
+    if (!existingAccount?.authUserId || !user) return
+    setError(null)
+    try {
+      const r = await resetParent({
+        parentAccountId: existingAccount.id,
+        authUserId:      existingAccount.authUserId,
+        email:           existingAccount.email,
+        guardianName:    guardian.fullName,
+        reason,
+      })
+      setResult({ email: r.email, tempPassword: r.tempPassword, isNew: false, guardianName: guardian.fullName })
+      setShowResetReason(false)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to reset password')
+    }
+  }
+
   return (
     <div style={{ background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 12, padding: '12px 14px', marginBottom: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: result ? 12 : 0 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: (result || existingAccount) ? 12 : 0 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>{guardian.fullName}</div>
           <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 2 }}>
@@ -234,7 +258,15 @@ function ParentLoginSection({
             {guardian.phone ? ` · ${guardian.phone}` : ''}
           </div>
         </div>
-        {!result ? (
+        {result ? (
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#065f46', background: 'rgba(16,185,129,.12)', border: '.5px solid #10b981', borderRadius: 6, padding: '3px 8px', flexShrink: 0 }}>
+            {result.isNew ? 'Created' : 'Reset'}
+          </span>
+        ) : existingAccount ? (
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#065f46', background: 'rgba(16,185,129,.12)', border: '.5px solid #10b981', borderRadius: 6, padding: '3px 8px', flexShrink: 0 }}>
+            Activated
+          </span>
+        ) : (
           <button
             onClick={() => void handleGenerate()}
             disabled={isPending}
@@ -242,14 +274,32 @@ function ParentLoginSection({
           >
             {isPending ? 'Generating…' : 'Generate Access'}
           </button>
-        ) : (
-          <span style={{ fontSize: 11, fontWeight: 800, color: '#065f46', background: 'rgba(16,185,129,.12)', border: '.5px solid #10b981', borderRadius: 6, padding: '3px 8px', flexShrink: 0 }}>
-            {result.isNew ? 'Created' : 'Retrieved'}
-          </span>
         )}
       </div>
       {error && (
         <div style={{ fontSize: 11.5, color: 'var(--danger)', marginTop: 6 }}>{error}</div>
+      )}
+      {!result && existingAccount && (
+        <>
+          <CredField label="Parent Email" value={existingAccount.email} />
+          <div style={{ fontSize: 11.5, color: 'var(--txt3)', lineHeight: 1.5, margin: '10px 0' }}>
+            The original temporary password is no longer shown for security. Reset it below to generate and display a new one.
+          </div>
+          {showResetReason ? (
+            <ReasonConfirm
+              busy={resetPending}
+              onCancel={() => setShowResetReason(false)}
+              onConfirm={reason => void handleReset(reason)}
+            />
+          ) : (
+            <button
+              onClick={() => setShowResetReason(true)}
+              style={{ width: '100%', padding: '9px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#0ea5e9,#0284c7)', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+            >
+              Reset Password
+            </button>
+          )}
+        </>
       )}
       {result && (
         <>
@@ -273,6 +323,43 @@ function ParentLoginSection({
   )
 }
 
+// ── Reason-for-reset confirm ───────────────────────────────────────────────────
+// A password reset (unlike a fresh activation) means an existing credential
+// stops working immediately, so we require a short reason before it goes
+// through — recorded to audit_log and sent to every IT Admin so a reset
+// nobody expected gets noticed (see logPasswordResetWithReason).
+function ReasonConfirm({ onConfirm, onCancel, busy }: {
+  onConfirm: (reason: string) => void
+  onCancel:  () => void
+  busy:      boolean
+}) {
+  const [reason, setReason] = useState('')
+  return (
+    <div style={{ marginTop: 10 }}>
+      <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>
+        Reason for reset (sent to IT Admin)
+      </label>
+      <textarea
+        value={reason}
+        onChange={e => setReason(e.target.value)}
+        rows={2}
+        placeholder="e.g. Parent/student forgot password, requested at front desk"
+        style={{ width: '100%', padding: '8px 10px', borderRadius: 9, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt)', fontSize: 12.5, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+      />
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <button onClick={onCancel} disabled={busy}
+          style={{ flex: 1, padding: '9px 0', borderRadius: 10, border: '.5px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 12.5, cursor: busy ? 'default' : 'pointer' }}>
+          Cancel
+        </button>
+        <button onClick={() => onConfirm(reason.trim())} disabled={busy || !reason.trim()}
+          style={{ flex: 2, padding: '9px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#0d9488,#0ea5e9)', color: '#fff', fontWeight: 800, fontSize: 12.5, cursor: busy || !reason.trim() ? 'not-allowed' : 'pointer', opacity: busy || !reason.trim() ? 0.6 : 1 }}>
+          {busy ? 'Resetting…' : 'Confirm Reset'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Credential Modal ──────────────────────────────────────────────────────────
 function CredentialModal({
   student,
@@ -285,9 +372,11 @@ function CredentialModal({
   streams: { id: string; name: string }[]
   onClose: () => void
 }) {
+  const { user } = useAuth()
   const { data: detail } = useStudentById(student.id)
   const { mutateAsync: createLogin, isPending: loginPending } = useCreateStudentLogin()
   const { mutateAsync: resetLogin,  isPending: resetPending }  = useResetStudentPassword()
+  const { data: parentAccounts } = useParentAccounts()
 
   // The account may already be activated (via the bulk-activate flow, or a
   // previous visit to this modal) before this modal ever mounts — check the
@@ -297,9 +386,14 @@ function CredentialModal({
   // ("Login already exists...") as an error after clicking it.
   const alreadyActive = Boolean((detail ?? student).authUserId)
   const existingEmail = (detail ?? student).authEmail ?? ''
+  const existingParentAccount = useMemo(
+    () => parentAccounts?.find(a => a.studentIds.includes(student.id)) ?? null,
+    [parentAccounts, student.id],
+  )
 
   const [loginResult, setLoginResult]   = useState<StudentLoginResult | null>(null)
   const [loginError,  setLoginError]    = useState<string | null>(null)
+  const [showResetReason, setShowResetReason] = useState(false)
   const [schoolName,  setSchoolName]    = useState('Shule School')
 
   // Fetch school name for print slip (best-effort; fire once)
@@ -334,13 +428,23 @@ function CredentialModal({
     }
   }
 
-  const handleResetLogin = async () => {
+  const handleResetLogin = async (reason: string) => {
     const authUserId = (detail ?? student).authUserId
-    if (!authUserId) return
+    if (!authUserId || !user) return
     setLoginError(null)
     try {
       const r = await resetLogin({ studentId: student.id, authUserId, email: existingEmail })
+      await logPasswordResetWithReason({
+        schoolId:    user.schoolId,
+        actorUserId: user.id,
+        actorRole:   user.role,
+        targetTable: 'students',
+        targetId:    student.id,
+        targetName:  `${student.firstName} ${student.lastName}`,
+        reason,
+      })
       setLoginResult({ email: r.email, tempPassword: r.tempPassword, manual: r.manual })
+      setShowResetReason(false)
     } catch (e: unknown) {
       setLoginError(e instanceof Error ? e.message : 'Failed to reset password')
     }
@@ -397,13 +501,20 @@ function CredentialModal({
                     {loginError}
                   </div>
                 )}
-                <button
-                  onClick={() => void handleResetLogin()}
-                  disabled={resetPending}
-                  style={{ width: '100%', padding: '10px', borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#0d9488,#0ea5e9)', color: '#fff', fontWeight: 800, fontSize: 13.5, cursor: resetPending ? 'wait' : 'pointer', boxShadow: '0 4px 16px rgba(13,148,136,.35)' }}
-                >
-                  {resetPending ? 'Resetting…' : 'Reset Password'}
-                </button>
+                {showResetReason ? (
+                  <ReasonConfirm
+                    busy={resetPending}
+                    onCancel={() => setShowResetReason(false)}
+                    onConfirm={reason => void handleResetLogin(reason)}
+                  />
+                ) : (
+                  <button
+                    onClick={() => setShowResetReason(true)}
+                    style={{ width: '100%', padding: '10px', borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#0d9488,#0ea5e9)', color: '#fff', fontWeight: 800, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 4px 16px rgba(13,148,136,.35)' }}
+                  >
+                    Reset Password
+                  </button>
+                )}
               </div>
             ) : !loginResult ? (
               <div style={{ background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
@@ -474,6 +585,11 @@ function CredentialModal({
                   student={student}
                   className={fullClass}
                   schoolName={schoolName}
+                  existingAccount={existingParentAccount ? {
+                    id: existingParentAccount.id,
+                    email: existingParentAccount.email,
+                    authUserId: existingParentAccount.authUserId,
+                  } : null}
                 />
               ))
             )}

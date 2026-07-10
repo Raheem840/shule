@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { calcFeeStatus } from './useFeePayments'
 import { generateTempPassword } from '../lib/passwords'
+import { getFunctionErrorMessage } from '../lib/functionsError'
+import { logPasswordResetWithReason } from '../lib/passwordResetAudit'
 import type { Student } from '../types/app'
 
 type AnyRow = Record<string, unknown>
@@ -771,6 +773,53 @@ export function useGenerateParentAccess() {
         isNew:        true,
         guardianName: guardianName ?? null,
       }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['parent-accounts', user?.schoolId] })
+    },
+  })
+}
+
+// ── useResetParentPassword ────────────────────────────────────
+// Actually rotates the parent's password (unlike useGenerateParentAccess's
+// existing-account path, which just returns whatever password was last
+// stored) — used when a Secretary/Principal/IT Admin needs to hand a parent
+// a new password because the old one is no longer known (never persisted
+// for re-display once the credentials modal is closed, by design). Requires
+// a reason, which is recorded to audit_log and sent to every IT Admin.
+export function useResetParentPassword() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: {
+      parentAccountId: string
+      authUserId:      string
+      email:           string
+      guardianName:    string
+      reason:          string
+    }): Promise<{ email: string; tempPassword: string }> => {
+      if (!user) throw new Error('Not authenticated')
+      if (!params.reason.trim()) throw new Error('A reason is required to reset this password')
+
+      const tempPassword = generateTempPassword()
+
+      const { error: fnError } = await supabase.functions.invoke('reset-parent-password', {
+        body: { userId: params.authUserId, newPassword: tempPassword, schoolId: user.schoolId },
+      })
+      if (fnError) throw new Error(`Password reset failed: ${await getFunctionErrorMessage(fnError)}`)
+
+      await logPasswordResetWithReason({
+        schoolId:    user.schoolId,
+        actorUserId: user.id,
+        actorRole:   user.role,
+        targetTable: 'parent_accounts',
+        targetId:    params.parentAccountId,
+        targetName:  params.guardianName || params.email,
+        reason:      params.reason.trim(),
+      })
+
+      return { email: params.email, tempPassword }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['parent-accounts', user?.schoolId] })
