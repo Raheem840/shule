@@ -455,7 +455,7 @@ function ThreadPanel({ conv, onBack, classNameMap: _classNameMap }: {
                 const mine = m.fromUserId === user?.id
                 return (
                   <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 3, paddingLeft: mine ? 60 : 0, paddingRight: mine ? 0 : 60, animationDelay: `${Math.min(idx * .02, .15)}s` }}>
-                    <div className={mine ? 'tpm-bbl-me' : 'tpm-bbl-them'} style={{ padding: '8px 12px 6px', maxWidth: '100%', position: 'relative' }}>
+                    <div className={mine ? 'tpm-bbl-me' : 'tpm-bbl-them'} style={{ padding: '8px 12px 6px', maxWidth: '72%', position: 'relative' }}>
                       {m.attachmentUrl && (
                         <a href={m.attachmentUrl} target="_blank" rel="noopener noreferrer"
                           style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: mine ? 'rgba(255,255,255,.9)' : '#0d9488', fontSize: 12.5, fontWeight: 600, textDecoration: 'none', padding: '4px 10px', borderRadius: 8, background: mine ? 'rgba(255,255,255,.18)' : 'rgba(13,148,136,.08)' }}>

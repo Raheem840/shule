@@ -459,14 +459,17 @@ export function useParentConversations() {
     queryFn: async (): Promise<ParentConversation[]> => {
       if (!user) return []
 
-      // 1. All messages where this staff member is the recipient — run alongside
+      // All messages either sent OR received by this staff member — a
+      // conversation the staff member started (parent hasn't replied yet)
+      // previously never appeared here at all, since this only looked at
+      // messages where the staff member was the recipient. Run alongside
       // resolveTeacherClassIds since it only depends on `user`, not on this result.
       const [{ data: msgs, error: msgErr }, myClassIds] = await Promise.all([
         supabase
           .from('messages')
-          .select('id, from_user_id, body, sent_at, read_at')
+          .select('id, from_user_id, to_user_id, body, sent_at, read_at')
           .eq('school_id', user.schoolId)
-          .eq('to_user_id', user.id)
+          .or(`to_user_id.eq.${user.id},from_user_id.eq.${user.id}`)
           .eq('is_announcement', false)
           .order('sent_at', { ascending: false })
           .limit(500),
@@ -476,18 +479,20 @@ export function useParentConversations() {
       if (msgErr) throw new Error(msgErr.message)
 
       const allMsgs = (msgs ?? []) as Array<{
-        id: string; from_user_id: string; body: string; sent_at: string; read_at: string | null
+        id: string; from_user_id: string; to_user_id: string; body: string; sent_at: string; read_at: string | null
       }>
 
-      // Group by from_user_id — collect unique senders with their latest message
+      // Group by the other party in the conversation (not just from_user_id,
+      // which would be this staff member's own id for messages they sent).
       const senderMap = new Map<string, { latestBody: string; latestSentAt: string; unreadCount: number }>()
       for (const m of allMsgs) {
-        const k = m.from_user_id
+        const k = m.from_user_id === user.id ? m.to_user_id : m.from_user_id
         if (!senderMap.has(k)) {
           // first entry is the latest (desc order)
           senderMap.set(k, { latestBody: m.body, latestSentAt: m.sent_at, unreadCount: 0 })
         }
-        if (!m.read_at) {
+        // Only messages addressed to this staff member can be unread by them.
+        if (m.to_user_id === user.id && !m.read_at) {
           senderMap.get(k)!.unreadCount++
         }
       }
