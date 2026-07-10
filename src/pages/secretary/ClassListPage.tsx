@@ -413,8 +413,10 @@ function StreamRow({
   classId:        string
   onMoveStudent:  () => void
 }) {
+  const [expanded, setExpanded] = useState(true)
   const { data: students = [] } = useStudents({ classId, streamId })
   const count = students.length
+  const sortedStudents = [...students].sort(sortByName)
 
   // Use the specific teacher assigned to this stream (by ID), not just any class_teacher
   const teacher = classTeacherId
@@ -422,42 +424,78 @@ function StreamRow({
     : null
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.55rem 0.85rem', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--brand)', flexShrink: 0 }} />
-        <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
-          {streamName}
-        </span>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontSize: 12, color: 'var(--txt3)', fontWeight: 600 }}>
-          {count} student{count !== 1 ? 's' : ''}
-        </span>
-
-        {teacher ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', fontFamily: 'var(--font2)', flexShrink: 0 }}>
-              {teacher.firstName[0]}{teacher.lastName[0]}
-            </div>
-            <span style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 600 }}>
-              {teacher.firstName} {teacher.lastName}
-            </span>
-          </div>
-        ) : (
-          <span style={{ padding: '3px 9px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: 'rgba(245,158,11,.1)', color: 'var(--warning)', border: '.5px solid rgba(245,158,11,.25)' }}>No teacher assigned</span>
-        )}
-
-        <button
-          onClick={onMoveStudent}
-          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', minHeight: 36, fontSize: 11, fontWeight: 700, color: 'var(--txt2)', cursor: 'pointer', fontFamily: 'var(--font2)', display: 'flex', alignItems: 'center', gap: 5, transition: 'border-color 0.15s, color 0.15s', whiteSpace: 'nowrap' }}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
+    <div style={{ borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+      <div
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.55rem 0.85rem', cursor: 'pointer', gap: 10, flexWrap: 'wrap' }}
+        onClick={() => setExpanded(e => !e)}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <svg
+            width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2.3"
+            style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}
+          >
+            <polyline points="6 9 12 15 18 9"/>
           </svg>
-          Move Student
-        </button>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--brand)', flexShrink: 0 }} />
+          <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>
+            {streamName}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 12, color: 'var(--txt3)', fontWeight: 600 }}>
+            {count} student{count !== 1 ? 's' : ''}
+          </span>
+
+          {teacher ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', fontFamily: 'var(--font2)', flexShrink: 0 }}>
+                {teacher.firstName[0]}{teacher.lastName[0]}
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--txt2)', fontWeight: 600 }}>
+                {teacher.firstName} {teacher.lastName}
+              </span>
+            </div>
+          ) : (
+            <span style={{ padding: '3px 9px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: 'rgba(245,158,11,.1)', color: 'var(--warning)', border: '.5px solid rgba(245,158,11,.25)' }}>No teacher assigned</span>
+          )}
+
+          <button
+            onClick={e => { e.stopPropagation(); onMoveStudent() }}
+            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', minHeight: 36, fontSize: 11, fontWeight: 700, color: 'var(--txt2)', cursor: 'pointer', fontFamily: 'var(--font2)', display: 'flex', alignItems: 'center', gap: 5, transition: 'border-color 0.15s, color 0.15s', whiteSpace: 'nowrap' }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+            Move Student
+          </button>
+        </div>
       </div>
+
+      {/* Actual students in this stream — the whole point of a class list */}
+      {expanded && (
+        <div style={{ borderTop: '1px solid var(--border)', padding: '0.6rem 0.85rem' }}>
+          {sortedStudents.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--txt3)', fontStyle: 'italic', textAlign: 'center', padding: '0.4rem 0' }}>
+              No students in this stream yet
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 6 }}>
+              {sortedStudents.map((s, i) => (
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 9px', borderRadius: 7, background: 'var(--surface2)', border: '.5px solid var(--border)' }}>
+                  <span style={{ fontSize: 10.5, color: 'var(--txt3)', fontWeight: 700, width: 16, flexShrink: 0, textAlign: 'right' }}>{i + 1}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {s.lastName} {s.firstName}
+                  </span>
+                  <span style={{ fontSize: 10.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginLeft: 'auto', flexShrink: 0 }}>
+                    {s.admissionNumber}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -560,6 +598,30 @@ function ClassCard({
                   onMoveStudent={() => setMoveContext({ streamId: stream.id })}
                 />
               ))
+            )}
+
+            {/* Students in this class but not assigned to any stream — still
+                part of "all the classes and streams", so surface them too
+                instead of leaving them invisible. */}
+            {students.some(s => !s.streamId) && (
+              <div style={{ borderRadius: 8, background: 'var(--surface)', border: '1px dashed var(--border)', padding: '0.6rem 0.85rem' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt3)', marginBottom: 6 }}>
+                  Not yet assigned to a stream ({students.filter(s => !s.streamId).length})
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 6 }}>
+                  {students.filter(s => !s.streamId).sort(sortByName).map((s, i) => (
+                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 9px', borderRadius: 7, background: 'var(--surface2)', border: '.5px solid var(--border)' }}>
+                      <span style={{ fontSize: 10.5, color: 'var(--txt3)', fontWeight: 700, width: 16, flexShrink: 0, textAlign: 'right' }}>{i + 1}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.lastName} {s.firstName}
+                      </span>
+                      <span style={{ fontSize: 10.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginLeft: 'auto', flexShrink: 0 }}>
+                        {s.admissionNumber}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
