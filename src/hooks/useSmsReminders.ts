@@ -226,10 +226,15 @@ export function useSmsReminderLog() {
 // Writes to send_queue (offline buffer), then calls the send-sms edge function.
 // The edge function owns sms_reminders inserts (with final status from AT).
 export type SendReminderInput = {
-  studentId:     string
-  guardianPhone: string
-  channel:       SmsChannel
-  message:       string
+  studentId:      string
+  guardianPhone:  string
+  channel:        SmsChannel
+  message:        string
+  // Optional, student-appropriate rewording of `message` — the composed
+  // message is addressed to a parent/guardian ("Dear X's parent..."), which
+  // reads oddly if shown verbatim to the student themselves. Falls back to
+  // `message` when not provided (e.g. callers that don't distinguish).
+  studentMessage?: string
 }
 
 // Shared by the parent and student in-app-notification paths — each reminder
@@ -244,13 +249,15 @@ async function notifyReminderRecipients(
   reminders: SendReminderInput[],
   authIdsByStudentId: Map<string, string[]>,
   link: string,
+  audience: 'parent' | 'student',
 ): Promise<void> {
   const results = await Promise.allSettled(
     reminders.map(r => {
       const authIds = authIdsByStudentId.get(r.studentId) ?? []
       if (authIds.length === 0) return Promise.resolve()
+      const body = audience === 'student' ? (r.studentMessage ?? r.message) : r.message
       return sendNotifications({
-        schoolId, userIds: authIds, type: 'fee', title: 'Fee Reminder', body: r.message, link,
+        schoolId, userIds: authIds, type: 'fee', title: 'Fee Reminder', body, link,
       })
     })
   )
@@ -368,8 +375,8 @@ export function useSendReminders() {
         }
 
         await Promise.all([
-          notifyReminderRecipients(user!.schoolId, inAppReminders, parentAuthIdsByStudent, '/parent'),
-          notifyReminderRecipients(user!.schoolId, inAppReminders, studentAuthIdsByStudent, '/student'),
+          notifyReminderRecipients(user!.schoolId, inAppReminders, parentAuthIdsByStudent, '/parent', 'parent'),
+          notifyReminderRecipients(user!.schoolId, inAppReminders, studentAuthIdsByStudent, '/student', 'student'),
         ])
       }
 

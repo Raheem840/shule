@@ -44,6 +44,19 @@ function renderMessage(template: string, student: SmsStudentRow, term: number, s
     .replace(/{term}/g,         `Term ${term}`)
 }
 
+// The bursar's composed message is addressed to a parent/guardian ("Dear
+// X's parent...") — reusing that verbatim for the in-app copy sent to the
+// STUDENT's own account read oddly ("Dear Brandon's parent" shown to
+// Brandon). Rather than trying to mangle arbitrary free text the bursar
+// typed, the student's in-app notification uses its own fixed,
+// student-appropriate wording built from the same data.
+const STUDENT_FEE_REMINDER_TEMPLATE =
+  'Hi {student_name}, you have an outstanding fee balance of {balance} for {term}. Please speak to your parent/guardian about clearing it.'
+
+function renderStudentMessage(student: SmsStudentRow, term: number, schoolName: string) {
+  return renderMessage(STUDENT_FEE_REMINDER_TEMPLATE, student, term, schoolName)
+}
+
 // ── Student row in preview table ─────────────────────────────
 function PreviewRow({
   row, selected, onToggle,
@@ -166,12 +179,16 @@ export function SmsReminderPage() {
     if (!toSend.length || !message.trim() || channels.size === 0) return
 
     // One reminder row per selected channel per student — the hook routes
-    // each to its own delivery path and delivery-log entry.
+    // each to its own delivery path and delivery-log entry. studentMessage
+    // is only used for the in_app channel's copy to the student's own
+    // account — SMS/WhatsApp (guardian's phone) and the parent's in-app
+    // copy both use the bursar's composed parent-facing message.
     const reminders = toSend.flatMap(s => [...channels].map(channel => ({
-      studentId:     s.studentId,
-      guardianPhone: s.guardianPhone,
+      studentId:      s.studentId,
+      guardianPhone:  s.guardianPhone,
       channel,
-      message:       renderMessage(message, s, smsFilters.term, schoolName),
+      message:        renderMessage(message, s, smsFilters.term, schoolName),
+      studentMessage: renderStudentMessage(s, smsFilters.term, schoolName),
     })))
 
     try {
