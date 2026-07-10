@@ -511,12 +511,16 @@ function ApplyPaymentForm({
 // ── New fee row form (creates fresh row) ──────────────────────
 function NewFeeRowForm({
   studentId,
+  studentType,
+  classId,
   term,
   academicYearId,
   existingRows,
   onDone,
 }: {
   studentId:      string
+  studentType:    'day' | 'boarder' | null
+  classId:        string | null
   term:           number
   academicYearId: string | null
   existingRows:   StudentFeeRow[]
@@ -524,7 +528,17 @@ function NewFeeRowForm({
 }) {
   const { success: toastOk, error: toastErr } = useToast()
   const addPayment   = useAddPayment()
-  const { data: feeStructures = [] } = useFeeStructure()
+  const { data: allFeeStructures = [] } = useFeeStructure()
+  // Only show fee items that actually apply to this student — previously
+  // listed every active fee item regardless of type/class, so a day
+  // scholar's payment form offered "Boarding Fees" as a pickable option and
+  // the bursar had to manually know which ones were actually relevant.
+  const feeStructures = allFeeStructures.filter(f =>
+    (f.appliesTo === 'all' ||
+      (f.appliesTo === 'day_scholars' && studentType === 'day') ||
+      (f.appliesTo === 'boarders'     && studentType === 'boarder')) &&
+    (f.classId === null || f.classId === classId)
+  )
   const today        = new Date().toISOString().slice(0, 10)
 
   const {
@@ -917,6 +931,8 @@ export function AddPaymentPage() {
           {selectedStudent && activeRowId === 'new' && (
             <NewFeeRowForm
               studentId={selectedStudent.id}
+              studentType={selectedStudent.studentType}
+              classId={selectedStudent.classId}
               term={term}
               academicYearId={academicYearId}
               existingRows={feeRows}

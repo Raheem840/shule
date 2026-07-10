@@ -62,6 +62,7 @@ interface FeeStructureItem {
   amount:   number
   appliesTo: string
   term:     number
+  classId:  string | null
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -223,10 +224,10 @@ function useFeeStructures(term: number, academicYearId: string | null) {
     enabled:  !!user?.schoolId,
     staleTime: 60_000,
     queryFn: async (): Promise<FeeStructureItem[]> => {
-      type RawFS = { id: string; name: string; amount: number; applies_to: string; term: number }
+      type RawFS = { id: string; name: string; amount: number; applies_to: string; term: number; class_id: string | null }
       let q = supabase
         .from('fee_structure')
-        .select('id, name, amount, applies_to, term')
+        .select('id, name, amount, applies_to, term, class_id')
         .eq('school_id', user!.schoolId)
         .eq('is_active', true)
         .order('name')
@@ -239,6 +240,7 @@ function useFeeStructures(term: number, academicYearId: string | null) {
         amount:    Number(r.amount) || 0,
         appliesTo: r.applies_to,
         term:      Number(r.term)  || term,
+        classId:   r.class_id,
       }))
     },
   })
@@ -1611,7 +1613,12 @@ export function BursarStudentsPage() {
           student={payStudent}
           term={term}
           academicYearId={academicYearId}
-          feeStructures={feeStructures}
+          feeStructures={feeStructures.filter(f =>
+            (f.appliesTo === 'all' ||
+              (f.appliesTo === 'day_scholars' && payStudent.studentType === 'day') ||
+              (f.appliesTo === 'boarders'     && payStudent.studentType === 'boarder')) &&
+            (f.classId === null || f.classId === payStudent.classId)
+          )}
           onClose={() => setPayStudent(null)}
         />
       )}
