@@ -81,7 +81,6 @@ function ReadinessBadge({ status }: { status: ReadinessStatus }) {
   const map: Record<ReadinessStatus, { bg: string; color: string; dot: string; label: string }> = {
     ready:           { bg: 'rgba(16,185,129,0.1)',  color: 'var(--success)', dot: 'var(--success)', label: 'Ready' },
     missing_marks:   { bg: 'rgba(245,158,11,0.1)',  color: 'var(--warning)', dot: 'var(--warning)', label: 'Missing Marks' },
-    missing_remarks: { bg: 'rgba(245,158,11,0.1)',  color: 'var(--warning)', dot: 'var(--warning)', label: 'Missing Remarks' },
     not_ready:       { bg: 'rgba(244,63,94,0.1)',   color: 'var(--danger)',  dot: 'var(--danger)',  label: 'Not Ready' },
   }
   const { bg, color, dot, label } = map[status]

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { downloadFile, uploadFile, getPublicUrl } from '../lib/storage'
 import { generateReportCardPDF, buildSubjectRows } from '../lib/reportCardPdf'
+import { computeOverallAverage, getAutoRemark } from '../lib/autoRemarks'
 import type { ReportCard, ReportCardStatus } from '../types/app'
 import type { RawResult } from '../lib/reportCardPdf'
 
@@ -85,9 +86,16 @@ export function useReportCards(
 }
 
 // ── Student readiness check ────────────────────────────────────
-// For each student in a class+stream, determine if they have all required
-// data for report card generation: CA marks, end-of-term marks, remarks.
-export type ReadinessStatus = 'ready' | 'missing_marks' | 'missing_remarks' | 'not_ready'
+// For each student in a class+stream, determine if a report card can be
+// generated right now. Deliberately flexible for mid-term reports (e.g. a
+// PTA meeting before the End-of-Term exam exists): readiness only requires
+// that whatever exam journals a teacher HAS created and marked (CA and/or
+// End-of-Term — any assessment type) actually have a mark recorded for the
+// student. It does not require an End-of-Term journal to exist at all, and
+// it never blocks on a manually-written teacher remark — remarks are always
+// auto-generated from performance criteria at generation time (see
+// src/lib/autoRemarks.ts), so there is nothing to be "missing" there.
+export type ReadinessStatus = 'ready' | 'missing_marks' | 'not_ready'
 
 export type StudentReadiness = {
   studentId:      string
@@ -139,9 +147,7 @@ export function useStudentReadiness(params: {
       const { data: journals, error: je } = await jq
       if (je) throw je
 
-      const journalIds   = (journals ?? []).map(j => j.id as string)
-      const caJournalIds = (journals ?? []).filter(j => j.assessment_type === 'ca').map(j => j.id as string)
-      const etJournalIds = (journals ?? []).filter(j => j.assessment_type === 'end_of_term').map(j => j.id as string)
+      const journalIds = (journals ?? []).map(j => j.id as string)
 
       // 3. Fetch exam_results — only meaningful when at least one journal exists
       const resultSet = new Set<string>()
@@ -158,46 +164,25 @@ export function useStudentReadiness(params: {
         }
       }
 
-      // 4. Fetch teacher_remarks for these students+term+year
-      const { data: remarks, error: mke } = await supabase
-        .from('teacher_remarks')
-        .select('student_id')
-        .eq('school_id', user!.schoolId)
-        .in('student_id', studentIds)
-        .eq('term', term!)
-        .eq('year', year!)
-
-      if (mke) throw mke
-      const remarkSet = new Set<string>((remarks ?? []).map(r => r.student_id as string))
-
-      // 5. Assess each student
+      // 4. Assess each student — ready as soon as every journal a teacher has
+      // actually created (whatever mix of CA/End-of-Term exists so far) has a
+      // mark recorded for this student. No journals at all yet => not ready.
+      // Remarks are never a readiness blocker — always auto-generated.
       return (students ?? []).map(s => {
         const sid    = s.id as string
         const issues: string[] = []
 
-        // Check all CA journals have a result
-        const missingCA = caJournalIds.filter(jid => !resultSet.has(`${sid}::${jid}`))
-        if (missingCA.length > 0) issues.push(`Missing ${missingCA.length} CA mark(s)`)
-
-        // Check end-of-term result exists
-        if (etJournalIds.length === 0) {
-          issues.push('No end-of-term exam created')
+        if (journalIds.length === 0) {
+          issues.push('No exams recorded yet')
         } else {
-          const missingET = etJournalIds.filter(jid => !resultSet.has(`${sid}::${jid}`))
-          if (missingET.length > 0) issues.push('Missing end-of-term mark(s)')
+          const missing = journalIds.filter(jid => !resultSet.has(`${sid}::${jid}`))
+          if (missing.length > 0) issues.push(`Missing ${missing.length} mark(s)`)
         }
 
-        // Check remarks
-        if (!remarkSet.has(sid)) issues.push('Missing teacher remarks')
-
-        let status: ReadinessStatus = 'ready'
-        if (issues.length === 1 && issues[0].includes('remarks')) {
-          status = 'missing_remarks'
-        } else if (issues.some(i => i.includes('exam'))) {
-          status = 'not_ready'
-        } else if (issues.some(i => i.includes('mark'))) {
-          status = issues.length > 1 ? 'not_ready' : 'missing_marks'
-        }
+        const status: ReadinessStatus =
+          issues.length === 0        ? 'ready' :
+          journalIds.length === 0    ? 'not_ready' :
+          'missing_marks'
 
         return {
           studentId:       sid,
@@ -463,17 +448,24 @@ export function useGenerateReportCards() {
 
           const totalGradePoints = subjectRows.reduce((s, r) => s + (r.gradePoints ?? 0), 0)
           const gradedCount      = subjectRows.filter(r => r.grade !== null).length
-          const avgPoints        = gradedCount > 0 ? totalGradePoints / gradedCount : 0
+          // null (not 0) when nothing is fully graded yet — e.g. a mid-term
+          // report where only CA marks exist for every subject — so it
+          // reads as "Pending" rather than falsely showing grade E.
+          const avgPoints        = gradedCount > 0 ? totalGradePoints / gradedCount : null
 
-          const avgGrade =
+          const descriptors: Record<string, string> = {
+            A: 'Exceptional', B: 'Outstanding', C: 'Satisfactory', D: 'Basic', E: 'Elementary',
+          }
+
+          const avgGrade = avgPoints === null ? 'Pending' :
             avgPoints >= 4.5 ? 'A' :
             avgPoints >= 3.5 ? 'B' :
             avgPoints >= 2.5 ? 'C' :
             avgPoints >= 1.5 ? 'D' : 'E'
 
-          const descriptors: Record<string, string> = {
-            A: 'Exceptional', B: 'Outstanding', C: 'Satisfactory', D: 'Basic', E: 'Elementary',
-          }
+          const avgDescriptor = avgPoints === null ? 'Exam not yet complete' : (descriptors[avgGrade] ?? '')
+
+          const autoRemark = getAutoRemark(computeOverallAverage(subjectRows))
 
           const pdfData = {
             school: {
@@ -499,10 +491,13 @@ export function useGenerateReportCards() {
             subjects:          subjectRows,
             totalGradePoints,
             avgGrade,
-            avgDescriptor:     descriptors[avgGrade] ?? '',
+            avgDescriptor,
             daysPresent:       attendanceMap.get(studentId)?.present ?? 0,
             daysAbsent:        attendanceMap.get(studentId)?.absent  ?? 0,
-            teacherRemarks:    remarkMap.get(studentId) ?? '',
+            // A teacher's own written remark always wins when present;
+            // otherwise fall back to the automatic performance-band remark
+            // so generation never depends on one having been typed in.
+            teacherRemarks:    remarkMap.get(studentId) || autoRemark,
             principalRemarks:  principalRemarksMap.get(studentId) ?? null,
           }
 
