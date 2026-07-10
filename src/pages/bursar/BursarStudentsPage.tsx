@@ -13,6 +13,7 @@ import { Modal, ModalCancelButton } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
+import { useCurrentTermDefault } from '../../hooks/useCurrentTerm'
 import { ugx } from '../../hooks/useFeePayments'
 import { PillGroup } from '../../components/shared/PillGroup'
 import ExcelJS from 'exceljs'
@@ -1215,7 +1216,6 @@ export function BursarStudentsPage() {
 
   const [classId,   setClassId]   = useState<string | null>(null)
   const [streamId,  setStreamId]  = useState<string | null>(null)
-  const [term,      setTerm]      = useState<1 | 2 | 3>(1)
   const [academicYearId, setAcademicYearId] = useState<string | null>(null)
   const [search,    setSearch]    = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -1228,6 +1228,13 @@ export function BursarStudentsPage() {
   const { data: classes }       = useClasses()
   const { data: academicYears } = useAcademicYears()
   const { data: streams }       = useStreams(classId)
+  const activeYear = academicYears?.find(y => y.isActive) ?? academicYears?.[0]
+  // Defaults to Term 1 until the active academic year loads, then
+  // auto-corrects once to whichever term today's date actually falls in —
+  // previously stayed hardcoded at Term 1 forever, so a student billed for
+  // the real current term (e.g. Term 2) never showed up here while this
+  // page kept silently viewing Term 1.
+  const [term, setTerm] = useCurrentTermDefault(activeYear)
   const { data: feeStructures = [] } = useFeeStructures(term, academicYearId)
   const { data: schoolProfile }      = useSchoolProfile()
 

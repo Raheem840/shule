@@ -13,6 +13,7 @@ import {
   calcFeeStatus,
 } from '../../hooks/useFeePayments'
 import { useFeeStructure, useAcademicYears } from '../../hooks/useFeeStructure'
+import { useCurrentTermDefault } from '../../hooks/useCurrentTerm'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/Toast'
@@ -708,20 +709,28 @@ function NewFeeRowForm({
 // ── Main page ─────────────────────────────────────────────────
 export function AddPaymentPage() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
-  const [term, setTerm]                       = useState<1 | 2 | 3>(1)
   const [year, setYear]                       = useState(CURRENT_YEAR)
 
   // Which existing fee row is selected for payment, or 'new' to create one
   const [activeRowId, setActiveRowId]         = useState<string | 'new' | null>(null)
+
+  // Resolve academic year: prefer from an existing row, fall back to the active year
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeYear = academicYears.find(y => y.isActive) ?? academicYears[0]
+  const activeAcademicYearId = activeYear?.id ?? null
+
+  // Defaults to Term 1 until the active academic year loads, then
+  // auto-corrects once to whichever term today's date actually falls in —
+  // previously stayed hardcoded at Term 1 forever, so recording a payment
+  // for the real current term (e.g. Term 2) required manually re-picking it
+  // every time this page opened.
+  const [term, setTerm] = useCurrentTermDefault(activeYear)
 
   const { data: feeRows = [], isLoading: loadingRows } = useStudentFeeRows(
     selectedStudent?.id ?? null,
     term,
   )
 
-  // Resolve academic year: prefer from an existing row, fall back to the active year
-  const { data: academicYears = [] } = useAcademicYears()
-  const activeAcademicYearId = academicYears.find(y => y.isActive)?.id ?? null
   const academicYearId = feeRows.find(r => r.academicYearId)?.academicYearId ?? activeAcademicYearId
 
   const handleTermChange = useCallback((t: 1 | 2 | 3) => {
