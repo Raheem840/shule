@@ -548,6 +548,7 @@ function AnnouncementsView({ onBack }: { onBack?: () => void }) {
   const { user } = useAuth()
   const { data: anns = [] }   = useAnnouncements()
   const { mutateAsync: post, isPending } = usePostAnnouncement()
+  const { mutateAsync: upload } = useUploadAttachment()
   const { error: toastErr } = useToast()
   const feedRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -559,11 +560,18 @@ function AnnouncementsView({ onBack }: { onBack?: () => void }) {
     if (el) el.scrollTop = el.scrollHeight
   }, [anns.length])
 
-  async function handlePost(text: string) {
+  async function handlePost(text: string, attachUrl: string | null) {
     try {
-      await post({ body: text })
+      await post({ body: text, attachmentUrl: attachUrl })
       void supabase.functions.invoke('broadcast-announcement', { body: { body: text, role: user?.role, school_id: user?.schoolId } })
     } catch (e: any) { toastErr(e.message) }
+    setAttach(null)
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]; if (!f) return
+    try { setAttach(await upload(f)) }
+    catch (e: any) { toastErr(e.message ?? 'Upload failed') }
   }
 
   return (
@@ -624,7 +632,7 @@ function AnnouncementsView({ onBack }: { onBack?: () => void }) {
 
       {canPost && (
         <>
-          <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display:'none' }} />
+          <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display:'none' }} onChange={e => { void handleFile(e) }} />
           <InputBar
             onSend={handlePost} sending={isPending}
             attach={attach} onClearAttach={() => setAttach(null)}
