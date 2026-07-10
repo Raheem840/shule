@@ -4,24 +4,7 @@ import { useAuth } from '../../store/AuthContext'
 import { useSecretaryBriefing, type SecretaryBriefingData } from '../../hooks/useSecretaryBriefing'
 import { useAcademicYears } from '../../hooks/useAdmin'
 import { supabase } from '../../lib/supabase'
-
-// ── Print styles injected once ────────────────────────────────────────────────
-const PRINT_CSS = `
-@media print {
-  body * { visibility: hidden !important; }
-  #briefing-page, #briefing-page * { visibility: visible !important; }
-  #briefing-page {
-    position: fixed !important; left: 0 !important; top: 0 !important;
-    width: 210mm !important; max-width: 210mm !important;
-    padding: 16mm 18mm !important; margin: 0 !important;
-    box-shadow: none !important; border-radius: 0 !important;
-    background: #fff !important; color: #000 !important;
-    font-size: 11pt !important;
-  }
-  .print-hide { display: none !important; }
-  .page-break-before { page-break-before: always; }
-}
-`
+import { printElement } from '../../lib/printElement'
 
 // ── Fetch school profile ───────────────────────────────────────────────────────
 function useSchoolProfile() {
@@ -356,8 +339,6 @@ export function SchoolAtAGlancePage() {
 
   return (
     <div className="sui-page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      <style>{PRINT_CSS}</style>
-
       {/* ── Toolbar ───────────────────────────────────────────────────────── */}
       <div className="print-hide" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, padding: '12px 0 24px' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -374,7 +355,7 @@ export function SchoolAtAGlancePage() {
               {(sel.opts as [number,string][]).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           ))}
-          <button onClick={() => window.print()}
+          <button onClick={() => printElement('briefing-page')}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 12.5, fontWeight: 700, color: 'var(--txt)', cursor: 'pointer' }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             Print
