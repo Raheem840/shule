@@ -116,11 +116,24 @@ export function AttendancePage() {
 
   const studentsKey = students.map(s => s.id).join('|')
 
+  // handleSave's onSuccess flips to "Edit Attendance" mode, but saving also
+  // invalidates the attendance query — its refetch changes attendanceKey
+  // (old data -> just-saved data), re-running this effect and silently
+  // resetting saved/isReadOnly back to false right after. This ref lets that
+  // one post-save re-run skip the reset while still refreshing marks from
+  // the server-confirmed values; any other reason attendanceKey/studentsKey
+  // changes (switching class/date/stream) still resets normally.
+  const justSavedRef = useRef(false)
+
   useEffect(() => {
     if (students.length === 0) { setMarks(new Map()); return }
     const init = new Map<string, AttendanceStatus>()
     for (const s of students) init.set(s.id, attendanceMap?.get(s.id) ?? 'present')
     setMarks(init)
+    if (justSavedRef.current) {
+      justSavedRef.current = false
+      return
+    }
     setSaved(false)
     setIsReadOnly(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -154,11 +167,12 @@ export function AttendancePage() {
 
   function handleSave() {
     if (!classId) return
+    justSavedRef.current = true
     saveMutation.mutate(
       { classId, date, records: students.map(s => ({ studentId: s.id, status: marks.get(s.id) ?? 'present' })) },
       {
         onSuccess: () => { ok('Attendance saved successfully'); setSaved(true); setIsReadOnly(true) },
-        onError:   e  => err(e.message),
+        onError:   e  => { justSavedRef.current = false; err(e.message) },
       }
     )
   }

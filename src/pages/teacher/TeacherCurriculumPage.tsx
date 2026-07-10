@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
@@ -381,8 +381,11 @@ export function TeacherCurriculumPage() {
   const [term,      setTerm]      = useCurrentTermDefaultString(activeYear)
   const [year,      setYear]      = useState(YEAR)
   const [filter,    setFilter]    = useState<'all' | 'pending' | 'covered'>('all')
+  const [search,    setSearch]    = useState('')
 
   const selectionReady = !!subjectId && !!classId
+
+  useEffect(() => { setSearch('') }, [subjectId, classId, term, year])
 
   const { data: topics = [], isLoading } = useTopicsForSelection(
     selectionReady ? { subjectId, classId, term, year } : null
@@ -392,11 +395,15 @@ export function TeacherCurriculumPage() {
   const pendingCount = topics.length - coveredCount
   const pct          = topics.length > 0 ? Math.round((coveredCount / topics.length) * 100) : 0
 
-  const visibleTopics = filter === 'covered'
+  const filteredTopics = filter === 'covered'
     ? topics.filter(t => t.coveredAt)
     : filter === 'pending'
       ? topics.filter(t => !t.coveredAt)
       : topics
+
+  const visibleTopics = search.trim()
+    ? filteredTopics.filter(t => t.topic.toLowerCase().includes(search.trim().toLowerCase()))
+    : filteredTopics
 
   const subjectName = allSubjects.find(s => s.id === subjectId)?.name ?? ''
   const className   = allClasses.find(c => c.id === classId)?.name   ?? ''
@@ -586,6 +593,29 @@ export function TeacherCurriculumPage() {
                 </span>
                 {topics.length > 0 && <span style={{ fontSize: 11, color: 'var(--txt3)' }}>Tap circle to toggle</span>}
               </div>
+              {topics.length > 3 && (
+                <div style={{ position: 'relative', marginBottom: 10 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2.4" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Search topics…"
+                    aria-label="Search topics"
+                    style={{
+                      width: '100%', boxSizing: 'border-box', padding: '7px 10px 7px 30px',
+                      border: '.5px solid var(--border)', borderRadius: 10,
+                      background: 'var(--surface)', color: 'var(--txt)',
+                      fontSize: 12.5, fontFamily: 'var(--font1)', outline: 'none',
+                    }}
+                  />
+                  {search && (
+                    <button onClick={() => setSearch('')} aria-label="Clear search"
+                      style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 20, height: 20, border: 'none', background: 'transparent', color: 'var(--txt3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  )}
+                </div>
+              )}
               {topics.length > 0 && (
                 <div style={{ display: 'flex', gap: 3, paddingBottom: 0 }}>
                   {(['all', 'pending', 'covered'] as const).map(f => {
@@ -627,10 +657,14 @@ export function TeacherCurriculumPage() {
                         </svg>
                       </div>
                       <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt)', marginBottom: 5, fontFamily: 'var(--font2)' }}>
-                        {filter === 'covered' ? 'Nothing covered yet' : filter === 'pending' ? 'All topics covered' : 'No topics yet'}
+                        {search.trim()
+                          ? 'No topics match your search'
+                          : filter === 'covered' ? 'Nothing covered yet' : filter === 'pending' ? 'All topics covered' : 'No topics yet'}
                       </div>
                       <div style={{ fontSize: 12.5, color: 'var(--txt3)', lineHeight: 1.55, maxWidth: 260, margin: '0 auto' }}>
-                        {filter === 'all' ? 'Type a topic in the bar below and press Enter.' : filter === 'pending' ? 'Great work — your full plan is done.' : 'Start marking topics as you teach them.'}
+                        {search.trim()
+                          ? 'Try a different keyword, or clear the search.'
+                          : filter === 'all' ? 'Type a topic in the bar below and press Enter.' : filter === 'pending' ? 'Great work — your full plan is done.' : 'Start marking topics as you teach them.'}
                       </div>
                     </div>
                   )

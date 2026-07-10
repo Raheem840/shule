@@ -421,7 +421,6 @@ html, body, #root {
   gap: 8px;
   /* Glassmorphism base */
   background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.09);
   border-radius: 12px;
   padding: 8px 10px;
   backdrop-filter: blur(10px);
@@ -440,7 +439,6 @@ html, body, #root {
 .school-pill:hover {
   /* Intensified glassmorphism */
   background: rgba(255,255,255,0.11);
-  border-color: rgba(255,255,255,0.22);
   box-shadow:
     0 16px 48px rgba(0,0,0,0.55),
     0 0 0 1px rgba(255,255,255,0.12),
@@ -509,6 +507,8 @@ html, body, #root {
   font-size: 10.5px;
   color: rgba(186,214,230,0.85);
   margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.09);
   text-align: center;
   overflow-wrap: anywhere;
 }
