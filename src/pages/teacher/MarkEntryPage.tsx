@@ -26,6 +26,18 @@ import { ReportCardCalcExplainer } from '../../components/shared/ReportCardCalcE
 import type { Student } from '../../types/app'
 import type { MarkRow } from '../../hooks/useExamResults'
 
+// Supabase throws its raw PostgrestError (a plain { message, details, hint,
+// code } object) rather than a real Error instance, so `e instanceof Error`
+// is false for the most common failure case and masked the actual reason
+// behind a generic fallback in every catch block below.
+function getErrorMessage(e: unknown, fallback: string): string {
+  if (e instanceof Error) return e.message
+  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message: unknown }).message === 'string') {
+    return (e as { message: string }).message
+  }
+  return fallback
+}
+
 // ── Mark import field specs ────────────────────────────────────
 // A function of totalMarks so the Score validator can flag an out-of-range
 // value in the preview step itself, matching handleMarkImport's own check —
@@ -805,7 +817,7 @@ export function MarkEntryPage() {
       setShowReasonModal(null)
       setOverrideReason('')
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Save failed'
+      const msg = getErrorMessage(e, 'Save failed')
       // The client's `locked` flag is computed from a possibly-stale cached
       // journal — if the journal actually crossed the grace-period boundary
       // between page load and this click, `locked` was still false, no
@@ -836,7 +848,7 @@ export function MarkEntryPage() {
       await handleSaveAll()
       await publish.mutateAsync(journal.id)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to publish this journal'
+      const msg = getErrorMessage(e, 'Failed to publish this journal')
       toastErr(msg)
     }
   }
@@ -944,7 +956,7 @@ export function MarkEntryPage() {
       })
       result.imported = validRows.length
     } catch (e) {
-      const reason = e instanceof Error ? e.message : 'Import failed'
+      const reason = getErrorMessage(e, 'Import failed')
       validRows.forEach((_, i) => result.failed.push({ row: i + 1, reason }))
     }
 
