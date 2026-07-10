@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useClasses, useStreams, useCreateStream, useMoveStudent, useCreateClass } from '../../hooks/useClasses'
 import { useStaff } from '../../hooks/useStaff'
 import { useStudents } from '../../hooks/useStudents'
+import { useSchoolSettings } from '../../hooks/useAdmin'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
 import type { Stream, Student } from '../../types/app'
@@ -42,6 +43,35 @@ function levelLabel(level: string | null): string {
   if (n === 5) return 'S.5 (A-Level)'
   if (n === 6) return 'S.6 (A-Level)'
   return `Level ${n}`
+}
+
+// ── Student chip (initials avatar + name + admission no.) ──────
+const CHIP_AVATAR_COLORS = ['#0d9488', '#0ea5e9', '#8b5cf6', '#f59e0b', '#f43f5e', '#10b981', '#6366f1']
+function chipColor(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return CHIP_AVATAR_COLORS[Math.abs(hash) % CHIP_AVATAR_COLORS.length]!
+}
+function StudentChip({ firstName, lastName, admissionNumber }: { firstName: string; lastName: string; admissionNumber: string }) {
+  const name = `${firstName} ${lastName}`
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 9px 5px 5px', borderRadius: 7, background: 'var(--surface2)', border: '.5px solid var(--border)' }}>
+      <div style={{
+        width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+        background: chipColor(name), color: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 9.5, fontWeight: 800, fontFamily: 'var(--font2)',
+      }}>
+        {firstName[0]?.toUpperCase()}{lastName[0]?.toUpperCase()}
+      </div>
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {lastName} {firstName}
+      </span>
+      <span style={{ fontSize: 10.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginLeft: 'auto', flexShrink: 0 }}>
+        {admissionNumber}
+      </span>
+    </div>
+  )
 }
 
 const LEVEL_COLORS = [
@@ -481,16 +511,8 @@ function StreamRow({
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 6 }}>
-              {sortedStudents.map((s, i) => (
-                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 9px', borderRadius: 7, background: 'var(--surface2)', border: '.5px solid var(--border)' }}>
-                  <span style={{ fontSize: 10.5, color: 'var(--txt3)', fontWeight: 700, width: 16, flexShrink: 0, textAlign: 'right' }}>{i + 1}</span>
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {s.lastName} {s.firstName}
-                  </span>
-                  <span style={{ fontSize: 10.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginLeft: 'auto', flexShrink: 0 }}>
-                    {s.admissionNumber}
-                  </span>
-                </div>
+              {sortedStudents.map(s => (
+                <StudentChip key={s.id} firstName={s.firstName} lastName={s.lastName} admissionNumber={s.admissionNumber} />
               ))}
             </div>
           )}
@@ -523,7 +545,7 @@ function ClassCard({
 
   return (
     <>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+      <div className="class-card-premium" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
 
         {/* Card header */}
         <div style={{ padding: '1rem 1.25rem', background: color.bg, borderBottom: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -609,16 +631,8 @@ function ClassCard({
                   Not yet assigned to a stream ({students.filter(s => !s.streamId).length})
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 6 }}>
-                  {students.filter(s => !s.streamId).sort(sortByName).map((s, i) => (
-                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 9px', borderRadius: 7, background: 'var(--surface2)', border: '.5px solid var(--border)' }}>
-                      <span style={{ fontSize: 10.5, color: 'var(--txt3)', fontWeight: 700, width: 16, flexShrink: 0, textAlign: 'right' }}>{i + 1}</span>
-                      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {s.lastName} {s.firstName}
-                      </span>
-                      <span style={{ fontSize: 10.5, color: 'var(--txt3)', fontFamily: 'var(--font3)', marginLeft: 'auto', flexShrink: 0 }}>
-                        {s.admissionNumber}
-                      </span>
-                    </div>
+                  {students.filter(s => !s.streamId).sort(sortByName).map(s => (
+                    <StudentChip key={s.id} firstName={s.firstName} lastName={s.lastName} admissionNumber={s.admissionNumber} />
                   ))}
                 </div>
               </div>
@@ -657,8 +671,16 @@ function ClassCard({
 // UI chrome, not a usable roster. This renders a separate, plain table-only
 // version — hidden on screen (.print-only), shown only inside #print-root
 // when printing — grouped by stream with each student's admission number.
+const PRINT_INK   = '#1e293b'
+const PRINT_RULE  = '#cbd5e1'
+const PRINT_BRAND = '#0f766e'
+
 const rosterThTd: React.CSSProperties = {
-  border: '1px solid #94a3b8', padding: '3px 6px', textAlign: 'left', fontSize: 10.5,
+  border: 'none', borderBottom: `1px solid ${PRINT_RULE}`, padding: '5px 8px', textAlign: 'left', fontSize: 10.5, color: PRINT_INK,
+}
+const rosterTh: React.CSSProperties = {
+  ...rosterThTd, fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.5,
+  color: '#fff', background: PRINT_BRAND, borderBottom: 'none',
 }
 
 function sortByName(a: Student, b: Student): number {
@@ -667,25 +689,25 @@ function sortByName(a: Student, b: Student): number {
 
 function RosterTable({ students }: { students: Student[] }) {
   if (students.length === 0) {
-    return <div style={{ fontSize: 11, color: '#666', fontStyle: 'italic', margin: '2px 0 10px' }}>No students</div>
+    return <div style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic', margin: '2px 0 12px' }}>No students</div>
   }
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 14 }}>
       <thead>
         <tr>
-          <th style={{ ...rosterThTd, width: 28 }}>#</th>
-          <th style={rosterThTd}>Name</th>
-          <th style={rosterThTd}>Admission No.</th>
-          <th style={{ ...rosterThTd, width: 60 }}>Gender</th>
+          <th style={{ ...rosterTh, width: 28, borderRadius: '5px 0 0 5px' }}>#</th>
+          <th style={rosterTh}>Name</th>
+          <th style={rosterTh}>Admission No.</th>
+          <th style={{ ...rosterTh, width: 60, borderRadius: '0 5px 5px 0' }}>Gender</th>
         </tr>
       </thead>
       <tbody>
         {students.map((s, i) => (
-          <tr key={s.id}>
-            <td style={rosterThTd}>{i + 1}</td>
-            <td style={rosterThTd}>{s.lastName} {s.firstName}</td>
-            <td style={rosterThTd}>{s.admissionNumber}</td>
-            <td style={{ ...rosterThTd, textTransform: 'capitalize' }}>{s.gender ?? '—'}</td>
+          <tr key={s.id} style={{ background: i % 2 === 1 ? '#f8fafc' : 'transparent' }}>
+            <td style={{ ...rosterThTd, color: '#94a3b8', fontWeight: 700 }}>{i + 1}</td>
+            <td style={{ ...rosterThTd, fontWeight: 600 }}>{s.lastName} {s.firstName}</td>
+            <td style={{ ...rosterThTd, fontFamily: 'var(--font3)', color: '#475569' }}>{s.admissionNumber}</td>
+            <td style={{ ...rosterThTd, textTransform: 'capitalize', color: '#475569' }}>{s.gender ?? '—'}</td>
           </tr>
         ))}
       </tbody>
@@ -693,9 +715,10 @@ function RosterTable({ students }: { students: Student[] }) {
   )
 }
 
-function PrintableClassRoster({ cls }: { cls: { id: string; name: string; level: string | null } }) {
+function PrintableClassRoster({ cls, colorIdx }: { cls: { id: string; name: string; level: string | null }; colorIdx: number }) {
   const { data: streams  = [] } = useStreams(cls.id)
   const { data: students = [] } = useStudents({ classId: cls.id })
+  const accent = LEVEL_COLORS[colorIdx % LEVEL_COLORS.length]!.text
 
   const byStream = new Map<string, Student[]>()
   for (const s of students) {
@@ -704,17 +727,23 @@ function PrintableClassRoster({ cls }: { cls: { id: string; name: string; level:
   }
 
   return (
-    <div style={{ marginBottom: 20, pageBreakInside: 'avoid' as const }}>
-      <h2 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 6px', fontFamily: 'var(--font2)' }}>
-        {cls.name} — {levelLabel(cls.level)} ({students.length} student{students.length !== 1 ? 's' : ''})
-      </h2>
+    <div style={{ marginBottom: 26, pageBreakInside: 'avoid' as const }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, borderBottom: `2px solid ${accent}`, paddingBottom: 5, marginBottom: 10 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 900, margin: 0, fontFamily: 'var(--font2)', color: accent, letterSpacing: -0.2 }}>
+          {cls.name}
+        </h2>
+        <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{levelLabel(cls.level)}</span>
+        <span style={{ fontSize: 11, color: '#64748b', marginLeft: 'auto' }}>
+          {students.length} student{students.length !== 1 ? 's' : ''}
+        </span>
+      </div>
       {streams.length === 0 ? (
         <RosterTable students={[...students].sort(sortByName)} />
       ) : (
         streams.map(stream => (
           <div key={stream.id}>
-            <h3 style={{ fontSize: 12, fontWeight: 700, margin: '6px 0 3px' }}>
-              {cls.name} {stream.name} ({(byStream.get(stream.id) ?? []).length})
+            <h3 style={{ fontSize: 11.5, fontWeight: 700, margin: '8px 0 4px', color: PRINT_INK }}>
+              {cls.name} {stream.name} <span style={{ color: '#94a3b8', fontWeight: 500 }}>({(byStream.get(stream.id) ?? []).length})</span>
             </h3>
             <RosterTable students={[...(byStream.get(stream.id) ?? [])].sort(sortByName)} />
           </div>
@@ -722,7 +751,7 @@ function PrintableClassRoster({ cls }: { cls: { id: string; name: string; level:
       )}
       {(byStream.get('__none__') ?? []).length > 0 && (
         <div>
-          <h3 style={{ fontSize: 12, fontWeight: 700, margin: '6px 0 3px' }}>Unassigned to a stream</h3>
+          <h3 style={{ fontSize: 11.5, fontWeight: 700, margin: '8px 0 4px', color: PRINT_INK }}>Unassigned to a stream</h3>
           <RosterTable students={[...(byStream.get('__none__') ?? [])].sort(sortByName)} />
         </div>
       )}
@@ -750,6 +779,7 @@ function printClassList(elementId: string) {
 export function ClassListPage() {
   const { data: classes = [], isLoading } = useClasses()
   const { data: staffList = [] }          = useStaff({ isActive: true })
+  const { data: school }                  = useSchoolSettings()
   const [addClassOpen, setAddClassOpen]   = useState(false)
   const [levelFilter,  setLevelFilter]    = useState<string | null>(null)
 
@@ -823,10 +853,9 @@ export function ClassListPage() {
               boxShadow: levelFilter === null ? '0 3px 10px rgba(13,148,136,.3)' : 'none',
             }}
           >
-            All ({classes.length})
+            All
           </button>
           {availableLevels.map(level => {
-            const count = classes.filter(c => c.level === level).length
             const active = levelFilter === level
             return (
               <button
@@ -840,7 +869,7 @@ export function ClassListPage() {
                   boxShadow: active ? '0 3px 10px rgba(13,148,136,.3)' : 'none',
                 }}
               >
-                {levelLabel(level).split(' (')[0]} ({count})
+                {levelLabel(level).split(' (')[0].replace('.', '')}
               </button>
             )
           })}
@@ -884,17 +913,40 @@ export function ClassListPage() {
           </div>
 
           {/* Hidden on screen, rendered only inside #print-root when printing
-              (see printClassList/the .printing-report CSS) — a plain roster
-              table instead of the interactive cards above. */}
+              (see printClassList/the .printing-report CSS) — a proper
+              letterhead + plain roster tables instead of the interactive
+              cards above. */}
           <div id="class-list-printable" className="print-only">
-            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 18, margin: '0 0 4px' }}>Class List</h1>
-            <p style={{ fontSize: 11, color: '#666', margin: '0 0 16px' }}>
-              {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-              {levelFilter ? ` — ${levelLabel(levelFilter)}` : ''}
-            </p>
-            {filteredClasses.map(cls => (
-              <PrintableClassRoster key={cls.id} cls={cls} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, borderBottom: `3px solid ${PRINT_BRAND}`, paddingBottom: 12, marginBottom: 18 }}>
+              {school?.logoUrl ? (
+                <img src={school.logoUrl} alt="" style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 52, height: 52, borderRadius: 10, background: PRINT_BRAND, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 18, flexShrink: 0 }}>
+                  {(school?.shortName || school?.schoolName || 'S').slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 18, color: PRINT_INK, letterSpacing: -0.3 }}>
+                  {school?.schoolName ?? 'School'}
+                </div>
+                {school?.motto && (
+                  <div style={{ fontSize: 10.5, color: '#64748b', fontStyle: 'italic', marginTop: 1 }}>{school.motto}</div>
+                )}
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: PRINT_BRAND }}>Class List</div>
+                <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>
+                  {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  {levelFilter ? ` · ${levelLabel(levelFilter)}` : ''}
+                </div>
+              </div>
+            </div>
+            {filteredClasses.map((cls, i) => (
+              <PrintableClassRoster key={cls.id} cls={cls} colorIdx={i} />
             ))}
+            <div style={{ borderTop: `1px solid ${PRINT_RULE}`, marginTop: 8, paddingTop: 8, fontSize: 9.5, color: '#94a3b8', textAlign: 'center' }}>
+              Generated by Shule — {new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
+            </div>
           </div>
         </>
       )}

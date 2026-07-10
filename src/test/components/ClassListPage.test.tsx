@@ -48,6 +48,8 @@ vi.mock('../../hooks/useStudents', () => ({
   useStudents: vi.fn(),
 }))
 
+vi.mock('../../hooks/useAdmin', () => ({ useSchoolSettings: vi.fn() }))
+
 // ── Toast ──────────────────────────────────────────────────────
 vi.mock('../../components/ui/Toast', () => ({
   useToast:      () => ({ success: vi.fn(), error: vi.fn() }),
@@ -60,6 +62,7 @@ import {
 } from '../../hooks/useClasses'
 import { useStaff } from '../../hooks/useStaff'
 import { useStudents } from '../../hooks/useStudents'
+import { useSchoolSettings } from '../../hooks/useAdmin'
 import { ClassListPage } from '../../pages/secretary/ClassListPage'
 
 const mockUseClasses     = useClasses     as ReturnType<typeof vi.fn>
@@ -69,6 +72,7 @@ const mockUseCreateStream = useCreateStream as ReturnType<typeof vi.fn>
 const mockUseMoveStudent  = useMoveStudent  as ReturnType<typeof vi.fn>
 const mockUseStaff        = useStaff        as ReturnType<typeof vi.fn>
 const mockUseStudents     = useStudents     as ReturnType<typeof vi.fn>
+const mockUseSchoolSettings = useSchoolSettings as ReturnType<typeof vi.fn>
 
 const MUTATION_STUB = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }
 
@@ -80,6 +84,10 @@ function setupMocks(classes: any[] = []) {
   mockUseMoveStudent.mockReturnValue(MUTATION_STUB)
   mockUseStaff.mockReturnValue({ data: [], isLoading: false })
   mockUseStudents.mockReturnValue({ data: [], isLoading: false })
+  mockUseSchoolSettings.mockReturnValue({
+    data: { schoolName: 'Test School', shortName: 'TS', motto: null, logoUrl: null },
+    isLoading: false,
+  })
 }
 
 const SAMPLE_CLASSES = [
@@ -121,9 +129,12 @@ describe('ClassListPage', () => {
   it('renders class cards when classes data is provided', () => {
     setupMocks(SAMPLE_CLASSES)
     render(<ClassListPage />)
-    expect(screen.getByText('S.1')).toBeInTheDocument()
-    expect(screen.getByText('S.2')).toBeInTheDocument()
-    expect(screen.getByText('S.3')).toBeInTheDocument()
+    // Each class name now appears twice — once in the interactive card, once
+    // in the (CSS-hidden, not jsdom-hidden) print-only roster — so use
+    // getAllByText rather than assuming a single match.
+    expect(screen.getAllByText('S.1').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('S.2').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('S.3').length).toBeGreaterThan(0)
   })
 
   it('shows correct class count in subtitle', () => {

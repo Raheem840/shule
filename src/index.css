@@ -798,6 +798,9 @@ html, body, #root {
   transition: background 0.25s, border-color 0.25s, box-shadow 0.15s;
 }
 .card:hover { box-shadow: var(--sh-md); }
+
+.class-card-premium { transition: box-shadow 0.2s ease, transform 0.2s ease; }
+.class-card-premium:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.08); transform: translateY(-1px); }
 .ar[data-theme="dark"] .card {
   background: rgba(13,24,45,0.6);
   backdrop-filter: blur(20px);
