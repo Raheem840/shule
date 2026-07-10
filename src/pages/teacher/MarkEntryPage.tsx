@@ -21,6 +21,7 @@ import {
   type ConflictStrategy,
 } from '../../components/shared/ImportWizard'
 import { useAuth } from '../../store/AuthContext'
+import { ReportCardCalcExplainer } from '../../components/shared/ReportCardCalcExplainer'
 import type { Student } from '../../types/app'
 import type { MarkRow } from '../../hooks/useExamResults'
 
@@ -41,10 +42,13 @@ function buildMarkRequiredFields(totalMarks: number): ColumnSpec[] {
     {
       key:      'score',
       label:    'Score',
-      required: true,
-      hint:     `Numeric score between 0 and ${totalMarks}`,
+      required: false,
+      hint:     `Numeric score between 0 and ${totalMarks} — leave blank if the student has no mark yet (didn't sit it, or hasn't been graded), or mark them Absent instead`,
       example:  '72',
       validate: (v: string) => {
+        // Blank is a valid, meaningful value here (see handleMarkImport) —
+        // only validate when something was actually entered.
+        if (v.trim() === '') return null
         const n = Number(v)
         if (isNaN(n) || n < 0) return 'Score must be a positive number'
         if (n > totalMarks) return `Score must not exceed ${totalMarks}`
@@ -59,7 +63,7 @@ const MARK_OPTIONAL_FIELDS: ColumnSpec[] = [
     key:      'is_absent',
     label:    'Absent',
     required: false,
-    hint:     'TRUE or FALSE — leave blank for present',
+    hint:     'TRUE if the student missed the paper — leave blank/FALSE otherwise. A blank Score with this left blank just means no mark yet, and that student is skipped rather than recorded as 0.',
     example:  'FALSE',
   },
   {
@@ -78,8 +82,6 @@ const GRADE_LABEL: Record<string, string> = {
   A: 'Exceptional', B: 'Outstanding', C: 'Satisfactory', D: 'Basic', E: 'Elementary',
 }
 
-const CA_LABELS: Record<number, string> = { 0: 'None', 1: 'Basic', 2: 'Adequate', 3: 'Exceptional' }
-
 function CAScoreInput({ value, onChange, disabled, fullWidth }: {
   value:      number | null
   onChange:   (v: number) => void
@@ -87,33 +89,26 @@ function CAScoreInput({ value, onChange, disabled, fullWidth }: {
   fullWidth?: boolean
 }) {
   return (
-    <div
-      style={{ display: 'flex', gap: 2, width: fullWidth ? '100%' : undefined }}
-      tabIndex={disabled ? -1 : 0}
-      onKeyDown={e => {
-        if (disabled) return
-        const cur = value ?? 0
-        if (e.key === 'ArrowRight' && cur < 3) { onChange(cur + 1); e.preventDefault() }
-        if (e.key === 'ArrowLeft'  && cur > 0) { onChange(cur - 1); e.preventDefault() }
-        const d = parseInt(e.key)
-        if (!isNaN(d) && d >= 0 && d <= 3)    { onChange(d);       e.preventDefault() }
+    <input
+      type="number" min={0} max={3} step={0.1}
+      value={value ?? ''}
+      disabled={disabled}
+      placeholder="0–3"
+      onChange={e => {
+        if (e.target.value.endsWith('.')) return
+        const v = e.target.value === '' ? null : parseFloat(e.target.value)
+        if (v === null) return
+        if (isNaN(v)) return
+        onChange(v)
       }}
-    >
-      {[0, 1, 2, 3].map(n => (
-        <button key={n} type="button" disabled={disabled} title={CA_LABELS[n]} onClick={() => onChange(n)}
-          style={{
-            flex: fullWidth ? 1 : undefined,
-            width: fullWidth ? undefined : 32, height: 44, border: '.5px solid',
-            borderColor: value === n ? 'var(--brand)' : 'var(--border)',
-            background:  value === n ? 'var(--brand)' : 'var(--surface2)',
-            color:       value === n ? '#fff' : 'var(--txt2)',
-            borderRadius: n === 0 ? '8px 0 0 8px' : n === 3 ? '0 8px 8px 0' : 0,
-            fontFamily: 'var(--font3)', fontSize: 14, fontWeight: 700,
-            cursor: disabled ? 'not-allowed' : 'pointer',
-            opacity: disabled ? 0.5 : 1, transition: 'background 0.1s, color 0.1s',
-          }}>{n}</button>
-      ))}
-    </div>
+      style={{
+        width: fullWidth ? '100%' : 80, maxWidth: fullWidth ? undefined : 80,
+        padding: '10px 8px', border: '.5px solid var(--border)', borderRadius: 8,
+        fontSize: 16, fontFamily: 'var(--font3)',
+        background: disabled ? 'var(--surface2)' : 'var(--surface)', color: 'var(--txt)',
+        boxSizing: 'border-box',
+      }}
+    />
   )
 }
 
@@ -339,9 +334,14 @@ function PerformanceAnalytics({ marks, students, totalMarks, isCA }: {
     })
   }, [marks, students, totalMarks, isCA])
 
-  // Check if there is any data worth showing
+  // Check if there is any data worth showing — computed here but the early
+  // return happens after every hook below has run (Rules of Hooks): this
+  // component previously `return`ed null right here, before the useMemo
+  // calls for filtered/kpis/gradeDistData/rangeDistData further down, so the
+  // very first score entered on an empty journal (hasData flips false->true)
+  // changed the hook count between renders and crashed with "Rendered more
+  // hooks than during the previous render."
   const hasData = allResults.some(r => r.score !== null || r.isAbsent)
-  if (!hasData) return null
 
   // Apply filter
   const filtered = useMemo<StudentResult[]>(() => {
@@ -433,6 +433,8 @@ function PerformanceAnalytics({ marks, students, totalMarks, isCA }: {
   }
 
   const filteredScoredCount = filtered.filter(r => r.score !== null && !r.isAbsent).length
+
+  if (!hasData) return null
 
   return (
     <div style={{
@@ -875,17 +877,37 @@ export function MarkEntryPage() {
     rows.forEach((row, idx) => {
       const adm = (row.admission_number ?? '').trim().toLowerCase()
       const studentId = admMap.get(adm)
+      // Student not found in this class/stream — tell the teacher via
+      // result.failed (surfaced in the wizard's results step) but keep
+      // processing every other row rather than aborting the whole import.
       if (!studentId) {
         result.failed.push({ row: idx + 1, reason: `Student not found: "${row.admission_number}"` })
         return
       }
-      const scoreNum = Number(row.score)
+
+      const absent    = ABSENT_TRUE_VALUES.has((row.is_absent ?? '').trim().toLowerCase())
+      const rawScore  = (row.score ?? '').trim()
+
+      if (absent) {
+        validRows.push({ studentId, score: null, isAbsent: true })
+        return
+      }
+
+      // A blank score (and no Absent flag) means "no mark for this student
+      // yet" — not a score of 0, and not an error. Skip the row so it
+      // doesn't overwrite anything already saved for them; Number('') === 0
+      // would otherwise silently record a real zero score here.
+      if (rawScore === '') {
+        result.skipped++
+        return
+      }
+
+      const scoreNum = Number(rawScore)
       if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > journal.totalMarks) {
         result.failed.push({ row: idx + 1, reason: `Invalid score: "${row.score}" (max ${journal.totalMarks})` })
         return
       }
-      const absent = ABSENT_TRUE_VALUES.has((row.is_absent ?? '').trim().toLowerCase())
-      validRows.push({ studentId, score: absent ? null : scoreNum, isAbsent: absent })
+      validRows.push({ studentId, score: scoreNum, isAbsent: false })
     })
 
     if (validRows.length === 0) return result
@@ -1016,7 +1038,7 @@ export function MarkEntryPage() {
         {!isMobile && (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: isCA ? '140px 1fr 120px 60px' : '140px 1fr 160px 80px 60px',
+            gridTemplateColumns: isCA ? '140px 1fr 120px 60px' : '140px 1fr 160px 60px 80px',
             background: 'var(--surface2)', borderBottom: '.5px solid var(--border)',
             padding: '11px 16px',
             fontSize: 11, fontWeight: 700, color: 'var(--txt2)',
@@ -1025,8 +1047,8 @@ export function MarkEntryPage() {
             <div>Adm. No</div>
             <div>Student Name</div>
             <div>{isCA ? 'Score (0–3)' : `Score (/ ${totalMarks})`}</div>
-            {!isCA && <div>Grade</div>}
             <div>Absent</div>
+            {!isCA && <div>Grade</div>}
           </div>
         )}
 
@@ -1055,58 +1077,57 @@ export function MarkEntryPage() {
                     background: isAbsent ? 'rgba(14,165,233,.04)' : hasWarning ? 'rgba(245,158,11,.05)' : 'transparent',
                     display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6,
                   }}>
-                    {/* Row 1: name + absent toggle */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {student.firstName} {student.lastName}
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>
-                          {student.admissionNumber}
-                          {displayGrade && (
-                            <span style={{ marginLeft: 8, padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 800, background: GRADE_COLORS[displayGrade] + '20', color: GRADE_COLORS[displayGrade] }}>
-                              {displayGrade}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                    {/* Row 1: name */}
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {student.firstName} {student.lastName}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>
+                      {student.admissionNumber}
+                      {displayGrade && (
+                        <span style={{ marginLeft: 8, padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 800, background: GRADE_COLORS[displayGrade] + '20', color: GRADE_COLORS[displayGrade] }}>
+                          {displayGrade}
+                        </span>
+                      )}
+                    </div>
+                    {/* Row 2: mark entry + missed-exam toggle, side by side */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {!isAbsent && (
+                        isCA ? (
+                          <CAScoreInput value={score} onChange={v => setMark(student.id, v, false)} disabled={false} fullWidth />
+                        ) : (
+                          <input
+                            type="number" min={0} max={totalMarks} step={0.5}
+                            value={score ?? ''}
+                            onChange={e => {
+                              if (e.target.value.endsWith('.')) return
+                              const v = e.target.value === '' ? null : parseFloat(e.target.value)
+                              if (v !== null && isNaN(v)) return
+                              setMark(student.id, v, false)
+                            }}
+                            placeholder={`Score / ${totalMarks}`}
+                            style={{
+                              flex: 1, padding: '10px 14px', border: `.5px solid ${hasWarning ? 'var(--warning)' : 'var(--border)'}`,
+                              borderRadius: 10, fontSize: 16, fontFamily: 'var(--font3)',
+                              background: 'var(--surface)', color: 'var(--txt)', boxSizing: 'border-box',
+                            }}
+                          />
+                        )
+                      )}
                       <button
                         type="button"
                         onClick={() => setMark(student.id, null, !isAbsent)}
+                        title="Mark absent — if they redo the paper later, tap again and enter the real score"
                         style={{
-                          flexShrink: 0, padding: '6px 12px', borderRadius: 8, border: '.5px solid',
+                          flex: isAbsent ? 1 : undefined, flexShrink: 0, padding: '10px 14px', borderRadius: 10, border: '.5px solid',
                           borderColor: isAbsent ? 'var(--info)' : 'var(--border)',
                           background: isAbsent ? 'rgba(14,165,233,.1)' : 'var(--surface2)',
                           color: isAbsent ? 'var(--info)' : 'var(--txt3)',
-                          fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                          fontSize: 12, fontWeight: 700, cursor: 'pointer',
                         }}
                       >
-                        {isAbsent ? 'ABSENT' : 'Present'}
+                        {isAbsent ? 'ABSENT — tap to undo' : 'Missed exam?'}
                       </button>
                     </div>
-                    {/* Row 2: score input */}
-                    {!isAbsent && (
-                      isCA ? (
-                        <CAScoreInput value={score} onChange={v => setMark(student.id, v, false)} disabled={false} fullWidth />
-                      ) : (
-                        <input
-                          type="number" min={0} max={totalMarks} step={0.5}
-                          value={score ?? ''}
-                          onChange={e => {
-                            if (e.target.value.endsWith('.')) return
-                            const v = e.target.value === '' ? null : parseFloat(e.target.value)
-                            if (v !== null && isNaN(v)) return
-                            setMark(student.id, v, false)
-                          }}
-                          placeholder={`Score / ${totalMarks}`}
-                          style={{
-                            width: '100%', padding: '10px 14px', border: `.5px solid ${hasWarning ? 'var(--warning)' : 'var(--border)'}`,
-                            borderRadius: 10, fontSize: 16, fontFamily: 'var(--font3)',
-                            background: 'var(--surface)', color: 'var(--txt)', boxSizing: 'border-box',
-                          }}
-                        />
-                      )
-                    )}
                     {hasWarning && <span style={{ fontSize: 11, color: 'var(--warning)' }}>Score exceeds max ({totalMarks})</span>}
                   </div>
                 )
@@ -1117,7 +1138,7 @@ export function MarkEntryPage() {
                 <div key={student.id} style={{
                   position: 'absolute', top: vRow.start, left: 0, right: 0, height: vRow.size,
                   display: 'grid',
-                  gridTemplateColumns: isCA ? '140px 1fr 120px 60px' : '140px 1fr 160px 80px 60px',
+                  gridTemplateColumns: isCA ? '140px 1fr 120px 60px' : '140px 1fr 160px 60px 80px',
                   alignItems: 'center', padding: '0 16px',
                   borderBottom: '.5px solid var(--border)',
                   background: hasWarning ? 'rgba(245,158,11,.05)' : isMissing ? 'rgba(14,165,233,.03)' : 'transparent',
@@ -1144,6 +1165,11 @@ export function MarkEntryPage() {
                     </div>
                   )}
 
+                  <div>
+                    <input type="checkbox" checked={isAbsent} onChange={e => setMark(student.id, null, e.target.checked)}
+                      title="Mark absent — if they redo the paper later, just uncheck this and enter the real score" style={{ width: 20, height: 20, cursor: 'pointer', accentColor: 'var(--brand)' }} />
+                  </div>
+
                   {!isCA && (
                     <div>
                       {displayGrade ? (
@@ -1155,11 +1181,6 @@ export function MarkEntryPage() {
                       ) : null}
                     </div>
                   )}
-
-                  <div>
-                    <input type="checkbox" checked={isAbsent} onChange={e => setMark(student.id, null, e.target.checked)}
-                      title="Mark absent" style={{ width: 20, height: 20, cursor: 'pointer', accentColor: 'var(--brand)' }} />
-                  </div>
                 </div>
               )
             })}
@@ -1194,11 +1215,19 @@ export function MarkEntryPage() {
       )}
 
       {students.length > 0 && (
-        <div style={{ background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)', padding: 20, boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
-          <ScoreDistChart marks={marks} totalMarks={totalMarks} passMark={passMark} isCA={isCA} />
-          <div style={{ marginTop: 20, borderTop: '.5px solid var(--border)', paddingTop: 16 }}>
-            <GradeTabs marks={marks} students={students} totalMarks={totalMarks} isCA={isCA} />
+        <div style={{ background: 'var(--surface)', borderRadius: 18, border: '.5px solid var(--border)', overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,.06)' }}>
+          <div style={{ padding: 20 }}>
+            <ScoreDistChart marks={marks} totalMarks={totalMarks} passMark={passMark} isCA={isCA} />
+            <div style={{ marginTop: 20, borderTop: '.5px solid var(--border)', paddingTop: 16 }}>
+              <GradeTabs marks={marks} students={students} totalMarks={totalMarks} isCA={isCA} />
+            </div>
           </div>
+          {/* Only A/C (or whichever grades happen to occur in the marks
+              entered so far) may show above — this is the full A-E scale
+              reference, tucked away collapsed since it's a "why this grade"
+              lookup, not something that needs to compete with the marks
+              themselves. */}
+          <ReportCardCalcExplainer />
         </div>
       )}
 
@@ -1211,7 +1240,8 @@ export function MarkEntryPage() {
         >
           <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(14,165,233,.07)', border: '.5px solid rgba(14,165,233,.25)', borderRadius: 10, fontSize: 12.5, color: '#0369a1' }}>
             <strong>Template columns:</strong> Admission No. · Score · Absent (optional) · Remarks (optional).
-            Scores must be between 0 and {totalMarks}.
+            Scores must be between 0 and {totalMarks}. A blank Score row is skipped (no mark yet) unless Absent is TRUE.
+            Any admission number not found in this class is skipped and listed after import — everyone else still gets saved.
           </div>
           <ImportWizard
             context="marks"
