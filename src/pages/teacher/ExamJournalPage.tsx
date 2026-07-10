@@ -13,6 +13,7 @@ import {
 } from 'recharts'
 import { useExamJournals, useCreateJournal, useNextCALabel } from '../../hooks/useExamJournal'
 import { useJournalEvent } from '../../hooks/useTeacherEvents'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { calculateCBCGrade } from '../../types/app'
@@ -193,6 +194,8 @@ function CreateJournalModal({ onClose, prefillEvent }: { onClose: () => void; pr
   const journalEvent     = useJournalEvent()
   const classes          = useMyAssignedClasses()
   const subjects         = useMyAssignedSubjects()
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeYear       = academicYears.find(y => y.isActive) ?? academicYears[0]
 
   const prefillAssessmentType = prefillEvent ? (EVENT_TYPE_TO_ASSESSMENT[prefillEvent.eventType] ?? 'ca') : 'ca'
 
@@ -239,10 +242,12 @@ function CreateJournalModal({ onClose, prefillEvent }: { onClose: () => void; pr
   const isDIT = assessmentType === 'dit'
 
   const onSubmit = handleSubmit(async values => {
+    if (!activeYear) return
     const journalId = await create.mutateAsync({
       subjectId:        values.subjectId,
       classId:          values.classId,
       streamId:         values.streamId ?? null,
+      academicYearId:   activeYear.id,
       assessmentType:   values.assessmentType,
       dateGiven:        values.date,
       totalMarks:       isCA ? 3 : (values.totalMarks ?? 100),
@@ -390,6 +395,12 @@ function CreateJournalModal({ onClose, prefillEvent }: { onClose: () => void; pr
             <input {...register('notes')} style={inputCls} placeholder="Optional notes about this assessment" />
           </FieldWrap>
 
+          {!activeYear && (
+            <div style={{ color: 'var(--danger)', fontSize: 12, padding: '8px 12px', background: 'rgba(244,63,94,.08)', borderRadius: 10 }}>
+              No active academic year — ask the Principal to activate one in Academic Years before creating a journal.
+            </div>
+          )}
+
           {create.isError && (
             <div style={{ color: 'var(--danger)', fontSize: 12, padding: '8px 12px', background: 'rgba(244,63,94,.08)', borderRadius: 10 }}>
               {(create.error as Error).message}
@@ -401,7 +412,7 @@ function CreateJournalModal({ onClose, prefillEvent }: { onClose: () => void; pr
               style={{ padding: '9px 18px', borderRadius: 10, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
               Cancel
             </button>
-            <button type="button" onClick={() => void onSubmit()} disabled={create.isPending}
+            <button type="button" onClick={() => void onSubmit()} disabled={create.isPending || !activeYear}
               style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#6366f1,#4f46e5)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 14px rgba(99,102,241,.35)' }}>
               {create.isPending ? 'Creating…' : 'Create Journal'}
             </button>

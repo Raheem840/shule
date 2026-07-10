@@ -149,6 +149,7 @@ export type CreateJournalInput = {
   subjectId:       string
   classId:         string
   streamId:        string | null
+  academicYearId:  string
   assessmentType:  AssessmentType
   dateGiven:       string
   totalMarks:      number
@@ -208,6 +209,7 @@ export function useCreateJournal() {
           subject_id:        input.subjectId,
           class_id:          input.classId,
           stream_id:         input.streamId,
+          academic_year_id:  input.academicYearId,
           assessment_type:   input.assessmentType,
           name,
           date_given:        input.dateGiven,

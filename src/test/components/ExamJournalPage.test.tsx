@@ -34,6 +34,9 @@ vi.mock('../../hooks/useClasses', () => ({
 vi.mock('../../hooks/useTeacherEvents', () => ({
   useJournalEvent: () => ({ mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false }),
 }))
+vi.mock('../../hooks/useFeeStructure', () => ({
+  useAcademicYears: () => ({ data: [{ id: 'year-1', isActive: true }], isLoading: false }),
+}))
 
 import { ExamJournalPage, journalSchema } from '../../pages/teacher/ExamJournalPage'
 

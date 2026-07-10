@@ -165,7 +165,7 @@ describe('useCreateJournal', () => {
     let returnedId: string | undefined
     await act(async () => {
       returnedId = await result.current.mutateAsync({
-        subjectId: 'sub-1', classId: 'cls-1', streamId: null,
+        subjectId: 'sub-1', classId: 'cls-1', streamId: null, academicYearId: 'year-1',
         assessmentType: 'ca',
         dateGiven: '2025-06-10',
         totalMarks: 999,   // should be overridden to 3
@@ -186,7 +186,7 @@ describe('useCreateJournal', () => {
 
     await act(async () => {
       await result.current.mutateAsync({
-        subjectId: 'sub-1', classId: 'cls-1', streamId: null,
+        subjectId: 'sub-1', classId: 'cls-1', streamId: null, academicYearId: 'year-1',
         assessmentType: 'mid_term',
         dateGiven: '2025-06-10',
         totalMarks: 80,
@@ -206,7 +206,7 @@ describe('useCreateJournal', () => {
     await act(async () => {
       await expect(
         result.current.mutateAsync({
-          subjectId: 'sub-1', classId: 'cls-1', streamId: null,
+          subjectId: 'sub-1', classId: 'cls-1', streamId: null, academicYearId: 'year-1',
           assessmentType: 'mid_term', dateGiven: '2025-06-10',
           totalMarks: 80, passMark: 40, term: '1', year: 2025, teacherNotes: null,
         })

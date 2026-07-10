@@ -38,14 +38,62 @@ function useTeacherKpis() {
         .eq('school_id', user!.schoolId)
         .maybeSingle()
 
-      const staffId   = (staffRow as any)?.id   as string | undefined
-      const classIds  = ((staffRow as any)?.classes ?? []) as string[]
+      const staffId      = (staffRow as any)?.id as string | undefined
+      const classIdsFromStaff = ((staffRow as any)?.classes ?? []) as string[]
+
+      // A homeroom class_teacher's assignment can live in
+      // streams.class_teacher_id instead of staff.classes[] — union both,
+      // matching the "my classes" definition used everywhere else
+      // (messaging scoping, attendance RLS, useMyAssignedClasses).
+      let classIdsFromStreams: string[] = []
+      if (staffId) {
+        const { data: streamRows } = await supabase
+          .from('streams')
+          .select('class_id')
+          .eq('school_id', user!.schoolId)
+          .eq('class_teacher_id', staffId)
+        classIdsFromStreams = ((streamRows ?? []) as any[]).map(r => r.class_id as string)
+      }
+      const classIds  = Array.from(new Set([...classIdsFromStaff, ...classIdsFromStreams]))
       const myClasses = classIds.length
 
-      // Determine current term (simple: check current month)
-      const month = new Date().getMonth() + 1   // 1-12
-      const currentTerm = month <= 4 ? '1' : month <= 8 ? '2' : '3'
+      // Determine current term from the active academic year's real term
+      // dates — a fixed month-range guess was wrong for any school whose
+      // term calendar didn't match Jan-Apr/May-Aug/Sep-Dec.
       const currentYear = new Date().getFullYear()
+      const { data: activeYearRow } = await supabase
+        .from('academic_years')
+        .select('term1_start, term1_end, term2_start, term2_end, term3_start, term3_end')
+        .eq('school_id', user!.schoolId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      let currentTerm = '1'
+      if (activeYearRow) {
+        const now = Date.now()
+        const ranges = ([1, 2, 3] as const).map(n => {
+          const start = (activeYearRow as any)[`term${n}_start`] as string | null
+          const end   = (activeYearRow as any)[`term${n}_end`]   as string | null
+          return {
+            term: String(n),
+            start: start ? new Date(start).getTime() : null,
+            end:   end   ? new Date(end).getTime()   : null,
+          }
+        })
+        const current = ranges.find(r => r.start !== null && r.end !== null && now >= r.start! && now <= r.end!)
+        if (current) {
+          currentTerm = current.term
+        } else {
+          const withEnd = ranges.filter((r): r is { term: string; start: number | null; end: number } => r.end !== null)
+          const mostRecentlyEnded = withEnd.filter(r => r.end < now).sort((a, b) => b.end - a.end)[0]
+          const nextUpcoming      = withEnd.filter(r => r.end >= now).sort((a, b) => a.end - b.end)[0]
+          currentTerm = (mostRecentlyEnded ?? nextUpcoming)?.term ?? '1'
+        }
+      } else {
+        // No active academic year at all — fall back to the old coarse guess
+        const month = new Date().getMonth() + 1
+        currentTerm = month <= 4 ? '1' : month <= 8 ? '2' : '3'
+      }
 
       // Step 2: Journals this term — teacher_id FK references staff.id, not auth.users.id
       let journalsThisTerm = 0
@@ -60,14 +108,20 @@ function useTeacherKpis() {
         journalsThisTerm = jCount ?? 0
       }
 
-      // Step 3: Topics covered by this teacher
-      const { count: tCount } = await supabase
-        .from('curriculum_plan')
-        .select('id', { count: 'exact', head: true })
-        .eq('school_id', user!.schoolId)
-        .eq('covered_by', user!.id)
-        .not('covered_at', 'is', null)
-      const topicsCovered = tCount ?? 0
+      // Step 3: Topics covered by this teacher — covered_by is written as
+      // staff.id (see useMarkCovered in TeacherCurriculumPage.tsx), not the
+      // auth user id, so this must filter by staffId, not user.id, or it
+      // silently matches zero rows for any teacher with a real staff record.
+      let topicsCovered = 0
+      if (staffId) {
+        const { count: tCount } = await supabase
+          .from('curriculum_plan')
+          .select('id', { count: 'exact', head: true })
+          .eq('school_id', user!.schoolId)
+          .eq('covered_by', staffId)
+          .not('covered_at', 'is', null)
+        topicsCovered = tCount ?? 0
+      }
 
       // Step 4: Students below 80% attendance in my classes
       let belowThresholdCount = 0
@@ -197,7 +251,7 @@ export function TeacherDashboard() {
           <LoadingSpinner size="md" />
         </div>
       ) : kpis && (
-        <div className="stagger-cards sui-kpi-grid mob-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
+        <div className="stagger-cards sui-kpi-grid mob-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
           <KpiCard
             label="My Classes"
             value={kpis.myClasses}
