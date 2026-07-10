@@ -27,7 +27,7 @@ export function TermPicker(props: Props) {
   const options = allowAll ? [{ val: allVal, label: allLabel }, ...terms] : terms
 
   return (
-    <div style={{ display: 'flex', background: 'var(--surface2)', borderRadius: 14, padding: 3, border: '.5px solid var(--border)', gap: 2 }}>
+    <div style={{ display: 'flex', background: 'var(--surface2)', borderRadius: 14, padding: 3, border: '.5px solid var(--border)', gap: 2, flexShrink: 0 }}>
       {options.map(({ val, label }) => {
         const on = props.value == val
         return (
@@ -36,7 +36,7 @@ export function TermPicker(props: Props) {
             type="button"
             onClick={() => (props.onChange as (v: any) => void)(val)}
             style={{
-              flex: 1, height: 36, borderRadius: 11, border: 'none', cursor: 'pointer',
+              flex: '1 0 auto', minWidth: 64, height: 36, padding: '0 14px', borderRadius: 11, border: 'none', cursor: 'pointer',
               fontFamily: 'var(--font2)', fontWeight: on ? 800 : 600, fontSize: 13,
               background: on ? 'var(--surface)' : 'transparent',
               color: on ? 'var(--brand)' : 'var(--txt3)',

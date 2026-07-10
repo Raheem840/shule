@@ -4,6 +4,7 @@ import { useClasses, useStreams, useCreateStream, useMoveStudent, useCreateClass
 import { useStaff } from '../../hooks/useStaff'
 import { useStudents } from '../../hooks/useStudents'
 import { useSchoolSettings } from '../../hooks/useAdmin'
+import { printElement, PRINT_INK, PRINT_RULE, PRINT_BRAND } from '../../lib/printElement'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
 import type { Stream, Student } from '../../types/app'
@@ -671,10 +672,6 @@ function ClassCard({
 // UI chrome, not a usable roster. This renders a separate, plain table-only
 // version — hidden on screen (.print-only), shown only inside #print-root
 // when printing — grouped by stream with each student's admission number.
-const PRINT_INK   = '#1e293b'
-const PRINT_RULE  = '#cbd5e1'
-const PRINT_BRAND = '#0f766e'
-
 const rosterThTd: React.CSSProperties = {
   border: 'none', borderBottom: `1px solid ${PRINT_RULE}`, padding: '5px 8px', textAlign: 'left', fontSize: 10.5, color: PRINT_INK,
 }
@@ -760,22 +757,6 @@ function PrintableClassRoster({ cls, colorIdx }: { cls: { id: string; name: stri
 }
 
 // ── Page ──────────────────────────────────────────────────────
-// ── Print class list helper ───────────────────────────────────
-function printClassList(elementId: string) {
-  const el = document.getElementById(elementId)
-  if (!el) return
-  const clone = el.cloneNode(true) as HTMLElement
-  clone.id = 'print-root'
-  document.body.appendChild(clone)
-  document.body.classList.add('printing-report')
-  const cleanup = () => {
-    document.body.classList.remove('printing-report')
-    clone.remove()
-  }
-  window.addEventListener('afterprint', cleanup, { once: true })
-  window.print()
-}
-
 export function ClassListPage() {
   const { data: classes = [], isLoading } = useClasses()
   const { data: staffList = [] }          = useStaff({ isActive: true })
@@ -827,7 +808,7 @@ export function ClassListPage() {
             </button>
             {!isLoading && classes.length > 0 && (
               <button
-                onClick={() => printClassList('class-list-printable')}
+                onClick={() => printElement('class-list-printable')}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: '.5px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
