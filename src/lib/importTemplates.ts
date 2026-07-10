@@ -46,6 +46,14 @@ export function downloadAttendanceTemplate(): void {
   a.click()
 }
 
+/** Download the pre-built timetable reference template (10 rows, two classes) — reference only, no bulk-upload exists yet */
+export function downloadTimetableTemplate(): void {
+  const a = document.createElement('a')
+  a.href     = '/templates/timetable_import_template.csv'
+  a.download = 'shule_timetable_template.csv'
+  a.click()
+}
+
 // ── Shared xlsx helpers ───────────────────────────────────────
 
 function applyHeaderStyle(row: ExcelJS.Row): void {

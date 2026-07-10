@@ -1,0 +1,11 @@
+class_name,stream_name,subject_name,teacher_name,day,period_number,start_time,end_time,term,year
+S1,East,Mathematics,Sarah Namutebi,Monday,1,08:00,08:40,1,2026
+S1,East,English Literature,Moses Waiswa,Monday,2,08:40,09:20,1,2026
+S1,East,Biology,Peter Ochieng,Monday,3,09:20,10:00,1,2026
+S1,East,History,Robert Mugisha,Tuesday,1,08:00,08:40,1,2026
+S1,East,Mathematics,Sarah Namutebi,Tuesday,2,08:40,09:20,1,2026
+S1,West,Mathematics,Sarah Namutebi,Monday,1,08:00,08:40,1,2026
+S1,West,Chemistry,Peter Ochieng,Monday,2,08:40,09:20,1,2026
+S1,West,English Literature,Moses Waiswa,Tuesday,1,08:00,08:40,1,2026
+S2,,Mathematics,Sarah Namutebi,Monday,1,08:00,08:40,1,2026
+S2,,History,Robert Mugisha,Monday,2,08:40,09:20,1,2026

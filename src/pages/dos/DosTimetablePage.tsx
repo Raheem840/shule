@@ -20,6 +20,7 @@ import { useAcademicYears } from '../../hooks/useFeeStructure'
 import { useCurrentTermDefaultString } from '../../hooks/useCurrentTerm'
 import type { TimetableSlot } from '../../types/week9'
 import { TermPicker } from '../../components/ui/TermPicker'
+import { downloadTimetableTemplate } from '../../lib/importTemplates'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EventType = 'class' | 'break' | 'lunch' | 'assembly' | 'prayer' | 'preps' | 'custom'
@@ -1623,6 +1624,14 @@ export function DosTimetablePage() {
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+          <button onClick={downloadTimetableTemplate} title="Download a reference file showing the timetable format — plan your week before building it here"
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 11, border: '.5px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--txt2)', boxShadow: '0 1px 4px rgba(0,0,0,.05)', transition: 'all .14s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--txt2)' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            {!isMobile && 'Download Template'}
+          </button>
           <button onClick={() => setShowConfigPanel(true)}
             style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 11, border: '.5px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--txt2)', boxShadow: '0 1px 4px rgba(0,0,0,.05)', transition: 'all .14s' }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)' }}
