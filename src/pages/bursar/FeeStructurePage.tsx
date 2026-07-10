@@ -552,22 +552,23 @@ function FeeCard({ fee, className, classBadges, onDelete, onAutoCharge, onEnable
         overflow: 'hidden', transition: 'border-color .15s, box-shadow .15s',
         boxShadow: hovered ? `0 4px 20px rgba(0,0,0,.08)` : '0 1px 3px rgba(0,0,0,.04)',
         opacity: fee.isActive ? 1 : .55,
+        display: 'flex', flexDirection: 'column',
       }}
     >
       {/* Top accent strip */}
       <div style={{ height: 3, background: fee.isActive ? accentColor : 'var(--border)' }} />
 
-      <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-        {/* Left: icon */}
+      {/* Header: icon + name/badges on the left, amount on the right — each
+          gets its own row so nothing has to compete for horizontal space. */}
+      <div style={{ padding: '14px 16px 10px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: `${accentColor}12`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2">
             <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
           </svg>
         </div>
 
-        {/* Middle: info */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: 'var(--txt)', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 7 }}>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 14, color: 'var(--txt)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
             {fee.name}
             {fee.isCompulsory
               ? <span style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--brand)', background: 'var(--brand-light)', border: '.5px solid rgba(13,148,136,.2)', borderRadius: 99, padding: '1px 7px', letterSpacing: .3 }}>COMPULSORY</span>
@@ -589,43 +590,49 @@ function FeeCard({ fee, className, classBadges, onDelete, onAutoCharge, onEnable
           </div>
         </div>
 
-        {/* Right: amount + actions */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, minWidth: 0 }}>
+        <div style={{ flexShrink: 0, paddingTop: 2 }}>
           <AmountCell fee={fee} />
-          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <button
-              onClick={() => void handleCharge()}
-              disabled={charging}
-              title="Bill all uncharged matching students"
-              style={{ padding: '8px 12px', minHeight: 36, borderRadius: 8, border: 'none', background: charging ? 'rgba(13,148,136,.06)' : unchargedCount ? 'rgba(244,63,94,.1)' : 'rgba(13,148,136,.1)', color: charging ? 'var(--brand)' : unchargedCount ? 'var(--danger)' : 'var(--brand)', fontWeight: 700, fontSize: 11, cursor: charging ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 4, opacity: charging ? 0.7 : 1 }}>
-              {charging
-                ? 'Billing…'
-                : unchargedCount != null && unchargedCount > 0
-                  ? `Bill ${unchargedCount} student${unchargedCount !== 1 ? 's' : ''}`
-                  : 'Charge'}
-            </button>
-            {/* Edit button */}
-            <button onClick={() => setEditing(true)}
-              title="Edit fee item"
-              style={{ padding: '8px', minHeight: 36, minWidth: 36, borderRadius: 8, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .14s' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--txt3)' }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </button>
-            <button
-              onClick={async () => {
-                const enabling = !fee.isActive
-                await toggle.mutateAsync({ id: fee.id, isActive: enabling })
-                if (enabling) onEnable()
-              }}
-              style={{ padding: '8px 12px', minHeight: 36, borderRadius: 8, border: `.5px solid var(--border)`, background: 'var(--surface2)', color: 'var(--txt3)', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>
-              {fee.isActive ? 'Disable' : 'Enable'}
-            </button>
-            <button onClick={onDelete}
-              style={{ padding: '8px', minHeight: 36, minWidth: 36, borderRadius: 8, border: 'none', background: 'rgba(244,63,94,.08)', color: 'var(--danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-            </button>
-          </div>
+        </div>
+      </div>
+
+      {/* Footer: full-width action row — the primary "Bill" action gets its
+          own space on the left, secondary actions grouped on the right,
+          instead of every button being crammed into a narrow column. */}
+      <div style={{ marginTop: 'auto', padding: '10px 16px 14px', display: 'flex', alignItems: 'center', gap: 8, borderTop: '.5px solid var(--border)', flexWrap: 'wrap' }}>
+        <button
+          onClick={() => void handleCharge()}
+          disabled={charging}
+          title="Bill all uncharged matching students"
+          style={{ padding: '9px 14px', minHeight: 38, borderRadius: 9, border: 'none', background: charging ? 'rgba(13,148,136,.06)' : unchargedCount ? 'rgba(244,63,94,.1)' : 'rgba(13,148,136,.1)', color: charging ? 'var(--brand)' : unchargedCount ? 'var(--danger)' : 'var(--brand)', fontWeight: 700, fontSize: 12, cursor: charging ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 5, opacity: charging ? 0.7 : 1, whiteSpace: 'nowrap' }}>
+          {charging
+            ? 'Billing…'
+            : unchargedCount != null && unchargedCount > 0
+              ? `Bill ${unchargedCount} student${unchargedCount !== 1 ? 's' : ''}`
+              : 'Charge'}
+        </button>
+
+        <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', flexShrink: 0 }}>
+          <button onClick={() => setEditing(true)}
+            title="Edit fee item"
+            style={{ padding: '9px', minHeight: 38, minWidth: 38, borderRadius: 9, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .14s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--txt3)' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button
+            onClick={async () => {
+              const enabling = !fee.isActive
+              await toggle.mutateAsync({ id: fee.id, isActive: enabling })
+              if (enabling) onEnable()
+            }}
+            style={{ padding: '9px 14px', minHeight: 38, borderRadius: 9, border: `.5px solid var(--border)`, background: 'var(--surface2)', color: 'var(--txt3)', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            {fee.isActive ? 'Disable' : 'Enable'}
+          </button>
+          <button onClick={onDelete}
+            title="Delete fee item"
+            style={{ padding: '9px', minHeight: 38, minWidth: 38, borderRadius: 9, border: 'none', background: 'rgba(244,63,94,.08)', color: 'var(--danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+          </button>
         </div>
       </div>
     </div>
