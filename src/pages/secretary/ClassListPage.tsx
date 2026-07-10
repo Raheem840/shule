@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useClasses, useStreams, useCreateStream, useMoveStudent, useCreateClass } from '../../hooks/useClasses'
 import { useStaff } from '../../hooks/useStaff'
 import { useStudents } from '../../hooks/useStudents'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
-import type { Stream } from '../../types/app'
+import type { Stream, Student } from '../../types/app'
 
 const portal = () => document.querySelector('.ar') as HTMLElement ?? document.body
 const PBtn = ({ children, onClick, disabled, loading, primary, type = 'button' }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; loading?: boolean; primary?: boolean; type?: 'button'|'submit' }) => (
@@ -588,6 +588,86 @@ function ClassCard({
   )
 }
 
+// ── Printable roster ──────────────────────────────────────────
+// The on-screen ClassCard is an interactive widget (buttons, chevrons,
+// colored icon tiles) — printing it directly (the previous behaviour)
+// produced a printout still showing "Add Stream"/"Move Student" buttons and
+// UI chrome, not a usable roster. This renders a separate, plain table-only
+// version — hidden on screen (.print-only), shown only inside #print-root
+// when printing — grouped by stream with each student's admission number.
+const rosterThTd: React.CSSProperties = {
+  border: '1px solid #94a3b8', padding: '3px 6px', textAlign: 'left', fontSize: 10.5,
+}
+
+function sortByName(a: Student, b: Student): number {
+  return `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`)
+}
+
+function RosterTable({ students }: { students: Student[] }) {
+  if (students.length === 0) {
+    return <div style={{ fontSize: 11, color: '#666', fontStyle: 'italic', margin: '2px 0 10px' }}>No students</div>
+  }
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
+      <thead>
+        <tr>
+          <th style={{ ...rosterThTd, width: 28 }}>#</th>
+          <th style={rosterThTd}>Name</th>
+          <th style={rosterThTd}>Admission No.</th>
+          <th style={{ ...rosterThTd, width: 60 }}>Gender</th>
+        </tr>
+      </thead>
+      <tbody>
+        {students.map((s, i) => (
+          <tr key={s.id}>
+            <td style={rosterThTd}>{i + 1}</td>
+            <td style={rosterThTd}>{s.lastName} {s.firstName}</td>
+            <td style={rosterThTd}>{s.admissionNumber}</td>
+            <td style={{ ...rosterThTd, textTransform: 'capitalize' }}>{s.gender ?? '—'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function PrintableClassRoster({ cls }: { cls: { id: string; name: string; level: string | null } }) {
+  const { data: streams  = [] } = useStreams(cls.id)
+  const { data: students = [] } = useStudents({ classId: cls.id })
+
+  const byStream = new Map<string, Student[]>()
+  for (const s of students) {
+    const key = s.streamId ?? '__none__'
+    byStream.set(key, [...(byStream.get(key) ?? []), s])
+  }
+
+  return (
+    <div style={{ marginBottom: 20, pageBreakInside: 'avoid' as const }}>
+      <h2 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 6px', fontFamily: 'var(--font2)' }}>
+        {cls.name} — {levelLabel(cls.level)} ({students.length} student{students.length !== 1 ? 's' : ''})
+      </h2>
+      {streams.length === 0 ? (
+        <RosterTable students={[...students].sort(sortByName)} />
+      ) : (
+        streams.map(stream => (
+          <div key={stream.id}>
+            <h3 style={{ fontSize: 12, fontWeight: 700, margin: '6px 0 3px' }}>
+              {cls.name} {stream.name} ({(byStream.get(stream.id) ?? []).length})
+            </h3>
+            <RosterTable students={[...(byStream.get(stream.id) ?? [])].sort(sortByName)} />
+          </div>
+        ))
+      )}
+      {(byStream.get('__none__') ?? []).length > 0 && (
+        <div>
+          <h3 style={{ fontSize: 12, fontWeight: 700, margin: '6px 0 3px' }}>Unassigned to a stream</h3>
+          <RosterTable students={[...(byStream.get('__none__') ?? [])].sort(sortByName)} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────
 // ── Print class list helper ───────────────────────────────────
 function printClassList(elementId: string) {
@@ -609,12 +689,25 @@ export function ClassListPage() {
   const { data: classes = [], isLoading } = useClasses()
   const { data: staffList = [] }          = useStaff({ isActive: true })
   const [addClassOpen, setAddClassOpen]   = useState(false)
+  const [levelFilter,  setLevelFilter]    = useState<string | null>(null)
 
   const sortedClasses = [...classes].sort((a, b) => {
     const la = parseInt(a.level ?? '0', 10)
     const lb = parseInt(b.level ?? '0', 10)
     return la - lb
   })
+
+  // Level filter pills — for maneuverability once a school has many classes
+  // (O-Level S.1-4 + A-Level S.5-6 can be 10+ streams deep). "All" plus one
+  // pill per level actually present in the data, in level order.
+  const availableLevels = useMemo(() => {
+    const levels = new Set(sortedClasses.map(c => c.level).filter((l): l is string => !!l))
+    return [...levels].sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
+  }, [sortedClasses])
+
+  const filteredClasses = levelFilter
+    ? sortedClasses.filter(c => c.level === levelFilter)
+    : sortedClasses
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -655,6 +748,43 @@ export function ClassListPage() {
         </div>
       </div>
 
+      {/* Level filter pills — click to narrow the list down to one level */}
+      {!isLoading && availableLevels.length > 1 && (
+        <div className="print-hide" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setLevelFilter(null)}
+            style={{
+              padding: '7px 16px', borderRadius: 99, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+              border: levelFilter === null ? 'none' : '.5px solid var(--border)',
+              background: levelFilter === null ? 'linear-gradient(145deg,var(--brand),var(--brand-dark))' : 'var(--surface)',
+              color: levelFilter === null ? '#fff' : 'var(--txt2)',
+              boxShadow: levelFilter === null ? '0 3px 10px rgba(13,148,136,.3)' : 'none',
+            }}
+          >
+            All ({classes.length})
+          </button>
+          {availableLevels.map(level => {
+            const count = classes.filter(c => c.level === level).length
+            const active = levelFilter === level
+            return (
+              <button
+                key={level}
+                onClick={() => setLevelFilter(level)}
+                style={{
+                  padding: '7px 16px', borderRadius: 99, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                  border: active ? 'none' : '.5px solid var(--border)',
+                  background: active ? 'linear-gradient(145deg,var(--brand),var(--brand-dark))' : 'var(--surface)',
+                  color: active ? '#fff' : 'var(--txt2)',
+                  boxShadow: active ? '0 3px 10px rgba(13,148,136,.3)' : 'none',
+                }}
+              >
+                {levelLabel(level).split(' (')[0]} ({count})
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {isLoading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{[1,2,3].map(i => <div key={i} className="shule-skeleton" style={{ height: 80, borderRadius: 14 }} />)}</div>
       ) : classes.length === 0 ? (
@@ -674,17 +804,37 @@ export function ClassListPage() {
             Click "Add Class" above to create your first class.
           </div>
         </div>
-      ) : (
-        <div id="class-list-printable" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {sortedClasses.map((cls, i) => (
-            <ClassCard
-              key={cls.id}
-              cls={cls}
-              colorIdx={i}
-              staffList={staffList.map(s => ({ id: s.id, firstName: s.firstName, lastName: s.lastName, role: s.role }))}
-            />
-          ))}
+      ) : filteredClasses.length === 0 ? (
+        <div style={{ padding: '3rem', textAlign: 'center', fontSize: 13, color: 'var(--txt3)' }}>
+          No classes at this level.
         </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {filteredClasses.map((cls, i) => (
+              <ClassCard
+                key={cls.id}
+                cls={cls}
+                colorIdx={i}
+                staffList={staffList.map(s => ({ id: s.id, firstName: s.firstName, lastName: s.lastName, role: s.role }))}
+              />
+            ))}
+          </div>
+
+          {/* Hidden on screen, rendered only inside #print-root when printing
+              (see printClassList/the .printing-report CSS) — a plain roster
+              table instead of the interactive cards above. */}
+          <div id="class-list-printable" className="print-only">
+            <h1 style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 18, margin: '0 0 4px' }}>Class List</h1>
+            <p style={{ fontSize: 11, color: '#666', margin: '0 0 16px' }}>
+              {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+              {levelFilter ? ` — ${levelLabel(levelFilter)}` : ''}
+            </p>
+            {filteredClasses.map(cls => (
+              <PrintableClassRoster key={cls.id} cls={cls} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   )
