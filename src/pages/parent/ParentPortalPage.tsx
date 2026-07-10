@@ -23,6 +23,7 @@ import { ReportCardCalcExplainer } from '../../components/shared/ReportCardCalcE
 import type { Student } from '../../types/app'
 import type { AttendanceDay } from '../../hooks/useAttendance'
 import type { ExamResultRow, StudentFeeRecord, PortalReportCard } from '../../hooks/useParentPortal'
+import { usePortalNotifications, useMarkSingleNotificationRead } from '../../hooks/useNotifications'
 
 // ── Design tokens (all via CSS vars) ─────────────────────────────
 
@@ -827,9 +828,40 @@ function EventTypePill({ eventType }: { eventType: string | null }) {
 }
 
 // ── Notices tab ───────────────────────────────────────────────────
+// Merges two distinct data sources into one feed: school_events marked
+// visible_to_parents (PTA meetings, holidays, etc.) AND the generic
+// notifications table (bursar fee reminders, principal report-card
+// releases, etc.) — the latter previously never surfaced anywhere in
+// the parent portal despite being correctly targeted + RLS-readable.
+type NoticeItem = {
+  id: string
+  title: string
+  body: string | null
+  createdAt: string
+  eventType: string | null
+  notifId: string | null // set only for notifications-table rows, for mark-read
+  isRead: boolean
+}
+
 function NoticesTab() {
-  const { data: notices = [], isLoading } = useSchoolNotices()
+  const { data: events = [], isLoading: eventsLoading } = useSchoolNotices()
+  const { data: notifs = [], isLoading: notifsLoading } = usePortalNotifications()
+  const markRead = useMarkSingleNotificationRead()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  const isLoading = eventsLoading || notifsLoading
+
+  const notices: NoticeItem[] = useMemo(() => {
+    const fromEvents: NoticeItem[] = events.map(n => ({
+      id: `event-${n.id}`, title: n.title, body: n.body, createdAt: n.createdAt,
+      eventType: n.eventType, notifId: null, isRead: true,
+    }))
+    const fromNotifs: NoticeItem[] = notifs.map(n => ({
+      id: `notif-${n.id}`, title: n.title ?? 'Notice', body: n.body, createdAt: n.createdAt,
+      eventType: n.type, notifId: n.id, isRead: n.readAt !== null,
+    }))
+    return [...fromEvents, ...fromNotifs].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  }, [events, notifs])
 
   if (isLoading) {
     return (
@@ -854,18 +886,20 @@ function NoticesTab() {
     )
   }
 
-  const toggle = (id: string) =>
+  const toggle = (n: NoticeItem) => {
     setExpanded(prev => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      next.has(n.id) ? next.delete(n.id) : next.add(n.id)
       return next
     })
+    if (n.notifId && !n.isRead) markRead.mutate(n.notifId)
+  }
 
   return (
     <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-      {notices.map((n, idx) => {
+      {notices.map(n => {
         const isOpen = expanded.has(n.id)
-        const isNew  = idx < 2  // treat first 2 as unread indicator
+        const isNew  = !n.isRead
 
         return (
           <div key={n.id} style={{
@@ -875,7 +909,7 @@ function NoticesTab() {
             transition: 'box-shadow 0.2s',
           }}>
             <button
-              onClick={() => toggle(n.id)}
+              onClick={() => toggle(n)}
               style={{
                 width: '100%', padding: '0.9rem 1.1rem',
                 background: 'none', border: 'none', cursor: 'pointer',
@@ -1126,17 +1160,17 @@ function ChildCard({
     <button
       onClick={onClick}
       style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem',
-        padding: '0.85rem 1rem', borderRadius: 16, cursor: 'pointer',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem',
+        padding: '1.1rem 1.3rem', borderRadius: 18, cursor: 'pointer',
         border: isSelected ? '2px solid var(--brand)' : '1.5px solid var(--border)',
         background: isSelected ? 'var(--surface)' : 'rgba(255,255,255,0.35)',
         boxShadow: isSelected ? '0 4px 16px rgba(13,148,136,0.18)' : 'none',
-        transition: 'all 0.2s', minWidth: 100, flexShrink: 0,
+        transition: 'all 0.2s', minWidth: 128, flexShrink: 0,
         transform: isSelected ? 'translateY(-2px)' : 'none',
       }}
     >
       <div style={{
-        width: 52, height: 52, borderRadius: '50%', overflow: 'hidden',
+        width: 64, height: 64, borderRadius: '50%', overflow: 'hidden',
         border: isSelected ? '2.5px solid var(--brand)' : '2px solid var(--border)',
         flexShrink: 0,
       }}>
@@ -1153,12 +1187,13 @@ function ChildCard({
       </div>
       <div style={{ textAlign: 'center' }}>
         <div style={{
-          fontSize: 12.5, fontWeight: 800, fontFamily: 'var(--font2)',
-          color: isSelected ? 'var(--brand)' : 'var(--txt)', lineHeight: 1.2,
+          fontSize: 13.5, fontWeight: 800, fontFamily: 'var(--font2)',
+          color: isSelected ? 'var(--brand)' : 'var(--txt)', lineHeight: 1.25,
+          whiteSpace: 'nowrap',
         }}>
           {child.firstName}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font2)', marginTop: 1 }}>
+        <div style={{ fontSize: 11.5, color: 'var(--txt3)', fontFamily: 'var(--font2)', marginTop: 3, whiteSpace: 'nowrap' }}>
           {className}
         </div>
       </div>
@@ -1600,8 +1635,8 @@ export function ParentPortalPage() {
                 Select child
               </div>
               <div style={{
-                display: 'flex', gap: '0.75rem', overflowX: 'auto',
-                paddingBottom: '0.25rem', scrollbarWidth: 'none',
+                display: 'flex', gap: '1rem', overflowX: 'auto',
+                paddingBottom: '0.35rem', scrollbarWidth: 'none',
               }}>
                 {children.map(child => (
                   <ChildCard

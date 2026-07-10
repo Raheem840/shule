@@ -751,6 +751,11 @@ export function MarkEntryPage() {
   // of the separate lock/grace-period mechanism below.
   const [browsingReadOnly, setBrowsingReadOnly] = useState(searchParams.get('view') === '1')
 
+  // DOS/principal reach this page purely to inspect a journal — they never
+  // own the marks, so they get no escape hatch out of read-only, unlike the
+  // owning teacher who can toggle Edit back on.
+  const canEditMarks = user?.role === 'teacher' || user?.role === 'class_teacher'
+
   // ── Provisional / locked results ────────────────────────────
   // A published journal stays freely editable for MARKS_GRACE_PERIOD_DAYS —
   // after that, saving or importing a correction requires a reason (audited).
@@ -1007,7 +1012,13 @@ export function MarkEntryPage() {
             {absentCount  > 0 && <span style={{ color: 'var(--info)',    marginLeft: 8 }}>· {absentCount} absent</span>}
           </div>
 
-          {browsingReadOnly ? (
+          {browsingReadOnly && !canEditMarks && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, background: 'var(--surface2)', border: '.5px solid var(--border)', color: 'var(--txt3)', fontWeight: 700, fontSize: 12 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              Read-only view
+            </span>
+          )}
+          {browsingReadOnly && canEditMarks ? (
             <button onClick={() => setBrowsingReadOnly(false)}
               style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 3px 12px rgba(13,148,136,.35)' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -1235,12 +1246,14 @@ export function MarkEntryPage() {
       {/* ── Mobile sticky action bar ── */}
       {isMobile && (
         browsingReadOnly ? (
-          <div className="mob-action-bar">
-            <button onClick={() => setBrowsingReadOnly(false)}
-              style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 3px 12px rgba(13,148,136,.35)' }}>
-              Edit
-            </button>
-          </div>
+          canEditMarks && (
+            <div className="mob-action-bar">
+              <button onClick={() => setBrowsingReadOnly(false)}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 3px 12px rgba(13,148,136,.35)' }}>
+                Edit
+              </button>
+            </div>
+          )
         ) : (
           <div className="mob-action-bar">
             <button onClick={() => void handleSaveAll()} disabled={saveMarks.isPending}

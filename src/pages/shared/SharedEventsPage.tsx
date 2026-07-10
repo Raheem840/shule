@@ -174,7 +174,12 @@ export function SharedEventsPage() {
   const canCreate = ['dos', 'principal', 'deputy', 'teacher', 'class_teacher'].includes(role)
   const canDel    = (ev: SchoolEvent) => ['dos', 'principal'].includes(role) || ev.createdBy === user?.staffId
 
-  const { data: allEvents = [], isLoading } = useAllSchoolEvents()
+  const { data: rawEvents = [], isLoading } = useAllSchoolEvents()
+  const isGuardianView = role === 'parent' || role === 'student'
+  const allEvents = useMemo(
+    () => isGuardianView ? rawEvents.filter(e => e.visibleToParents) : rawEvents,
+    [rawEvents, isGuardianView]
+  )
   const deleteMut = useDeleteEvent()
   const { success: ok, error: err } = useToast()
 

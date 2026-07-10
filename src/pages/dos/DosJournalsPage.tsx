@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -167,6 +168,7 @@ const TYPE_COLOR: Record<string, string> = {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export function DosJournalsPage() {
+  const navigate = useNavigate()
   const { data: journals = [], isLoading: jLoading, isError: jError } = useAllJournals()
   const { data: results  = [], isLoading: rLoading }                  = useAllResults()
   const { data: classes  = [] } = useClasses()
@@ -557,19 +559,22 @@ export function DosJournalsPage() {
                         const cfg  = STATUS_META[j.status] ?? STATUS_META['draft']
                         const tCol = TYPE_COLOR[j.assessmentType] ?? '#64748b'
                         return (
-                          <tr key={j.id} style={{ borderBottom: '.5px solid var(--border)', transition: 'background .12s' }}
+                          <tr key={j.id}
+                            onClick={() => navigate(`/teacher/exams/${j.id}/marks?view=1`)}
+                            title="View this journal in detail"
+                            style={{ borderBottom: '.5px solid var(--border)', transition: 'background .12s', cursor: 'pointer' }}
                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                           >
-                            <td style={{ padding: '11px 14px', fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>{subjectMap.get(j.subjectId ?? '') ?? '—'}</td>
-                            <td style={{ padding: '11px 14px', fontSize: 12.5, color: 'var(--txt2)' }}>{classMap.get(j.classId ?? '') ?? '—'}</td>
-                            <td style={{ padding: '11px 14px' }}>
+                            <td style={{ padding: '13px 16px', fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>{subjectMap.get(j.subjectId ?? '') ?? '—'}</td>
+                            <td style={{ padding: '13px 16px', fontSize: 12.5, color: 'var(--txt2)' }}>{classMap.get(j.classId ?? '') ?? '—'}</td>
+                            <td style={{ padding: '13px 16px' }}>
                               <span style={{ padding: '3px 9px', borderRadius: 99, fontSize: 10.5, fontWeight: 700, background: `${tCol}18`, color: tCol, border: `.5px solid ${tCol}30`, whiteSpace: 'nowrap' as const }}>{j.assessmentType.replace(/_/g,' ')}</span>
                             </td>
-                            <td style={{ padding: '11px 14px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt2)', whiteSpace: 'nowrap' as const }}>T{j.term} {j.year}</td>
-                            <td style={{ padding: '11px 14px', fontSize: 12.5, color: 'var(--txt2)' }}>{j.teacherName}</td>
-                            <td style={{ padding: '11px 14px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt3)', whiteSpace: 'nowrap' as const }}>{j.totalMarks} / {j.passMark}</td>
-                            <td style={{ padding: '11px 14px' }}>
+                            <td style={{ padding: '13px 16px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt2)', whiteSpace: 'nowrap' as const }}>T{j.term} {j.year}</td>
+                            <td style={{ padding: '13px 16px', fontSize: 12.5, color: 'var(--txt2)' }}>{j.teacherName}</td>
+                            <td style={{ padding: '13px 16px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt3)', whiteSpace: 'nowrap' as const }}>{j.totalMarks} / {j.passMark}</td>
+                            <td style={{ padding: '13px 16px' }}>
                               <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: cfg.bg, color: cfg.color, border: `.5px solid ${cfg.color}30` }}>{cfg.label}</span>
                             </td>
                           </tr>
