@@ -18,6 +18,8 @@ import {
   usePrincipalKpis,
 } from '../../hooks/usePrincipal'
 import { useFeeCollectionByClass, ugx } from '../../hooks/useFeePayments'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
+import { useCurrentTermDefaultString } from '../../hooks/useCurrentTerm'
 import { ROLE_LABEL } from '../../config/roleNav'
 import type { UserRole } from '../../store/AuthContext'
 
@@ -183,7 +185,11 @@ export function PrincipalAnalyticsPage() {
 
   const [academicClassFilter,   setAcademicClassFilter]   = useState('')
   const [attendanceClassFilter, setAttendanceClassFilter] = useState('')
-  const [financeTerm,           setFinanceTerm]           = useState('1')
+  const { data: academicYearsForTerm = [] } = useAcademicYears()
+  const activeYearForTerm = academicYearsForTerm.find(y => y.isActive) ?? academicYearsForTerm[0]
+  // Defaults to Term 1 until the active academic year loads, then
+  // auto-corrects once to whichever term today's date actually falls in.
+  const [financeTerm,           setFinanceTerm]           = useCurrentTermDefaultString(activeYearForTerm)
 
   const { data: classes = [] } = useClasses()
   const { data: kpis, isLoading: kpisLoading, isError: kpisError } = usePrincipalKpis()

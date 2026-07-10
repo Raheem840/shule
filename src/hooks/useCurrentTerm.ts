@@ -46,3 +46,11 @@ export function useCurrentTermDefault(activeYear: YearWithTermDates): [1 | 2 | 3
 
   return [term, setTerm]
 }
+
+// String-keyed variant for pages whose term state/TermPicker uses the
+// '1'/'2'/'3' string format instead of numeric 1|2|3 — same auto-detect
+// logic, just returning/accepting strings so callers don't need to convert.
+export function useCurrentTermDefaultString(activeYear: YearWithTermDates): [string, (t: string) => void] {
+  const [term, setNumericTerm] = useCurrentTermDefault(activeYear)
+  return [String(term), (t: string) => setNumericTerm((Number(t) || 1) as 1 | 2 | 3)]
+}

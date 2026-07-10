@@ -16,6 +16,8 @@ import { Select } from '../../components/ui/Select'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import type { ReportCard } from '../../types/app'
 import { TermPicker } from '../../components/ui/TermPicker'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
+import { useCurrentTermDefaultString } from '../../hooks/useCurrentTerm'
 
 
 // ── Unlock Confirmation Modal ──────────────────────────────────
@@ -324,7 +326,11 @@ function RCTable({
 type PrincipalTab = 'awaiting' | 'approved' | 'released'
 
 export function PrincipalReportCardsPage() {
-  const [term,     setTerm]     = useState<string>('1')
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeYear = academicYears.find(y => y.isActive) ?? academicYears[0]
+  // Defaults to Term 1 until the active academic year loads, then
+  // auto-corrects once to whichever term today's date actually falls in.
+  const [term,     setTerm]     = useCurrentTermDefaultString(activeYear)
   const [year,     setYear]     = useState<string>(String(new Date().getFullYear()))
   const [classId,  setClassId]  = useState<string>('')
   const [streamId, setStreamId] = useState<string>('')

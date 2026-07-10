@@ -5,6 +5,8 @@ import { useAuth } from '../../store/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { useClasses, useSubjects } from '../../hooks/useClasses'
 import { TermPicker } from '../../components/ui/TermPicker'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
+import { useCurrentTermDefaultString } from '../../hooks/useCurrentTerm'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Topic = {
@@ -372,7 +374,11 @@ export function TeacherCurriculumPage() {
 
   const [subjectId, setSubjectId] = useState('')
   const [classId,   setClassId]   = useState('')
-  const [term,      setTerm]      = useState('1')
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeYear = academicYears.find(y => y.isActive) ?? academicYears[0]
+  // Defaults to Term 1 until the active academic year loads, then
+  // auto-corrects once to whichever term today's date actually falls in.
+  const [term,      setTerm]      = useCurrentTermDefaultString(activeYear)
   const [year,      setYear]      = useState(YEAR)
   const [filter,    setFilter]    = useState<'all' | 'pending' | 'covered'>('all')
 

@@ -20,6 +20,8 @@ import { EventTimeline } from '../../components/shared/EventTimeline'
 import { SafeTermProgressTimeline } from '../../components/shared/TermProgressTimeline'
 import { PortalMessagesTab } from '../../components/shared/PortalMessaging'
 import { ReportCardCalcExplainer } from '../../components/shared/ReportCardCalcExplainer'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
+import { useCurrentTermDefaultString } from '../../hooks/useCurrentTerm'
 import type { AttendanceDay } from '../../hooks/useAttendance'
 import type { ExamResultRow, StudentFeeRecord, PortalReportCard } from '../../hooks/useParentPortal'
 import type { StaffContact } from '../../hooks/useParentPortal'
@@ -1100,7 +1102,11 @@ function sColor(id: string) {
 
 function MyTimetableTab({ classId, streamId }: { classId: string | null; streamId: string | null }) {
   const { user } = useAuth()
-  const [term, setTerm] = useState('1')
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeYear = academicYears.find(y => y.isActive) ?? academicYears[0]
+  // Defaults to Term 1 until the active academic year loads, then
+  // auto-corrects once to whichever term today's date actually falls in.
+  const [term, setTerm] = useCurrentTermDefaultString(activeYear)
   const [year, setYear] = useState(new Date().getFullYear())
   const [mobileDay, setMobileDay] = useState<number>(() => {
     const d = new Date().getDay()

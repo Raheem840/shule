@@ -10,10 +10,16 @@ import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useAllTeacherRemarks } from '../../hooks/useTeacherRemarks'
 import { useStaff } from '../../hooks/useStaff'
 import { TermPicker } from '../../components/ui/TermPicker'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
+import { useCurrentTermDefaultString } from '../../hooks/useCurrentTerm'
 
 export function RemarksViewPage() {
   const currentYear = new Date().getFullYear()
-  const [term,        setTerm]        = useState('1')
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeYear = academicYears.find(y => y.isActive) ?? academicYears[0]
+  // Defaults to Term 1 until the active academic year loads, then
+  // auto-corrects once to whichever term today's date actually falls in.
+  const [term,        setTerm]        = useCurrentTermDefaultString(activeYear)
   const [year,        setYear]        = useState(currentYear)
   const [filterClass, setFilterClass] = useState('')
   const [filterStream, setFilterStream] = useState('')

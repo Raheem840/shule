@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useClasses } from '../../hooks/useClasses'
 import { useTimetableSlots } from '../../hooks/useTimetableSlots'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
+import { useCurrentTermDefaultString } from '../../hooks/useCurrentTerm'
 import { useAuth } from '../../store/AuthContext'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import type { TimetableSlot } from '../../types/week9'
@@ -92,7 +94,13 @@ export function DeputyTimetablePage() {
   const { user } = useAuth()
   const isMobile = useIsMobile()
   const { data: classes = [] } = useClasses()
-  const [term,          setTerm]          = useState('1')
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeYear = academicYears.find(y => y.isActive) ?? academicYears[0]
+  // Defaults to Term 1 until the active academic year loads, then
+  // auto-corrects once to whichever term today's date actually falls in —
+  // previously stayed hardcoded at Term 1 forever regardless of the actual
+  // current term.
+  const [term,          setTerm]          = useCurrentTermDefaultString(activeYear)
   const [year,          setYear]          = useState(new Date().getFullYear())
   const [filterClassId, setFilterClassId] = useState('')
   const [mobileDay,     setMobileDay]     = useState(1)

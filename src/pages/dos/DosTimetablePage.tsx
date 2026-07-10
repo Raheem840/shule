@@ -16,6 +16,8 @@ import {
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
+import { useCurrentTermDefaultString } from '../../hooks/useCurrentTerm'
 import type { TimetableSlot } from '../../types/week9'
 import { TermPicker } from '../../components/ui/TermPicker'
 
@@ -1575,7 +1577,11 @@ export function DosTimetablePage() {
   const isMobile = useIsMobile()
 
   const [view,            setView]            = useState<ViewMode>('overview')
-  const [term,            setTerm]            = useState('1')
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeYear = academicYears.find(y => y.isActive) ?? academicYears[0]
+  // Defaults to Term 1 until the active academic year loads, then
+  // auto-corrects once to whichever term today's date actually falls in.
+  const [term,            setTerm]            = useCurrentTermDefaultString(activeYear)
   const [year,            setYear]            = useState(new Date().getFullYear())
   const [showConfigPanel, setShowConfigPanel] = useState(false)
   const [assignTarget,    setAssignTarget]    = useState<ModalTarget | null>(null)

@@ -8,6 +8,8 @@ import {
 import { useStudents } from '../../hooks/useStudents'
 import { useMyAssignedClasses, useStreams } from '../../hooks/useClasses'
 import { TermPicker } from '../../components/ui/TermPicker'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
+import { useCurrentTermDefaultString } from '../../hooks/useCurrentTerm'
 import type { Student } from '../../types/app'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -54,7 +56,11 @@ function RemarkRow({ student, value, saved, onChange }: {
 }
 
 export function TeacherRemarksPage() {
-  const [term,     setTerm]     = useState('1')
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeYear = academicYears.find(y => y.isActive) ?? academicYears[0]
+  // Defaults to Term 1 until the active academic year loads, then
+  // auto-corrects once to whichever term today's date actually falls in.
+  const [term,     setTerm]     = useCurrentTermDefaultString(activeYear)
   const [classId,  setClassId]  = useState('')
   const [streamId, setStreamId] = useState('')
   const [remarks,  setRemarks]  = useState<Map<string, string>>(new Map())

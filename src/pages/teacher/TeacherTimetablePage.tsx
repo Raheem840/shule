@@ -3,6 +3,8 @@ import { useTeacherTimetable } from '../../hooks/useTimetableSlots'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useMyAssignedClasses } from '../../hooks/useClasses'
 import { TermPicker } from '../../components/ui/TermPicker'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
+import { useCurrentTermDefaultString } from '../../hooks/useCurrentTerm'
 
 const DAYS: [number, string, string][] = [
   [1,'Mon','Monday'], [2,'Tue','Tuesday'], [3,'Wed','Wednesday'],
@@ -30,7 +32,11 @@ function subjColor(id: string): [string, string] {
 
 export function TeacherTimetablePage() {
   const isMobile    = useIsMobile()
-  const [term,      setTerm]      = useState('1')
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeYear = academicYears.find(y => y.isActive) ?? academicYears[0]
+  // Defaults to Term 1 until the active academic year loads, then
+  // auto-corrects once to whichever term today's date actually falls in.
+  const [term,      setTerm]      = useCurrentTermDefaultString(activeYear)
   const [year,      setYear]      = useState(new Date().getFullYear())
   const [mobileDay, setMobileDay] = useState<number>(() => jsToSchoolDay(new Date().getDay()) ?? 1)
   const [classFilter, setClassFilter] = useState<string>('')
