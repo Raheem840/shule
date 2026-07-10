@@ -53,7 +53,6 @@ vi.mock('../../hooks/useAdmin', () => ({
   useSystemKpis:        vi.fn(),
   useStorageBuckets:    vi.fn(),
   useUserManagement:    vi.fn(),
-  useResetPassword:     vi.fn(),
   useDeactivateUser:    vi.fn(),
   useSchoolSettings:    vi.fn(),
   useSaveSchoolSettings:vi.fn(),
@@ -61,6 +60,10 @@ vi.mock('../../hooks/useAdmin', () => ({
   useApiConfigStatus:   vi.fn(),
   useAcademicYears:     vi.fn(),
   useToggleSurvey:      vi.fn(),
+}))
+
+vi.mock('../../hooks/useStaffAuth', () => ({
+  useResetStaffPassword: vi.fn(),
 }))
 
 // ── Toast ──────────────────────────────────────────────────────────────────────
@@ -72,16 +75,17 @@ vi.mock('../../components/ui/Toast', () => ({
 // ── Imports after mocks ────────────────────────────────────────────────────────
 import {
   useSystemKpis, useStorageBuckets, useUserManagement,
-  useResetPassword, useDeactivateUser,
+  useDeactivateUser,
   useSchoolSettings, useSaveSchoolSettings, useSaveApiConfig,
   useApiConfigStatus, useAcademicYears, useToggleSurvey,
 } from '../../hooks/useAdmin'
+import { useResetStaffPassword } from '../../hooks/useStaffAuth'
 import { AdminDashboard } from '../../pages/admin/AdminDashboard'
 
 const mockUseSystemKpis        = useSystemKpis        as ReturnType<typeof vi.fn>
 const mockUseStorageBuckets    = useStorageBuckets    as ReturnType<typeof vi.fn>
 const mockUseUserManagement    = useUserManagement    as ReturnType<typeof vi.fn>
-const mockUseResetPassword     = useResetPassword     as ReturnType<typeof vi.fn>
+const mockUseResetPassword     = useResetStaffPassword as ReturnType<typeof vi.fn>
 const mockUseDeactivateUser    = useDeactivateUser    as ReturnType<typeof vi.fn>
 const mockUseSchoolSettings    = useSchoolSettings    as ReturnType<typeof vi.fn>
 const mockUseSaveSchoolSettings= useSaveSchoolSettings as ReturnType<typeof vi.fn>

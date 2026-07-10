@@ -6,7 +6,6 @@ import {
   useSystemKpis,
   useStorageBuckets,
   useUserManagement,
-  useResetPassword,
   useDeactivateUser,
   useSchoolSettings,
   useSaveSchoolSettings,
@@ -15,6 +14,7 @@ import {
   useAcademicYears,
   useToggleSurvey,
 } from '../../hooks/useAdmin'
+import { useResetStaffPassword } from '../../hooks/useStaffAuth'
 import type { UserRow } from '../../types/week9'
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────
@@ -129,7 +129,7 @@ function umInitials(name: string) { return name.split(' ').filter(Boolean).slice
 
 function UserManagementSection() {
   const { data: users = [], isLoading } = useUserManagement()
-  const { mutateAsync: resetPwd,    isPending: resetting } = useResetPassword()
+  const { mutateAsync: resetPwd,    isPending: resetting } = useResetStaffPassword()
   const { mutateAsync: toggleActive }                      = useDeactivateUser()
   const [resetTarget,  setResetTarget]  = useState<UserRow | null>(null)
   const [resetDone,    setResetDone]    = useState(false)
@@ -157,7 +157,7 @@ function UserManagementSection() {
     if (!resetTarget?.authUserId) return
     setResetError('')
     try {
-      const { email, tempPassword } = await resetPwd({ authUserId: resetTarget.authUserId, staffId: resetTarget.staffId })
+      const { email, tempPassword } = await resetPwd({ authUserId: resetTarget.authUserId, staffId: resetTarget.staffId, name: resetTarget.name })
       setResetEmail(email)
       setResetPassword(tempPassword)
       setResetDone(true)

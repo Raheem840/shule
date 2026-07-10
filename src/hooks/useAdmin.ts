@@ -3,8 +3,6 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { db } from '../lib/db'
 import { listFiles } from '../lib/storage'
-import { getFunctionErrorMessage } from '../lib/functionsError'
-import { generateTempPassword } from '../lib/passwords'
 import type { SystemKpis, UserRow, SchoolSettings, ApiConfig } from '../types/week9'
 
 // ── useSystemKpis ──────────────────────────────────────────────────────────
@@ -79,36 +77,6 @@ export function useUserManagement() {
       } satisfies UserRow))
     },
     staleTime: 60_000,
-  })
-}
-
-// ── useResetPassword ───────────────────────────────────────────────────────
-// Sets the staff member's password directly via the reset-staff-password Edge
-// Function and returns the new temp password to show the IT admin — see
-// useResetStaffPassword (useStaffAuth.ts) for why this no longer emails a
-// reset link (depends on configured SMTP, which most deployments don't have).
-export function useResetPassword() {
-  const { user } = useAuth()
-  const qc = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ authUserId, staffId }: { authUserId: string; staffId: string }): Promise<{ email: string; tempPassword: string }> => {
-      if (!user) throw new Error('Not authenticated')
-      if (user.role !== 'it_admin') throw new Error('Forbidden')
-
-      const tempPassword = generateTempPassword()
-
-      const { data, error } = await supabase.functions.invoke('reset-staff-password', {
-        body: { userId: authUserId, staffId, newPassword: tempPassword },
-      })
-
-      if (error) throw new Error(await getFunctionErrorMessage(error))
-      return { email: (data as { email?: string } | null)?.email ?? '', tempPassword }
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })
-      void qc.invalidateQueries({ queryKey: ['credentials-vault', user?.schoolId] })
-    },
   })
 }
 

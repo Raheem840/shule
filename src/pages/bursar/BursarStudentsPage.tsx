@@ -300,7 +300,7 @@ function useRecordPayment() {
         const { error } = await supabase.from('fee_payments')
           .update({
             amount_paid:    newPaid,
-            balance:        Math.max(0, Number(ex.amount_due) - newPaid),
+            // balance is DB-generated (amount_due - amount_paid) — never set explicitly.
             payment_date:   input.paymentDate,
             receipt_number: input.receiptNumber,
             notes:          input.notes,
@@ -317,7 +317,7 @@ function useRecordPayment() {
           term:             input.term,
           amount_due:       input.amountDue,
           amount_paid:      input.amountPaid,
-          balance:          Math.max(0, input.amountDue - input.amountPaid),
+          // balance is DB-generated (amount_due - amount_paid) — never set explicitly.
           payment_date:     input.paymentDate,
           receipt_number:   input.receiptNumber,
           notes:            input.notes,
@@ -350,8 +350,10 @@ function useUpdatePaymentAmount() {
       if (!user) throw new Error('Not authenticated')
       if (!['bursar', 'principal'].includes(user.role ?? '')) throw new Error('Forbidden')
       const newBalance = Math.max(0, input.amountDue - input.newPaid)
+      // balance is DB-generated (amount_due - amount_paid) — never set explicitly;
+      // newBalance is still computed above for the audit_log entry below.
       const { error } = await supabase.from('fee_payments')
-        .update({ amount_paid: input.newPaid, balance: newBalance })
+        .update({ amount_paid: input.newPaid })
         .eq('id', input.id)
         .eq('school_id', user!.schoolId)
       if (error) throw error

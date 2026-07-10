@@ -341,9 +341,14 @@ describe('useAddPayment', () => {
     })
 
     expect(returnedId).toBe('new-pay-id')
+    // balance is a DB-generated column (amount_due - amount_paid) — must
+    // never be included in the insert payload, or Postgres rejects it with
+    // "cannot insert a non-DEFAULT value into column \"balance\"".
     expect(insertBuilder.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ amount_due: 400_000, amount_paid: 200_000, balance: 200_000 })
+      expect.objectContaining({ amount_due: 400_000, amount_paid: 200_000 })
     )
+    const insertedPayload = insertBuilder.insert.mock.calls[0][0]
+    expect(insertedPayload).not.toHaveProperty('balance')
   })
 
   it('updates (increments amount_paid) an existing record instead of inserting a duplicate row', async () => {
@@ -370,9 +375,12 @@ describe('useAddPayment', () => {
     const updatingBuilder = feePaymentsBuilders.find(b => (b.update as ReturnType<typeof vi.fn>).mock.calls.length > 0)
     expect(updatingBuilder).toBeDefined()
     // 100_000 (existing) + 150_000 (new) = 250_000 — never a bare re-insert of 150_000.
+    // balance is DB-generated — must never appear in the update payload.
     expect(updatingBuilder!.update).toHaveBeenCalledWith(
-      expect.objectContaining({ amount_paid: 250_000, balance: 150_000 })
+      expect.objectContaining({ amount_paid: 250_000 })
     )
+    const updatedPayload = (updatingBuilder!.update as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(updatedPayload).not.toHaveProperty('balance')
     expect(feePaymentsBuilders.some(b => (b.insert as ReturnType<typeof vi.fn>).mock.calls.length > 0)).toBe(false)
   })
 

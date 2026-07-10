@@ -355,7 +355,6 @@ export function BursarImportPage() {
       const r          = m.rawRow
       const amountPaid = Number(r.amount_paid ?? 0)
       const amountDue  = Number(r.amount_due  ?? amountPaid)
-      const balance    = Math.max(0, amountDue - amountPaid)
       const termNum    = Number(r.term ?? 1)
       const key        = `${m.chosenId}::${termNum}::${m.feeStructureId ?? 'null'}`
       // Earlier imports (before the fee_type column existed) always wrote
@@ -373,7 +372,7 @@ export function BursarImportPage() {
           .update({
             amount_due:       amountDue,
             amount_paid:      amountPaid,
-            balance,
+            // balance is DB-generated (amount_due - amount_paid) — never set explicitly.
             fee_structure_id: m.feeStructureId,
             payment_date:   r.payment_date ? String(r.payment_date) : (amountPaid > 0 ? new Date().toISOString().slice(0, 10) : null),
             receipt_number: r.receipt_number ? String(r.receipt_number) : null,
@@ -393,7 +392,7 @@ export function BursarImportPage() {
         academic_year_id: activeYearId!,
         amount_paid:      amountPaid,
         amount_due:       amountDue,
-        balance,
+        // balance is DB-generated (amount_due - amount_paid) — never set explicitly.
         payment_date:     r.payment_date ? String(r.payment_date) : (amountPaid > 0 ? new Date().toISOString().slice(0, 10) : null),
         receipt_number:   r.receipt_number ? String(r.receipt_number) : null,
         notes:            r.notes ? String(r.notes) : null,

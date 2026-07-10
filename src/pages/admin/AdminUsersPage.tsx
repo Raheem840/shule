@@ -85,6 +85,10 @@ function printCredentialSlip(p: {
 interface CredInfo {
   staffId: string; staffName: string; role: string; deptName: string | null
   email: string; phone: string | null
+  // Only set for a password RESET (direct-password-set, no email dependency).
+  // Absent for first-time activation, which genuinely is email-based — see
+  // the header/subtext branching in CredentialDeliveryPanel below.
+  password?: string
 }
 
 function CredentialDeliveryPanel({ cred, onDismiss }: {
@@ -120,9 +124,13 @@ function CredentialDeliveryPanel({ cred, onDismiss }: {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--success)', fontFamily: 'var(--font2)' }}>Login Activated — {cred.staffName}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--success)', fontFamily: 'var(--font2)' }}>
+              {cred.password ? 'Password Reset' : 'Login Activated'} — {cred.staffName}
+            </div>
             <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>
-              An email was sent to set their password. No password to share.
+              {cred.password
+                ? 'Share these credentials securely.'
+                : 'An email was sent to set their password. No password to share.'}
             </div>
           </div>
         </div>
@@ -131,7 +139,7 @@ function CredentialDeliveryPanel({ cred, onDismiss }: {
         </button>
       </div>
 
-      {/* Email field */}
+      {/* Email + password fields */}
       <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,.04)', border: '1px solid rgba(16,185,129,.12)', borderRadius: 10, padding: '10px 14px' }}>
           <div>
@@ -142,6 +150,17 @@ function CredentialDeliveryPanel({ cred, onDismiss }: {
             {copied === 'email' ? '✓ Copied' : 'Copy'}
           </button>
         </div>
+        {cred.password && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,.04)', border: '1px solid rgba(16,185,129,.12)', borderRadius: 10, padding: '10px 14px' }}>
+            <div>
+              <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: .8, marginBottom: 3 }}>Password</div>
+              <div style={{ fontSize: 13, fontFamily: 'var(--font3)', color: 'var(--txt)', fontWeight: 600 }}>{cred.password}</div>
+            </div>
+            <button onClick={() => copy('pass', cred.password!)} style={{ background: copied === 'pass' ? 'rgba(16,185,129,.12)' : 'var(--surface)', border: `1px solid ${copied === 'pass' ? 'rgba(16,185,129,.3)' : 'var(--border)'}`, borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontSize: 11, fontWeight: 800, fontFamily: 'var(--font2)', color: copied === 'pass' ? 'var(--success)' : 'var(--txt2)', transition: 'all 0.15s' }}>
+              {copied === 'pass' ? '✓ Copied' : 'Copy'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Delivery actions */}
@@ -362,8 +381,8 @@ function ActiveCard({ staff, deptName, onReset, onLink, onDeactivated }: { staff
   async function handleReset() {
     if (!staff.authUserId || !staff.email) return
     try {
-      await reset.mutateAsync({ authUserId: staff.authUserId, staffId: staff.id, email: staff.email, name: staffName })
-      onReset({ staffId: staff.id, staffName, role: staff.role, deptName, email: staff.email, phone: staff.phone })
+      const r = await reset.mutateAsync({ authUserId: staff.authUserId, staffId: staff.id, email: staff.email, name: staffName })
+      onReset({ staffId: staff.id, staffName, role: staff.role, deptName, email: staff.email, phone: staff.phone, password: r.tempPassword })
     } catch (e) { err(e instanceof Error ? e.message : 'Reset failed') }
   }
 

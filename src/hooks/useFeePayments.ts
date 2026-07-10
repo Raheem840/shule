@@ -662,7 +662,7 @@ export function useAddPayment() {
           .from('fee_payments')
           .update({
             amount_paid:    newPaid,
-            balance:        Math.max(0, Number(ex.amount_due) - newPaid),
+            // balance is DB-generated (amount_due - amount_paid) — never set explicitly.
             payment_date:   input.paymentDate || null,
             receipt_number: input.receiptNumber || null,
             notes:          input.notes || null,
@@ -681,7 +681,7 @@ export function useAddPayment() {
           academic_year_id: input.academicYearId,
           amount_due:       input.amountDue,
           amount_paid:      input.amountPaid,
-          balance:          Math.max(0, input.amountDue - input.amountPaid),
+          // balance is DB-generated (amount_due - amount_paid) — never set explicitly.
           payment_date:     input.paymentDate || null,
           receipt_number:   input.receiptNumber || null,
           notes:            input.notes || null,
@@ -728,7 +728,8 @@ export function useUpdatePayment() {
       const newBalance = Math.max(0, input.amountDue - input.amountPaid)
       const oldBalance = input.amountDue - input.oldAmountPaid
 
-      const patch: Record<string, unknown> = { amount_paid: input.amountPaid, balance: newBalance }
+      // balance is DB-generated (amount_due - amount_paid) — never set explicitly.
+      const patch: Record<string, unknown> = { amount_paid: input.amountPaid }
       if (input.receiptNumber !== undefined) patch.receipt_number = input.receiptNumber
       if (input.paymentDate   !== undefined) patch.payment_date   = input.paymentDate
       if (input.notes         !== undefined) patch.notes          = input.notes
@@ -858,7 +859,7 @@ export function useApplyPayment() {
         .from('fee_payments')
         .update({
           amount_paid:    input.amountPaid,
-          balance:        Math.max(0, input.amountDue - input.amountPaid),
+          // balance is DB-generated (amount_due - amount_paid) — never set explicitly.
           payment_date:   input.paymentDate || null,
           receipt_number: input.receiptNumber || null,
           notes:          input.notes || null,

@@ -145,6 +145,7 @@ export function useResetStaffPassword() {
       void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
       void qc.invalidateQueries({ queryKey: ['staff-member', user?.schoolId, staffId] })
       void qc.invalidateQueries({ queryKey: ['user-management', user?.schoolId] })
+      void qc.invalidateQueries({ queryKey: ['credentials-vault', user?.schoolId] })
     },
   })
 }
