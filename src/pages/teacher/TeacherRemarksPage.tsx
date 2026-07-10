@@ -309,6 +309,22 @@ export function TeacherRemarksPage() {
                   )
                 })}
               </div>
+              {bands && (
+                <div style={{ border: '.5px solid var(--border)', borderRadius: 10, background: 'var(--surface2)', maxHeight: 160, overflowY: 'auto' }}>
+                  {studentsInBand.length === 0 ? (
+                    <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--txt3)' }}>
+                      No students in {PERFORMANCE_BANDS.find(b => b.value === bulkBand)?.label} for this class/stream/term.
+                    </div>
+                  ) : (
+                    studentsInBand.map((s, i) => (
+                      <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 12px', borderBottom: i < studentsInBand.length - 1 ? '.5px solid var(--border)' : 'none' }}>
+                        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--txt)' }}>{s.firstName} {s.lastName}</span>
+                        <span style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>{bands.get(s.id)?.avg ?? '—'}%</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
               <textarea value={bulkText} onChange={e => setBulkText(e.target.value.slice(0, MAX_CHARS))} rows={2}
                 placeholder="Template remark for this band…"
                 className="sui-input" style={{ width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />

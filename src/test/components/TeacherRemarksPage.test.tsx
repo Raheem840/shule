@@ -279,9 +279,15 @@ describe('TeacherRemarksPage — bulk apply', () => {
     await user.click(screen.getByRole('button', { name: /apply to 1 student in distinction/i }))
 
     await waitFor(() => {
-      // Alice (distinction) gets the template text; Bob (basic) is untouched
-      const aliceRow = screen.getByText('Alice Apio').closest('div[style*="border-bottom"]')!
-      const bobRow   = screen.getByText('Bob Okello').closest('div[style*="border-bottom"]')!
+      // Alice (distinction) gets the template text; Bob (basic) is untouched.
+      // Both names now also appear in the band-preview list, so pick the row
+      // that actually contains an editable textarea.
+      const aliceRow = screen.getAllByText('Alice Apio')
+        .map(el => el.closest('div[style*="border-bottom"]'))
+        .find(row => row?.querySelector('textarea'))!
+      const bobRow = screen.getAllByText('Bob Okello')
+        .map(el => el.closest('div[style*="border-bottom"]'))
+        .find(row => row?.querySelector('textarea'))!
       expect((aliceRow.querySelector('textarea') as HTMLTextAreaElement).value).toMatch(/excellent term/i)
       expect((bobRow.querySelector('textarea') as HTMLTextAreaElement).value).toBe('')
     })
