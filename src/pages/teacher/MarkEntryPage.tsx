@@ -21,6 +21,7 @@ import {
   type ConflictStrategy,
 } from '../../components/shared/ImportWizard'
 import { useAuth } from '../../store/AuthContext'
+import { useToast } from '../../components/ui/Toast'
 import { ReportCardCalcExplainer } from '../../components/shared/ReportCardCalcExplainer'
 import type { Student } from '../../types/app'
 import type { MarkRow } from '../../hooks/useExamResults'
@@ -713,6 +714,7 @@ export function MarkEntryPage() {
   const [searchParams]  = useSearchParams()
   const isMobile        = useIsMobile()
   const { user }        = useAuth()
+  const { error: toastErr } = useToast()
 
   const { data: journal, isLoading: journalLoading } = useExamJournalById(journalId)
   const { data: savedResults = [] }                   = useExamResults(journalId)
@@ -825,8 +827,18 @@ export function MarkEntryPage() {
 
   async function handlePublish() {
     if (!journal) return
-    await handleSaveAll()
-    await publish.mutateAsync(journal.id)
+    // handleSaveAll can throw for reasons unrelated to the lock/reason gate
+    // (e.g. a genuine save failure) — previously that exception propagated
+    // straight out through `void handlePublish()` at the call site and was
+    // silently swallowed, so a failed publish looked identical to a
+    // successful one: no error, no status change, no visible feedback.
+    try {
+      await handleSaveAll()
+      await publish.mutateAsync(journal.id)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to publish this journal'
+      toastErr(msg)
+    }
   }
 
   function handleImportClick() {
