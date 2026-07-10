@@ -391,6 +391,7 @@ export type RawResult = {
   assessmentType: string
   journalName:    string
   caLabel:        string | null
+  competency?:    string | null
   score:          number | null
   isAbsent:       boolean
   totalMarks:     number
@@ -421,10 +422,19 @@ export function buildSubjectRows(
 
     const etEntry = subResults.find(r => r.assessmentType === 'end_of_term')
 
-    const caScores = caEntries.map(r => ({
-      label: r.caLabel ?? r.journalName,
-      score: r.isAbsent ? null : r.score,
-    }))
+    // Prefer the actual competency/topic assessed (set via the Curriculum
+    // Plan picker on the CA journal) over the generic "C1"/"C2" sequence
+    // label — matches the UNEB/CBC convention of reporting per competency
+    // rather than per arbitrary assessment number. Truncated for the PDF's
+    // fixed-width CA columns; falls back to the C-label when no competency
+    // was recorded (e.g. journals created before this field existed).
+    const caScores = caEntries.map(r => {
+      const competency = r.competency?.trim()
+      const label = competency
+        ? (competency.length > 18 ? competency.slice(0, 18) + '…' : competency)
+        : (r.caLabel ?? r.journalName)
+      return { label, score: r.isAbsent ? null : r.score }
+    })
 
     const totalCaPoints = caScores.reduce((s, c) => s + (c.score ?? 0), 0)
     const assessed      = caScores.filter(c => c.score !== null).length

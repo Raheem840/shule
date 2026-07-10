@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as Tabs from '@radix-ui/react-tabs'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -18,6 +18,8 @@ import {
 } from '../../hooks/useDos'
 import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
 import { useToast } from '../../components/ui/Toast'
+import { usePortalNotifications, useMarkSingleNotificationRead } from '../../hooks/useNotifications'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { SafeTermProgressTimeline } from '../../components/shared/TermProgressTimeline'
 import type { SubjectRanking } from '../../types/week9'
 
@@ -638,11 +640,82 @@ function CurriculumPlanTab() {
   )
 }
 
+// ─── TAB 5 — Academic Issues ────────────────────────────────────────────────
+// Locked-marks-override notifications (and any future academic-integrity
+// signal) land here as type='academic' notifications targeted at the DoS —
+// see useSaveMarks in useExamResults.ts for where these get sent.
+function AcademicIssuesTab() {
+  const { data: notifications = [], isLoading } = usePortalNotifications()
+  const markRead = useMarkSingleNotificationRead()
+
+  const academic = notifications.filter(n => n.type === 'academic')
+  const unreadCount = academic.filter(n => !n.readAt).length
+
+  if (isLoading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+      <LoadingSpinner size="md" />
+    </div>
+  )
+
+  if (academic.length === 0) return (
+    <div style={{ textAlign: 'center', padding: '3rem 1.5rem', color: 'var(--txt3)' }}>
+      <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(13,148,136,.08)', border: '1px dashed rgba(13,148,136,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="1.6"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L14.71 3.86a2 2 0 00-3.42 0z"/></svg>
+      </div>
+      <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--txt)', marginBottom: 4 }}>No academic issues</div>
+      <div style={{ fontSize: 13 }}>Locked-marks overrides and other academic-integrity flags will show up here.</div>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {unreadCount > 0 && (
+        <div style={{ fontSize: 12.5, color: 'var(--txt3)' }}>
+          {unreadCount} unread issue{unreadCount !== 1 ? 's' : ''}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {academic.map(n => (
+          <div key={n.id} style={{
+            display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px',
+            background: n.readAt ? 'var(--surface)' : 'rgba(13,148,136,.05)',
+            border: `.5px solid ${n.readAt ? 'var(--border)' : 'rgba(13,148,136,.25)'}`,
+            borderRadius: 14,
+          }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+              background: 'rgba(245,158,11,.12)', color: 'var(--warning)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L14.71 3.86a2 2 0 00-3.42 0z"/></svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--txt)', marginBottom: 2 }}>{n.title ?? 'Academic Issue'}</div>
+              <div style={{ fontSize: 13, color: 'var(--txt2)', lineHeight: 1.5 }}>{n.body}</div>
+              <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 6 }}>
+                {new Date(n.createdAt).toLocaleString('en-UG', { dateStyle: 'medium', timeStyle: 'short' })}
+              </div>
+            </div>
+            {!n.readAt && (
+              <button onClick={() => markRead.mutate(n.id)} disabled={markRead.isPending}
+                style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 8, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' }}>
+                Mark read
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // DOS DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════
 export function DosDashboard() {
   const { data: overview, isLoading: kpiLoading } = useDosOverview()
+  const [searchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab') ?? 'overview'
 
   return (
     <div className="sui-page-enter stagger-sections" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -710,7 +783,7 @@ export function DosDashboard() {
         />
       </div>
 
-      <Tabs.Root defaultValue="overview">
+      <Tabs.Root defaultValue={initialTab}>
         <Tabs.List asChild>
           <div className="sui-tab-list-pill mob-tab-scroll" style={{ marginBottom: 24 }}>
             {[
@@ -718,6 +791,7 @@ export function DosDashboard() {
               { value: 'class-perf',   label: 'Class Performance' },
               { value: 'teacher-perf', label: 'Teacher Performance' },
               { value: 'curriculum',   label: 'Curriculum Plan' },
+              { value: 'academic-issues', label: 'Academic Issues' },
             ].map(tab => (
               <Tabs.Trigger key={tab.value} value={tab.value} asChild>
                 <button className="sui-tab-pill">{tab.label}</button>
@@ -726,10 +800,11 @@ export function DosDashboard() {
           </div>
         </Tabs.List>
 
-        <Tabs.Content value="overview">     <OverviewTab />          </Tabs.Content>
-        <Tabs.Content value="class-perf">   <ClassPerformanceTab />  </Tabs.Content>
-        <Tabs.Content value="teacher-perf"> <TeacherPerformanceTab /></Tabs.Content>
-        <Tabs.Content value="curriculum">   <CurriculumPlanTab />    </Tabs.Content>
+        <Tabs.Content value="overview">        <OverviewTab />          </Tabs.Content>
+        <Tabs.Content value="class-perf">      <ClassPerformanceTab />  </Tabs.Content>
+        <Tabs.Content value="teacher-perf">    <TeacherPerformanceTab /></Tabs.Content>
+        <Tabs.Content value="curriculum">      <CurriculumPlanTab />    </Tabs.Content>
+        <Tabs.Content value="academic-issues"> <AcademicIssuesTab />    </Tabs.Content>
       </Tabs.Root>
     </div>
   )

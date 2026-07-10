@@ -11,12 +11,11 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts'
-import { useExamJournals, useCreateJournal, useNextCALabel } from '../../hooks/useExamJournal'
+import { useExamJournals, useCreateJournal, useNextCALabel, useCurriculumTopicsForCA } from '../../hooks/useExamJournal'
 import { useJournalEvent } from '../../hooks/useTeacherEvents'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { calculateCBCGrade } from '../../types/app'
 import type { AssessmentType, ExamJournal } from '../../types/app'
 import type { JournalFilters } from '../../hooks/useExamJournal'
 import type { SchoolEvent } from '../../types/week9'
@@ -236,6 +235,12 @@ function CreateJournalModal({ onClose, prefillEvent }: { onClose: () => void; pr
     term        || null,
     CURRENT_YEAR,
   )
+  const { data: caTopics = [] } = useCurriculumTopicsForCA(
+    subjectId   || null,
+    classId     || null,
+    term        || null,
+    CURRENT_YEAR,
+  )
 
   const isCA  = assessmentType === 'ca'
   const isAOI = assessmentType === 'aoi'
@@ -256,7 +261,7 @@ function CreateJournalModal({ onClose, prefillEvent }: { onClose: () => void; pr
       year:             CURRENT_YEAR,
       teacherNotes:     values.notes ?? null,
       learningArea:     isAOI ? (values.learningArea ?? null) : null,
-      competency:       isAOI ? (values.competency ?? null) : null,
+      competency:       (isAOI || isCA) ? (values.competency || null) : null,
       integrationTheme: isAOI ? (values.integrationTheme ?? null) : null,
       tradeArea:        isDIT ? (values.tradeArea ?? null) : null,
       ditModuleCode:    isDIT ? (values.ditModuleCode ?? null) : null,
@@ -388,6 +393,24 @@ function CreateJournalModal({ onClose, prefillEvent }: { onClose: () => void; pr
               <FieldWrap label="Weighting %">
                 <input type="number" min="0" max="100" {...register('caWeighting')} style={inputCls} />
               </FieldWrap>
+              <div style={{ gridColumn: '1/-1' }}>
+                <FieldWrap label="Competency / Topic Assessed">
+                  <input
+                    list="ca-competency-topics"
+                    {...register('competency')}
+                    style={inputCls}
+                    placeholder={caTopics.length > 0 ? 'Pick from your Curriculum Plan, or type your own' : 'e.g. Simultaneous linear equations'}
+                  />
+                  <datalist id="ca-competency-topics">
+                    {caTopics.map(t => <option key={t.id} value={t.topic} />)}
+                  </datalist>
+                </FieldWrap>
+                {caTopics.length === 0 && (
+                  <div style={{ fontSize: 10.5, color: 'var(--txt3)', marginTop: 4 }}>
+                    No Curriculum Plan topics found for this subject/class/term yet — add them there, or type the competency here manually.
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -656,7 +679,12 @@ function useMyResults(journalIds: string[]) {
       return (resultsRes.data ?? []).map((r: any): TeacherResultRow => {
         const stu   = studMap.get(r.student_id as string)
         const score = r.score as number | null
-        const gradeVal = (r.grade as string | null) ?? (score != null ? calculateCBCGrade(score) : null)
+        // useSaveMarks deliberately leaves grade null for end_of_term rows
+        // (needs the CA mark combined at report-card time) — a fallback
+        // here would feed a raw out-of-80 exam score into a formula that
+        // expects an already-computed 0-100 percentage. Use the DB grade
+        // as-is; a null grade for an end_of_term row is correct, not missing.
+        const gradeVal = r.grade as string | null
         return {
           studentId:      r.student_id as string,
           studentName:    stu?.name ?? '—',
@@ -697,6 +725,17 @@ function MyAnalyticsPanel({
     return m
   }, [journals])
 
+  // CA journals score 0-3 per competency, not out of totalMarks — every
+  // average below must convert to a percentage first using the right
+  // denominator, or a CA score of 2.5 reads as "2.5%" next to an 80/100
+  // score from another journal.
+  const toPct = useCallback((r: TeacherResultRow): number => {
+    const j = journalMeta.get(r.examJournalId)
+    if (!j) return r.score as number
+    const denom = j.assessmentType === 'ca' ? 3 : (j.totalMarks || 100)
+    return ((r.score as number) / denom) * 100
+  }, [journalMeta])
+
   // Base results filtered by subject/class dropdowns
   const baseResults = useMemo(() => {
     return allResults.filter(r => {
@@ -716,7 +755,7 @@ function MyAnalyticsPanel({
       for (const r of baseResults) {
         if (r.score == null) continue
         const arr = scoreMap.get(r.studentId) ?? []
-        arr.push(r.score)
+        arr.push(toPct(r))
         scoreMap.set(r.studentId, arr)
       }
       const topIds = new Set(
@@ -736,7 +775,7 @@ function MyAnalyticsPanel({
       if (bandFilter === 'needs_help')  return g === 'E'
       return true
     })
-  }, [baseResults, bandFilter])
+  }, [baseResults, bandFilter, toPct])
 
   // Grade distribution
   const gradeData = useMemo(() => {
@@ -755,13 +794,13 @@ function MyAnalyticsPanel({
       if (r.score == null || r.isAbsent) continue
       const key = `T${r.term} ${r.year}`
       const arr = termBucket.get(key) ?? []
-      arr.push(r.score)
+      arr.push(toPct(r))
       termBucket.set(key, arr)
     }
     return [...termBucket.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([label, sc]) => ({ label, avg: +(sc.reduce((a, b) => a + b, 0) / sc.length).toFixed(1) }))
-  }, [filteredResults])
+  }, [filteredResults, toPct])
 
   // Student improvement: compare first vs last score per student across terms
   const improvementData = useMemo(() => {
@@ -772,7 +811,7 @@ function MyAnalyticsPanel({
       if (!studentTerms.has(r.studentId)) {
         studentTerms.set(r.studentId, { name: r.studentName, scores: [] })
       }
-      studentTerms.get(r.studentId)!.scores.push({ key: termKey, score: r.score })
+      studentTerms.get(r.studentId)!.scores.push({ key: termKey, score: toPct(r) })
     }
     const results: { name: string; delta: number; first: number; last: number }[] = []
     for (const [, v] of studentTerms.entries()) {
@@ -783,7 +822,7 @@ function MyAnalyticsPanel({
       results.push({ name: v.name, delta: +(last - first).toFixed(1), first, last })
     }
     return results.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 10)
-  }, [baseResults, journalMeta])
+  }, [baseResults, journalMeta, toPct])
 
   // Excel export
   const exportExcel = useCallback(async () => {

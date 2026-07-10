@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { calculateCBCGrade } from '../types/app'
 import { isJournalLocked } from './useExamJournal'
+import { sendNotifications } from '../lib/notifications'
 import type { ExamResult, ExamJournal } from '../types/app'
 
 const RESULT_COLS = [
@@ -158,6 +159,28 @@ export function useSaveMarks() {
         })
         if (auditErr) {
           throw new Error(`Marks were saved, but the audit record failed: ${auditErr.message}`)
+        }
+
+        // Notify the DoS — a locked-marks override is an academic-integrity
+        // signal they should see without having to trawl the audit log.
+        // Best-effort: no DoS account, or the notification failing, must not
+        // block the (already-saved, already-audited) correction itself.
+        try {
+          const { data: dosStaff } = await supabase.from('staff').select('auth_user_id')
+            .eq('school_id', user.schoolId).eq('role', 'dos').maybeSingle()
+          const dosAuthId = (dosStaff as { auth_user_id: string | null } | null)?.auth_user_id
+          if (dosAuthId) {
+            await sendNotifications({
+              schoolId: user.schoolId,
+              userIds:  [dosAuthId],
+              type:     'academic',
+              title:    'Locked Marks Edited',
+              body:     `${user.name} corrected ${rows.length} result${rows.length !== 1 ? 's' : ''} on a locked journal. Reason: ${overrideReason.trim()}`,
+              link:     '/dos/dashboard?tab=academic-issues',
+            })
+          }
+        } catch (_e) {
+          // Non-fatal — the audit_log row above is the source of truth.
         }
       }
 

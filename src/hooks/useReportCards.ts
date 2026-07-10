@@ -303,7 +303,7 @@ export function useGenerateReportCards() {
         .select(`
           student_id, subject_id, score, is_absent,
           exam_journal!inner(
-            id, assessment_type, name, ca_label, total_marks, status
+            id, assessment_type, name, ca_label, competency, total_marks, status
           )
         `)
         .eq('school_id', schoolId)
@@ -421,6 +421,7 @@ export function useGenerateReportCards() {
           assessmentType: ej.assessment_type as string,
           journalName:    ej.name as string,
           caLabel:        (ej.ca_label as string) ?? null,
+          competency:     (ej.competency as string) ?? null,
           score:          (row.score as number) ?? null,
           isAbsent:       (row.is_absent as boolean) ?? false,
           totalMarks:     ej.total_marks as number,

@@ -16,7 +16,7 @@ const JOURNAL_COLS = [
 // publish (the "provisional" window) — after that, editing requires an
 // override reason, logged to audit_log. Journals published before this
 // column existed have published_at=null and are treated as never-locked.
-export const MARKS_GRACE_PERIOD_DAYS = 30
+export const MARKS_GRACE_PERIOD_DAYS = 7
 
 export function isJournalLocked(journal: Pick<ExamJournal, 'status' | 'publishedAt'>): boolean {
   if (journal.status !== 'published' || !journal.publishedAt) return false
@@ -140,6 +140,41 @@ export function useNextCALabel(
 
       if (error) throw error
       return `C${(count ?? 0) + 1}`
+    },
+  })
+}
+
+// ── useCurriculumTopicsForCA ─────────────────────────────────────
+// Lets a teacher tie a CA journal to the specific competency/topic it
+// assesses (from their own Curriculum Plan for this subject+class+term),
+// rather than the journal only ever being labelled generically "C1"/"C2" —
+// matching the CBC/UNEB convention of reporting results per competency.
+export function useCurriculumTopicsForCA(
+  subjectId: string | null | undefined,
+  classId:   string | null | undefined,
+  term:      string | null | undefined,
+  year:      number | null | undefined,
+) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['ca-competency-topics', user?.schoolId, subjectId, classId, term, year],
+    enabled:  !!user && !!subjectId && !!classId && !!term && !!year,
+    staleTime: 30_000,
+    queryFn:  async (): Promise<{ id: string; topic: string }[]> => {
+      const { data, error } = await supabase
+        .from('curriculum_plan')
+        .select('id, topic')
+        .eq('school_id', user!.schoolId)
+        .eq('subject_id', subjectId!)
+        .eq('class_id',   classId!)
+        .eq('term',       term!)
+        .eq('year',       year!)
+        .order('expected_date', { ascending: true, nullsFirst: false })
+
+      if (error?.code === '42P01') return []
+      if (error) throw error
+      return (data ?? []).map(r => ({ id: r.id as string, topic: r.topic as string }))
     },
   })
 }
@@ -284,7 +319,12 @@ export function usePublishJournal() {
     },
     onSuccess: id => {
       qc.invalidateQueries({ queryKey: ['exam-journals', user?.schoolId, user?.id] })
-      qc.invalidateQueries({ queryKey: ['exam-journal', id] })
+      // The actual query key is ['exam-journal', schoolId, journalId] (see
+      // useExamJournalById) — this previously invalidated ['exam-journal', id],
+      // which never matches that key (id landed where schoolId belongs), so
+      // MarkEntryPage kept showing the stale draft status after a successful
+      // publish and the Publish button never disappeared.
+      qc.invalidateQueries({ queryKey: ['exam-journal', user?.schoolId, id] })
     },
   })
 }
