@@ -526,8 +526,13 @@ function SlotChip({ slot, onDelete }: { slot: TimetableSlot; onDelete: () => voi
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: slot.id, data: { slot } })
   const [color, bg] = subjectColor(slot.subjectId)
   return (
-    <div ref={setNodeRef} {...listeners} {...attributes}
-      style={{ background: bg, border: `.5px solid ${color}40`, borderRadius: 10, padding: '6px 8px', cursor: isDragging ? 'grabbing' : 'grab', opacity: isDragging ? 0.3 : 1, position: 'relative', userSelect: 'none', WebkitUserSelect: 'none', transition: 'opacity .15s', height: '100%', boxSizing: 'border-box' }}
+    <div ref={setNodeRef} {...listeners} {...attributes} className="tt-slot-chip"
+      style={{
+        background: bg, borderLeft: `2.5px solid ${color}`, border: `.5px solid ${color}40`,
+        borderRadius: 10, padding: '6px 8px', cursor: isDragging ? 'grabbing' : 'grab',
+        opacity: isDragging ? 0.3 : 1, position: 'relative', userSelect: 'none', WebkitUserSelect: 'none',
+        transition: 'opacity .15s, transform .15s, box-shadow .15s', height: '100%', boxSizing: 'border-box',
+      }}
     >
       <div style={{ fontWeight: 700, fontSize: 11.5, color, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 14, marginBottom: 2 }}>{slot.subjectName ?? '—'}</div>
       <div style={{ fontSize: 10, color: 'var(--txt3)', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -779,26 +784,59 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
   if (isMobile) {
     const daySlots = slots.filter(s => s.dayOfWeek === mobileDay)
     const daySlotMap = new Map(daySlots.map(s => [s.periodNumber, s]))
+    const dayClassPeriods = classPeriods.filter(d => appliesToDay(d, mobileDay))
+    const dayFilledCount  = dayClassPeriods.filter(d => daySlotMap.has(d.num)).length
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {ClassPicker}
         {isLoading ? <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><div className="shule-skeleton" style={{ width: 200, height: 20, borderRadius: 10 }} /></div> : (
           <>
-            {/* Day tabs */}
-            <div style={{ display: 'flex', gap: 6, background: 'var(--surface)', padding: '10px 14px', borderRadius: 14, border: '.5px solid var(--border)', overflowX: 'auto' }}>
+            {/* Day tabs — sticky segmented control */}
+            <div className="tt-day-tabs" style={{
+              display: 'flex', gap: 4, background: 'var(--surface)', padding: 6, borderRadius: 16,
+              border: '.5px solid var(--border)', overflowX: 'auto', scrollbarWidth: 'none',
+              position: 'sticky', top: 0, zIndex: 5, boxShadow: '0 4px 16px rgba(0,0,0,.05)',
+            }}>
               {DAYS.map(([d, label]) => (
-                <button key={d} onClick={() => setMobileDay(d)}
-                  style={{ flex: '0 0 auto', padding: '8px 16px', borderRadius: 10, border: 'none', background: mobileDay === d ? 'linear-gradient(145deg,#8b5cf6,#7c3aed)' : 'var(--surface2)', color: mobileDay === d ? '#fff' : 'var(--txt3)', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all .15s', boxShadow: mobileDay === d ? '0 3px 10px rgba(139,92,246,.4)' : 'none', position: 'relative' }}
+                <button key={d} onClick={() => setMobileDay(d)} className="tt-day-tab"
+                  style={{
+                    flex: '1 0 auto', minWidth: 48, padding: '10px 14px', borderRadius: 12, border: 'none',
+                    background: mobileDay === d ? 'linear-gradient(145deg,#8b5cf6,#7c3aed)' : 'transparent',
+                    color: mobileDay === d ? '#fff' : 'var(--txt3)', fontSize: 13, fontWeight: 700,
+                    cursor: 'pointer', transition: 'all .18s cubic-bezier(.34,1.5,.64,1)',
+                    boxShadow: mobileDay === d ? '0 4px 14px rgba(139,92,246,.42)' : 'none',
+                    transform: mobileDay === d ? 'translateY(-1px)' : 'none',
+                    position: 'relative',
+                  }}
                 >
                   {label}
-                  {d === todayCol && <div style={{ position: 'absolute', bottom: 3, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: '50%', background: mobileDay === d ? 'rgba(255,255,255,.8)' : '#8b5cf6' }} />}
+                  {d === todayCol && <div style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: '50%', background: mobileDay === d ? 'rgba(255,255,255,.85)' : '#8b5cf6' }} />}
                 </button>
               ))}
             </div>
 
+            {/* Day progress strip */}
+            {dayClassPeriods.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 2px' }}>
+                <div style={{ flex: 1, height: 6, borderRadius: 99, background: 'var(--surface2)', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 99,
+                    width: `${(dayFilledCount / dayClassPeriods.length) * 100}%`,
+                    background: dayFilledCount === dayClassPeriods.length
+                      ? 'linear-gradient(90deg,#10b981,#059669)'
+                      : 'linear-gradient(90deg,#8b5cf6,#7c3aed)',
+                    transition: 'width .3s cubic-bezier(.34,1.2,.64,1)',
+                  }} />
+                </div>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--txt3)', fontFamily: 'var(--font3)', flexShrink: 0 }}>
+                  {dayFilledCount}/{dayClassPeriods.length} filled
+                </span>
+              </div>
+            )}
+
             {/* Period cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="stagger-cards" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               {periodDefs.map(def => {
                 const isEvent = def.type !== 'class'
                 const meta = EVENT_META[def.type]
@@ -808,42 +846,57 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
                 if (isEvent) {
                   if (!appliesToDay(def, mobileDay)) return null
                   return (
-                    <div key={def.num} style={{ padding: '10px 16px', borderRadius: 12, background: meta.bg, border: `.5px solid ${meta.color}30`, display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 18 }}>{meta.icon}</span>
+                    <div key={def.num} style={{ padding: '11px 16px', borderRadius: 14, background: meta.bg, borderLeft: `3px solid ${meta.color}`, display: 'flex', alignItems: 'center', gap: 11 }}>
+                      <span style={{ fontSize: 19 }}>{meta.icon}</span>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 800, color: meta.color }}>{def.label}</div>
-                        {def.startTime && <div style={{ fontSize: 11, color: meta.color, opacity: .7, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</div>}
+                        {def.startTime && <div style={{ fontSize: 11, color: meta.color, opacity: .75, fontFamily: 'var(--font3)', marginTop: 1 }}>{def.startTime}–{def.endTime}</div>}
                       </div>
                     </div>
                   )
                 }
 
+                const [subjColor] = slot ? subjectColor(slot.subjectId) : ['#8b5cf6', '']
+
                 return (
-                  <div key={def.num} onClick={() => !slot && onAssign({ classId: selectedClass!, streamId: selectedStream, day: mobileDay, period: def.num })}
-                    style={{ padding: '12px 14px', borderRadius: 12, border: `.5px solid ${isConflict ? 'rgba(244,63,94,.4)' : slot ? 'var(--border)' : '.5px dashed var(--border)'}`, background: isConflict ? 'rgba(244,63,94,.04)' : 'var(--surface)', cursor: slot ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'background .14s' }}
+                  <div key={def.num} className="tt-period-card"
+                    onClick={() => !slot && onAssign({ classId: selectedClass!, streamId: selectedStream, day: mobileDay, period: def.num })}
+                    style={{
+                      padding: '13px 15px', borderRadius: 14, minHeight: 64, boxSizing: 'border-box',
+                      border: isConflict ? '1.5px solid rgba(244,63,94,.45)' : slot ? '.5px solid var(--border)' : '1.5px dashed var(--border)',
+                      borderLeft: slot && !isConflict ? `3px solid ${subjColor}` : undefined,
+                      background: isConflict ? 'rgba(244,63,94,.05)' : slot ? 'var(--surface)' : 'rgba(139,92,246,.03)',
+                      boxShadow: slot && !isConflict ? '0 2px 10px rgba(0,0,0,.05)' : 'none',
+                      cursor: slot ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 12,
+                      transition: 'transform .12s ease, box-shadow .12s ease',
+                    }}
                   >
-                    <div style={{ width: 36, height: 36, borderRadius: 11, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--txt3)', fontFamily: 'var(--font2)' }}>P{def.num}</span>
                     </div>
                     {slot ? (
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        {(() => { const [c] = subjectColor(slot.subjectId); return <><div style={{ fontSize: 13.5, fontWeight: 700, color: c, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.subjectName}</div><div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2 }}>{slot.teacherName}</div></> })()}
+                        <div style={{ fontSize: 14, fontWeight: 800, color: subjColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.subjectName}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                          <div style={{ width: 15, height: 15, borderRadius: '50%', background: `${subjColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: subjColor, flexShrink: 0 }}>{ini(slot.teacherName ?? '?')}</div>
+                          <span style={{ fontSize: 12, color: 'var(--txt3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.teacherName}</span>
+                        </div>
                       </div>
                     ) : (
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, color: 'var(--txt3)', fontWeight: 500 }}>{def.label}</div>
-                        {def.startTime && <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</div>}
+                        <div style={{ fontSize: 13.5, color: 'var(--txt3)', fontWeight: 600 }}>{def.label}</div>
+                        {def.startTime && <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 2, fontFamily: 'var(--font3)' }}>{def.startTime}–{def.endTime}</div>}
                       </div>
                     )}
                     {!slot && (
-                      <div style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(139,92,246,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(139,92,246,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                       </div>
                     )}
                     {slot && (
                       <button onClick={e => { e.stopPropagation(); void deleteSlot.mutateAsync(slot.id) }}
-                        style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'rgba(244,63,94,.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)', flexShrink: 0 }}
-                      ><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>
+                        style={{ width: 30, height: 30, borderRadius: 9, border: 'none', background: 'rgba(244,63,94,.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)', flexShrink: 0 }}
+                      ><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>
                     )}
                   </div>
                 )

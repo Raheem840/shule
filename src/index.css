@@ -3394,6 +3394,10 @@ select.sui-select:hover:not(:disabled):not(:focus) {
     border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.05);
   }
   .mob-list-row:active { background: var(--surface2); }
+
+  /* Timetable Builder mobile view — day tabs + period cards */
+  .tt-day-tab:active { transform: scale(.93) !important; }
+  .tt-period-card:active { transform: scale(.97); box-shadow: 0 1px 4px rgba(0,0,0,.06) !important; }
   .mob-list-lead {
     flex: 0 0 44px; width: 44px; height: 44px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
@@ -3552,6 +3556,9 @@ select.sui-select:hover:not(:disabled):not(:focus) {
 }
 
 @media (min-width: 769px) {
+
+  /* Timetable Builder — assigned slot chips lift on hover like a real card */
+  .tt-slot-chip:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
 
   /* ── 1. UNIVERSAL BUTTON PRESS PHYSICS (Framer/Linear "tactile" feel) ──────
      The desktop sui-btn-* variants had hover-lift but no press feedback.
