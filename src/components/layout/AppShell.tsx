@@ -646,7 +646,7 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
                   />
 
                   {/* Label */}
-                  {item.label}
+                  <span className="ni-label">{item.label}</span>
 
                   {/* Messaging badge — real unread count */}
                   {item.badge === 'alert' && isMsgItem && msgUnread > 0 && (

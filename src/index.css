@@ -184,7 +184,7 @@ html, body, #root {
    "Pinned" (Ctrl+B / the pin button) opts out, keeping it permanently
    expanded and pushing .shell-r over to match. */
 .sb {
-  width: 84px;
+  width: 96px;
   flex-shrink: 0;
   background: var(--sb-bg);
   display: flex;
@@ -222,10 +222,13 @@ html, body, #root {
 .sb .school-pill { justify-content: center; padding: 8px 0 !important; }
 .sb .ni {
   justify-content: center; padding: 10px !important;
-  opacity: 0; visibility: hidden; pointer-events: none;
-  transition: opacity 0.18s ease;
 }
-.sb .ni .ico { margin: 0 !important; }
+.sb .ni .ico {
+  margin: 0 auto !important;
+  width: 22px !important; height: 22px !important;
+}
+.sb .ni .ico svg { width: 19px !important; height: 19px !important; }
+.sb .ni-label { display: none !important; }
 .sb .upill {
   flex-direction: column; align-items: center; padding: 8px 4px !important; gap: 4px;
   opacity: 0; visibility: hidden; pointer-events: none;
@@ -281,9 +284,9 @@ html, body, #root {
 .sb:hover .school-pill,   .sb.sb-pinned .school-pill { justify-content: center; padding: revert !important; }
 .sb:hover .ni,            .sb.sb-pinned .ni {
   justify-content: flex-start; padding: revert !important;
-  opacity: 1; visibility: visible; pointer-events: auto;
 }
 .sb:hover .ni .ico,       .sb.sb-pinned .ni .ico { margin: revert !important; }
+.sb:hover .ni-label,      .sb.sb-pinned .ni-label { display: revert !important; }
 .sb:hover .upill,         .sb.sb-pinned .upill {
   flex-direction: row; align-items: center; padding: revert !important; gap: revert;
   opacity: 1; visibility: visible; pointer-events: auto;
@@ -307,7 +310,7 @@ html, body, #root {
 /* ── Shell right (topbar + main) ── */
 .shell-r {
   flex: 1;
-  margin-left: 84px;
+  margin-left: 96px;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -431,7 +434,6 @@ html, body, #root {
 }
 
 .school-pill:hover {
-  align-items: flex-start;
   /* Intensified glassmorphism */
   background: rgba(255,255,255,0.11);
   border-color: rgba(255,255,255,0.22);
@@ -476,7 +478,15 @@ html, body, #root {
 /* Text wrapper */
 .school-pill-text { min-width: 0; }
 
-/* School name — truncated by default, full on hover */
+/* School name — .school-pill-text (its parent) is only ever visible while
+   the sidebar itself is expanded (.sb:hover / .sb.sb-pinned), so the name
+   and motto render at full size as soon as they're shown — no separate
+   truncate/expand animation tied to hovering the pill directly. That used
+   to be driven by .school-pill:hover, which is a different trigger than the
+   sidebar's own .sb:hover — moving the mouse off the pill (e.g. down onto
+   the nav list) while the sidebar stayed expanded collapsed the motto back
+   to 0 height and reset the name's alignment mid-view, reading as "poorly
+   aligned" text that jumped around. */
 .school-name {
   font-family: var(--font2);
   font-size: 13px;
@@ -484,39 +494,15 @@ html, body, #root {
   color: #ffffff;
   line-height: 1.3;
   letter-spacing: -0.2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   text-align: center;
   transition: color 0.25s ease;
 }
-.school-pill:hover .school-name {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: unset;
-  color: #ffffff;
-}
 
-/* Motto — hidden by default, slides in on hover */
 .school-loc {
-  font-size: 0px;          /* collapse text height */
-  color: transparent;
-  margin-top: 0;
-  max-height: 0;
-  overflow: hidden;
-  text-align: center;
-  transition:
-    font-size 0.25s ease 0.05s,
-    color 0.3s ease 0.05s,
-    max-height 0.35s ease 0.05s,
-    margin-top 0.25s ease 0.05s;
-}
-.school-pill:hover .school-loc {
   font-size: 10.5px;
   color: rgba(186,214,230,0.85);
-  max-height: 80px;
   margin-top: 4px;
-  overflow: visible;
+  text-align: center;
 }
 
 /* Nav groups */
