@@ -34,9 +34,22 @@ export function typeColor(t: string) { return ALL_EVENT_TYPES.find(e => e.value 
 export function typeLabel(t: string) { return ALL_EVENT_TYPES.find(e => e.value === t)?.label ?? t }
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
-export function isToday(d: string) { return d.slice(0, 10) === new Date().toISOString().slice(0, 10) }
-export function isPast(d: string)  { return d.slice(0, 10) < new Date().toISOString().slice(0, 10) }
-export function daysUntil(d: string) { return Math.round((new Date(d).getTime() - Date.now()) / 86_400_000) }
+// event_date is a plain DATE column meant to represent the school's own local
+// calendar day — comparing it against new Date().toISOString() (UTC) is wrong
+// for any school east of UTC (Uganda is UTC+3): for the first ~3 hours of
+// every local day, toISOString()'s date is still "yesterday", so a genuinely
+// past event kept passing eventDate >= today and showing as upcoming/today.
+export function localToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+export function isToday(d: string) { return d.slice(0, 10) === localToday() }
+export function isPast(d: string)  { return d.slice(0, 10) < localToday() }
+export function daysUntil(d: string) {
+  const target = new Date(`${d.slice(0, 10)}T00:00:00Z`).getTime()
+  const today   = new Date(`${localToday()}T00:00:00Z`).getTime()
+  return Math.round((target - today) / 86_400_000)
+}
 export function monthKey(d: string) {
   const dt = new Date(d)
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`

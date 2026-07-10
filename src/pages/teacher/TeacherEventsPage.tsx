@@ -10,7 +10,7 @@ import {
   EventTimeline,
   typeColor,
   ALL_EVENT_TYPES, TEACHER_EVENT_TYPES,
-  daysUntil,
+  daysUntil, localToday,
 } from '../../components/shared/EventTimeline'
 import type { SchoolEvent } from '../../types/week9'
 
@@ -41,7 +41,7 @@ function EventFormModal({ initial, onSave, onClose, saving, showParentsToggle }:
     subjectId:        initial?.subjectId        ?? '',
     classId:          initial?.classId          ?? '',
     streamId:         initial?.streamId         ?? '',
-    eventDate:        initial?.eventDate        ?? new Date().toISOString().slice(0, 10),
+    eventDate:        initial?.eventDate        ?? localToday(),
     totalMarks:       initial?.totalMarks       ?? '',
     passMark:         initial?.passMark         ?? '',
     description:      initial?.description      ?? '',
@@ -201,7 +201,7 @@ export function TeacherEventsPage() {
   const [timeFilter,   setTimeFilter]   = useState<'upcoming' | 'all' | 'past'>('upcoming')
   const [typeFilter,   setTypeFilter]   = useState('all')
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localToday()
 
   const filtered = (() => {
     let list = [...events]

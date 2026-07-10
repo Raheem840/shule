@@ -7,7 +7,7 @@ import { useToast } from '../../components/ui/Toast'
 import {
   EventTimeline,
   ALL_EVENT_TYPES, DOS_EXTRA_TYPES, TEACHER_EVENT_TYPES,
-  typeColor, daysUntil,
+  typeColor, daysUntil, localToday,
 } from '../../components/shared/EventTimeline'
 import type { SchoolEvent } from '../../types/week9'
 
@@ -21,7 +21,7 @@ function CreateEventModal({ onClose, isDos }: { onClose: () => void; isDos: bool
   const [form, setForm] = useState({
     title: '', eventType: isDos ? 'term_start' : 'exam',
     subjectId: '', classId: '', streamId: '',
-    eventDate: new Date().toISOString().slice(0, 10),
+    eventDate: localToday(),
     totalMarks: '', passMark: '', description: '',
     term: 'Term 1', year: new Date().getFullYear().toString(),
     visibleToParents: false,
@@ -188,7 +188,7 @@ export function SharedEventsPage() {
   const [timeFilter, setTimeFilter] = useState<'upcoming' | 'all' | 'past'>('upcoming')
   const [deletePending, setDeletePending] = useState<SchoolEvent | null>(null)
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localToday()
 
   const filtered = useMemo(() => {
     let list = [...allEvents]

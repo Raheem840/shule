@@ -60,6 +60,7 @@ vi.mock('../../components/shared/EventTimeline', () => ({
   ALL_EVENT_TYPES:     [{ value: 'exam', label: 'Exam', color: '#0d9488' }],
   TEACHER_EVENT_TYPES: [{ value: 'exam', label: 'Exam', color: '#0d9488' }],
   daysUntil:           (date: string) => Math.max(0, Math.ceil((new Date(date).getTime() - Date.now()) / 86400000)),
+  localToday:          () => new Date().toISOString().slice(0, 10),
 }))
 
 import { useAllSchoolEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '../../hooks/useTeacherEvents'
