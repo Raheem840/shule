@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import * as Tabs from '@radix-ui/react-tabs'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
@@ -335,8 +336,9 @@ function UserManagementSection() {
         )}
       </div>
 
-      {/* Reset Password Modal */}
-      {resetTarget && (
+      {/* Reset Password Modal — portaled to escape .ar's animated page-enter
+          transform (traps position:fixed inside its own containing block). */}
+      {resetTarget && createPortal(
         <div
           className="sui-overlay"
           style={{
@@ -398,7 +400,8 @@ function UserManagementSection() {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.querySelector('.ar') ?? document.body
       )}
     </div>
   )

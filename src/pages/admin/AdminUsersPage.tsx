@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useStaff } from '../../hooks/useStaff'
 import { useClasses } from '../../hooks/useClasses'
@@ -207,7 +208,7 @@ function DeactivateConfirmModal({
   const [typed, setTyped] = useState('')
   const isPrincipal = role === 'principal'
   const confirmWord = isPrincipal ? name : 'DEACTIVATE'
-  return (
+  const modal = (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}>
       <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 420, boxShadow: '0 24px 80px rgba(0,0,0,.28)' }}>
         <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(244,63,94,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
@@ -248,6 +249,8 @@ function DeactivateConfirmModal({
       </div>
     </div>
   )
+
+  return createPortal(modal, document.querySelector('.ar') ?? document.body)
 }
 
 // ── Link Auth Modal ───────────────────────────────────────────────────────────
@@ -259,7 +262,7 @@ function LinkAuthModal({ staffId, staffName, onClose }: { staffId: string; staff
     try { await link.mutateAsync({ staffId, authUserId: uuid }); ok(`${staffName} linked`); onClose() }
     catch (e) { err(e instanceof Error ? e.message : 'Link failed') }
   }
-  return (
+  const modal = (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}>
       <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 440, boxShadow: '0 24px 80px rgba(0,0,0,.28)' }}>
         <div style={{ marginBottom: 20 }}>
@@ -281,6 +284,8 @@ function LinkAuthModal({ staffId, staffName, onClose }: { staffId: string; staff
       </div>
     </div>
   )
+
+  return createPortal(modal, document.querySelector('.ar') ?? document.body)
 }
 
 // ── Pending staff card ────────────────────────────────────────────────────────
@@ -1303,7 +1308,7 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName: _sch
     textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 5,
   }
 
-  return (
+  const modal = (
     <div
       className="sui-overlay"
       style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(7,13,26,.65)', backdropFilter: 'blur(4px)' }}
@@ -1450,6 +1455,8 @@ function CreateUserWizard({ onClose, schoolId, schoolShortName, schoolName: _sch
       </div>
     </div>
   )
+
+  return createPortal(modal, document.querySelector('.ar') ?? document.body)
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────

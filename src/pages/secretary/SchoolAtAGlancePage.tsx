@@ -260,7 +260,14 @@ async function downloadBriefingPdf(schoolName: string, year: number, term: numbe
 export function SchoolAtAGlancePage() {
   const { user }    = useAuth()
   const currentYear = new Date().getFullYear()
+  // Term defaults to 1 until the active academic year loads and we can work
+  // out which term "today" actually falls in (see the auto-correct effect
+  // below) — previously this stayed hardcoded at Term 1 forever, so any data
+  // scoped to "the selected term" (enrolment count, fee payments, exam
+  // results) silently showed stats for Term 1 even mid-Term-2/3, including
+  // filtering out students enrolled after Term 1 already ended.
   const [selectedTerm, setSelectedTerm] = useState(1)
+  const [termAutoSet, setTermAutoSet]   = useState(false)
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [downloading, setDownloading]   = useState(false)
   const [, setAnimated]                  = useState(false)
@@ -280,6 +287,30 @@ export function SchoolAtAGlancePage() {
     (ayRows as any[]).find((y: any) => y.is_active) ?? (ayRows as any[])[0] ?? null,
     [ayRows]
   )
+
+  // Auto-correct the initial term to whichever term "today" falls in (or,
+  // between terms, the most recently-ended one) — but only once, so it
+  // never clobbers a term the user deliberately picked from the toolbar.
+  useEffect(() => {
+    if (termAutoSet || !activeAy) return
+    const now = Date.now()
+    const ranges = [1, 2, 3].map(n => ({
+      term:  n,
+      start: activeAy[`term${n}_start`] ? new Date(activeAy[`term${n}_start`]).getTime() : null,
+      end:   activeAy[`term${n}_end`]   ? new Date(activeAy[`term${n}_end`]).getTime()   : null,
+    }))
+    const current = ranges.find(r => r.start !== null && r.end !== null && now >= r.start && now <= r.end)
+    if (current) {
+      setSelectedTerm(current.term)
+    } else {
+      const withEnd = ranges.filter((r): r is { term: number; start: number; end: number } => r.end !== null)
+      const mostRecentlyEnded = withEnd.filter(r => r.end < now).sort((a, b) => b.end - a.end)[0]
+      const nextUpcoming      = withEnd.filter(r => r.end >= now).sort((a, b) => a.end - b.end)[0]
+      const pick = mostRecentlyEnded ?? nextUpcoming
+      if (pick) setSelectedTerm(pick.term)
+    }
+    setTermAutoSet(true)
+  }, [activeAy, termAutoSet])
 
   const termInfo = useMemo(() => {
     if (!activeAy) return null

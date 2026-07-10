@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -137,7 +138,7 @@ function StaffDetailModal({ staff, onClose }: { staff: DeputyStaffRow; onClose: 
     ? new Date(staff.joinDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
     : '—'
 
-  return (
+  const modal = (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 16 }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
@@ -217,6 +218,8 @@ function StaffDetailModal({ staff, onClose }: { staff: DeputyStaffRow; onClose: 
       </div>
     </div>
   )
+
+  return createPortal(modal, document.querySelector('.ar') ?? document.body)
 }
 
 // ─── Mobile staff card ─────────────────────────────────────────────────────────

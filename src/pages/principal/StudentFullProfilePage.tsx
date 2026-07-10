@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useStudentFullProfile, useSuspendStudent } from '../../hooks/usePrincipal'
 import { useAuth } from '../../store/AuthContext'
 import { Avatar } from '../../components/shared/Avatar'
@@ -264,8 +265,10 @@ export function StudentFullProfilePage() {
         </div>
       )}
 
-      {/* Confirm dialog */}
-      {canManageStatus && confirmAction && (
+      {/* Confirm dialog — portaled to escape .ar's animated page-enter
+          transform, which otherwise traps position:fixed inside its own
+          containing block and breaks full-screen overlay positioning. */}
+      {canManageStatus && confirmAction && createPortal(
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
@@ -314,7 +317,8 @@ export function StudentFullProfilePage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.querySelector('.ar') ?? document.body
       )}
     </div>
   )

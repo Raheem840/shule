@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useStaff, type StaffFilters } from '../../hooks/useStaff'
 import { useDepartments } from '../../hooks/useClasses'
@@ -304,14 +305,13 @@ function StaffEditModal({ staff, depts, onClose }: {
   onClose: () => void
 }) {
   const qc = useQueryClient()
+  // Secretary can only reassign role/department here — identity fields
+  // (name, email, phone, employment type) are sensitive/HR-owned data and
+  // are shown read-only for context; editing those is IT Admin/Principal
+  // territory (see PrincipalStaffProfilePage / AdminUsersPage).
   const [form, setForm] = useState({
-    firstName:      staff.firstName,
-    lastName:       staff.lastName,
-    email:          staff.email ?? '',
-    phone:          staff.phone ?? '',
-    role:           staff.role,
-    departmentId:   staff.departmentId ?? '',
-    employmentType: staff.employmentType ?? 'full_time',
+    role:         staff.role,
+    departmentId: staff.departmentId ?? '',
   })
   const [saving,  setSaving]  = useState(false)
   const [saveErr, setSaveErr] = useState<string | null>(null)
@@ -325,13 +325,8 @@ function StaffEditModal({ staff, depts, onClose }: {
     setSaving(true); setSaveErr(null)
     try {
       const { error } = await supabase.from('staff').update({
-        first_name:      form.firstName.trim(),
-        last_name:       form.lastName.trim(),
-        email:           form.email.trim() || null,
-        phone:           form.phone.trim() || null,
-        role:            form.role,
-        department_id:   form.departmentId || null,
-        employment_type: form.employmentType || null,
+        role:          form.role,
+        department_id: form.departmentId || null,
       }).eq('id', staff.id).eq('school_id', staff.schoolId)
       if (error) throw error
       void qc.invalidateQueries({ queryKey: ['staff', staff.schoolId] })
@@ -347,7 +342,7 @@ function StaffEditModal({ staff, depts, onClose }: {
   const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', fontSize: 13, background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 10, color: 'var(--txt)', outline: 'none', boxSizing: 'border-box' }
   const sel: React.CSSProperties = { ...inp, appearance: 'none' as const }
 
-  return (
+  const modal = (
     <div style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ width: '100%', maxWidth: 520, background: 'var(--surface)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
         <div style={{ padding: '20px 24px 16px', borderBottom: '.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -357,23 +352,23 @@ function StaffEditModal({ staff, depts, onClose }: {
           </button>
         </div>
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Read-only identity context — Secretary can view but not edit
+              these; changes go through IT Admin/Principal instead. */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px', background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
+            {[
+              { label: 'Name',  value: `${staff.firstName} ${staff.lastName}` },
+              { label: 'Email', value: staff.email ?? '—' },
+              { label: 'Phone', value: staff.phone ?? '—' },
+              { label: 'Employment Type', value: staff.employmentType ? staff.employmentType.replace('_', ' ') : '—' },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>{label}</div>
+                <div style={{ fontSize: 13, color: 'var(--txt)', textTransform: label === 'Employment Type' ? 'capitalize' : 'none' }}>{value}</div>
+              </div>
+            ))}
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>First Name</label>
-              <input value={form.firstName} onChange={e => set('firstName', e.target.value)} style={inp} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>Last Name</label>
-              <input value={form.lastName} onChange={e => set('lastName', e.target.value)} style={inp} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>Email</label>
-              <input value={form.email} onChange={e => set('email', e.target.value)} style={inp} type="email" />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>Phone</label>
-              <input value={form.phone} onChange={e => set('phone', e.target.value)} style={inp} />
-            </div>
             <div>
               <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>Role</label>
               <div style={{ position: 'relative' }}>
@@ -395,18 +390,6 @@ function StaffEditModal({ staff, depts, onClose }: {
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
               </div>
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>Employment Type</label>
-              <div style={{ position: 'relative' }}>
-                <select value={form.employmentType} onChange={e => set('employmentType', e.target.value)} style={sel}>
-                  <option value="full_time">Full Time</option>
-                  <option value="part_time">Part Time</option>
-                  <option value="intern">Intern</option>
-                  <option value="contract">Contract</option>
-                </select>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><path d="M6 9l6 6 6-6"/></svg>
-              </div>
-            </div>
           </div>
           {saveErr && <div style={{ fontSize: 12.5, color: 'var(--danger)', fontWeight: 600 }}>{saveErr}</div>}
           {saved && <div style={{ fontSize: 12.5, color: 'var(--success)', fontWeight: 700 }}>Saved successfully!</div>}
@@ -421,6 +404,8 @@ function StaffEditModal({ staff, depts, onClose }: {
       </div>
     </div>
   )
+
+  return createPortal(modal, document.querySelector('.ar') ?? document.body)
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────

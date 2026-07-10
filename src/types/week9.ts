@@ -12,6 +12,7 @@ export type NotificationType =
   | 'fee'
   | 'event'
   | 'general'
+  | 'security'
 
 export type Notification = {
   id: string

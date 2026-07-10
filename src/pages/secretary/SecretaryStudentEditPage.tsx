@@ -249,20 +249,20 @@ export function SecretaryStudentEditPage() {
         <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle,rgba(14,165,233,.15),transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <div style={{ width: 52, height: 52, borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--surface)', boxShadow: '0 5px 18px rgba(14,165,233,.35)' }}>
+            <div style={{ width: 96, height: 96, borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--surface)', boxShadow: '0 5px 18px rgba(14,165,233,.35)' }}>
               {photoDataUrl ? (
                 <img src={photoDataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                <Avatar photoPath={student.photoUrl} bucket="student-photos" name={`${student.firstName} ${student.lastName}`} size="lg" />
+                <Avatar photoPath={student.photoUrl} bucket="student-photos" name={`${student.firstName} ${student.lastName}`} size="xl" />
               )}
             </div>
             <button
               onClick={() => photoInputRef.current?.click()}
               aria-label="Change photo"
               title="Change photo"
-              style={{ position: 'absolute', bottom: -2, right: -2, width: 22, height: 22, borderRadius: '50%', border: '2px solid var(--surface)', background: 'linear-gradient(145deg,#0ea5e9,#0284c7)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              style={{ position: 'absolute', bottom: -2, right: -2, width: 28, height: 28, borderRadius: '50%', border: '2px solid var(--surface)', background: 'linear-gradient(145deg,#0ea5e9,#0284c7)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
             </button>
             <input ref={photoInputRef} type="file" accept="image/*" aria-label="Upload student photo" style={{ display: 'none' }} onChange={handlePhotoChange} />
           </div>

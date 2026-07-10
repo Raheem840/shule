@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import JSZip from 'jszip'
 import { TermPicker } from '../../components/ui/TermPicker'
 import {
@@ -237,7 +238,7 @@ function InitialsAvatar({ firstName, lastName, size = 40, ready = false }: {
 
 // ── Generation overlay ─────────────────────────────────────────
 function GeneratingOverlay({ progress }: { progress: { done: number; total: number } }) {
-  return (
+  const overlay = (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 1000,
       background: 'rgba(7,13,26,0.7)', backdropFilter: 'blur(6px)',
@@ -269,6 +270,8 @@ function GeneratingOverlay({ progress }: { progress: { done: number; total: numb
       </div>
     </div>
   )
+
+  return createPortal(overlay, document.querySelector('.ar') ?? document.body)
 }
 
 // ── Stat chip (hero) ───────────────────────────────────────────

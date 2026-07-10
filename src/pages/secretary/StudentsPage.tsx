@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { useStudents, useStudentById, useCreateStudentLogin, type StudentFilters, type StudentLoginResult } from '../../hooks/useStudents'
+import { useQueryClient } from '@tanstack/react-query'
+import { useStudents, useStudentById, useCreateStudentLogin, useResetStudentPassword, type StudentFilters, type StudentLoginResult } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useGenerateParentAccess, type GeneratedAccess } from '../../hooks/useParentPortal'
 import { useSendCredentialsSms } from '../../hooks/useStaffAuth'
@@ -286,6 +287,16 @@ function CredentialModal({
 }) {
   const { data: detail } = useStudentById(student.id)
   const { mutateAsync: createLogin, isPending: loginPending } = useCreateStudentLogin()
+  const { mutateAsync: resetLogin,  isPending: resetPending }  = useResetStudentPassword()
+
+  // The account may already be activated (via the bulk-activate flow, or a
+  // previous visit to this modal) before this modal ever mounts — check the
+  // live student record up front instead of always defaulting to "not yet
+  // activated", which previously showed the "Generate Student Login" button
+  // even for an already-activated student and only surfaced the real state
+  // ("Login already exists...") as an error after clicking it.
+  const alreadyActive = Boolean((detail ?? student).authUserId)
+  const existingEmail = (detail ?? student).authEmail ?? ''
 
   const [loginResult, setLoginResult]   = useState<StudentLoginResult | null>(null)
   const [loginError,  setLoginError]    = useState<string | null>(null)
@@ -320,6 +331,18 @@ function CredentialModal({
       setLoginResult(r)
     } catch (e: unknown) {
       setLoginError(e instanceof Error ? e.message : 'Failed to create login')
+    }
+  }
+
+  const handleResetLogin = async () => {
+    const authUserId = (detail ?? student).authUserId
+    if (!authUserId) return
+    setLoginError(null)
+    try {
+      const r = await resetLogin({ studentId: student.id, authUserId, email: existingEmail })
+      setLoginResult({ email: r.email, tempPassword: r.tempPassword, manual: r.manual })
+    } catch (e: unknown) {
+      setLoginError(e instanceof Error ? e.message : 'Failed to reset password')
     }
   }
 
@@ -360,7 +383,29 @@ function CredentialModal({
               <div style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13, color: 'var(--txt)' }}>Student Login</div>
             </div>
 
-            {!loginResult ? (
+            {!loginResult && alreadyActive ? (
+              <div style={{ background: 'rgba(16,185,129,.06)', border: '.5px solid #10b981', borderRadius: 12, padding: '14px 16px' }}>
+                <div style={{ fontSize: 11.5, color: '#065f46', fontWeight: 700, marginBottom: 10, padding: '6px 10px', background: 'rgba(16,185,129,.1)', borderRadius: 8 }}>
+                  Portal account already activated for this student.
+                </div>
+                <CredField label="Student Email" value={existingEmail || '—'} />
+                <div style={{ fontSize: 11.5, color: 'var(--txt3)', lineHeight: 1.5, margin: '10px 0' }}>
+                  The original temporary password is no longer shown for security. Reset it below to generate and display a new one.
+                </div>
+                {loginError && (
+                  <div style={{ background: 'rgba(244,63,94,.08)', border: '.5px solid var(--danger)', borderRadius: 9, padding: '7px 12px', marginBottom: 10, fontSize: 12, color: 'var(--danger)' }}>
+                    {loginError}
+                  </div>
+                )}
+                <button
+                  onClick={() => void handleResetLogin()}
+                  disabled={resetPending}
+                  style={{ width: '100%', padding: '10px', borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#0d9488,#0ea5e9)', color: '#fff', fontWeight: 800, fontSize: 13.5, cursor: resetPending ? 'wait' : 'pointer', boxShadow: '0 4px 16px rgba(13,148,136,.35)' }}
+                >
+                  {resetPending ? 'Resetting…' : 'Reset Password'}
+                </button>
+              </div>
+            ) : !loginResult ? (
               <div style={{ background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
                 <div style={{ fontSize: 12.5, color: 'var(--txt2)', lineHeight: 1.6, marginBottom: 12 }}>
                   Generate a student portal login using this student's admission number. The student can use these credentials to access their results, timetable, and surveys.
@@ -458,14 +503,13 @@ function BatchActivationBar({
   selected,
   students,
   onClear,
-  onDone,
 }: {
   selected: Set<string>
   students: Student[]
   onClear: () => void
-  onDone: () => void
 }) {
   const { user } = useAuth()
+  const qc = useQueryClient()
   const [state, setState] = useState<BatchActivationState>({ phase: 'idle' })
   const abortRef = useRef(false)
 
@@ -500,7 +544,10 @@ function BatchActivationBar({
     }
 
     setState({ phase: 'done', activated, skipped: alreadyActive, failed })
-    onDone()
+    // Bypasses useCreateStudentLogin (calls the edge function directly to run
+    // a sequential batch), so the students list query never auto-invalidates
+    // — refresh it here so authUserId reflects reality once "done" is shown.
+    if (activated > 0) void qc.invalidateQueries({ queryKey: ['students', user?.schoolId] })
   }
 
   const bar = (
@@ -1160,9 +1207,6 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
           selected={selected}
           students={students}
           onClear={() => setSelected(new Set())}
-          onDone={() => {
-            setSelected(new Set())
-          }}
         />
       )}
     </div>

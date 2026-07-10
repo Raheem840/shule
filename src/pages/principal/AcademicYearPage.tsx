@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
@@ -753,8 +754,9 @@ export function AcademicYearPage() {
       {showCreate  && <CreateYearModal onClose={() => setShowCreate(false)} />}
       {editingYear && <EditYearModal year={editingYear} onClose={() => setEditingYear(null)} />}
 
-      {/* Future active-year confirmation dialog */}
-      {futureActiveYear && (
+      {/* Future active-year confirmation dialog — portaled to escape .ar's
+          animated page-enter transform (traps position:fixed otherwise). */}
+      {futureActiveYear && createPortal(
         <div className="sui-overlay" style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 250,
@@ -800,7 +802,8 @@ export function AcademicYearPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.querySelector('.ar') ?? document.body
       )}
     </div>
   )
