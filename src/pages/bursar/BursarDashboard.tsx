@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
@@ -220,12 +220,46 @@ function ChartCard({
 }
 
 export function BursarDashboard() {
+  // Defaults to Term 1 until the active academic year loads and we can work
+  // out which term "today" actually falls in (see the auto-correct effect
+  // below) — previously stayed hardcoded at Term 1 forever, so the KPI
+  // cards silently showed Term 1 collection data even mid-Term-2/3.
   const [term, setTerm]           = useState<1 | 2 | 3>(1)
+  const [termAutoSet, setTermAutoSet] = useState(false)
   const [academicYearId, setAcademicYearId] = useState<string | null>(null)
 
   const { data: academicYears = [] } = useAcademicYears()
   const activeYear = academicYears.find(y => y.isActive) ?? academicYears[0]
   const effectiveYearId = academicYearId ?? activeYear?.id ?? null
+
+  // Auto-correct the initial term to whichever term "today" falls in (or,
+  // between terms, the most recently-ended one) — only once, so it never
+  // clobbers a term the bursar deliberately picked from the term pills.
+  useEffect(() => {
+    if (termAutoSet || !activeYear) return
+    const now = Date.now()
+    const termDates: Record<1 | 2 | 3, { start: string | null; end: string | null }> = {
+      1: { start: activeYear.term1Start, end: activeYear.term1End },
+      2: { start: activeYear.term2Start, end: activeYear.term2End },
+      3: { start: activeYear.term3Start, end: activeYear.term3End },
+    }
+    const ranges = ([1, 2, 3] as const).map(n => ({
+      term:  n,
+      start: termDates[n].start ? new Date(termDates[n].start!).getTime() : null,
+      end:   termDates[n].end   ? new Date(termDates[n].end!).getTime()   : null,
+    }))
+    const current = ranges.find(r => r.start !== null && r.end !== null && now >= r.start && now <= r.end)
+    if (current) {
+      setTerm(current.term as 1 | 2 | 3)
+    } else {
+      const withEnd = ranges.filter((r): r is { term: 1 | 2 | 3; start: number | null; end: number } => r.end !== null)
+      const mostRecentlyEnded = withEnd.filter(r => r.end < now).sort((a, b) => b.end - a.end)[0]
+      const nextUpcoming      = withEnd.filter(r => r.end >= now).sort((a, b) => a.end - b.end)[0]
+      const pick = mostRecentlyEnded ?? nextUpcoming
+      if (pick) setTerm(pick.term as 1 | 2 | 3)
+    }
+    setTermAutoSet(true)
+  }, [activeYear, termAutoSet])
 
   const kpis      = useBursarKpis(term, effectiveYearId)
   const byClass   = useFeeCollectionByClass(term, effectiveYearId)

@@ -23,32 +23,50 @@ function toFeeStructure(r: AnyRow): FeeStructure {
 
 // ── useAcademicYears ──────────────────────────────────────────
 // Needed for the "Add Fee Type" modal to know which year to stamp.
+//
+// This hook and useAdmin.ts's useAcademicYears used to share the EXACT SAME
+// query key (['academic-years', schoolId]) despite returning completely
+// different shapes (this one fully camelCase; the admin one raw snake_case
+// + a `name` alias) — a real cache-collision bug: whichever hook's queryFn
+// happened to populate the cache first would silently hand its shape to the
+// OTHER hook's consumers too, since React Query treats identical keys as
+// one cache entry regardless of which function defined the queryFn. Given
+// a 'name'space of its own now. Also fills in the real term1/2/3 start/end
+// dates (previously hardcoded null here) so Bursar pages can determine
+// which term is actually current, the same way Secretary pages already do.
 export function useAcademicYears() {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['academic-years', user?.schoolId],
+    queryKey: ['academic-years-fee-structure', user?.schoolId],
     enabled:  !!user?.schoolId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('academic_years')
-        .select('id, school_id, label, start_date, end_date, is_active')
+        .select(
+          'id, school_id, label, start_date, end_date, is_active,' +
+          ' term1_start, term1_end, term2_start, term2_end,' +
+          ' term3_start, term3_end, survey_active'
+        )
         .eq('school_id', user!.schoolId)
         .order('start_date', { ascending: false })
 
       if (error) throw error
 
-      return (data ?? []).map(r => ({
+      return ((data ?? []) as unknown as AnyRow[]).map(r => ({
         id:        r.id as string,
         schoolId:  r.school_id as string,
         name:      r.label as string,  // label is the real column name
         startDate: r.start_date as string,
         endDate:   r.end_date as string,
         isActive:  r.is_active as boolean,
-        term1Start: null, term1End: null,
-        term2Start: null, term2End: null,
-        term3Start: null, term3End: null,
-        surveyActive: false,
+        term1Start: (r.term1_start as string) ?? null,
+        term1End:   (r.term1_end as string)   ?? null,
+        term2Start: (r.term2_start as string) ?? null,
+        term2End:   (r.term2_end as string)   ?? null,
+        term3Start: (r.term3_start as string) ?? null,
+        term3End:   (r.term3_end as string)   ?? null,
+        surveyActive: (r.survey_active as boolean) ?? false,
       } satisfies AcademicYear))
     },
   })
