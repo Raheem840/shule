@@ -10,9 +10,7 @@ import {
 } from '../../hooks/useSmsReminders'
 import { ugx } from '../../hooks/useFeePayments'
 import { useSchoolSettings } from '../../hooks/useAdmin'
-import { useAuth } from '../../store/AuthContext'
 import type { SmsChannel } from '../../types/app'
-import { supabase } from '../../lib/supabase'
 
 // ── Status badge variant map ───────────────────────────────────
 const STATUS_VARIANT = {
@@ -95,11 +93,10 @@ export function SmsReminderPage() {
   const [message,  setMessage]  = useState(
     'Dear {student_name}\'s parent, your child has an outstanding fee balance of {balance} for {term}. Kindly clear this balance as soon as possible. Thank you.'
   )
-  const [channel, setChannel] = useState<SmsChannel>('sms')
+  const [channels, setChannels] = useState<Set<SmsChannel>>(new Set(['sms', 'in_app']))
   const [showPreview, setShowPreview] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const { user } = useAuth()
   const { data: schoolSettings } = useSchoolSettings()
   const schoolName = schoolSettings?.schoolName || schoolSettings?.shortName || 'Your School'
 
@@ -135,6 +132,20 @@ export function SmsReminderPage() {
     })
   }
 
+  // ── Channel selection — any combination, at least one required ──
+  function toggleChannel(ch: SmsChannel) {
+    setChannels(prev => {
+      const next = new Set(prev)
+      if (next.has(ch)) {
+        if (next.size === 1) return prev // must keep at least one channel selected
+        next.delete(ch)
+      } else {
+        next.add(ch)
+      }
+      return next
+    })
+  }
+
   // ── Insert template variable at cursor ───────────────────────
   function insertVar(varKey: string) {
     const ta = textareaRef.current
@@ -152,14 +163,16 @@ export function SmsReminderPage() {
   // ── Send ─────────────────────────────────────────────────────
   async function handleSend() {
     const toSend = (students ?? []).filter(s => selectedIds.has(s.studentId))
-    if (!toSend.length || !message.trim()) return
+    if (!toSend.length || !message.trim() || channels.size === 0) return
 
-    const reminders = toSend.map(s => ({
+    // One reminder row per selected channel per student — the hook routes
+    // each to its own delivery path and delivery-log entry.
+    const reminders = toSend.flatMap(s => [...channels].map(channel => ({
       studentId:     s.studentId,
       guardianPhone: s.guardianPhone,
       channel,
       message:       renderMessage(message, s, smsFilters.term, schoolName),
-    }))
+    })))
 
     try {
       await sendReminders.mutateAsync(reminders)
@@ -168,27 +181,6 @@ export function SmsReminderPage() {
       return
     }
     setSelectedIds(new Set())
-
-    // Fire-and-forget: real-time dispatch via Edge Functions.
-    // Map internal reminders format to the { recipients, schoolId } format the functions expect.
-    const toRecipients = (items: typeof reminders) => items.map(r => ({
-      phone:     r.guardianPhone,
-      message:   r.message,
-      studentId: r.studentId,
-    }))
-
-    const smsItems = reminders.filter(r => r.channel === 'sms')
-    const waItems  = reminders.filter(r => r.channel === 'whatsapp')
-    if (smsItems.length > 0) {
-      void supabase.functions.invoke('send-sms', {
-        body: { recipients: toRecipients(smsItems), schoolId: user?.schoolId },
-      })
-    }
-    if (waItems.length > 0) {
-      void supabase.functions.invoke('send-whatsapp', {
-        body: { recipients: toRecipients(waItems), schoolId: user?.schoolId },
-      })
-    }
   }
 
   // ── Character count ───────────────────────────────────────────
@@ -216,7 +208,7 @@ export function SmsReminderPage() {
         </div>
         <div>
           <h1 style={{ fontFamily:'var(--font2)', fontWeight:900, fontSize:22, color:'var(--txt)', margin:0, letterSpacing:-.4 }}>SMS Reminders</h1>
-          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>Send fee reminders to parents via SMS or WhatsApp — always paired with an in-app notification</p>
+          <p style={{ fontSize:12.5, color:'var(--txt3)', margin:'2px 0 0' }}>Send fee reminders to parents via SMS, WhatsApp, or in-app notification — pick any combination</p>
         </div>
       </div>
 
@@ -370,40 +362,29 @@ export function SmsReminderPage() {
               Compose Message
             </div>
 
-            {/* Channel toggle — SMS/WhatsApp are mutually exclusive; In-App is
-                always on and can't be switched off, so it renders as a
-                non-interactive pill rather than a third toggle option. */}
+            {/* Channel toggle — pick any combination of SMS, WhatsApp, and
+                In-App. At least one must stay selected. */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {(['sms', 'whatsapp'] as const).map(ch => (
-                <button
-                  key={ch}
-                  onClick={() => setChannel(ch)}
-                  style={{
-                    flex: 1, padding: '0.4rem 0.75rem', border: 'none',
-                    borderRadius: 'var(--r)', cursor: 'pointer',
-                    background: channel === ch ? 'var(--brand)' : 'var(--surface2)',
-                    color: channel === ch ? '#fff' : 'var(--txt2)',
-                    fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 12,
-                  }}
-                >
-                  {ch === 'sms' ? 'SMS' : 'WhatsApp'}
-                </button>
-              ))}
-              <div
-                role="status"
-                title="In-app notifications are always sent alongside SMS/WhatsApp and can't be turned off — every parent AND student with an activated account gets one, regardless of which channel you pick above."
-                aria-label="In-app notifications are always sent alongside SMS or WhatsApp and cannot be turned off — every parent and student with an activated account gets one, regardless of which channel you pick."
-                style={{
-                  flex: 1, padding: '0.4rem 0.75rem', borderRadius: 'var(--r)',
-                  background: 'var(--success-bg)', color: 'var(--success)',
-                  fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 12,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                  cursor: 'default', whiteSpace: 'nowrap',
-                }}
-              >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                In-App
-              </div>
+              {(['sms', 'whatsapp', 'in_app'] as const).map(ch => {
+                const active = channels.has(ch)
+                return (
+                  <button
+                    key={ch}
+                    onClick={() => toggleChannel(ch)}
+                    aria-pressed={active}
+                    style={{
+                      flex: 1, padding: '0.4rem 0.75rem', border: 'none',
+                      borderRadius: 'var(--r)', cursor: 'pointer',
+                      background: active ? 'var(--brand)' : 'var(--surface2)',
+                      color: active ? '#fff' : 'var(--txt2)',
+                      fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 12,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {ch === 'sms' ? 'SMS' : ch === 'whatsapp' ? 'WhatsApp' : 'In-App'}
+                  </button>
+                )
+              })}
             </div>
 
             {/* Template chips */}
@@ -477,7 +458,7 @@ export function SmsReminderPage() {
               variant="primary"
               size="md"
               onClick={handleSend}
-              disabled={selectedIds.size === 0 || !message.trim() || sendReminders.isPending || studentsError}
+              disabled={selectedIds.size === 0 || !message.trim() || channels.size === 0 || sendReminders.isPending || studentsError}
             >
               {sendReminders.isPending
                 ? 'Sending…'
@@ -486,7 +467,9 @@ export function SmsReminderPage() {
 
             {sendReminders.isSuccess && !studentsError && (
               <div style={{ padding: '0.6rem 0.85rem', background: 'var(--success-bg)', borderRadius: 'var(--r)', fontSize: 12.5, color: 'var(--success)', fontWeight: 600 }}>
-                Reminders queued successfully — in-app notifications were sent immediately, {channel === 'sms' ? 'SMS' : 'WhatsApp'} messages will follow when the worker runs.
+                Reminders queued successfully
+                {channels.has('in_app') ? ' — in-app notifications were sent immediately' : ''}
+                {(channels.has('sms') || channels.has('whatsapp')) ? `, ${[channels.has('sms') && 'SMS', channels.has('whatsapp') && 'WhatsApp'].filter(Boolean).join(' + ')} will follow when the worker runs.` : '.'}
               </div>
             )}
             {sendReminders.isError && (
@@ -552,8 +535,8 @@ export function SmsReminderPage() {
                           </td>
                           <td style={{ padding: '0.5rem 0.85rem', fontFamily: 'var(--font3)', fontSize: 12, color: 'var(--txt2)' }}>{r.guardianPhone}</td>
                           <td style={{ padding: '0.5rem 0.85rem' }}>
-                            <Badge variant={r.channel === 'sms' ? 'muted' : 'teal'} size="sm">
-                              {r.channel === 'sms' ? 'SMS' : 'WA'}
+                            <Badge variant={r.channel === 'whatsapp' ? 'green' : r.channel === 'in_app' ? 'violet' : 'muted'} size="sm">
+                              {r.channel === 'whatsapp' ? 'WA' : r.channel === 'in_app' ? 'In-App' : 'SMS'}
                             </Badge>
                           </td>
                           <td style={{ padding: '0.5rem 0.85rem', fontSize: 12, color: 'var(--txt2)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

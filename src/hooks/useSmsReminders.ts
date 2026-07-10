@@ -272,75 +272,106 @@ export function useSendReminders() {
       if (!isSmsRole(user.role)) throw new Error('Forbidden')
       if (reminders.length === 0) return 0
 
-      // Offline buffer — edge fn updates these rows when it processes them
-      const queueRows = reminders.map(r => ({
+      // Route each reminder by its own channel — previously every reminder
+      // (including ones marked 'whatsapp') was sent through send-sms
+      // unconditionally, so picking WhatsApp silently also fired a real,
+      // billable AT SMS to the same recipients. Splitting by channel here
+      // means each dispatch path only ever touches the reminders it owns.
+      const smsReminders   = reminders.filter(r => r.channel === 'sms')
+      const waReminders    = reminders.filter(r => r.channel === 'whatsapp')
+      const inAppReminders = reminders.filter(r => r.channel === 'in_app')
+
+      // Offline buffer — edge fn updates these rows when it processes them.
+      // in_app has no async delivery worker, so it never enters send_queue.
+      const queueRows = [...smsReminders, ...waReminders].map(r => ({
         school_id: user!.schoolId,
         type:      r.channel,
         payload:   { to: r.guardianPhone, message: r.message, student_id: r.studentId },
         status:    'pending',
       }))
+      if (queueRows.length > 0) {
+        const { error: queueErr } = await supabase.from('send_queue').insert(queueRows)
+        if (queueErr) throw queueErr
+      }
 
-      const { error: queueErr } = await supabase.from('send_queue').insert(queueRows)
-      if (queueErr) throw queueErr
-
-      // Call AT via edge function — non-fatal if AT key not yet configured.
-      // The edge function inserts its own sms_reminders rows with final status.
-      const recipients = reminders.map(r => ({
-        phone:     r.guardianPhone,
-        message:   r.message,
-        studentId: r.studentId,
-        channel:   r.channel,
+      const toRecipients = (items: SendReminderInput[]) => items.map(r => ({
+        phone: r.guardianPhone, message: r.message, studentId: r.studentId,
       }))
-      const { error: fnErr } = await supabase.functions.invoke('send-sms', {
-        body: { recipients, schoolId: user!.schoolId },
-      })
-      if (fnErr) {
-        // Edge fn error is non-fatal: send_queue row ensures eventual delivery
-        console.warn('[useSendReminders] edge fn error:', fnErr)
+
+      // Call AT/WhatsApp via edge functions — non-fatal if not yet
+      // configured. Each edge fn inserts its own sms_reminders rows with
+      // the final status for its channel only.
+      if (smsReminders.length > 0) {
+        const { error } = await supabase.functions.invoke('send-sms', {
+          body: { recipients: toRecipients(smsReminders), schoolId: user!.schoolId },
+        })
+        if (error) console.warn('[useSendReminders] send-sms error:', error)
+      }
+      if (waReminders.length > 0) {
+        const { error } = await supabase.functions.invoke('send-whatsapp', {
+          body: { recipients: toRecipients(waReminders), schoolId: user!.schoolId },
+        })
+        if (error) console.warn('[useSendReminders] send-whatsapp error:', error)
       }
 
-      // In-app notification — always fires alongside SMS/WhatsApp, never
-      // gated behind the channel toggle. Best-effort: a parent/student
-      // without a linked/activated auth account just gets no in-app copy,
-      // same as a guardian with no phone number gets no SMS.
-      const studentIds = [...new Set(reminders.map(r => r.studentId))]
+      // In-app is now an explicit channel choice rather than an always-on
+      // side effect — no edge function owns it, so this writes its own
+      // delivery-log row and fires the notification directly. Best-effort:
+      // a parent/student without a linked/activated auth account just gets
+      // no in-app copy, same as a guardian with no phone gets no SMS.
+      if (inAppReminders.length > 0) {
+        const { error: insErr } = await supabase.from('sms_reminders').insert(
+          inAppReminders.map(r => ({
+            school_id:    user!.schoolId,
+            student_id:   r.studentId,
+            parent_phone: r.guardianPhone,
+            channel:      'in_app',
+            message:      r.message,
+            status:       'sent',
+            sent_at:      new Date().toISOString(),
+          }))
+        )
+        if (insErr) console.warn('[useSendReminders] in_app log insert failed:', insErr)
 
-      const [parentRes, studentRes] = await Promise.all([
-        supabase
-          .from('parent_accounts')
-          .select('auth_user_id, student_ids')
-          .eq('school_id', user!.schoolId)
-          .not('auth_user_id', 'is', null)
-          .overlaps('student_ids', studentIds),
-        supabase
-          .from('students')
-          .select('id, auth_user_id')
-          .eq('school_id', user!.schoolId)
-          .in('id', studentIds)
-          .not('auth_user_id', 'is', null),
-      ])
-      if (parentRes.error)  console.warn('[useSendReminders] parent_accounts lookup failed:', parentRes.error)
-      if (studentRes.error) console.warn('[useSendReminders] students lookup failed:', studentRes.error)
+        const studentIds = [...new Set(inAppReminders.map(r => r.studentId))]
 
-      // studentId -> auth ids to notify (one parent can have multiple auth
-      // rows in theory, so both maps are studentId -> string[])
-      const parentAuthIdsByStudent = new Map<string, string[]>()
-      for (const p of parentRes.data ?? []) {
-        const authId = p.auth_user_id as string
-        for (const sid of (p.student_ids as string[]) ?? []) {
-          if (!studentIds.includes(sid)) continue
-          parentAuthIdsByStudent.set(sid, [...(parentAuthIdsByStudent.get(sid) ?? []), authId])
+        const [parentRes, studentRes] = await Promise.all([
+          supabase
+            .from('parent_accounts')
+            .select('auth_user_id, student_ids')
+            .eq('school_id', user!.schoolId)
+            .not('auth_user_id', 'is', null)
+            .overlaps('student_ids', studentIds),
+          supabase
+            .from('students')
+            .select('id, auth_user_id')
+            .eq('school_id', user!.schoolId)
+            .in('id', studentIds)
+            .not('auth_user_id', 'is', null),
+        ])
+        if (parentRes.error)  console.warn('[useSendReminders] parent_accounts lookup failed:', parentRes.error)
+        if (studentRes.error) console.warn('[useSendReminders] students lookup failed:', studentRes.error)
+
+        // studentId -> auth ids to notify (one parent can have multiple auth
+        // rows in theory, so both maps are studentId -> string[])
+        const parentAuthIdsByStudent = new Map<string, string[]>()
+        for (const p of parentRes.data ?? []) {
+          const authId = p.auth_user_id as string
+          for (const sid of (p.student_ids as string[]) ?? []) {
+            if (!studentIds.includes(sid)) continue
+            parentAuthIdsByStudent.set(sid, [...(parentAuthIdsByStudent.get(sid) ?? []), authId])
+          }
         }
-      }
-      const studentAuthIdsByStudent = new Map<string, string[]>()
-      for (const s of studentRes.data ?? []) {
-        studentAuthIdsByStudent.set(s.id as string, [s.auth_user_id as string])
-      }
+        const studentAuthIdsByStudent = new Map<string, string[]>()
+        for (const s of studentRes.data ?? []) {
+          studentAuthIdsByStudent.set(s.id as string, [s.auth_user_id as string])
+        }
 
-      await Promise.all([
-        notifyReminderRecipients(user!.schoolId, reminders, parentAuthIdsByStudent, '/parent'),
-        notifyReminderRecipients(user!.schoolId, reminders, studentAuthIdsByStudent, '/student'),
-      ])
+        await Promise.all([
+          notifyReminderRecipients(user!.schoolId, inAppReminders, parentAuthIdsByStudent, '/parent'),
+          notifyReminderRecipients(user!.schoolId, inAppReminders, studentAuthIdsByStudent, '/student'),
+        ])
+      }
 
       return reminders.length
     },

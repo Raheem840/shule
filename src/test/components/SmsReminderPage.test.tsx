@@ -101,7 +101,7 @@ describe('SmsReminderPage', () => {
   it('shows subtitle text', () => {
     setupMocks()
     render(<SmsReminderPage />)
-    expect(screen.getByText(/send fee reminders to parents via sms or whatsapp/i)).toBeInTheDocument()
+    expect(screen.getByText(/send fee reminders to parents via sms, whatsapp/i)).toBeInTheDocument()
   })
 
   it('shows loading spinner while students load', () => {

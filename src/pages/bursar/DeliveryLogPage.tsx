@@ -9,7 +9,7 @@ import { useAuth } from '../../store/AuthContext'
 import type { ReminderLogRow } from '../../hooks/useSmsReminders'
 
 type DeliveryStatus = 'sent' | 'delivered' | 'failed' | 'pending' | ''
-type ChannelFilter  = 'all' | 'sms' | 'whatsapp'
+type ChannelFilter  = 'all' | 'sms' | 'whatsapp' | 'in_app'
 
 const STATUS_CFG = {
   sent:      { variant: 'teal'  as const, label: 'Sent'      },
@@ -152,6 +152,7 @@ export function DeliveryLogPage() {
           <option value="all">All Channels</option>
           <option value="sms">SMS</option>
           <option value="whatsapp">WhatsApp</option>
+          <option value="in_app">In-App</option>
         </select>
         <select style={inputStyle} value={statusFilter} onChange={e => setStatus(e.target.value as DeliveryStatus)}>
           <option value="">All Statuses</option>
@@ -217,8 +218,8 @@ export function DeliveryLogPage() {
                       {row.guardianPhone}
                     </td>
                     <td style={tdStyle}>
-                      <Badge variant={row.channel === 'whatsapp' ? 'green' : 'muted'} size="sm">
-                        {row.channel === 'whatsapp' ? 'WhatsApp' : 'SMS'}
+                      <Badge variant={row.channel === 'whatsapp' ? 'green' : row.channel === 'in_app' ? 'violet' : 'muted'} size="sm">
+                        {row.channel === 'whatsapp' ? 'WhatsApp' : row.channel === 'in_app' ? 'In-App' : 'SMS'}
                       </Badge>
                     </td>
                     <td style={{

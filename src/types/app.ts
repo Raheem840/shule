@@ -238,7 +238,7 @@ export type ParentAccount = {
 export type FeeStatus = 'paid' | 'partial' | 'unpaid'
 
 // ── SMS / WHATSAPP COMMS ────────────────────────────────────────────────────
-export type SmsChannel = 'sms' | 'whatsapp'
+export type SmsChannel = 'sms' | 'whatsapp' | 'in_app'
 export type SmsStatus  = 'pending' | 'sent' | 'delivered' | 'failed'
 
 // Maps to: sms_reminders

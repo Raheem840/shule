@@ -139,8 +139,9 @@ describe('useSendReminders', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
   })
 
-  it('always sends an in-app notification to a linked parent, alongside SMS', async () => {
+  it('sends an in-app notification to a linked parent when the in_app channel is selected', async () => {
     setResponse('send_queue', { data: null, error: null })
+    setResponse('sms_reminders', { data: null, error: null })
     setResponse('parent_accounts', {
       data: [{ auth_user_id: 'parent-auth-1', student_ids: ['stu-1'] }],
       error: null,
@@ -149,7 +150,7 @@ describe('useSendReminders', () => {
     const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
     await act(async () => {
       await result.current.mutateAsync([
-        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Pay fees, Amina' },
+        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'in_app', message: 'Pay fees, Amina' },
       ])
     })
 
@@ -166,6 +167,7 @@ describe('useSendReminders', () => {
 
   it('sends separate in-app notifications when two students map to different parents', async () => {
     setResponse('send_queue', { data: null, error: null })
+    setResponse('sms_reminders', { data: null, error: null })
     setResponse('parent_accounts', {
       data: [
         { auth_user_id: 'parent-auth-1', student_ids: ['stu-1'] },
@@ -177,8 +179,8 @@ describe('useSendReminders', () => {
     const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
     await act(async () => {
       await result.current.mutateAsync([
-        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Msg for stu-1' },
-        { studentId: 'stu-2', guardianPhone: '0700333444', channel: 'whatsapp', message: 'Msg for stu-2' },
+        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'in_app', message: 'Msg for stu-1' },
+        { studentId: 'stu-2', guardianPhone: '0700333444', channel: 'in_app', message: 'Msg for stu-2' },
       ])
     })
 
@@ -189,6 +191,7 @@ describe('useSendReminders', () => {
 
   it('also notifies the student in-app, in case the parent is unreachable', async () => {
     setResponse('send_queue', { data: null, error: null })
+    setResponse('sms_reminders', { data: null, error: null })
     setResponse('parent_accounts', {
       data: [{ auth_user_id: 'parent-auth-1', student_ids: ['stu-1'] }],
       error: null,
@@ -201,7 +204,7 @@ describe('useSendReminders', () => {
     const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
     await act(async () => {
       await result.current.mutateAsync([
-        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Pay fees, Amina' },
+        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'in_app', message: 'Pay fees, Amina' },
       ])
     })
 
@@ -226,6 +229,7 @@ describe('useSendReminders', () => {
 
   it('skips a student with no activated auth account — no student notification, no crash', async () => {
     setResponse('send_queue', { data: null, error: null })
+    setResponse('sms_reminders', { data: null, error: null })
     setResponse('parent_accounts', { data: [], error: null })
     setResponse('students', { data: [], error: null })
 
@@ -233,7 +237,7 @@ describe('useSendReminders', () => {
     let count: number | undefined
     await act(async () => {
       count = await result.current.mutateAsync([
-        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Pay fees' },
+        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'in_app', message: 'Pay fees' },
       ])
     })
 
@@ -243,13 +247,14 @@ describe('useSendReminders', () => {
 
   it('skips a student with no linked parent account — no notification, no crash', async () => {
     setResponse('send_queue', { data: null, error: null })
+    setResponse('sms_reminders', { data: null, error: null })
     setResponse('parent_accounts', { data: [], error: null })
 
     const { result } = renderHook(() => useSendReminders(), { wrapper: createWrapper() })
     let count: number | undefined
     await act(async () => {
       count = await result.current.mutateAsync([
-        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Pay fees' },
+        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'in_app', message: 'Pay fees' },
       ])
     })
 
@@ -259,6 +264,7 @@ describe('useSendReminders', () => {
 
   it('mutation still succeeds even if the in-app notification fails', async () => {
     setResponse('send_queue', { data: null, error: null })
+    setResponse('sms_reminders', { data: null, error: null })
     setResponse('parent_accounts', {
       data: [{ auth_user_id: 'parent-auth-1', student_ids: ['stu-1'] }],
       error: null,
@@ -269,7 +275,7 @@ describe('useSendReminders', () => {
     let count: number | undefined
     await act(async () => {
       count = await result.current.mutateAsync([
-        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'sms', message: 'Pay fees' },
+        { studentId: 'stu-1', guardianPhone: '0700111222', channel: 'in_app', message: 'Pay fees' },
       ])
     })
 
