@@ -137,7 +137,9 @@ describe('ImportDataPage', () => {
 
   it('shows admission number format hint in students mode', () => {
     render(<ImportDataPage />)
-    // Multiple elements contain the format e.g. "NYCS/2026/0001" — use getAllByText
-    expect(screen.getAllByText(/nycs\//i).length).toBeGreaterThan(0)
+    // Admission numbers are a fixed "STU/{year}/{seq}" format regardless of
+    // school short_name (see generate_admission_number() in the DB) —
+    // multiple elements contain it, so use getAllByText.
+    expect(screen.getAllByText(/stu\//i).length).toBeGreaterThan(0)
   })
 })

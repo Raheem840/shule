@@ -299,8 +299,8 @@ export function ImportDataPage() {
           </select>
           <div style={{ fontSize: 11.5, color: 'var(--txt3)', flex: 1 }}>
             Admission numbers will be generated as{' '}
-            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>NYCS/{importYear}/0001</span>,{' '}
-            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>NYCS/{importYear}/0002</span>, …
+            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>STU/{importYear}/0001</span>,{' '}
+            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>STU/{importYear}/0002</span>, …
           </div>
         </div>
       )}

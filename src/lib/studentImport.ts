@@ -128,24 +128,26 @@ export async function importStudentsFromCsv(
 
   // ── Pre-fetch everything needed in parallel ─────────────────────────────
   const firstNames = [...new Set(rows.map(r => String(r.first_name ?? '').trim()).filter(Boolean))]
-  const [classesRes, streamsRes, yearRes, existingRes, schoolRes] = await Promise.all([
+  const [classesRes, streamsRes, yearRes, existingRes] = await Promise.all([
     supabase.from('classes').select('id, name').eq('school_id', schoolId),
     supabase.from('streams').select('id, name, class_id').eq('school_id', schoolId),
     supabase.from('academic_years').select('id').eq('school_id', schoolId).eq('is_active', true).maybeSingle(),
     firstNames.length > 0
       ? supabase.from('students').select('id, first_name, last_name, admission_number, class_id').eq('school_id', schoolId).in('first_name', firstNames)
       : Promise.resolve({ data: [] }),
-    supabase.from('school_profile').select('short_name').eq('id', schoolId).single(),
   ])
 
   const activeYearId = (yearRes.data as any)?.id as string | null
-  const shortName    = ((schoolRes as any).data?.short_name as string | null) ?? 'SCHOOL'
   const classMap     = new Map<string, string>((classesRes.data ?? []).map((c: any) => [normCls(c.name as string), c.id as string]))
   const streamMap    = new Map<string, string>()
   ;(streamsRes.data ?? []).forEach((s: any) => streamMap.set(`${s.class_id}::${(s.name as string).toLowerCase().trim()}`, s.id as string))
 
   // For historical import years, pre-compute admission number sequence
-  // (the DB trigger uses NOW() year — for other years we supply the number ourselves)
+  // (the DB trigger uses NOW() year — for other years we supply the number
+  // ourselves). Prefix is always "STU" — admission numbers are NOT
+  // short_name-based (see generate_admission_number() /
+  // 20260616_000003_stu_admission_prefix.sql), so this must match the DB
+  // trigger's own fixed format, not the school's short_name.
   let admSeqOffset = 0
   const useHistoricalYear = importYear !== currentCalYear
   if (useHistoricalYear) {
@@ -153,7 +155,7 @@ export async function importStudentsFromCsv(
       .from('students')
       .select('id', { count: 'exact', head: true })
       .eq('school_id', schoolId)
-      .like('admission_number', `${shortName}/${importYear}/%`)
+      .like('admission_number', `STU/${importYear}/%`)
     admSeqOffset = count ?? 0
   }
   let newStudentSeq = admSeqOffset
@@ -249,7 +251,7 @@ export async function importStudentsFromCsv(
       if (activeYearId) insertData.academic_year_id = activeYearId
       if (useHistoricalYear) {
         const seq = String(++newStudentSeq).padStart(4, '0')
-        insertData.admission_number = `${shortName}/${importYear}/${seq}`
+        insertData.admission_number = `STU/${importYear}/${seq}`
       }
       // Allow CSV-supplied admission_number to override the auto-generated one
       if (r.admission_number && String(r.admission_number).trim()) {
