@@ -10,13 +10,14 @@ import { useMyAssignedClasses, useStreams } from '../../hooks/useClasses'
 import { TermPicker } from '../../components/ui/TermPicker'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
 import { useCurrentTermDefaultString } from '../../hooks/useCurrentTerm'
+import { useToast } from '../../components/ui/Toast'
 import type { Student } from '../../types/app'
 
 const CURRENT_YEAR = new Date().getFullYear()
 const MAX_CHARS = 200
 
-function RemarkRow({ student, value, saved, onChange }: {
-  student: Student; value: string; saved: boolean
+function RemarkRow({ student, value, saved, readOnly, onChange }: {
+  student: Student; value: string; saved: boolean; readOnly: boolean
   onChange: (studentId: string, text: string) => void
 }) {
   const remaining = MAX_CHARS - value.length
@@ -43,13 +44,13 @@ function RemarkRow({ student, value, saved, onChange }: {
       </div>
       {/* Textarea */}
       <div>
-        <textarea value={value} onChange={e => onChange(student.id, e.target.value.slice(0, MAX_CHARS))} rows={2}
+        <textarea value={value} disabled={readOnly} onChange={e => onChange(student.id, e.target.value.slice(0, MAX_CHARS))} rows={2}
           placeholder="Write a remark for this student…"
-          style={{ width: '100%', padding: '9px 12px', border: `.5px solid ${value.length === 0 ? 'rgba(245,158,11,.5)' : 'var(--border)'}`, borderRadius: 10, fontSize: 13, resize: 'vertical', background: 'var(--surface)', color: 'var(--txt)', lineHeight: 1.55, outline: 'none', boxSizing: 'border-box', transition: 'border-color .15s', fontFamily: 'inherit' }}
+          style={{ width: '100%', padding: '9px 12px', border: `.5px solid ${value.length === 0 ? 'rgba(245,158,11,.5)' : 'var(--border)'}`, borderRadius: 10, fontSize: 13, resize: 'vertical', background: readOnly ? 'var(--surface2)' : 'var(--surface)', color: 'var(--txt)', lineHeight: 1.55, outline: 'none', boxSizing: 'border-box', transition: 'border-color .15s', fontFamily: 'inherit' }}
           onFocus={e => (e.currentTarget.style.borderColor = 'var(--brand)')}
           onBlur={e => (e.currentTarget.style.borderColor = value.length === 0 ? 'rgba(245,158,11,.5)' : 'var(--border)')}
         />
-        <div style={{ fontSize: 10, color: remaining < 20 ? 'var(--danger)' : 'var(--txt3)', textAlign: 'right', marginTop: 3 }}>{remaining} left</div>
+        {!readOnly && <div style={{ fontSize: 10, color: remaining < 20 ? 'var(--danger)' : 'var(--txt3)', textAlign: 'right', marginTop: 3 }}>{remaining} left</div>}
       </div>
     </div>
   )
@@ -65,6 +66,14 @@ export function TeacherRemarksPage() {
   const [streamId, setStreamId] = useState('')
   const [remarks,  setRemarks]  = useState<Map<string, string>>(new Map())
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set())
+  // The Save button previously only toggled "Saving…" <-> "Save All Remarks"
+  // with no distinct success state, so a fully successful save looked
+  // identical to nothing having happened. `saved` drives a "✓ Saved" state
+  // like Attendance/Mark Entry; `readOnly` switches the whole page into a
+  // read-only view after saving, with an explicit Edit button to go back in.
+  const [saved,    setSaved]    = useState(false)
+  const [readOnly, setReadOnly] = useState(false)
+  const { success: toastOk, error: toastErr } = useToast()
 
   // Bulk-apply: write one remark to the whole class, or to everyone in a
   // given CBC performance band, in a single action.
@@ -100,6 +109,8 @@ export function TeacherRemarksPage() {
       for (const s of targets) next.add(s.id)
       return next
     })
+    setSaved(false)
+    setReadOnly(false)
   }
 
   // Pre-fill the band textarea with that band's template whenever the
@@ -125,13 +136,31 @@ export function TeacherRemarksPage() {
   const handleChange = (studentId: string, text: string) => {
     setRemarks(prev => new Map(prev).set(studentId, text))
     setDirtyIds(prev => new Set(prev).add(studentId))
+    setSaved(false)
   }
+
+  // Switching class/stream/term is a fresh context — don't carry over a
+  // "just saved, now read-only" state from whatever was viewed before.
+  useEffect(() => {
+    setSaved(false)
+    setReadOnly(false)
+  }, [classId, streamId, term])
 
   async function handleSaveAll() {
     if (!classId || !term) return
     const rows = students.filter(s => (remarks.get(s.id) ?? '').trim().length > 0).map(s => ({ studentId: s.id, remarks: remarks.get(s.id)!.trim() }))
-    await saveRemarks.mutateAsync({ term, year: CURRENT_YEAR, classId, streamId: streamId || null, rows })
-    setDirtyIds(new Set())
+    try {
+      await saveRemarks.mutateAsync({ term, year: CURRENT_YEAR, classId, streamId: streamId || null, rows })
+      setDirtyIds(new Set())
+      setSaved(true)
+      setReadOnly(true)
+      toastOk('Remarks saved')
+    } catch (e) {
+      const msg = e && typeof e === 'object' && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+        ? (e as { message: string }).message
+        : 'Failed to save remarks'
+      toastErr(msg)
+    }
   }
 
   const savedSet      = new Set<string>(savedRemarks?.keys() ?? [])
@@ -193,11 +222,30 @@ export function TeacherRemarksPage() {
               Export CSV
             </button>
           )}
-          <button disabled={!canSave} onClick={() => { void handleSaveAll() }}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 11, border: 'none', background: canSave ? 'linear-gradient(145deg,#0d9488,#0f766e)' : 'var(--surface2)', color: canSave ? '#fff' : 'var(--txt3)', fontWeight: 700, fontSize: 13.5, cursor: canSave ? 'pointer' : 'default', boxShadow: canSave ? '0 4px 14px rgba(13,148,136,.4)' : 'none', transition: 'all .18s', flexShrink: 0 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            {saveRemarks.isPending ? 'Saving…' : 'Save All Remarks'}
-          </button>
+          {readOnly ? (
+            <button onClick={() => setReadOnly(false)}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 11, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(13,148,136,.4)', transition: 'all .18s', flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
+            </button>
+          ) : (
+            <button disabled={!canSave} onClick={() => { void handleSaveAll() }}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 11, border: 'none', background: canSave ? (saved ? 'rgba(16,185,129,.1)' : 'linear-gradient(145deg,#0d9488,#0f766e)') : 'var(--surface2)', color: canSave ? (saved ? '#065f46' : '#fff') : 'var(--txt3)', fontWeight: 700, fontSize: 13.5, cursor: canSave ? 'pointer' : 'default', boxShadow: canSave && !saved ? '0 4px 14px rgba(13,148,136,.4)' : 'none', transition: 'all .18s', flexShrink: 0 }}>
+              {saveRemarks.isPending ? (
+                <>Saving…</>
+              ) : saved ? (
+                <>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  Saved
+                </>
+              ) : (
+                <>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  Save All Remarks
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -336,7 +384,7 @@ export function TeacherRemarksPage() {
                 return (
                   <div key={student.id} ref={rowVirt.measureElement} data-index={vRow.index}
                     style={{ position: 'absolute', top: vRow.start, left: 0, right: 0 }}>
-                    <RemarkRow student={student} value={value} saved={isSaved} onChange={handleChange} />
+                    <RemarkRow student={student} value={value} saved={isSaved} readOnly={readOnly} onChange={handleChange} />
                   </div>
                 )
               })}
