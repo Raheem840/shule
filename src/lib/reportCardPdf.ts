@@ -204,12 +204,17 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
       return entry !== undefined ? (entry.score !== null ? String(entry.score) : 'ABS') : ''
     })
 
+    // No CA journal recorded yet at all (maxCaPoints === 0) is different
+    // from a genuinely-scored 0 — show a dash rather than a number that
+    // reads as an actual zero result.
+    const hasAnyCA = s.maxCaPoints > 0
+
     return [
       s.subjectName,
       ...scores,
-      String(s.totalCaPoints),
-      String(s.maxCaPoints),
-      s.caOutOf20.toFixed(1),
+      hasAnyCA ? String(s.totalCaPoints) : '—',
+      hasAnyCA ? String(s.maxCaPoints)   : '—',
+      hasAnyCA ? s.caOutOf20.toFixed(1)  : '—',
       s.examScore !== null ? String(s.examScore) : '—',
       s.total     !== null ? s.total.toFixed(1)  : '—',
       s.grade ?? '—',
@@ -283,7 +288,11 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
-  doc.text(`Total Grade Points: ${d.totalGradePoints}`, M, y)
+  // totalGradePoints sums 0 for every ungraded subject — showing "0" here
+  // when nothing has actually been graded yet (avgGrade === 'Pending')
+  // reads as a real zero result rather than "no complete subject yet".
+  const gradePointsDisplay = d.avgGrade === 'Pending' ? '—' : String(d.totalGradePoints)
+  doc.text(`Total Grade Points: ${gradePointsDisplay}`, M, y)
   doc.text(`Average Grade: ${d.avgGrade} — ${d.avgDescriptor}`, col2, y)
   y += 7
 
@@ -400,6 +409,13 @@ export type RawResult = {
 export function buildSubjectRows(
   results:      RawResult[],
   subjectNames: Map<string, string>,
+  // Every subject that should appear on this report card regardless of
+  // whether marks were ever recorded — previously the report card only
+  // ever showed subjects with at least one exam_results row, so a student
+  // with marks in one subject out of a full curriculum silently looked
+  // like they only took that one subject. Any id in here with no matching
+  // results still gets a row, with every score/grade field blank.
+  allSubjectIds: string[] = [],
 ): SubjectPdfRow[] {
   // Group by subject
   const bySubject = new Map<string, RawResult[]>()
@@ -410,6 +426,22 @@ export function buildSubjectRows(
   }
 
   const rows: SubjectPdfRow[] = []
+
+  for (const subjectId of allSubjectIds) {
+    if (bySubject.has(subjectId)) continue
+    rows.push({
+      subjectName:   subjectNames.get(subjectId) ?? subjectId,
+      caScores:      [],
+      totalCaPoints: 0,
+      maxCaPoints:   0,
+      caOutOf20:     0,
+      examScore:     null,
+      total:         null,
+      grade:         null,
+      gradePoints:   null,
+      descriptor:    null,
+    })
+  }
 
   for (const [subjectId, subResults] of bySubject) {
     const caEntries = subResults

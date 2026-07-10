@@ -256,13 +256,14 @@ export function useGenerateReportCards() {
 
       // ── Fetch class + stream names ─────────────────────────
       const [clsRes, strRes] = await Promise.all([
-        supabase.from('classes').select('name').eq('id', classId).eq('school_id', schoolId).single(),
+        supabase.from('classes').select('name, level').eq('id', classId).eq('school_id', schoolId).single(),
         streamId
           ? supabase.from('streams').select('name, class_teacher_id').eq('id', streamId).eq('school_id', schoolId).single()
           : Promise.resolve({ data: null }),
       ])
 
       const className      = (clsRes.data?.name as string) ?? ''
+      const classLevel     = (clsRes.data?.level as string | null) ?? null
       const streamName     = ((strRes.data as Record<string,unknown> | null)?.name as string) ?? ''
       const classTeacherId = ((strRes.data as Record<string,unknown> | null)?.class_teacher_id as string) ?? null
 
@@ -284,13 +285,23 @@ export function useGenerateReportCards() {
       // ── Fetch subject names ────────────────────────────────
       const { data: subjects } = await supabase
         .from('subjects')
-        .select('id, name')
+        .select('id, name, level, is_active')
         .eq('school_id', schoolId)
 
       const subjectNames = new Map<string, string>()
       for (const sub of (subjects ?? [])) {
         subjectNames.set(sub.id as string, sub.name as string)
       }
+
+      // Every active subject that applies to this class — a subject with no
+      // level restriction applies school-wide; one with a level only shows
+      // on report cards for classes at that level. Report cards previously
+      // only ever showed subjects a student actually had exam_results for,
+      // so a student marked in one out of a full subject list looked like
+      // they only took that one subject.
+      const allSubjectIds = ((subjects ?? []) as Array<{ id: string; level: string | null; is_active: boolean | null }>)
+        .filter(s => s.is_active !== false && (s.level == null || s.level === classLevel))
+        .map(s => s.id)
 
       // ── Fetch all exam_results for these students ──────────
       // Include is_absent so absent students are correctly shown as ABS not 0.
@@ -445,6 +456,7 @@ export function useGenerateReportCards() {
           const subjectRows = buildSubjectRows(
             resultsByStudent.get(studentId) ?? [],
             subjectNames,
+            allSubjectIds,
           )
 
           const totalGradePoints = subjectRows.reduce((s, r) => s + (r.gradePoints ?? 0), 0)
@@ -642,6 +654,7 @@ export function useNotifyPrincipal() {
         user_id:     p.auth_user_id as string,
         from_user:   user!.id,
         target_role: 'principal',
+        type:  'report_card',
         title: 'Report Cards Ready for Approval',
         body:  `${count} report card(s) for Term ${term} ${year} are ready for your review.`,
         link:  '/principal/report-cards',
