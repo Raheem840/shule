@@ -19,6 +19,7 @@ import { TermPicker } from '../../components/ui/TermPicker'
 import { EventTimeline } from '../../components/shared/EventTimeline'
 import { SafeTermProgressTimeline } from '../../components/shared/TermProgressTimeline'
 import { PortalMessagesTab } from '../../components/shared/PortalMessaging'
+import { ReportCardCalcExplainer } from '../../components/shared/ReportCardCalcExplainer'
 import type { AttendanceDay } from '../../hooks/useAttendance'
 import type { ExamResultRow, StudentFeeRecord, PortalReportCard } from '../../hooks/useParentPortal'
 import type { StaffContact } from '../../hooks/useParentPortal'
@@ -726,6 +727,8 @@ function MyReportCardsTab({ studentId }: { studentId: string }) {
               </blockquote>
             </div>
           )}
+
+          <ReportCardCalcExplainer />
         </div>
       ))}
     </div>

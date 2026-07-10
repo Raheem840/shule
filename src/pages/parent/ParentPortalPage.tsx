@@ -19,6 +19,7 @@ import { supabase } from '../../lib/supabase'
 import { Avatar } from '../../components/shared/Avatar'
 import { SafeTermProgressTimeline } from '../../components/shared/TermProgressTimeline'
 import { PortalMessagesTab } from '../../components/shared/PortalMessaging'
+import { ReportCardCalcExplainer } from '../../components/shared/ReportCardCalcExplainer'
 import type { Student } from '../../types/app'
 import type { AttendanceDay } from '../../hooks/useAttendance'
 import type { ExamResultRow, StudentFeeRecord, PortalReportCard } from '../../hooks/useParentPortal'
@@ -798,6 +799,8 @@ function ReportCardsTab({ studentId }: { studentId: string }) {
               </span>
             )}
           </div>
+
+          <ReportCardCalcExplainer />
         </div>
       ))}
     </div>
