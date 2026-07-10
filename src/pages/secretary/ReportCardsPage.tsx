@@ -9,6 +9,7 @@ import {
   useNotifyPrincipal,
 } from '../../hooks/useReportCards'
 import { useClasses, useStreams } from '../../hooks/useClasses'
+import { useAcademicYears } from '../../hooks/useAdmin'
 import { useToast } from '../../components/ui/Toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
@@ -292,19 +293,26 @@ function StatChip({ label, value, color = '#fff' }: { label: string; value: numb
 type FeeFilter = 'all' | '60pct' | 'custom'
 
 // ── useFeeCompletion ───────────────────────────────────────────
-// Fetches fee_payments for the given student IDs and year, returns a map of studentId → pct paid.
-function useFeeCompletion(studentIds: string[], year: number | null) {
+// Fetches fee_payments for the given student IDs scoped to one specific
+// academic year + term, returns a map of studentId → pct paid. Previously
+// had no academic_year_id or term filter at all — it summed every
+// fee_payments row a student has ever had across every term/year, so the
+// fee-completion % shown for "Term 2, 2026" actually reflected the
+// student's entire payment history, not that term's fees.
+function useFeeCompletion(studentIds: string[], academicYearId: string | null, term: string | null) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['fee-completion', user?.schoolId, year, studentIds.join(',')],
-    enabled:  !!user?.schoolId && !!year && studentIds.length > 0,
+    queryKey: ['fee-completion', user?.schoolId, academicYearId, term, studentIds.join(',')],
+    enabled:  !!user?.schoolId && !!academicYearId && !!term && studentIds.length > 0,
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('fee_payments')
-        .select('student_id, amount_due, amount_paid, academic_year_id')
+        .select('student_id, amount_due, amount_paid')
         .eq('school_id', user!.schoolId)
+        .eq('academic_year_id', academicYearId!)
+        .eq('term', Number(term))
         .in('student_id', studentIds)
 
       if (error) throw error
@@ -331,7 +339,13 @@ function useFeeCompletion(studentIds: string[], year: number | null) {
 // ── Main Page ──────────────────────────────────────────────────
 export function ReportCardsPage() {
   const [activeTab, setActiveTab] = useState<'readiness' | 'cards'>('readiness')
+  // Term defaults to 1 until the active academic year loads and we can work
+  // out which term "today" actually falls in (see the auto-correct effect
+  // below) — previously stayed hardcoded at Term 1 forever, so the fee
+  // completion % and readiness data silently reflected Term 1 even when the
+  // school was mid-Term-2/3.
   const [term,     setTerm]     = useState<string>('1')
+  const [termAutoSet, setTermAutoSet] = useState(false)
   const [year,     setYear]     = useState<string>(String(new Date().getFullYear()))
   const [classId,  setClassId]  = useState<string>('')
   const [streamId, setStreamId] = useState<string>('')
@@ -348,9 +362,45 @@ export function ReportCardsPage() {
 
   const { data: classes  = [] } = useClasses()
   const { data: streams  = [] } = useStreams(classId || null)
+  const { data: ayRows   = [] } = useAcademicYears()
   const generate                = useGenerateReportCards()
   const notify                  = useNotifyPrincipal()
   const { success: ok, error: err } = useToast()
+
+  // Resolve the academic_years.id for the selected calendar `year` — fee
+  // payments are scoped by this uuid FK, not the raw year number.
+  const activeAy = useMemo(() => {
+    const rows = ayRows as any[]
+    return rows.find(r => r.start_date && new Date(r.start_date).getFullYear() === Number(year))
+      ?? rows.find(r => r.is_active)
+      ?? rows[0]
+      ?? null
+  }, [ayRows, year])
+  const academicYearId = (activeAy?.id as string | undefined) ?? null
+
+  // Auto-correct the initial term to whichever term "today" falls in (or,
+  // between terms, the most recently-ended one) — only once, so it never
+  // clobbers a term the user deliberately picked from the toolbar.
+  useEffect(() => {
+    if (termAutoSet || !activeAy) return
+    const now = Date.now()
+    const ranges = [1, 2, 3].map(n => ({
+      term:  n,
+      start: activeAy[`term${n}_start`] ? new Date(activeAy[`term${n}_start`]).getTime() : null,
+      end:   activeAy[`term${n}_end`]   ? new Date(activeAy[`term${n}_end`]).getTime()   : null,
+    }))
+    const current = ranges.find(r => r.start !== null && r.end !== null && now >= r.start && now <= r.end)
+    if (current) {
+      setTerm(String(current.term))
+    } else {
+      const withEnd = ranges.filter((r): r is { term: number; start: number; end: number } => r.end !== null)
+      const mostRecentlyEnded = withEnd.filter(r => r.end < now).sort((a, b) => b.end - a.end)[0]
+      const nextUpcoming      = withEnd.filter(r => r.end >= now).sort((a, b) => a.end - b.end)[0]
+      const pick = mostRecentlyEnded ?? nextUpcoming
+      if (pick) setTerm(String(pick.term))
+    }
+    setTermAutoSet(true)
+  }, [activeAy, termAutoSet])
 
   const cohortReady = !!term && !!classId
 
@@ -370,7 +420,11 @@ export function ReportCardsPage() {
 
   // Fee completion map — fetched once for all students in cohort
   const studentIds = useMemo(() => readiness.map(r => r.studentId), [readiness])
-  const { data: feeCompletionMap = new Map<string, number>() } = useFeeCompletion(studentIds, cohortReady ? Number(year) : null)
+  const { data: feeCompletionMap = new Map<string, number>() } = useFeeCompletion(
+    studentIds,
+    cohortReady ? academicYearId : null,
+    cohortReady ? term : null,
+  )
 
   // Apply fee filter to readiness list (client-side)
   const thresholdPct = feeFilter === 'custom' ? customPct : feeFilter === '60pct' ? 60 : 0
