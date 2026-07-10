@@ -184,7 +184,7 @@ html, body, #root {
    "Pinned" (Ctrl+B / the pin button) opts out, keeping it permanently
    expanded and pushing .shell-r over to match. */
 .sb {
-  width: 64px;
+  width: 84px;
   flex-shrink: 0;
   background: var(--sb-bg);
   display: flex;
@@ -203,7 +203,13 @@ html, body, #root {
 /* Collapsed (resting) state — everything except the two logos (Shule brand
    mark + school badge) disappears; hovering brings it all back (below).
    Nav/user-pill/sign-out use opacity+visibility (not display:none) so they
-   still transition smoothly back in on hover instead of popping in. */
+   still transition smoothly back in on hover instead of popping in.
+   .sbtop's own padding is tightened here (and restored below on hover/pinned)
+   so the badge has a correctly-sized box to sit in — previously the padding
+   never adjusted for the collapsed rail width, so the enlarged badge
+   overflowed .sbtop's content box and got clipped by .sb's overflow-x:hidden,
+   reading as a "shrunk" badge even though its declared size was correct. */
+.sb .sbtop { padding: 14px 8px 10px !important; }
 .sb .sname,
 .sb .ssub,
 .sb .ngl,
@@ -234,10 +240,13 @@ html, body, #root {
 
 /* The two logos (Shule brand mark + school badge) stay large and prominent
    in BOTH the collapsed and hovered/pinned states — they never shrink back
-   down, unlike everything else in the sidebar. */
+   down, unlike everything else in the sidebar. The SCHOOL badge is the
+   dominant, larger mark (it's the identity that matters to the people using
+   this specific school's deployment); the Shule product mark is deliberately
+   smaller — present and unconstrained, never cramped, but visually secondary. */
 .sb .slogo,
 .sb:hover .slogo, .sb.sb-pinned .slogo {
-  width: 56px !important; height: 56px !important; margin: 0 auto;
+  width: 34px !important; height: 34px !important; margin: 0 auto;
 }
 .sb .school-ico,
 .sb:hover .school-ico, .sb.sb-pinned .school-ico {
@@ -263,8 +272,13 @@ html, body, #root {
 .sb:hover .u-role,      .sb.sb-pinned .u-role,
 .sb:hover .u-dot,       .sb.sb-pinned .u-dot,
 .sb:hover .nb,          .sb.sb-pinned .nb { display: revert !important; }
-.sb:hover .sbrand,        .sb.sb-pinned .sbrand { justify-content: flex-start; padding: revert !important; }
-.sb:hover .school-pill,   .sb.sb-pinned .school-pill { justify-content: flex-start; padding: revert !important; }
+.sb:hover .sbtop,         .sb.sb-pinned .sbtop { padding: 1rem 1.1rem 0.75rem !important; }
+/* The Shule mark and school badge — plus their name/motto — stay centered as
+   a card in the expanded/hovered state too, matching the collapsed rail
+   instead of snapping left like the nav rows below them (which correctly
+   left-align once there's room for icon + label). */
+.sb:hover .sbrand,        .sb.sb-pinned .sbrand { justify-content: center; padding: revert !important; }
+.sb:hover .school-pill,   .sb.sb-pinned .school-pill { justify-content: center; padding: revert !important; }
 .sb:hover .ni,            .sb.sb-pinned .ni {
   justify-content: flex-start; padding: revert !important;
   opacity: 1; visibility: visible; pointer-events: auto;
@@ -293,7 +307,7 @@ html, body, #root {
 /* ── Shell right (topbar + main) ── */
 .shell-r {
   flex: 1;
-  margin-left: 64px;
+  margin-left: 84px;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -382,6 +396,7 @@ html, body, #root {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   line-height: 1.2;
+  text-align: center;
 }
 .ssub {
   font-size: 9px;
@@ -389,6 +404,7 @@ html, body, #root {
   letter-spacing: 1.5px;
   text-transform: uppercase;
   margin-top: 1px;
+  text-align: center;
 }
 
 /* School pill under logo */
@@ -471,6 +487,7 @@ html, body, #root {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: center;
   transition: color 0.25s ease;
 }
 .school-pill:hover .school-name {
@@ -487,6 +504,7 @@ html, body, #root {
   margin-top: 0;
   max-height: 0;
   overflow: hidden;
+  text-align: center;
   transition:
     font-size 0.25s ease 0.05s,
     color 0.3s ease 0.05s,
