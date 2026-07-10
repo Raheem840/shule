@@ -410,11 +410,15 @@ html, body, #root {
   text-align: center;
 }
 
-/* School pill under logo */
+/* School pill under logo — stacked (badge on top, name/motto centered right
+   below it) rather than side-by-side, so the name reads as clearly attached
+   to the badge instead of floating next to it at an off-center height. */
 .school-pill {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 9px;
+  width: 100%;
+  gap: 8px;
   /* Glassmorphism base */
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.09);
@@ -475,8 +479,10 @@ html, body, #root {
   transform: scale(1.08);
 }
 
-/* Text wrapper */
-.school-pill-text { min-width: 0; }
+/* Text wrapper — full pill width so long names wrap and stay centered
+   instead of shrink-wrapping to their own text width (which made centering
+   a no-op) or overflowing the fixed-width rail on a long school name. */
+.school-pill-text { min-width: 0; width: 100%; }
 
 /* School name — .school-pill-text (its parent) is only ever visible while
    the sidebar itself is expanded (.sb:hover / .sb.sb-pinned), so the name
@@ -495,6 +501,7 @@ html, body, #root {
   line-height: 1.3;
   letter-spacing: -0.2px;
   text-align: center;
+  overflow-wrap: anywhere;
   transition: color 0.25s ease;
 }
 
@@ -503,6 +510,7 @@ html, body, #root {
   color: rgba(186,214,230,0.85);
   margin-top: 4px;
   text-align: center;
+  overflow-wrap: anywhere;
 }
 
 /* Nav groups */

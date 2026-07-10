@@ -54,7 +54,7 @@ function StudentProfileModal({ student, classes, streams, onClose, onEdit }: {
   }
 
   const modal = (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 500, padding: 'max(16px, env(safe-area-inset-bottom)) 16px 16px' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '1rem' }}>
       <div className="sui-modal-dialog" style={{ background: 'var(--surface)', width: '100%', maxWidth: 520, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header with avatar */}
@@ -64,9 +64,9 @@ function StudentProfileModal({ student, classes, streams, onClose, onEdit }: {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, position: 'relative', zIndex: 1 }}>
-            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,.25)', padding: 3, flexShrink: 0 }}>
+            <div style={{ width: 104, height: 104, borderRadius: '50%', background: 'rgba(255,255,255,.25)', padding: 4, flexShrink: 0 }}>
               <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: '#fff' }}>
-                <Avatar photoPath={student.photoUrl} bucket="student-photos" name={`${student.firstName} ${student.lastName}`} size="lg" />
+                <Avatar photoPath={student.photoUrl} bucket="student-photos" name={`${student.firstName} ${student.lastName}`} size="xl" />
               </div>
             </div>
             <div>
