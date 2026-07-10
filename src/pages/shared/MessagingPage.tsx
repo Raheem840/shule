@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import {
   useContacts, useMessages, useSendMessage, useMarkRead,
   useAnnouncements, usePostAnnouncement, useUploadAttachment,
+  useSearchStudentsForMessaging, type StudentParentResult,
 } from '../../hooks/useMessaging'
 import { useAuth } from '../../store/AuthContext'
 import { useToast } from '../../components/ui/Toast'
@@ -646,9 +647,37 @@ function ContactList({ contacts, loading, totalUnread, onSelect, activeId }: {
   activeId: string | 'announcements' | null
 }) {
   const [q, setQ] = useState('')
+  const [composing, setComposing] = useState(false)
+  const [searchQ, setSearchQ] = useState('')
+  const [debouncedQ, setDebouncedQ] = useState('')
+
+  // Debounce the parent/student search input
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(searchQ), 300)
+    return () => clearTimeout(t)
+  }, [searchQ])
+
+  const { data: searchResults = [], isFetching: searching } = useSearchStudentsForMessaging(debouncedQ)
+
   const filtered = q.trim()
     ? contacts.filter(c => c.name.toLowerCase().includes(q.toLowerCase()) || c.role.includes(q.toLowerCase()))
     : contacts
+
+  // Search results represent a parent — build the same Contact shape the
+  // rest of this page already works with (useMessages/useSendMessage are
+  // keyed only by auth_user_id, so a parent's works identically to staff's).
+  function startConversationWithParent(r: StudentParentResult) {
+    setComposing(false)
+    setSearchQ('')
+    onSelect({
+      id:          r.parentAuthUserId,
+      staffId:     '',
+      name:        r.parentName,
+      role:        'parent',
+      photoUrl:    null,
+      unreadCount: 0,
+    })
+  }
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'var(--ms-cl-bg)', borderRight:'var(--ms-cl-border)' }}>
@@ -656,20 +685,83 @@ function ContactList({ contacts, loading, totalUnread, onSelect, activeId }: {
       <div style={{ padding:'18px 18px 14px', flexShrink:0, borderBottom:'var(--ms-cl-border)' }}>
         <div style={{ display:'flex', alignItems:'center', marginBottom:14 }}>
           <span style={{ flex:1, fontSize:24, fontWeight:900, color:'var(--ms-cl-title)', fontFamily:'var(--font2)', letterSpacing:-.6 }}>Messages</span>
-          {totalUnread > 0 && (
-            <div style={{ background:'linear-gradient(135deg,#0d9488,#0ea5e9)', color:'#fff', borderRadius:99, fontSize:12, fontWeight:800, padding:'2px 10px', boxShadow:'0 3px 12px rgba(13,148,136,.5)' }}>
+          {totalUnread > 0 && !composing && (
+            <div style={{ background:'linear-gradient(135deg,#0d9488,#0ea5e9)', color:'#fff', borderRadius:99, fontSize:12, fontWeight:800, padding:'2px 10px', boxShadow:'0 3px 12px rgba(13,148,136,.5)', marginRight:8 }}>
               {totalUnread > 99 ? '99+' : totalUnread}
             </div>
           )}
+          <button
+            onClick={() => { setComposing(v => !v); setSearchQ('') }}
+            title={composing ? 'Cancel' : 'Message a parent or student'}
+            style={{ width:36, height:36, borderRadius:10, border:'none', background: composing ? 'rgba(13,148,136,.15)' : 'var(--ms-cl-search-bg)', color: composing ? '#0d9488' : 'var(--ms-cl-role)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .14s', flexShrink:0 }}
+          >
+            {composing
+              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            }
+          </button>
         </div>
-        <div style={{ position:'relative' }}>
-          <svg style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ms-cl-search-ph)" strokeWidth="2.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search…"
-            style={{ width:'100%', paddingLeft:36, height:40, borderRadius:12, background:'var(--ms-cl-search-bg)', border:'var(--ms-cl-search-bdr)', fontSize:14, color:'var(--ms-cl-search-txt)', outline:'none', fontFamily:'inherit', boxSizing:'border-box' as const }}
-          />
-        </div>
+        {composing ? (
+          <div style={{ position:'relative' }}>
+            <svg style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ms-cl-search-ph)" strokeWidth="2.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input
+              autoFocus
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+              placeholder="Search student name to find their parent…"
+              style={{ width:'100%', paddingLeft:36, height:40, borderRadius:12, background:'var(--ms-cl-search-bg)', border:'1.5px solid #0d9488', fontSize:14, color:'var(--ms-cl-search-txt)', outline:'none', fontFamily:'inherit', boxSizing:'border-box' as const }}
+            />
+            {searching && (
+              <svg style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', animation:'spinRing .7s linear infinite' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ms-cl-search-ph)" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity=".25"/><path d="M12 2a10 10 0 010 20"/></svg>
+            )}
+          </div>
+        ) : (
+          <div style={{ position:'relative' }}>
+            <svg style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ms-cl-search-ph)" strokeWidth="2.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search staff…"
+              style={{ width:'100%', paddingLeft:36, height:40, borderRadius:12, background:'var(--ms-cl-search-bg)', border:'var(--ms-cl-search-bdr)', fontSize:14, color:'var(--ms-cl-search-txt)', outline:'none', fontFamily:'inherit', boxSizing:'border-box' as const }}
+            />
+          </div>
+        )}
       </div>
 
+      {composing ? (
+        /* Parent/student search results */
+        <div style={{ flex:1, overflowY:'auto' }}>
+          {!debouncedQ.trim() && (
+            <div style={{ padding:'32px 18px', textAlign:'center' }}>
+              <div style={{ width:52, height:52, borderRadius:16, background:'rgba(13,148,136,.08)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 12px' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <div style={{ fontSize:13.5, fontWeight:700, color:'var(--ms-cl-name)', marginBottom:4 }}>Find a student</div>
+              <div style={{ fontSize:12.5, color:'var(--ms-cl-role)', lineHeight:1.6 }}>Type a student's name to find their parent and start a conversation</div>
+            </div>
+          )}
+          {debouncedQ.trim() && !searching && searchResults.length === 0 && (
+            <div style={{ padding:'28px 18px', textAlign:'center', color:'var(--ms-cl-role)', fontSize:13.5 }}>
+              No parents found for "{debouncedQ}".
+              <div style={{ fontSize:12, marginTop:6 }}>The parent may not have an active account yet.</div>
+            </div>
+          )}
+          {searchResults.map(r => {
+            const [col] = colorFor(r.parentName)
+            return (
+              <div key={r.parentAuthUserId} onClick={() => startConversationWithParent(r)} className="c-row">
+                <Avatar name={r.parentName} photoUrl={null} size={52} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:700, fontSize:15.5, color:'var(--ms-cl-name)', marginBottom:1 }}>{r.parentName}</div>
+                  <div style={{ fontSize:12, color:'var(--ms-cl-role)', marginBottom:1 }}>Parent of {r.studentNames.join(', ')}</div>
+                  <div style={{ fontSize:11.5, color:'#0d9488', fontFamily:'var(--font3)' }}>{r.admissionNumbers.join(', ')}</div>
+                </div>
+                <div style={{ width:32, height:32, borderRadius:'50%', background:`${col}14`, border:`1px solid ${col}28`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+      <>
       {/* Announcements pinned */}
       <div onClick={() => onSelect('announcements')} className="c-row"
         style={{ background: activeId === 'announcements' ? 'var(--ms-ann-row-bg)' : undefined, borderLeft:`3.5px solid ${activeId === 'announcements' ? '#8b5cf6' : 'transparent'}` }}>
@@ -726,6 +818,8 @@ function ContactList({ contacts, loading, totalUnread, onSelect, activeId }: {
           )
         })}
       </div>
+      </>
+      )}
     </div>
   )
 }
