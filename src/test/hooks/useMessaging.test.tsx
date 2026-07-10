@@ -74,6 +74,7 @@ import {
   useAnnouncements,
   usePostAnnouncement,
   useUnreadCount,
+  useParentMessagesUnreadCount,
   useParentConversations,
   useSearchStudentsForMessaging,
 } from '../../hooks/useMessaging'
@@ -263,27 +264,52 @@ describe('useAnnouncements', () => {
 })
 
 // ── useUnreadCount ─────────────────────────────────────────────────────────
+// Counts unread messages FROM STAFF only — a parent/student reply should NOT
+// count here (it belongs to the separate "Parent Messages" inbox instead),
+// so the fixture below includes one unread row from each sender kind and
+// asserts only the staff one is counted.
 describe('useUnreadCount', () => {
-  it('returns the count from Supabase head query', async () => {
-    // Mock count query
-    const mockCount = vi.fn().mockImplementation((_table: string) => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      is: vi.fn().mockReturnThis(),
-      then: (resolve: any) => Promise.resolve({ count: 3, error: null }).then(resolve),
-    }))
-    // .mockImplementationOnce — a plain .mockImplementation() here would
-    // permanently replace mockFrom's shared builder for every test that runs
-    // after this one in the file (vi.clearAllMocks() doesn't restore a custom
-    // implementation), silently breaking any later test whose hook calls a
-    // method (.or/.in/.not/.overlaps/.maybeSingle) this minimal stub lacks.
-    mockFrom.mockImplementationOnce(mockCount)
+  it('counts unread messages from staff senders only', async () => {
+    setTableData('messages', {
+      data: [
+        { from_user_id: 'staff-auth-1' },
+        { from_user_id: 'staff-auth-1' },
+        { from_user_id: 'parent-auth-1' },
+      ],
+      error: null,
+    })
+    setTableData('staff', {
+      data: [{ auth_user_id: 'staff-auth-1' }],
+      error: null,
+    })
 
     const { result } = renderHook(() => useUnreadCount(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    // count is 3
-    expect(result.current.data).toBe(3)
+    expect(result.current.data).toBe(2)
+  })
+})
+
+// ── useParentMessagesUnreadCount ──────────────────────────────────────────
+describe('useParentMessagesUnreadCount', () => {
+  it('counts unread messages from non-staff (parent/student) senders only', async () => {
+    setTableData('messages', {
+      data: [
+        { from_user_id: 'staff-auth-1' },
+        { from_user_id: 'parent-auth-1' },
+        { from_user_id: 'parent-auth-1' },
+      ],
+      error: null,
+    })
+    setTableData('staff', {
+      data: [{ auth_user_id: 'staff-auth-1' }],
+      error: null,
+    })
+
+    const { result } = renderHook(() => useParentMessagesUnreadCount(), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toBe(2)
   })
 })
 

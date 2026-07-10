@@ -287,7 +287,7 @@ html, body, #root {
 .sb:hover .sbrand,        .sb.sb-pinned .sbrand,        .sb.sb-open .sbrand { justify-content: center; padding: revert !important; }
 .sb:hover .school-pill,   .sb.sb-pinned .school-pill,   .sb.sb-open .school-pill { justify-content: center; padding: revert !important; }
 .sb:hover .ni,            .sb.sb-pinned .ni,            .sb.sb-open .ni {
-  justify-content: flex-start; padding: revert !important;
+  justify-content: center; padding: revert !important;
 }
 .sb:hover .ni .ico,       .sb.sb-pinned .ni .ico,       .sb.sb-open .ni .ico { margin: revert !important; }
 .sb:hover .ni-label,      .sb.sb-pinned .ni-label,      .sb.sb-open .ni-label { display: revert !important; }

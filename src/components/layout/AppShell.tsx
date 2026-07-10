@@ -23,7 +23,7 @@ import { OfflineBanner } from '../shared/OfflineBanner'
 import { ErrorBoundary } from '../shared/ErrorBoundary'
 import { useNotifications, useMarkNotificationsRead } from '../../hooks/useNotifications'
 import { NotificationPushListener } from '../shared/NotificationPush'
-import { useUnreadCount } from '../../hooks/useMessaging'
+import { useUnreadCount, useParentMessagesUnreadCount } from '../../hooks/useMessaging'
 import { useSchoolSettings } from '../../hooks/useAdmin'
 import { applyBrandColor } from '../../lib/brandColor'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -503,7 +503,8 @@ type SidebarProps = {
 
 function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolName, schoolMotto, schoolLogoUrl, drawerOpen, onClose, pinned, onTogglePinned }: SidebarProps) {
   const navigate = useNavigate()
-  const { data: msgUnread = 0 } = useUnreadCount()
+  const { data: msgUnread = 0 }       = useUnreadCount()
+  const { data: parentMsgUnread = 0 } = useParentMessagesUnreadCount()
 
   // Live pending report card count — only fetched for principals
   const { data: pendingRCCount = 0 } = useQuery({
@@ -630,7 +631,8 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
             {group.items.map((item: import('../../config/roleNav').NavItem) => {
               const isActive = currentPath === item.path ||
                 currentPath.startsWith(item.path + '/')
-              const isMsgItem = item.path.endsWith('/messages')
+              const isParentMsgItem = item.path.endsWith('/parent-messages')
+              const isStaffMsgItem  = item.path.endsWith('/messages') && !isParentMsgItem
 
               return (
                 <NavLink
@@ -648,10 +650,17 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
                   {/* Label */}
                   <span className="ni-label">{item.label}</span>
 
-                  {/* Messaging badge — real unread count */}
-                  {item.badge === 'alert' && isMsgItem && msgUnread > 0 && (
+                  {/* Messaging badge — staff-to-staff unread only, matches
+                      what this specific page (useContacts, staff-only) shows */}
+                  {item.badge === 'alert' && isStaffMsgItem && msgUnread > 0 && (
                     <span className="nb" style={{ fontSize: 9, minWidth: 16, height: 16, padding: '0 3px' }}>
                       {msgUnread > 9 ? '9+' : msgUnread}
+                    </span>
+                  )}
+                  {/* Parent Messages badge — parent/student unread only */}
+                  {item.badge === 'alert' && isParentMsgItem && parentMsgUnread > 0 && (
+                    <span className="nb" style={{ fontSize: 9, minWidth: 16, height: 16, padding: '0 3px' }}>
+                      {parentMsgUnread > 9 ? '9+' : parentMsgUnread}
                     </span>
                   )}
                   {/* Report Cards badge — live pending count, never static */}

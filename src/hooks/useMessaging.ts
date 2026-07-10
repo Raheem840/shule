@@ -412,8 +412,45 @@ export function usePostAnnouncement() {
   })
 }
 
+// Fetches all unread message rows addressed to the current user, split by
+// whether the sender is a staff member — shared by useUnreadCount (staff
+// inbox) and useParentMessagesUnreadCount (parent/student inbox), since a
+// staff member with both a "Messages" (staff-to-staff) and a separate
+// "Parent Messages" nav item needs two independent counts, not one combined
+// figure attached to whichever page happens to render first.
+async function fetchUnreadBySenderKind(schoolId: string, userId: string) {
+  const [unreadRes, staffRes] = await Promise.all([
+    supabase
+      .from('messages')
+      .select('from_user_id')
+      .eq('school_id', schoolId)
+      .eq('to_user_id', userId)
+      .is('read_at', null),
+    supabase
+      .from('staff')
+      .select('auth_user_id')
+      .eq('school_id', schoolId)
+      .not('auth_user_id', 'is', null),
+  ])
+
+  if (unreadRes.error) throw new Error(unreadRes.error.message)
+  if (staffRes.error)  throw new Error(staffRes.error.message)
+
+  const staffIds = new Set((staffRes.data ?? []).map(s => s.auth_user_id as string))
+  const rows = unreadRes.data ?? []
+  return {
+    staff:         rows.filter(m => staffIds.has(m.from_user_id as string)).length,
+    parentStudent: rows.filter(m => !staffIds.has(m.from_user_id as string)).length,
+  }
+}
+
 // ── useUnreadCount ─────────────────────────────────────────────────────────
-// Quick count of unread 1:1 messages — used for TopBar badge.
+// Unread count from OTHER STAFF only — matches exactly what the staff-to-staff
+// "Messages" page (useContacts, staff-only) actually shows. Previously counted
+// every unread row regardless of sender, including parent/student replies that
+// live on a completely different page ("Parent Messages") — a bursar/teacher
+// saw a red dot on "Messages", opened it, and found nothing, because the
+// message that triggered the badge was never going to appear there.
 export function useUnreadCount() {
   const { user } = useAuth()
 
@@ -421,15 +458,27 @@ export function useUnreadCount() {
     queryKey: ['unread-count', user?.schoolId, user?.id],
     enabled: !!user,
     queryFn: async (): Promise<number> => {
-      const { count, error } = await supabase
-        .from('messages')
-        .select('id', { count: 'exact', head: true })
-        .eq('school_id', user!.schoolId)
-        .eq('to_user_id', user!.id)
-        .is('read_at', null)
+      const { staff } = await fetchUnreadBySenderKind(user!.schoolId, user!.id)
+      return staff
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  })
+}
 
-      if (error) throw new Error(error.message)
-      return count ?? 0
+// ── useParentMessagesUnreadCount ───────────────────────────────────────────
+// Counterpart to useUnreadCount for the "Parent Messages" nav item (bursar/
+// teacher) — counts only unread messages whose sender is a parent or student,
+// not a staff member.
+export function useParentMessagesUnreadCount() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['unread-count-parent-student', user?.schoolId, user?.id],
+    enabled: !!user,
+    queryFn: async (): Promise<number> => {
+      const { parentStudent } = await fetchUnreadBySenderKind(user!.schoolId, user!.id)
+      return parentStudent
     },
     staleTime: 15_000,
     refetchInterval: 30_000,
