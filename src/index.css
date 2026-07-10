@@ -209,33 +209,33 @@ html, body, #root {
    never adjusted for the collapsed rail width, so the enlarged badge
    overflowed .sbtop's content box and got clipped by .sb's overflow-x:hidden,
    reading as a "shrunk" badge even though its declared size was correct. */
-.sb .sbtop { padding: 14px 8px 10px !important; }
-.sb .sname,
-.sb .ssub,
-.sb .ngl,
-.sb .school-pill-text,
-.sb .u-name,
-.sb .u-role,
-.sb .u-dot,
-.sb .nb { display: none !important; }
-.sb .sbrand { justify-content: center; padding: 0 !important; }
-.sb .school-pill { justify-content: center; padding: 8px 0 !important; }
-.sb .ni {
+.sb:not(.sb-open) .sbtop { padding: 14px 8px 10px !important; }
+.sb:not(.sb-open) .sname,
+.sb:not(.sb-open) .ssub,
+.sb:not(.sb-open) .ngl,
+.sb:not(.sb-open) .school-pill-text,
+.sb:not(.sb-open) .u-name,
+.sb:not(.sb-open) .u-role,
+.sb:not(.sb-open) .u-dot,
+.sb:not(.sb-open) .nb { display: none !important; }
+.sb:not(.sb-open) .sbrand { justify-content: center; padding: 0 !important; }
+.sb:not(.sb-open) .school-pill { justify-content: center; padding: 8px 0 !important; }
+.sb:not(.sb-open) .ni {
   justify-content: center; padding: 10px !important;
 }
-.sb .ni .ico {
+.sb:not(.sb-open) .ni .ico {
   margin: 0 auto !important;
   width: 22px !important; height: 22px !important;
 }
-.sb .ni .ico svg { width: 19px !important; height: 19px !important; }
-.sb .ni-label { display: none !important; }
-.sb .upill {
+.sb:not(.sb-open) .ni .ico svg { width: 19px !important; height: 19px !important; }
+.sb:not(.sb-open) .ni-label { display: none !important; }
+.sb:not(.sb-open) .upill {
   flex-direction: column; align-items: center; padding: 8px 4px !important; gap: 4px;
   opacity: 0; visibility: hidden; pointer-events: none;
   transition: opacity 0.18s ease;
 }
 .sb .uava  { flex-shrink: 0; }
-.sb .sb-signout-btn {
+.sb:not(.sb-open) .sb-signout-btn {
   justify-content: center; padding: 10px !important;
   opacity: 0; visibility: hidden; pointer-events: none;
   transition: opacity 0.18s ease;
@@ -267,31 +267,35 @@ html, body, #root {
 .sb.sb-pinned {
   width: 228px;
 }
-.sb:hover .sname,       .sb.sb-pinned .sname,
-.sb:hover .ssub,        .sb.sb-pinned .ssub,
-.sb:hover .ngl,         .sb.sb-pinned .ngl,
-.sb:hover .school-pill-text, .sb.sb-pinned .school-pill-text,
-.sb:hover .u-name,      .sb.sb-pinned .u-name,
-.sb:hover .u-role,      .sb.sb-pinned .u-role,
-.sb:hover .u-dot,       .sb.sb-pinned .u-dot,
-.sb:hover .nb,          .sb.sb-pinned .nb { display: revert !important; }
-.sb:hover .sbtop,         .sb.sb-pinned .sbtop { padding: 1rem 1.1rem 0.75rem !important; }
+.sb:hover .sname,       .sb.sb-pinned .sname,       .sb.sb-open .sname,
+.sb:hover .ssub,        .sb.sb-pinned .ssub,        .sb.sb-open .ssub,
+.sb:hover .ngl,         .sb.sb-pinned .ngl,         .sb.sb-open .ngl,
+.sb:hover .school-pill-text, .sb.sb-pinned .school-pill-text, .sb.sb-open .school-pill-text,
+.sb:hover .u-name,      .sb.sb-pinned .u-name,      .sb.sb-open .u-name,
+.sb:hover .u-role,      .sb.sb-pinned .u-role,      .sb.sb-open .u-role,
+.sb:hover .u-dot,       .sb.sb-pinned .u-dot,       .sb.sb-open .u-dot,
+.sb:hover .nb,          .sb.sb-pinned .nb,          .sb.sb-open .nb { display: revert !important; }
+.sb:hover .sbtop,         .sb.sb-pinned .sbtop,         .sb.sb-open .sbtop { padding: 1rem 1.1rem 0.75rem !important; }
 /* The Shule mark and school badge — plus their name/motto — stay centered as
    a card in the expanded/hovered state too, matching the collapsed rail
    instead of snapping left like the nav rows below them (which correctly
-   left-align once there's room for icon + label). */
-.sb:hover .sbrand,        .sb.sb-pinned .sbrand { justify-content: center; padding: revert !important; }
-.sb:hover .school-pill,   .sb.sb-pinned .school-pill { justify-content: center; padding: revert !important; }
-.sb:hover .ni,            .sb.sb-pinned .ni {
+   left-align once there's room for icon + label). Mobile's drawer (.sb-open)
+   is a distinct trigger from hover/pinned — it never gets either, so without
+   its own entry here every one of these stayed permanently collapsed-style
+   (icons only, no labels, no school/Shule name) the whole time the drawer
+   was open on a phone. */
+.sb:hover .sbrand,        .sb.sb-pinned .sbrand,        .sb.sb-open .sbrand { justify-content: center; padding: revert !important; }
+.sb:hover .school-pill,   .sb.sb-pinned .school-pill,   .sb.sb-open .school-pill { justify-content: center; padding: revert !important; }
+.sb:hover .ni,            .sb.sb-pinned .ni,            .sb.sb-open .ni {
   justify-content: flex-start; padding: revert !important;
 }
-.sb:hover .ni .ico,       .sb.sb-pinned .ni .ico { margin: revert !important; }
-.sb:hover .ni-label,      .sb.sb-pinned .ni-label { display: revert !important; }
-.sb:hover .upill,         .sb.sb-pinned .upill {
+.sb:hover .ni .ico,       .sb.sb-pinned .ni .ico,       .sb.sb-open .ni .ico { margin: revert !important; }
+.sb:hover .ni-label,      .sb.sb-pinned .ni-label,      .sb.sb-open .ni-label { display: revert !important; }
+.sb:hover .upill,         .sb.sb-pinned .upill,         .sb.sb-open .upill {
   flex-direction: row; align-items: center; padding: revert !important; gap: revert;
   opacity: 1; visibility: visible; pointer-events: auto;
 }
-.sb:hover .sb-signout-btn, .sb.sb-pinned .sb-signout-btn {
+.sb:hover .sb-signout-btn, .sb.sb-pinned .sb-signout-btn, .sb.sb-open .sb-signout-btn {
   justify-content: flex-start; padding: revert !important;
   opacity: 1; visibility: visible; pointer-events: auto;
 }
@@ -412,39 +416,25 @@ html, body, #root {
 
 /* School pill under logo — stacked (badge on top, name/motto centered right
    below it) rather than side-by-side, so the name reads as clearly attached
-   to the badge instead of floating next to it at an off-center height. */
+   to the badge instead of floating next to it at an off-center height.
+   Deliberately unboxed — no glass background/border/blur — so the badge and
+   name sit free against the sidebar rather than reading as trapped in a
+   separate card. */
 .school-pill {
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
   gap: 8px;
-  /* Glassmorphism base */
-  background: rgba(255,255,255,0.05);
-  border-radius: 12px;
   padding: 8px 10px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   cursor: default;
   position: relative;
   z-index: 1;
-  transition:
-    background 0.3s ease,
-    border-color 0.3s ease,
-    box-shadow 0.35s ease,
-    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-    align-items 0.3s ease;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .school-pill:hover {
-  /* Intensified glassmorphism */
-  background: rgba(255,255,255,0.11);
-  box-shadow:
-    0 16px 48px rgba(0,0,0,0.55),
-    0 0 0 1px rgba(255,255,255,0.12),
-    inset 0 1px 0 rgba(255,255,255,0.18),
-    0 0 28px rgba(13,148,136,0.18);
-  transform: scale(1.06) translateY(-3px);
+  transform: scale(1.04) translateY(-2px);
   z-index: 100;
 }
 
@@ -2670,10 +2660,9 @@ select.sui-select:hover:not(:disabled):not(:focus) {
     box-shadow: 20px 0 80px rgba(0,0,0,.28) !important;
   }
 
-  /* School pill in drawer more compact */
+  /* School pill in drawer — unboxed, just tightened spacing */
   .sb .school-pill {
     padding: 8px 10px !important;
-    border-radius: 10px !important;
     margin: 4px 8px 4px !important;
   }
 
