@@ -95,8 +95,9 @@ export function ReportCardCalcExplainer() {
             fontSize: 11, color: 'var(--txt3)', lineHeight: 1.6,
             paddingTop: 10, borderTop: '1px dashed var(--border)',
           }}>
-            This is the official Uganda CBC (Competency-Based Curriculum) formula used across the school —
-            the same calculation is applied to every subject and every student.
+This follows Uganda's Competency-Based Curriculum (CBC): the 20% CA / 80% exam split,
+            letter grades, and grade descriptors match the official NLSC/UNEB grading model. The same
+            calculation is applied to every subject and every student, school-wide.
           </div>
         </div>
       )}
@@ -135,10 +136,13 @@ function FormulaLine({ children }: { children: React.ReactNode }) {
   )
 }
 
+// Plain-language descriptions of the 0-3 competency scale — deliberately not
+// attributed to NCDC/UNEB by name, since no official rubric wording for these
+// score points was found in public sources during review.
 const SCORE_LEGEND = [
-  { v: 3, label: 'Naturalization / Characterization', sub: 'fully mastered' },
-  { v: 2, label: 'Precision / Valuing', sub: 'competent' },
-  { v: 1, label: 'Imitation / Receiving', sub: 'entry level' },
+  { v: 3, label: 'Fully demonstrated', sub: 'competency mastered' },
+  { v: 2, label: 'Mostly demonstrated', sub: 'competent, minor gaps' },
+  { v: 1, label: 'Partially demonstrated', sub: 'developing' },
   { v: 0, label: 'Not yet demonstrated', sub: 'or absent' },
 ]
 

@@ -422,8 +422,14 @@ export type CBCResult = {
 
 // UNEB CBC grade scale — A 80–100 · B 70–79 · C 60–69 · D 50–59 · E 0–49
 // Source: official UNEB CBC Grading Reference.
-// Pass threshold is 50 (start of grade D). Score distribution charts draw
-// their reference line at the journal's passMark, not the grade cutoff.
+// Grade boundaries below are the standard convention adopted by Ugandan
+// schools for termly/internal reporting under the NLSC — UNEB's own national
+// UCE grading is criterion-referenced (moderated per sitting) and does not
+// publish these as fixed percentages; a school still needs a fixed table to
+// compute a letter grade from a percentage every term, and this is the
+// widely-used one. Pass threshold is 50 (start of grade D). Score
+// distribution charts draw their reference line at the journal's passMark,
+// not the grade cutoff.
 export function calculateCBCGrade(total: number): 'A' | 'B' | 'C' | 'D' | 'E' {
   if (total >= 80) return 'A'
   if (total >= 70) return 'B'
@@ -436,7 +442,9 @@ const GRADE_POINTS: Record<'A' | 'B' | 'C' | 'D' | 'E', 1 | 2 | 3 | 4 | 5> = {
   A: 5, B: 4, C: 3, D: 2, E: 1,
 }
 
-// Exact UNEB descriptor wording — do not paraphrase or substitute.
+// Exact UNEB descriptor wording (confirmed against the Ministry of
+// Education's public clarification on the NLSC grading system) — do not
+// paraphrase or substitute.
 const GRADE_DESCRIPTORS: Record<'A' | 'B' | 'C' | 'D' | 'E', string> = {
   A: 'Exceptional',
   B: 'Outstanding',
@@ -446,11 +454,12 @@ const GRADE_DESCRIPTORS: Record<'A' | 'B' | 'C' | 'D' | 'E', string> = {
 }
 
 // Calculates final subject total from CA scores + end-of-term exam.
-// totalPoints = sum of all competency scores — each scored 0, 1, 2, or 3:
-//   3 = Naturalization/Characterization (highest)
-//   2 = Precision/Valuing
-//   1 = Imitation/Receiving (entry level)
-//   0 = not demonstrated / absent
+// totalPoints = sum of all competency scores — each scored 0, 1, 2, or 3
+// (0 = not yet demonstrated/absent, up to 3 = fully demonstrated). The exact
+// score-level names below are a plain-language convention for the UI, not a
+// verbatim NCDC/UNEB label — no official NCDC rubric wording for the 4
+// score points was found in public sources, so we describe them functionally
+// rather than attribute invented terminology to the curriculum body.
 // assessed    = number of competencies completed this term
 // examScore   = end-of-term exam mark out of 80
 export function calculateCBCTotal(
