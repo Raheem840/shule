@@ -141,7 +141,13 @@ export function TeacherRemarksPage() {
   const isLoading     = studentsLoading || remarksLoading
 
   const parentRef = useRef<HTMLDivElement>(null)
-  const rowVirt = useVirtualizer({ count: students.length, getScrollElement: () => parentRef.current, estimateSize: () => 90, overscan: 8 })
+  // Rows are variable height in practice (student name can wrap, and the
+  // textarea has resize:'vertical' so a teacher can manually drag one
+  // taller) — a fixed height on the absolutely-positioned wrapper clipped
+  // real content since 90px was too short for name+textarea+char-counter,
+  // reading as the row content being "squeezed". measureElement below lets
+  // each row size to its actual content instead.
+  const rowVirt = useVirtualizer({ count: students.length, getScrollElement: () => parentRef.current, estimateSize: () => 150, overscan: 8 })
 
   const canSave = ready && !saveRemarks.isPending
 
@@ -328,7 +334,8 @@ export function TeacherRemarksPage() {
                 const value   = remarks.get(student.id) ?? ''
                 const isSaved = savedSet.has(student.id) && !dirtyIds.has(student.id)
                 return (
-                  <div key={student.id} style={{ position: 'absolute', top: vRow.start, left: 0, right: 0, height: vRow.size }}>
+                  <div key={student.id} ref={rowVirt.measureElement} data-index={vRow.index}
+                    style={{ position: 'absolute', top: vRow.start, left: 0, right: 0 }}>
                     <RemarkRow student={student} value={value} saved={isSaved} onChange={handleChange} />
                   </div>
                 )

@@ -59,7 +59,7 @@ function useExamAgg() {
           .limit(10000),
         supabase
           .from('exam_results')
-          .select('student_id, score, exam_journal_id, exam_journal:exam_journal_id(class_id, subject_id)')
+          .select('student_id, score, exam_journal_id, exam_journal:exam_journal_id(class_id, subject_id, total_marks, assessment_type)')
           .eq('school_id', user!.schoolId)
           .not('score', 'is', null)
           .limit(50000),
@@ -75,8 +75,15 @@ function useExamAgg() {
 
       for (const r of (data ?? []) as any[]) {
         const sid = r.student_id as string
-        const score = Number(r.score)
-        if (isNaN(score)) continue
+        const rawScore = Number(r.score)
+        if (isNaN(rawScore)) continue
+
+        // CA journals score 0-3 per competency, not out of total_marks —
+        // convert to a percentage before averaging, or a CA score mixed
+        // with an 80/100-scale score drags the average toward zero.
+        const isCA      = r.exam_journal?.assessment_type === 'ca'
+        const totalMarks = Number(r.exam_journal?.total_marks) || 100
+        const score = isCA ? (rawScore / 3) * 100 : (rawScore / totalMarks) * 100
 
         // per-student
         if (!byStudent.has(sid)) byStudent.set(sid, { studentId: sid, avgScore: 0, count: 0 })

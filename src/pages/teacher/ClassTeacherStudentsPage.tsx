@@ -114,7 +114,7 @@ function useClassAnalytics(streamId: string | null | undefined, classId: string 
           .eq('status', 'published'),
         supabase
           .from('exam_results')
-          .select('student_id, score, subject_id, exam_journal_id, subjects(name)')
+          .select('student_id, score, subject_id, exam_journal_id, subjects(name), exam_journal(assessment_type, total_marks)')
           .eq('school_id', sid)
           .in('student_id', studentIds)
           .not('score', 'is', null),
@@ -140,17 +140,29 @@ function useClassAnalytics(streamId: string | null | undefined, classId: string 
       const publishedIds = new Set((journalRes.data ?? []).map((j: any) => j.id as string))
       const results = ((resultsRes.data ?? []) as any[]).filter(r => publishedIds.has(r.exam_journal_id))
 
+      // CA journals score 0-3 per competency, not out of total_marks — a raw
+      // score of 2.5 averaged in next to a 65/100 result silently dragged the
+      // whole average down to a near-zero "percentage". Convert every result
+      // to a percentage using the right denominator for its assessment type
+      // before averaging anything.
+      const toPct = (r: any): number => {
+        const isCA = r.exam_journal?.assessment_type === 'ca'
+        const denom = isCA ? 3 : (Number(r.exam_journal?.total_marks) || 100)
+        return (Number(r.score) / denom) * 100
+      }
+
       const perSubject = new Map<string, { name: string; scores: number[] }>()
       const perStudentScores = new Map<string, number[]>()
       for (const r of results) {
         const subjId = r.subject_id as string
         const name   = r.subjects?.name as string ?? subjId
+        const pct    = toPct(r)
         if (!perSubject.has(subjId)) perSubject.set(subjId, { name, scores: [] })
-        perSubject.get(subjId)!.scores.push(Number(r.score))
+        perSubject.get(subjId)!.scores.push(pct)
 
         const studId = r.student_id as string
         if (!perStudentScores.has(studId)) perStudentScores.set(studId, [])
-        perStudentScores.get(studId)!.push(Number(r.score))
+        perStudentScores.get(studId)!.push(pct)
       }
 
       const subjectAverages = Array.from(perSubject.values())
@@ -161,7 +173,7 @@ function useClassAnalytics(streamId: string | null | undefined, classId: string 
         }))
         .sort((a, b) => b.avg - a.avg)
 
-      const allScores = results.map(r => Number(r.score))
+      const allScores = results.map(toPct)
       const classAvgScore = allScores.length > 0
         ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
         : null
@@ -195,19 +207,26 @@ function useStudentSubjectScores(studentId: string | null | undefined, schoolId:
     queryFn: async () => {
       const { data, error } = await supabase
         .from('exam_results')
-        .select('score, subject_id, subjects(name), exam_journal_id, exam_journal(assessment_type)')
+        .select('score, subject_id, subjects(name), exam_journal_id, exam_journal(assessment_type, total_marks)')
         .eq('school_id', schoolId!)
         .eq('student_id', studentId!)
         .not('score', 'is', null)
 
       if (error) throw error
 
+      // CA journals score 0-3 per competency, not out of total_marks — a raw
+      // score of 2.5 averaged in as-is reads as "2%" instead of the actual
+      // ~83%. Convert to a percentage with the right denominator per row.
       const subjectMap = new Map<string, { name: string; scores: number[] }>()
       for (const r of (data ?? []) as any[]) {
         const sid  = r.subject_id as string
         const name = r.subjects?.name as string ?? sid
         if (!subjectMap.has(sid)) subjectMap.set(sid, { name, scores: [] })
-        if (r.score != null) subjectMap.get(sid)!.scores.push(Number(r.score))
+        if (r.score != null) {
+          const isCA  = r.exam_journal?.assessment_type === 'ca'
+          const denom = isCA ? 3 : (Number(r.exam_journal?.total_marks) || 100)
+          subjectMap.get(sid)!.scores.push((Number(r.score) / denom) * 100)
+        }
       }
 
       return Array.from(subjectMap.values()).map(({ name, scores }) => ({

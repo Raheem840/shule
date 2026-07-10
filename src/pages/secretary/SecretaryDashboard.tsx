@@ -136,7 +136,7 @@ function useSecretaryDashData() {
           .select('student_id, score, exam_journal_id, term, year')
           .eq('school_id', sid),
         supabase.from('exam_journal')
-          .select('id, pass_mark, term, year')
+          .select('id, pass_mark, total_marks, assessment_type, term, year')
           .eq('school_id', sid),
         supabase.from('fee_payments')
           .select('student_id, amount_paid, amount_due')
@@ -235,7 +235,21 @@ function useSecretaryDashData() {
       const journals   = journalRes.data ?? []
       const examResults = academicRes.data ?? []
       const journalMap  = new Map<string, number>()
-      for (const j of journals) journalMap.set((j as any).id, (j as any).pass_mark ?? 50)
+      const journalMetaMap = new Map<string, { totalMarks: number; isCA: boolean }>()
+      for (const j of journals) {
+        const jj = j as any
+        journalMap.set(jj.id, jj.pass_mark ?? 50)
+        journalMetaMap.set(jj.id, { totalMarks: jj.total_marks as number, isCA: jj.assessment_type === 'ca' })
+      }
+      // CA journals score 0-3 per competency, not out of total_marks —
+      // averaging raw scores across term groups (which mix CA and non-CA
+      // journals) silently dragged the average toward zero whenever a CA
+      // score was in the mix. Convert to a percentage first.
+      const toPct = (row: any): number => {
+        const meta = journalMetaMap.get(row.exam_journal_id)
+        const denom = meta?.isCA ? 3 : (meta?.totalMarks || 100)
+        return (Number(row.score ?? 0) / denom) * 100
+      }
 
       // Group results by "term-year"
       const termGroupMap = new Map<string, { pass: number; total: number; scores: number[] }>()
@@ -246,7 +260,7 @@ function useSecretaryDashData() {
         const entry = termGroupMap.get(key)!
         const pm    = journalMap.get(row.exam_journal_id) ?? 50
         entry.total++
-        entry.scores.push(row.score ?? 0)
+        entry.scores.push(toPct(row))
         if ((row.score ?? 0) >= pm) entry.pass++
       }
       const termKeys = Array.from(termGroupMap.keys()).slice(-6)

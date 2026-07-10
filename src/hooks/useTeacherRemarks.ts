@@ -141,17 +141,26 @@ export function useStudentPerformanceBands(studentIds: string[], term: string | 
       const sid = user!.schoolId
 
       const [journalRes, resultsRes] = await Promise.all([
-        supabase.from('exam_journal').select('id').eq('school_id', sid).eq('status', 'published').eq('term', term!).eq('year', year!),
+        supabase.from('exam_journal').select('id, total_marks, assessment_type').eq('school_id', sid).eq('status', 'published').eq('term', term!).eq('year', year!),
         supabase.from('exam_results').select('student_id, score, exam_journal_id').eq('school_id', sid).eq('term', term!).eq('year', year!).in('student_id', studentIds).not('score', 'is', null),
       ])
 
-      const publishedIds = new Set((journalRes.data ?? []).map((j: any) => j.id as string))
+      // CA journals score 0-3 per competency, not out of total_marks — a raw
+      // CA score of 2.5 averaged in as-is put every student in the "Basic"
+      // band regardless of actual performance, so filtering by any other
+      // band silently returned nobody. Convert to a percentage first.
+      const journalMetaMap = new Map<string, { totalMarks: number; isCA: boolean }>(
+        (journalRes.data ?? []).map((j: any) => [j.id, { totalMarks: j.total_marks as number, isCA: j.assessment_type === 'ca' }])
+      )
+      const publishedIds = new Set(journalMetaMap.keys())
       const perStudent = new Map<string, number[]>()
       for (const r of (resultsRes.data ?? []) as any[]) {
         if (!publishedIds.has(r.exam_journal_id)) continue
         const sid2 = r.student_id as string
+        const meta = journalMetaMap.get(r.exam_journal_id)
+        const denom = meta?.isCA ? 3 : (meta?.totalMarks || 100)
         if (!perStudent.has(sid2)) perStudent.set(sid2, [])
-        perStudent.get(sid2)!.push(Number(r.score))
+        perStudent.get(sid2)!.push((Number(r.score) / denom) * 100)
       }
 
       const map = new Map<string, { avg: number; band: PerformanceBand }>()

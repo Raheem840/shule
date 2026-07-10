@@ -34,7 +34,7 @@ export function useDosOverview() {
           .in('role', ['teacher', 'class_teacher']),
         supabase
           .from('exam_journal')
-          .select('id, subject_id, pass_mark, total_marks, term, year')
+          .select('id, subject_id, pass_mark, total_marks, assessment_type, term, year')
           .eq('school_id', sid)
           .eq('status', 'published'),
         supabase
@@ -67,10 +67,27 @@ export function useDosOverview() {
         (t: any) => t.covered_at != null
       ).length
 
-      // Build pass mark lookup: journalId → passMark
+      // Build pass mark + scale lookup: journalId → { passMark, totalMarks, isCA }
+      const journalMetaMap = new Map<string, { passMark: number; totalMarks: number; isCA: boolean }>(
+        journals.map((j: any) => [j.id, {
+          passMark:   j.pass_mark as number,
+          totalMarks: j.total_marks as number,
+          isCA:       j.assessment_type === 'ca',
+        }])
+      )
       const passMarkMap = new Map<string, number>(
         journals.map((j: any) => [j.id, j.pass_mark as number])
       )
+      // CA journals score 0-3 per competency, not out of total_marks — cross-
+      // journal averages/rankings must convert every row to a percentage
+      // first, or a CA score of 2.5 drags a subject average toward zero next
+      // to 80/100-scale results. Per-row pass/fail vs. that journal's own
+      // pass_mark stays on the raw scale (scale-consistent, not a bug).
+      const toPct = (r: any): number => {
+        const meta = journalMetaMap.get(r.exam_journal_id as string)
+        const denom = meta?.isCA ? 3 : (meta?.totalMarks || 100)
+        return (Number(r.score) / denom) * 100
+      }
 
       // Overall pass rate
       const graded = results.filter((r: any) => r.score != null)
@@ -85,7 +102,7 @@ export function useDosOverview() {
         const sid2 = r.subject_id as string
         if (!subjectMap.has(sid2)) subjectMap.set(sid2, { scores: [], passed: 0, failed: 0 })
         const s = subjectMap.get(sid2)!
-        s.scores.push(r.score as number)
+        s.scores.push(toPct(r))
         const passMark = passMarkMap.get(r.exam_journal_id) ?? 50
         if ((r.score as number) >= passMark) s.passed++ ;else s.failed++
       }
@@ -168,7 +185,7 @@ export function useDosClassPerformance(classId: string | null) {
       const [journalsRes, resultsRes, studentsRes, subjectsRes] = await Promise.all([
         supabase
           .from('exam_journal')
-          .select('id, subject_id, pass_mark, class_id')
+          .select('id, subject_id, pass_mark, total_marks, assessment_type, class_id')
           .eq('school_id', sid)
           .eq('class_id', classId!)
           .eq('status', 'published'),
@@ -201,10 +218,23 @@ export function useDosClassPerformance(classId: string | null) {
       const passMarkMap = new Map<string, number>(
         journals.map((j: any) => [j.id, j.pass_mark])
       )
+      const journalMetaMap = new Map<string, { totalMarks: number; isCA: boolean }>(
+        journals.map((j: any) => [j.id, { totalMarks: j.total_marks as number, isCA: j.assessment_type === 'ca' }])
+      )
       const classJournalIds = new Set(journals.map((j: any) => j.id))
 
       // Filter results to this class's journals
       const results = allResult.filter((r: any) => classJournalIds.has(r.exam_journal_id))
+
+      // CA journals score 0-3 per competency, not out of total_marks — every
+      // cross-journal average below must convert to a percentage first, or a
+      // CA score mixed with an 80/100-scale score skews the average toward
+      // zero. Per-row pass/fail vs. that journal's own pass_mark stays raw.
+      const toPct = (r: any): number => {
+        const meta = journalMetaMap.get(r.exam_journal_id as string)
+        const denom = meta?.isCA ? 3 : (meta?.totalMarks || 100)
+        return (Number(r.score) / denom) * 100
+      }
 
       // Per-subject breakdown
       const subjectStats = new Map<string, { scores: number[]; passed: number; studentSet: Set<string> }>()
@@ -213,7 +243,7 @@ export function useDosClassPerformance(classId: string | null) {
         const subId = r.subject_id as string
         if (!subjectStats.has(subId)) subjectStats.set(subId, { scores: [], passed: 0, studentSet: new Set() })
         const s = subjectStats.get(subId)!
-        s.scores.push(r.score)
+        s.scores.push(toPct(r))
         s.studentSet.add(r.student_id)
         const pm = passMarkMap.get(r.exam_journal_id) ?? 50
         if (r.score >= pm) s.passed++
@@ -232,7 +262,7 @@ export function useDosClassPerformance(classId: string | null) {
       for (const r of results) {
         if (r.score == null) continue
         if (!studentScores.has(r.student_id)) studentScores.set(r.student_id, [])
-        studentScores.get(r.student_id)!.push(r.score)
+        studentScores.get(r.student_id)!.push(toPct(r))
       }
 
       const studentRanks: StudentRankEntry[] = students.map((stu: any) => {

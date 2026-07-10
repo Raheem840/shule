@@ -103,7 +103,12 @@ function useAllResults() {
       return (resultsRes.data ?? []).map((r: any): ResultRow => {
         const stu   = studMap.get(r.student_id as string)
         const score = r.score as number | null
-        const gradeVal = (r.grade as string | null) ?? (score != null ? calculateCBCGrade(score) : null)
+        // useSaveMarks deliberately leaves grade null for end_of_term rows
+        // (needs the CA mark combined at report-card time) — a fallback
+        // here would feed a raw out-of-80 exam score into a formula that
+        // expects an already-computed 0-100 percentage. Use the DB grade
+        // as-is; a null grade for an end_of_term row is correct, not missing.
+        const gradeVal = r.grade as string | null
         return {
           id: r.id as string, examJournalId: r.exam_journal_id as string,
           studentId: r.student_id as string, subjectId: r.subject_id as string,
@@ -220,6 +225,18 @@ export function DosJournalsPage() {
     return m
   }, [journals])
 
+  // CA journals score 0-3 per competency, not out of total_marks — every
+  // average/grade computed below must convert to a percentage first using
+  // the right denominator, or a CA score of 2.5 reads as "2.5%" next to an
+  // 80/100-scale result. Falls back to the raw score (already 0-100-ish) if
+  // the journal can't be found for some reason.
+  const toPct = useCallback((r: ResultRow): number => {
+    const j = journalMeta.get(r.examJournalId)
+    if (!j) return r.score as number
+    const denom = j.assessmentType === 'ca' ? 3 : (j.totalMarks || 100)
+    return ((r.score as number) / denom) * 100
+  }, [journalMeta])
+
   // Base analytics results (subject/class/term/teacher secondary filters)
   const baseResults = useMemo(() => {
     return results.filter(res => {
@@ -244,7 +261,7 @@ export function DosJournalsPage() {
       for (const r of baseResults) {
         if (r.score == null) continue
         const arr = scoreMap.get(r.studentId) ?? []
-        arr.push(r.score)
+        arr.push(toPct(r))
         scoreMap.set(r.studentId, arr)
       }
       const topIds = new Set(
@@ -259,18 +276,18 @@ export function DosJournalsPage() {
 
     return baseResults.filter(r => {
       if (r.score == null) return false
-      const g = calculateCBCGrade(r.score)
+      const g = calculateCBCGrade(toPct(r))
       if (analyticsFilter === 'proficient')  return g === 'A' || g === 'B'
       if (analyticsFilter === 'can_improve') return g === 'C' || g === 'D'
       if (analyticsFilter === 'needs_help')  return g === 'E'
       return true
     })
-  }, [baseResults, analyticsFilter])
+  }, [baseResults, analyticsFilter, toPct])
 
   // KPIs computed from filteredResults
   const kpis = useMemo(() => {
     const scored    = filteredResults.filter(r => r.score != null && !r.isAbsent)
-    const allScores = scored.map(r => r.score as number)
+    const allScores = scored.map(toPct)
     const avg       = allScores.length > 0 ? allScores.reduce((a, b) => a + b, 0) / allScores.length : 0
     const passRate  = scored.length > 0
       ? (scored.filter(r => {
@@ -283,8 +300,9 @@ export function DosJournalsPage() {
     const subjectBucket = new Map<string, number[]>()
     for (const r of scored) {
       const j = journalMeta.get(r.examJournalId)
-      if (j?.classId)   { const a = classBucket.get(j.classId)     ?? []; a.push(r.score as number); classBucket.set(j.classId, a) }
-      if (j?.subjectId) { const a = subjectBucket.get(j.subjectId) ?? []; a.push(r.score as number); subjectBucket.set(j.subjectId, a) }
+      const pct = toPct(r)
+      if (j?.classId)   { const a = classBucket.get(j.classId)     ?? []; a.push(pct); classBucket.set(j.classId, a) }
+      if (j?.subjectId) { const a = subjectBucket.get(j.subjectId) ?? []; a.push(pct); subjectBucket.set(j.subjectId, a) }
     }
 
     let topClass = '—'; let topClassAvg = 0
@@ -306,17 +324,17 @@ export function DosJournalsPage() {
       topSubject,
       totalStudents: new Set(scored.map(r => r.studentId)).size,
     }
-  }, [filteredResults, journalMeta, classMap, subjectMap])
+  }, [filteredResults, journalMeta, classMap, subjectMap, toPct])
 
   // Grade distribution chart data
   const gradeDistData = useMemo(() => {
     const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 }
     for (const r of filteredResults) {
       if (r.isAbsent || r.score == null) continue
-      counts[calculateCBCGrade(r.score)]++
+      counts[calculateCBCGrade(toPct(r))]++
     }
     return Object.entries(counts).map(([grade, count]) => ({ grade, count, fill: GRADE_COLOR[grade] }))
-  }, [filteredResults])
+  }, [filteredResults, toPct])
 
   // Teacher comparison data
   const teacherChartData = useMemo(() => {
@@ -325,18 +343,19 @@ export function DosJournalsPage() {
       if (r.score == null || r.isAbsent) continue
       const j = journalMeta.get(r.examJournalId)
       if (!j) continue
+      const pct = toPct(r)
       const existing = buckets.get(j.teacherId)
       if (!existing) {
-        buckets.set(j.teacherId, { scores: [r.score], name: j.teacherName, subject: subjectMap.get(j.subjectId ?? '') ?? '—' })
+        buckets.set(j.teacherId, { scores: [pct], name: j.teacherName, subject: subjectMap.get(j.subjectId ?? '') ?? '—' })
       } else {
-        existing.scores.push(r.score)
+        existing.scores.push(pct)
       }
     }
     return [...buckets.values()]
       .map(v => ({ name: v.name, subject: v.subject, avg: +(v.scores.reduce((a, b) => a + b, 0) / v.scores.length).toFixed(1) }))
       .sort((a, b) => b.avg - a.avg)
       .slice(0, 15)
-  }, [filteredResults, journalMeta, subjectMap])
+  }, [filteredResults, journalMeta, subjectMap, toPct])
 
   // Class × subject heatmap
   const heatmapData = useMemo(() => {
@@ -349,7 +368,7 @@ export function DosJournalsPage() {
       if (!j?.classId || !j.subjectId) continue
       const key = `${j.classId}__${j.subjectId}`
       const arr = matrix.get(key) ?? []
-      arr.push(r.score)
+      arr.push(toPct(r))
       matrix.set(key, arr)
     }
     const cellMap = new Map<string, number | null>()
@@ -359,7 +378,7 @@ export function DosJournalsPage() {
     const activeClasses  = classIds.filter(cid  => subjectIds.some(sid => cellMap.has(`${cid}__${sid}`)))
     const activeSubjects = subjectIds.filter(sid => classIds.some(cid  => cellMap.has(`${cid}__${sid}`)))
     return { classIds: activeClasses, subjectIds: activeSubjects, cellMap }
-  }, [filteredResults, journalMeta, journals])
+  }, [filteredResults, journalMeta, journals, toPct])
 
   // Excel export (respects filteredResults)
   const exportExcel = useCallback(async () => {

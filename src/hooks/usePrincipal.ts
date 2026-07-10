@@ -540,7 +540,7 @@ export function useAllClassPerformance() {
       const activeYearId = activeYearRes.data?.id ?? null
 
       const journalQ = activeYearId
-        ? supabase.from('exam_journal').select('id, pass_mark').eq('school_id', sid).eq('academic_year_id', activeYearId)
+        ? supabase.from('exam_journal').select('id, pass_mark, total_marks, assessment_type').eq('school_id', sid).eq('academic_year_id', activeYearId)
         : Promise.resolve({ data: [] as any[], error: null })
 
       const [classesRes, studentsRes, journalsRes] = await Promise.all([
@@ -557,6 +557,9 @@ export function useAllClassPerformance() {
       const journals = journalsRes.data ?? []
 
       const passMarkMap = new Map<string, number>(journals.map((j: any) => [j.id, j.pass_mark ?? 50]))
+      const journalMetaMap = new Map<string, { totalMarks: number; isCA: boolean }>(
+        journals.map((j: any) => [j.id, { totalMarks: j.total_marks as number, isCA: j.assessment_type === 'ca' }])
+      )
       const journalIds  = journals.map((j: any) => j.id as string)
 
       let results: any[] = []
@@ -568,6 +571,16 @@ export function useAllClassPerformance() {
         results = resultsRes.data ?? []
       }
 
+      // CA journals score 0-3 per competency, not out of total_marks —
+      // averaging a raw CA score next to an 80/100-scale score drags the
+      // class average toward zero. Convert to a percentage before averaging;
+      // pass/fail vs. that journal's own pass_mark stays on the raw scale.
+      const toPct = (r: any): number => {
+        const meta = journalMetaMap.get(r.exam_journal_id as string)
+        const denom = meta?.isCA ? 3 : (meta?.totalMarks || 100)
+        return (Number(r.score) / denom) * 100
+      }
+
       return classes.map((cls: any) => {
         const classStudentIds = new Set(
           students.filter((s: any) => s.class_id === cls.id).map((s: any) => s.id)
@@ -577,7 +590,7 @@ export function useAllClassPerformance() {
         )
         const passed   = classResults.filter((r: any) => r.score >= (passMarkMap.get(r.exam_journal_id) ?? 50))
         const avgScore = classResults.length > 0
-          ? Math.round(classResults.reduce((s: number, r: any) => s + r.score, 0) / classResults.length)
+          ? Math.round(classResults.reduce((s: number, r: any) => s + toPct(r), 0) / classResults.length)
           : null
 
         return {
