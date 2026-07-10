@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../store/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import {
   useParentConversations,
+  useStudentConversations,
   useConversationWithParent,
   useSendMessageToParent,
   useMarkParentThreadRead,
@@ -313,9 +314,10 @@ function ThreadPanel({ conv, onBack, subtitleSuffix }: {
   const fileRef = useRef<HTMLInputElement>(null)
   const [c1] = colorFor(conv.parentName)
 
-  const subtitle = subtitleSuffix
-    ? `Parent of ${conv.studentNames.join(', ')} · ${subtitleSuffix}`
+  const subtitleBase = conv.kind === 'student'
+    ? `Student · ${conv.studentNames.join(', ')}`
     : `Parent of ${conv.studentNames.join(', ')}`
+  const subtitle = subtitleSuffix ? `${subtitleBase} · ${subtitleSuffix}` : subtitleBase
 
   useEffect(() => {
     if (conv.unreadCount > 0) markRead(conv.parentAuthUserId)
@@ -430,12 +432,15 @@ function ThreadPanel({ conv, onBack, subtitleSuffix }: {
 }
 
 // ─── Contact list (with compose / new-conversation flow) ───────────────────
-function ContactList({ convs, loading, onSelect, activeId, subtitleSuffix }: {
+function ContactList({ convs, loading, onSelect, activeId, subtitleSuffix, kindLabel = 'Parent', showCompose = true, tabs }: {
   convs: ParentConversation[]
   loading: boolean
   onSelect: (c: ParentConversation) => void
   activeId: string | null
   subtitleSuffix?: (c: ParentConversation) => string
+  kindLabel?: 'Parent' | 'Student'
+  showCompose?: boolean
+  tabs?: ReactNode
 }) {
   const [q, setQ]         = useState('')
   const [composing, setComposing] = useState(false)
@@ -468,6 +473,7 @@ function ContactList({ convs, loading, onSelect, activeId, subtitleSuffix }: {
       latestBody:       '',
       latestSentAt:     new Date().toISOString(),
       unreadCount:      0,
+      kind:             'parent',
     }
     setComposing(false)
     setSearchQ('')
@@ -479,24 +485,28 @@ function ContactList({ convs, loading, onSelect, activeId, subtitleSuffix }: {
       {/* Title bar */}
       <div style={{ padding: '18px 18px 14px', flexShrink: 0, borderBottom: 'var(--ms-cl-border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
-          <span style={{ flex: 1, fontSize: 20, fontWeight: 900, color: 'var(--ms-cl-title)', fontFamily: 'var(--font2)', letterSpacing: -.5 }}>Parent Messages</span>
+          <span style={{ flex: 1, fontSize: 20, fontWeight: 900, color: 'var(--ms-cl-title)', fontFamily: 'var(--font2)', letterSpacing: -.5 }}>{kindLabel} Messages</span>
           {totalUnread > 0 && !composing && (
             <div style={{ background: 'linear-gradient(135deg,#0d9488,#0ea5e9)', color: '#fff', borderRadius: 99, fontSize: 12, fontWeight: 800, padding: '2px 10px', boxShadow: '0 3px 12px rgba(13,148,136,.5)', marginRight: 8 }}>
               {totalUnread > 99 ? '99+' : totalUnread}
             </div>
           )}
-          {/* Compose button */}
-          <button
-            onClick={() => { setComposing(v => !v); setSearchQ('') }}
-            title={composing ? 'Cancel' : 'New Conversation'}
-            style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: composing ? 'rgba(13,148,136,.15)' : 'var(--ms-cl-search-bg)', color: composing ? '#0d9488' : 'var(--ms-cl-sub)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .14s', flexShrink: 0 }}
-          >
-            {composing
-              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            }
-          </button>
+          {/* Compose button — students message staff first; there's no "search for a student to cold-message" flow */}
+          {showCompose && (
+            <button
+              onClick={() => { setComposing(v => !v); setSearchQ('') }}
+              title={composing ? 'Cancel' : 'New Conversation'}
+              style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: composing ? 'rgba(13,148,136,.15)' : 'var(--ms-cl-search-bg)', color: composing ? '#0d9488' : 'var(--ms-cl-sub)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .14s', flexShrink: 0 }}
+            >
+              {composing
+                ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              }
+            </button>
+          )}
         </div>
+
+        {tabs}
 
         {composing ? (
           /* Student search input */
@@ -517,7 +527,7 @@ function ContactList({ convs, loading, onSelect, activeId, subtitleSuffix }: {
           /* Existing conversations search */
           <div style={{ position: 'relative' }}>
             <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ms-cl-search-ph)" strokeWidth="2.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search parents or students…"
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder={`Search ${kindLabel.toLowerCase()}s…`}
               style={{ width: '100%', paddingLeft: 36, height: 40, borderRadius: 12, background: 'var(--ms-cl-search-bg)', border: 'var(--ms-cl-search-bdr)', fontSize: 14, color: 'var(--ms-cl-search-txt)', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }} />
           </div>
         )}
@@ -562,7 +572,9 @@ function ContactList({ convs, loading, onSelect, activeId, subtitleSuffix }: {
         <>
           {/* Count */}
           <div style={{ padding: '8px 18px 4px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1.2, flexShrink: 0 }}>
-            {filtered.length > 0 ? `Parents (${filtered.length})` : 'No conversations yet — use ✏ to start one'}
+            {filtered.length > 0
+              ? `${kindLabel}s (${filtered.length})`
+              : showCompose ? 'No conversations yet — use ✏ to start one' : 'No conversations yet'}
           </div>
 
           {/* List */}
@@ -583,7 +595,11 @@ function ContactList({ convs, loading, onSelect, activeId, subtitleSuffix }: {
                   {q ? 'No matches found' : 'No conversations yet'}
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--ms-cl-sub)', lineHeight: 1.7 }}>
-                  {q ? 'Try a different name.' : 'Tap the ✏ button above to search for a student and message their parent.'}
+                  {q
+                    ? 'Try a different name.'
+                    : showCompose
+                      ? 'Tap the ✏ button above to search for a student and message their parent.'
+                      : 'Messages a student sends you will show up here.'}
                 </div>
               </div>
             )}
@@ -591,7 +607,9 @@ function ContactList({ convs, loading, onSelect, activeId, subtitleSuffix }: {
             {filtered.map(c => {
               const isActive = activeId === c.parentAuthUserId
               const [col] = colorFor(c.parentName)
-              const sub = subtitleSuffix ? subtitleSuffix(c) : `Parent of ${c.studentNames.join(', ')}`
+              const sub = subtitleSuffix
+                ? subtitleSuffix(c)
+                : c.kind === 'student' ? `Student · ${c.studentNames.join(', ')}` : `Parent of ${c.studentNames.join(', ')}`
               return (
                 <div key={c.parentAuthUserId} onClick={() => onSelect(c)} className="pm-c-row"
                   style={{ background: isActive ? `${col}18` : undefined, borderLeft: `3.5px solid ${isActive ? col : 'transparent'}` }}>
@@ -647,11 +665,58 @@ function EmptyState() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // BURSAR MESSAGES PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
+function AudienceTabs({ tab, onChange, parentUnread, studentUnread }: {
+  tab: 'parents' | 'students'
+  onChange: (t: 'parents' | 'students') => void
+  parentUnread: number
+  studentUnread: number
+}) {
+  return (
+    <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+      {([['parents', 'Parents', parentUnread], ['students', 'Students', studentUnread]] as const).map(([v, label, unread]) => {
+        const active = tab === v
+        return (
+          <button key={v} onClick={() => onChange(v)}
+            style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '7px 10px', borderRadius: 10, border: `.5px solid ${active ? '#0d9488' : 'var(--ms-cl-border)'}`,
+              background: active ? 'rgba(13,148,136,.1)' : 'var(--ms-cl-search-bg)',
+              color: active ? '#0d9488' : 'var(--ms-cl-sub)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+            }}>
+            {label}
+            {unread > 0 && (
+              <span style={{ background: active ? '#0d9488' : 'var(--ms-cl-sub)', color: '#fff', borderRadius: 99, fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>
+                {unread > 99 ? '99+' : unread}
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function BursarMessagesPage() {
-  const { data: convs = [], isLoading } = useParentConversations()
+  const { data: parentConvs = [], isLoading: parentsLoading } = useParentConversations()
+  const { data: studentConvs = [], isLoading: studentsLoading } = useStudentConversations()
+  const [tab, setTab] = useState<'parents' | 'students'>('parents')
   const [active, setActive] = useState<ParentConversation | null>(null)
   const isMobile = useIsMobile()
   const arEl = useMemo(() => document.querySelector('.ar') as HTMLElement ?? document.body, [])
+
+  const convs     = tab === 'parents' ? parentConvs : studentConvs
+  const isLoading = tab === 'parents' ? parentsLoading : studentsLoading
+  const parentUnread  = parentConvs.reduce((s, c) => s + c.unreadCount, 0)
+  const studentUnread = studentConvs.reduce((s, c) => s + c.unreadCount, 0)
+
+  function selectTab(t: 'parents' | 'students') {
+    setTab(t)
+    setActive(null)
+  }
+
+  const tabsEl = (
+    <AudienceTabs tab={tab} onChange={selectTab} parentUnread={parentUnread} studentUnread={studentUnread} />
+  )
 
   // Remove page padding on desktop so it fills edge-to-edge
   useEffect(() => {
@@ -675,7 +740,13 @@ export function BursarMessagesPage() {
           zIndex: 36, overflow: 'hidden', background: 'var(--ms-cl-bg)',
         }}>
           <div style={{ position: 'absolute', inset: 0 }}>
-            <ContactList convs={convs} loading={isLoading} onSelect={setActive} activeId={active?.parentAuthUserId ?? null} />
+            <ContactList
+              key={tab}
+              convs={convs} loading={isLoading} onSelect={setActive} activeId={active?.parentAuthUserId ?? null}
+              kindLabel={tab === 'parents' ? 'Parent' : 'Student'}
+              showCompose={tab === 'parents'}
+              tabs={tabsEl}
+            />
           </div>
           <div style={{
             position: 'absolute', inset: 0, background: 'var(--ms-feed-bg)',
@@ -702,9 +773,15 @@ export function BursarMessagesPage() {
         boxShadow: '0 8px 40px rgba(0,0,0,.14)',
         border: '1px solid rgba(0,0,0,.1)',
       }}>
-        {/* Left: parent list */}
+        {/* Left: conversation list */}
         <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(0,0,0,.06)' }}>
-          <ContactList convs={convs} loading={isLoading} onSelect={setActive} activeId={active?.parentAuthUserId ?? null} />
+          <ContactList
+            key={tab}
+            convs={convs} loading={isLoading} onSelect={setActive} activeId={active?.parentAuthUserId ?? null}
+            kindLabel={tab === 'parents' ? 'Parent' : 'Student'}
+            showCompose={tab === 'parents'}
+            tabs={tabsEl}
+          />
         </div>
 
         {/* Right: thread or empty */}

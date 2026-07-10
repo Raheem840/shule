@@ -446,6 +446,12 @@ export type ParentConversation = {
   latestBody:       string
   latestSentAt:     string
   unreadCount:      number
+  // 'parent' for a real parent_accounts conversation, 'student' for one
+  // where the other party is the student's own account — same shape either
+  // way (the generic useConversationWithParent/useSendMessageToParent/
+  // useMarkParentThreadRead hooks work transparently for any counterpart
+  // auth id), just labelled differently in the thread header.
+  kind: 'parent' | 'student'
 }
 
 export function useParentConversations() {
@@ -547,7 +553,100 @@ export function useParentConversations() {
           parentAuthUserId: p.auth_user_id,
           parentName:       p.full_name ?? 'Parent',
           studentNames:     (p.student_ids ?? []).map(sid => studentNameMap.get(sid) ?? 'Student'),
+          kind:             'parent' as const,
           ...senderMap.get(p.auth_user_id)!,
+        }))
+        .sort((a, b) => new Date(b.latestSentAt).getTime() - new Date(a.latestSentAt).getTime())
+    },
+  })
+}
+
+// ── useStudentConversations ──────────────────────────────────────────────
+// Same shape and rules as useParentConversations, but for conversations
+// where the OTHER party is the student's own account rather than a linked
+// parent_accounts row — students message their class teacher/bursar
+// directly via PortalMessaging, and those threads previously had nowhere
+// to surface on the staff side (only parent-sourced senders were ever
+// looked up), so a student's message silently had no "inbox" for staff.
+export function useStudentConversations() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['student-conversations', user?.schoolId, user?.id],
+    enabled: !!user,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    queryFn: async (): Promise<ParentConversation[]> => {
+      if (!user) return []
+
+      const [{ data: msgs, error: msgErr }, myClassIds] = await Promise.all([
+        supabase
+          .from('messages')
+          .select('id, from_user_id, to_user_id, body, sent_at, read_at')
+          .eq('school_id', user.schoolId)
+          .or(`to_user_id.eq.${user.id},from_user_id.eq.${user.id}`)
+          .eq('is_announcement', false)
+          .order('sent_at', { ascending: false })
+          .limit(500),
+        resolveTeacherClassIds(user),
+      ])
+
+      if (msgErr) throw new Error(msgErr.message)
+
+      const allMsgs = (msgs ?? []) as Array<{
+        id: string; from_user_id: string; to_user_id: string; body: string; sent_at: string; read_at: string | null
+      }>
+
+      const senderMap = new Map<string, { latestBody: string; latestSentAt: string; unreadCount: number }>()
+      for (const m of allMsgs) {
+        const k = m.from_user_id === user.id ? m.to_user_id : m.from_user_id
+        if (!senderMap.has(k)) {
+          senderMap.set(k, { latestBody: m.body, latestSentAt: m.sent_at, unreadCount: 0 })
+        }
+        if (m.to_user_id === user.id && !m.read_at) {
+          senderMap.get(k)!.unreadCount++
+        }
+      }
+
+      if (senderMap.size === 0) return []
+
+      const senderIds = Array.from(senderMap.keys())
+
+      const { data: students, error: studErr } = await supabase
+        .from('students')
+        .select('id, auth_user_id, first_name, last_name, class_id')
+        .eq('school_id', user.schoolId)
+        .in('auth_user_id', senderIds)
+
+      if (studErr) throw new Error(studErr.message)
+
+      const studentList = (students ?? []) as Array<{
+        id: string; auth_user_id: string; first_name: string; last_name: string; class_id: string | null
+      }>
+
+      if (studentList.length === 0) return []
+
+      const classIds = Array.from(new Set(studentList.map(s => s.class_id).filter((x): x is string => !!x)))
+      const classNameMap = new Map<string, string>()
+      if (classIds.length > 0) {
+        const { data: classes } = await supabase
+          .from('classes')
+          .select('id, name')
+          .eq('school_id', user.schoolId)
+          .in('id', classIds)
+        for (const c of (classes ?? []) as Array<{ id: string; name: string }>) classNameMap.set(c.id, c.name)
+      }
+
+      return studentList
+        // A teacher only sees students in their own class(es); other roles
+        // (bursar etc.) are unrestricted (myClassIds === null).
+        .filter(s => myClassIds === null || myClassIds.includes(s.class_id ?? ''))
+        .map(s => ({
+          parentAuthUserId: s.auth_user_id,
+          parentName:       `${s.first_name} ${s.last_name}`,
+          studentNames:     [s.class_id ? (classNameMap.get(s.class_id) ?? '—') : '—'],
+          kind:             'student' as const,
+          ...senderMap.get(s.auth_user_id)!,
         }))
         .sort((a, b) => new Date(b.latestSentAt).getTime() - new Date(a.latestSentAt).getTime())
     },
