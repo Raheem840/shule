@@ -899,6 +899,39 @@ function AddFeeModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+// ─── Delete confirm modal ─────────────────────────────────────────────────────
+function DeleteFeeConfirmModal({ fee, busy, onConfirm, onCancel }: {
+  fee: FeeStructure; busy: boolean; onConfirm: () => void; onCancel: () => void
+}) {
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 20 }}
+      onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 400, boxShadow: '0 24px 80px rgba(0,0,0,.28)' }}>
+        <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(244,63,94,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+        </div>
+        <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 17, color: 'var(--txt)', marginBottom: 8, textAlign: 'center' }}>
+          Delete Fee Item
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--txt2)', marginBottom: 20, textAlign: 'center', lineHeight: 1.5 }}>
+          Delete <strong>"{fee.name}"</strong>? This cannot be undone — any students already billed for it keep their existing payment records, but the fee item itself will no longer appear here.
+        </p>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancel} disabled={busy}
+            style={{ flex: 1, height: 44, borderRadius: 12, background: 'var(--surface2)', border: '.5px solid var(--border)', fontWeight: 600, fontSize: 13.5, cursor: busy ? 'default' : 'pointer', color: 'var(--txt2)' }}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={busy}
+            style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--danger)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: busy ? 'wait' : 'pointer', opacity: busy ? .7 : 1 }}>
+            {busy ? 'Deleting…' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    portal()
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1009,12 +1042,18 @@ export function FeeStructurePage() {
     } catch (e: any) { err(e.message ?? 'Auto-charge failed') }
   }
 
-  async function handleDelete(fee: FeeStructure) {
-    if (!confirm(`Delete "${fee.name}"? This cannot be undone.`)) return
+  const [deleteTarget, setDeleteTarget] = useState<{ rep: FeeStructure; rows: FeeStructure[] } | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      await deleteMut.mutateAsync(fee.id)
-      ok(`"${fee.name}" deleted`)
+      for (const r of deleteTarget.rows) await deleteMut.mutateAsync(r.id)
+      ok(`"${deleteTarget.rep.name}" deleted`)
+      setDeleteTarget(null)
     } catch (e: any) { err(e.message ?? 'Delete failed') }
+    finally { setDeleting(false) }
   }
 
   return (
@@ -1161,7 +1200,7 @@ export function FeeStructurePage() {
                           fee={rep}
                           className={group.allClasses ? null : group.classNames.join(', ') || null}
                           classBadges={group.allClasses ? ['All Classes'] : group.classNames}
-                          onDelete={async () => { for (const r of group.rows) await handleDelete(r) }}
+                          onDelete={() => setDeleteTarget({ rep, rows: group.rows })}
                           onAutoCharge={async () => { for (const r of group.rows) await handleAutoCharge(r) }}
                           onEnable={async () => { for (const r of group.rows) await handleAutoCharge(r) }}
                           unchargedCount={groupUncharged}
@@ -1178,6 +1217,14 @@ export function FeeStructurePage() {
 
       {showAdd    && <AddFeeModal             onClose={() => setShowAdd(false)}    />}
       {showImport && <ImportFeeStructureModal onClose={() => setShowImport(false)} />}
+      {deleteTarget && (
+        <DeleteFeeConfirmModal
+          fee={deleteTarget.rep}
+          busy={deleting}
+          onConfirm={() => void confirmDelete()}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   )
 }
