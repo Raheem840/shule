@@ -1,5 +1,6 @@
 import { useMyAssignedClasses, useStreams } from '../../hooks/useClasses'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useStudents } from '../../hooks/useStudents'
 import { useAttendance, useClassTermAttendance, useSaveAttendance } from '../../hooks/useAttendance'
@@ -85,12 +86,26 @@ function AttendanceRow({
 export function AttendancePage() {
   const today = new Date().toISOString().slice(0, 10)
 
+  const location = useLocation()
+  const navigate = useNavigate()
+
   const [date,       setDate]       = useState(today)
-  const [classId,    setClassId]    = useState('')
+  // "My Classes" quick-actions can hand off a classId via navigation state
+  // so this page opens already scoped to the class the teacher just clicked
+  // into, instead of making them re-pick it. Consumed once, then cleared
+  // from history so it doesn't stick around on a later back-navigation.
+  const [classId,    setClassId]    = useState(() => (location.state as { classId?: string } | null)?.classId ?? '')
   const [streamId,   setStreamId]   = useState('')
   const [marks,      setMarks]      = useState<Map<string, AttendanceStatus>>(new Map())
   const [saved,      setSaved]      = useState(false)
   const [isReadOnly, setIsReadOnly] = useState(false)
+
+  useEffect(() => {
+    if ((location.state as { classId?: string } | null)?.classId) {
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const { success: ok, error: err } = useToast()
 

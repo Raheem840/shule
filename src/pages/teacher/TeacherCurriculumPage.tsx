@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
@@ -372,8 +373,22 @@ export function TeacherCurriculumPage() {
   const mySubjects   = allSubjects.filter(s => mySubjectIds.includes(s.id))
   const myClasses    = allClasses.filter(c => myClassIds.includes(c.id))
 
+  const location = useLocation()
+  const navigate  = useNavigate()
+
   const [subjectId, setSubjectId] = useState('')
-  const [classId,   setClassId]   = useState('')
+  // "My Classes" quick-actions can hand off a classId via navigation state
+  // so this page opens already scoped to the class the teacher just clicked
+  // into, instead of making them re-pick it.
+  const [classId,   setClassId]   = useState(() => (location.state as { classId?: string } | null)?.classId ?? '')
+
+  useEffect(() => {
+    if ((location.state as { classId?: string } | null)?.classId) {
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const { data: academicYears = [] } = useAcademicYears()
   const activeYear = academicYears.find(y => y.isActive) ?? academicYears[0]
   // Defaults to Term 1 until the active academic year loads, then

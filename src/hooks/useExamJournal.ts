@@ -112,6 +112,34 @@ export function useExamJournalById(journalId: string | null | undefined) {
   })
 }
 
+// ── useJournalMarkCounts ─────────────────────────────────────────
+// How many students already have a recorded result (a real score or an
+// explicit absent) per journal — lets the journal list show "Edit Marks"
+// instead of "Enter Marks" once a journal isn't actually empty anymore.
+export function useJournalMarkCounts(journalIds: string[]) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['journal-mark-counts', user?.schoolId, journalIds.slice().sort().join(',')],
+    enabled:  !!user && journalIds.length > 0,
+    queryFn:  async (): Promise<Map<string, number>> => {
+      const { data, error } = await supabase
+        .from('exam_results')
+        .select('exam_journal_id, score, is_absent')
+        .eq('school_id', user!.schoolId)
+        .in('exam_journal_id', journalIds)
+
+      if (error) throw error
+      const counts = new Map<string, number>()
+      for (const r of (data ?? []) as { exam_journal_id: string; score: number | null; is_absent: boolean }[]) {
+        if (r.score == null && !r.is_absent) continue
+        counts.set(r.exam_journal_id, (counts.get(r.exam_journal_id) ?? 0) + 1)
+      }
+      return counts
+    },
+  })
+}
+
 // ── useNextCALabel ─────────────────────────────────────────────
 // Counts existing CA entries for subject+class+term+year to auto-label
 // the next one as "C1", "C2", "C3", etc.

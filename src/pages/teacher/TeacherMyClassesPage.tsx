@@ -225,7 +225,7 @@ function ClassDetailPanel({ classId, className, isMyHomeroom, navigate }: {
           { label: 'Events',        path: '/teacher/events',       color: '#f59e0b' },
           { label: 'Curriculum',    path: '/teacher/curriculum',   color: '#10b981' },
         ].map(a => (
-          <button key={a.label} onClick={() => navigate(a.path)}
+          <button key={a.label} onClick={() => navigate(a.path, { state: { classId } })}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${a.color}28` }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = `${a.color}15` }}
             style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: `${a.color}15`, color: a.color, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', transition: 'background .13s' }}

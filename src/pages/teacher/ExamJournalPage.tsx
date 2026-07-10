@@ -11,7 +11,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts'
-import { useExamJournals, useCreateJournal, useNextCALabel, useCurriculumTopicsForCA } from '../../hooks/useExamJournal'
+import { useExamJournals, useCreateJournal, useNextCALabel, useCurriculumTopicsForCA, useJournalMarkCounts } from '../../hooks/useExamJournal'
 import { useJournalEvent } from '../../hooks/useTeacherEvents'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
 import { useAuth } from '../../store/AuthContext'
@@ -487,31 +487,39 @@ function FiltersBar({ filters, onChange }: { filters: JournalFilters; onChange: 
 
 // ── Journal Card ───────────────────────────────────────────────
 function JournalCard({
-  journal, subjectName, className, streamName, onEnterMarks, onImportMarks,
+  journal, subjectName, className, streamName, hasMarks, onOpen, onEnterMarks, onImportMarks,
 }: {
   journal:       ExamJournal
   subjectName:   string
   className:     string
   streamName:    string
+  hasMarks:      boolean
+  onOpen:        () => void
   onEnterMarks:  () => void
   onImportMarks: () => void
 }) {
   const c = TYPE_COLORS[journal.assessmentType]
 
   return (
-    <div style={{
-      background: 'var(--surface)',
-      border: '.5px solid var(--border)',
-      borderRadius: 18,
-      padding: 20,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 14,
-      boxShadow: '0 1px 8px rgba(0,0,0,.05)',
-      transition: 'box-shadow .15s, transform .15s',
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
+    <div
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
+      style={{
+        background: 'var(--surface)',
+        border: '.5px solid var(--border)',
+        borderRadius: 18,
+        padding: 20,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+        boxShadow: '0 1px 8px rgba(0,0,0,.05)',
+        transition: 'box-shadow .15s, transform .15s',
+        position: 'relative',
+        overflow: 'hidden',
+        cursor: 'pointer',
+      }}>
       {/* Accent strip */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${c.color}, ${c.color}88)`, borderRadius: '18px 18px 0 0' }} />
 
@@ -568,7 +576,7 @@ function JournalCard({
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
         <button
-          onClick={onEnterMarks}
+          onClick={e => { e.stopPropagation(); onEnterMarks() }}
           style={{
             flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             padding: '9px 14px', borderRadius: 10, border: 'none',
@@ -581,10 +589,10 @@ function JournalCard({
             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
           </svg>
-          Enter Marks
+          {hasMarks ? 'Edit Marks' : 'Enter Marks'}
         </button>
         <button
-          onClick={onImportMarks}
+          onClick={e => { e.stopPropagation(); onImportMarks() }}
           style={{
             flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             padding: '9px 14px', borderRadius: 10,
@@ -1029,7 +1037,20 @@ export function ExamJournalPage() {
   const isMobile   = useIsMobile()
   const [creating, setCreating]         = useState(false)
   const [prefillEvent, setPrefillEvent] = useState<SchoolEvent | null>(null)
-  const [filters,  setFilters]  = useState<JournalFilters>({})
+  // "My Classes" quick-actions can hand off a classId via navigation state
+  // so the journal list opens already filtered to the class the teacher
+  // just clicked into, instead of making them re-pick it.
+  const [filters,  setFilters]  = useState<JournalFilters>(() => {
+    const classId = (location.state as { classId?: string } | null)?.classId
+    return classId ? { classId } : {}
+  })
+
+  useEffect(() => {
+    if ((location.state as { classId?: string } | null)?.classId) {
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // A past, unjournaled event clicked on the Events timeline lands here with
   // `state: { prefill }` — open the create modal pre-populated from it, then
@@ -1045,6 +1066,8 @@ export function ExamJournalPage() {
   }, [location.state])
 
   const { data: journals = [], isLoading } = useExamJournals(filters)
+  const journalIds = useMemo(() => journals.map(j => j.id), [journals])
+  const { data: markCounts } = useJournalMarkCounts(journalIds)
   const { data: subjects = [] } = useSubjects()
   const classes                 = useMyAssignedClasses()
   const { data: streams  = [] } = useStreams()
@@ -1187,6 +1210,8 @@ export function ExamJournalPage() {
               subjectName={subjectMap.get(j.subjectId) ?? j.subjectId}
               className={classMap.get(j.classId) ?? j.classId}
               streamName={j.streamId ? (streamMap.get(j.streamId) ?? '—') : 'All'}
+              hasMarks={(markCounts?.get(j.id) ?? 0) > 0}
+              onOpen={() => navigate(`/teacher/exams/${j.id}/marks?view=1`)}
               onEnterMarks={() => navigate(`/teacher/exams/${j.id}/marks`)}
               onImportMarks={() => navigate(`/teacher/exams/${j.id}/marks?import=1`)}
             />

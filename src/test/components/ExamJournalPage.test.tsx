@@ -24,6 +24,7 @@ vi.mock('../../hooks/useExamJournal', () => ({
   useCreateJournal: () => ({ mutateAsync: vi.fn().mockResolvedValue('j-1'), isPending: false }),
   useNextCALabel:   () => ({ data: 'C1', isLoading: false }),
   useCurriculumTopicsForCA: () => ({ data: [], isLoading: false }),
+  useJournalMarkCounts: () => ({ data: new Map(), isLoading: false }),
 }))
 vi.mock('../../hooks/useClasses', () => ({
   useClasses:            () => ({ data: [], isLoading: false }),

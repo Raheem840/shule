@@ -730,6 +730,13 @@ export function MarkEntryPage() {
   const [importOpen, setImportOpen] = useState(false)
   const deepLinkImportHandled = useRef(false)
 
+  // Clicking a journal card (rather than its "Enter/Edit Marks" button)
+  // lands here in a read-only browsing view — inputs disabled, Save/
+  // Publish/Import hidden, with a single "Edit" button to switch into the
+  // normal editable view. Purely a UI-level view/edit toggle, independent
+  // of the separate lock/grace-period mechanism below.
+  const [browsingReadOnly, setBrowsingReadOnly] = useState(searchParams.get('view') === '1')
+
   // ── Provisional / locked results ────────────────────────────
   // A published journal stays freely editable for MARKS_GRACE_PERIOD_DAYS —
   // after that, saving or importing a correction requires a reason (audited).
@@ -976,34 +983,44 @@ export function MarkEntryPage() {
             {absentCount  > 0 && <span style={{ color: 'var(--info)',    marginLeft: 8 }}>· {absentCount} absent</span>}
           </div>
 
-          {/* Import Marks button */}
-          <button
-            onClick={handleImportClick}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '9px 14px', borderRadius: 10,
-              border: '.5px solid rgba(13,148,136,.35)',
-              background: 'rgba(13,148,136,.06)',
-              color: 'var(--brand)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="16 16 12 12 8 16"/>
-              <line x1="12" y1="12" x2="12" y2="21"/>
-              <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
-            </svg>
-            Import Marks
-          </button>
-
-          <button onClick={() => void handleSaveAll()} disabled={saveMarks.isPending}
-            style={{ padding: '9px 16px', borderRadius: 10, border: '.5px solid var(--border)', background: saved ? 'rgba(16,185,129,.1)' : 'var(--surface2)', color: saved ? '#065f46' : 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-            {saveMarks.isPending ? 'Saving…' : saved ? '✓ Saved' : locked ? 'Save (locked)' : 'Save All'}
-          </button>
-          {journal.status === 'draft' && (
-            <button onClick={() => void handlePublish()} disabled={publish.isPending || saveMarks.isPending}
+          {browsingReadOnly ? (
+            <button onClick={() => setBrowsingReadOnly(false)}
               style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 3px 12px rgba(13,148,136,.35)' }}>
-              {publish.isPending ? 'Publishing…' : 'Publish'}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
             </button>
+          ) : (
+            <>
+              {/* Import Marks button */}
+              <button
+                onClick={handleImportClick}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '9px 14px', borderRadius: 10,
+                  border: '.5px solid rgba(13,148,136,.35)',
+                  background: 'rgba(13,148,136,.06)',
+                  color: 'var(--brand)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="16 16 12 12 8 16"/>
+                  <line x1="12" y1="12" x2="12" y2="21"/>
+                  <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
+                </svg>
+                {enteredCount > 0 ? 'Edit Marks' : 'Import Marks'}
+              </button>
+
+              <button onClick={() => void handleSaveAll()} disabled={saveMarks.isPending}
+                style={{ padding: '9px 16px', borderRadius: 10, border: '.5px solid var(--border)', background: saved ? 'rgba(16,185,129,.1)' : 'var(--surface2)', color: saved ? '#065f46' : 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                {saveMarks.isPending ? 'Saving…' : saved ? '✓ Saved' : locked ? 'Save (locked)' : 'Save All'}
+              </button>
+              {journal.status === 'draft' && (
+                <button onClick={() => void handlePublish()} disabled={publish.isPending || saveMarks.isPending}
+                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 3px 12px rgba(13,148,136,.35)' }}>
+                  {publish.isPending ? 'Publishing…' : 'Publish'}
+                </button>
+              )}
+            </>
           )}
           {journal.status === 'published' && !locked && (
             <span title={`Editable without a reason for ${MARKS_GRACE_PERIOD_DAYS} days after publishing`}
@@ -1093,11 +1110,12 @@ export function MarkEntryPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {!isAbsent && (
                         isCA ? (
-                          <CAScoreInput value={score} onChange={v => setMark(student.id, v, false)} disabled={false} fullWidth />
+                          <CAScoreInput value={score} onChange={v => setMark(student.id, v, false)} disabled={browsingReadOnly} fullWidth />
                         ) : (
                           <input
                             type="number" min={0} max={totalMarks} step={0.5}
                             value={score ?? ''}
+                            disabled={browsingReadOnly}
                             onChange={e => {
                               if (e.target.value.endsWith('.')) return
                               const v = e.target.value === '' ? null : parseFloat(e.target.value)
@@ -1108,13 +1126,14 @@ export function MarkEntryPage() {
                             style={{
                               flex: 1, padding: '10px 14px', border: `.5px solid ${hasWarning ? 'var(--warning)' : 'var(--border)'}`,
                               borderRadius: 10, fontSize: 16, fontFamily: 'var(--font3)',
-                              background: 'var(--surface)', color: 'var(--txt)', boxSizing: 'border-box',
+                              background: browsingReadOnly ? 'var(--surface2)' : 'var(--surface)', color: 'var(--txt)', boxSizing: 'border-box',
                             }}
                           />
                         )
                       )}
                       <button
                         type="button"
+                        disabled={browsingReadOnly}
                         onClick={() => setMark(student.id, null, !isAbsent)}
                         title="Mark absent — if they redo the paper later, tap again and enter the real score"
                         style={{
@@ -1122,7 +1141,8 @@ export function MarkEntryPage() {
                           borderColor: isAbsent ? 'var(--info)' : 'var(--border)',
                           background: isAbsent ? 'rgba(14,165,233,.1)' : 'var(--surface2)',
                           color: isAbsent ? 'var(--info)' : 'var(--txt3)',
-                          fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                          fontSize: 12, fontWeight: 700, cursor: browsingReadOnly ? 'default' : 'pointer',
+                          opacity: browsingReadOnly ? 0.6 : 1,
                         }}
                       >
                         {isAbsent ? 'ABSENT — tap to undo' : 'Missed exam?'}
@@ -1147,27 +1167,27 @@ export function MarkEntryPage() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt)' }}>{student.firstName} {student.lastName}</div>
 
                   {isCA ? (
-                    <CAScoreInput value={isAbsent ? null : score} onChange={v => setMark(student.id, v, false)} disabled={isAbsent} />
+                    <CAScoreInput value={isAbsent ? null : score} onChange={v => setMark(student.id, v, false)} disabled={isAbsent || browsingReadOnly} />
                   ) : (
                     <div>
                       <input type="number" min={0} max={totalMarks} step={0.5}
                         value={isAbsent ? '' : (score ?? '')}
-                        disabled={isAbsent}
+                        disabled={isAbsent || browsingReadOnly}
                         onChange={e => {
                           if (e.target.value.endsWith('.')) return
                           const v = e.target.value === '' ? null : parseFloat(e.target.value)
                           if (v !== null && isNaN(v)) return
                           setMark(student.id, v, false)
                         }}
-                        style={{ width: '100%', maxWidth: 80, padding: '10px 8px', border: `.5px solid ${hasWarning ? 'var(--warning)' : 'var(--border)'}`, borderRadius: 8, fontSize: 16, background: isAbsent ? 'var(--surface2)' : 'var(--surface)', color: 'var(--txt)', fontFamily: 'var(--font3)' }}
+                        style={{ width: '100%', maxWidth: 80, padding: '10px 8px', border: `.5px solid ${hasWarning ? 'var(--warning)' : 'var(--border)'}`, borderRadius: 8, fontSize: 16, background: (isAbsent || browsingReadOnly) ? 'var(--surface2)' : 'var(--surface)', color: 'var(--txt)', fontFamily: 'var(--font3)' }}
                       />
                       {hasWarning && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--warning)' }}>Exceeds max</span>}
                     </div>
                   )}
 
                   <div>
-                    <input type="checkbox" checked={isAbsent} onChange={e => setMark(student.id, null, e.target.checked)}
-                      title="Mark absent — if they redo the paper later, just uncheck this and enter the real score" style={{ width: 20, height: 20, cursor: 'pointer', accentColor: 'var(--brand)' }} />
+                    <input type="checkbox" checked={isAbsent} disabled={browsingReadOnly} onChange={e => setMark(student.id, null, e.target.checked)}
+                      title="Mark absent — if they redo the paper later, just uncheck this and enter the real score" style={{ width: 20, height: 20, cursor: browsingReadOnly ? 'default' : 'pointer', accentColor: 'var(--brand)' }} />
                   </div>
 
                   {!isCA && (
@@ -1190,18 +1210,27 @@ export function MarkEntryPage() {
 
       {/* ── Mobile sticky action bar ── */}
       {isMobile && (
-        <div className="mob-action-bar">
-          <button onClick={() => void handleSaveAll()} disabled={saveMarks.isPending}
-            style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: '.5px solid var(--border)', background: saved ? 'rgba(16,185,129,.1)' : 'var(--surface2)', color: saved ? '#065f46' : 'var(--txt2)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-            {saveMarks.isPending ? 'Saving…' : saved ? '✓ Saved' : locked ? 'Save (locked)' : 'Save All'}
-          </button>
-          {journal?.status === 'draft' && (
-            <button onClick={() => void handlePublish()} disabled={saveMarks.isPending || publish.isPending}
+        browsingReadOnly ? (
+          <div className="mob-action-bar">
+            <button onClick={() => setBrowsingReadOnly(false)}
               style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 3px 12px rgba(13,148,136,.35)' }}>
-              {publish.isPending ? 'Publishing…' : 'Publish'}
+              Edit
             </button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="mob-action-bar">
+            <button onClick={() => void handleSaveAll()} disabled={saveMarks.isPending}
+              style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: '.5px solid var(--border)', background: saved ? 'rgba(16,185,129,.1)' : 'var(--surface2)', color: saved ? '#065f46' : 'var(--txt2)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+              {saveMarks.isPending ? 'Saving…' : saved ? '✓ Saved' : locked ? 'Save (locked)' : 'Save All'}
+            </button>
+            {journal?.status === 'draft' && (
+              <button onClick={() => void handlePublish()} disabled={saveMarks.isPending || publish.isPending}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 3px 12px rgba(13,148,136,.35)' }}>
+                {publish.isPending ? 'Publishing…' : 'Publish'}
+              </button>
+            )}
+          </div>
+        )
       )}
 
       {/* ── Performance Analytics ──────────────────────────── */}
