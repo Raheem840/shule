@@ -130,10 +130,13 @@ serve(async (req) => {
         .eq('id', staffRow.school_id)
         .maybeSingle()
 
+      // Domain must always track the school's own short_name, not the full
+      // school_name — falls back to shule.ug (not a generic placeholder) if
+      // short_name isn't set yet, matching create-student-auth-user.
       const email = (staffRow.email as string | null) ?? (() => {
-        const num    = (staffRow.staff_number as string).replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-        const domain = ((schoolRow as any)?.short_name ?? (schoolRow as any)?.school_name ?? 'school')
-          .toLowerCase().replace(/[^a-z0-9]/g, '')
+        const num       = (staffRow.staff_number as string).replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+        const shortName = ((schoolRow as any)?.short_name as string | null | undefined)?.toLowerCase().replace(/[^a-z0-9]/g, '')
+        const domain    = shortName || 'shule'
         return `staff.${num}@${domain}.ug`
       })()
 

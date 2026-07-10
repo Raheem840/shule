@@ -90,10 +90,14 @@ serve(async (req) => {
 
     // Use stored auth_email if already set (preserves existing accounts on re-activation).
     // Otherwise derive fresh from the current admission_number + school short_name.
+    // The domain must always track the school's own short_name (not the full
+    // school_name, and not a generic fallback) — if short_name isn't set yet,
+    // fall back to shule.ug rather than a placeholder that has nothing to do
+    // with the school.
     const email: string = (studentRow as any).auth_email ?? (() => {
-      const adm    = ((studentRow as any).admission_number as string ?? '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'student'
-      const domain = ((schoolRow as any)?.short_name ?? (schoolRow as any)?.school_name ?? 'school')
-        .toLowerCase().replace(/[^a-z0-9]/g, '')
+      const adm       = ((studentRow as any).admission_number as string ?? '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'student'
+      const shortName = ((schoolRow as any)?.short_name as string | null | undefined)?.toLowerCase().replace(/[^a-z0-9]/g, '')
+      const domain    = shortName || 'shule'
       return `${adm}@${domain}.ug`
     })()
 
