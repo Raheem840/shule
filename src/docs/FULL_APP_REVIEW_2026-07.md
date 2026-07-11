@@ -38,7 +38,7 @@ Findings that are real but low-severity/pre-existing/out-of-scope are logged **D
 | 6 | Secretary A | StudentRegistrationWizard, StaffRegistrationWizard, StudentsPage, SecretaryStudentsPage, SecretaryStudentEditPage | pending | | | |
 | 7 | Secretary B | ParentCredentialsPage, ReportCardsPage, ClassListPage, ImportDataPage | pending | | | |
 | 8 | Secretary C | SecretaryDashboard, SecretaryReportsPage, SecretaryStaffPage, SchoolAtAGlancePage, FeeStatusPage | pending | | | |
-| 9 | Bursar A | AddPaymentPage, FeeLedgerPage, FeeStructurePage, FeeReportsPage, SalaryPage | pending | | | |
+| 9 | Bursar A | AddPaymentPage, FeeLedgerPage, FeeStructurePage, FeeReportsPage | pending | | | |
 | 10 | Bursar B | BursarImportPage, BursarStudentsPage, BursarDashboard, DeliveryLogPage, SmsReminderPage, BursarMessagesPage | pending | | | |
 | 11 | Teacher A | ExamJournalPage, MarkEntryPage, AttendancePage, ReportPreviewPage | pending | | | |
 | 12 | Teacher B | TeacherCurriculumPage, ClassTeacherStudentsPage, TeacherDashboard, TeacherEventsPage, TeacherMyClassesPage, TeacherParentMessagesPage, TeacherRemarksPage, TeacherTimetablePage | pending | | | |

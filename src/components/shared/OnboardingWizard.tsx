@@ -712,7 +712,7 @@ const ROLE_INFO: Partial<Record<UserRole, { title: string; desc: string; caps: s
   bursar: {
     title: 'Bursar Portal',
     desc: 'You manage the full financial operations of the school.',
-    caps: ['Record fee payments and track balances', 'Generate fee receipts and statements', 'Manage salary payments', 'Send fee reminders via SMS/WhatsApp'],
+    caps: ['Record fee payments and track balances', 'Generate fee receipts and statements', 'Send fee reminders via SMS/WhatsApp'],
   },
   teacher: {
     title: 'Teacher Portal',
