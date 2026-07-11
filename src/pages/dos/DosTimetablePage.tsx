@@ -93,9 +93,11 @@ function subjectColor(id: string): [string, string] {
 
 function ini(n: string) { return n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() }
 
-// Which days a period applies to (undefined = all days)
+// Which days a period applies to (undefined/empty = all days) — applies to
+// class periods too, so a DOS can restrict a lesson slot to specific days
+// (e.g. an extra period that only exists on Monday), not just break/lunch/
+// assembly-type entries.
 function appliesToDay(def: PeriodDef, day: number): boolean {
-  if (def.type === 'class') return true
   if (!def.days || def.days.length === 0) return true
   return def.days.includes(day)
 }
@@ -221,7 +223,7 @@ function PeriodConfigPanel({ defs, onChange, onClose }: {
                   </button>
                 </div>
                 {/* Time row */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: def.type !== 'class' ? 10 : 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 4 }}>Start</div>
                     <input type="time" value={def.startTime} onChange={e => upd(i, { startTime: e.target.value })}
@@ -235,33 +237,34 @@ function PeriodConfigPanel({ defs, onChange, onClose }: {
                     />
                   </div>
                 </div>
-                {/* Day selector — only for non-class event periods */}
-                {def.type !== 'class' && (
-                  <div style={{ marginTop: 0 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 6 }}>Active on days <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(tap to exclude)</span></div>
-                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                      {DAYS.map(([dayNum, label]) => {
-                        const active = !def.days || def.days.length === 0 || def.days.includes(dayNum)
-                        return (
-                          <button key={dayNum} type="button"
-                            onClick={() => {
-                              const allDays = [1,2,3,4,5,6,7]
-                              const current = def.days?.length ? def.days : allDays
-                              const next    = active ? current.filter(d => d !== dayNum) : [...current, dayNum].sort((a,b)=>a-b)
-                              upd(i, { days: next.length === 7 ? undefined : next })
-                            }}
-                            style={{ width: 36, height: 30, borderRadius: 8, border: `.5px solid ${active ? meta.color + '45' : 'var(--border)'}`, background: active ? `${meta.color}18` : 'var(--surface)', color: active ? meta.color : 'var(--txt3)', fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all .13s' }}
-                          >{label}</button>
-                        )
-                      })}
-                    </div>
-                    {def.days && def.days.length < 7 && (
-                      <div style={{ fontSize: 11, color: meta.color, marginTop: 5, opacity: .8 }}>
-                        Only on: {def.days.map(d => DAYS.find(([n]) => n === d)?.[1]).filter(Boolean).join(', ')}
-                      </div>
-                    )}
+                {/* Day selector — available for class periods too, so a
+                    lesson-assignable period can be restricted to specific
+                    days (e.g. an extra period that only exists on Monday),
+                    not just break/lunch/assembly-type entries. */}
+                <div style={{ marginTop: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .6, marginBottom: 6 }}>Active on days <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(tap to exclude)</span></div>
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                    {DAYS.map(([dayNum, label]) => {
+                      const active = !def.days || def.days.length === 0 || def.days.includes(dayNum)
+                      return (
+                        <button key={dayNum} type="button"
+                          onClick={() => {
+                            const allDays = [1,2,3,4,5,6,7]
+                            const current = def.days?.length ? def.days : allDays
+                            const next    = active ? current.filter(d => d !== dayNum) : [...current, dayNum].sort((a,b)=>a-b)
+                            upd(i, { days: next.length === 7 ? undefined : next })
+                          }}
+                          style={{ width: 36, height: 30, borderRadius: 8, border: `.5px solid ${active ? meta.color + '45' : 'var(--border)'}`, background: active ? `${meta.color}18` : 'var(--surface)', color: active ? meta.color : 'var(--txt3)', fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all .13s' }}
+                        >{label}</button>
+                      )
+                    })}
                   </div>
-                )}
+                  {def.days && def.days.length < 7 && (
+                    <div style={{ fontSize: 11, color: meta.color, marginTop: 5, opacity: .8 }}>
+                      Only on: {def.days.map(d => DAYS.find(([n]) => n === d)?.[1]).filter(Boolean).join(', ')}
+                    </div>
+                  )}
+                </div>
               </div>
             )
           })}
@@ -629,7 +632,12 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
   const todayCol = jsToSchoolDay(new Date().getDay())
   const classPeriods = periodDefs.filter(d => d.type === 'class')
   const publishedCount = slots.filter(s => s.isPublished).length
-  const totalClassSlots = classPeriods.length * 5
+  // Sum applicable days per period rather than assuming every class period
+  // runs all 5 weekdays — a day-restricted period (e.g. Monday-only) only
+  // contributes 1 possible slot, not 5.
+  const totalClassSlots = classPeriods.reduce(
+    (sum, def) => sum + DAYS.filter(([d]) => appliesToDay(def, d)).length, 0
+  )
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
@@ -843,8 +851,12 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
                 const slot = daySlotMap.get(def.num)
                 const isConflict = conflictKeys.has(`${mobileDay}-${def.num}`)
 
+                // Applies to both event periods (break/lunch/etc.) AND class
+                // periods now — a DOS can restrict a lesson slot to specific
+                // days (e.g. an extra period only on Monday).
+                if (!appliesToDay(def, mobileDay)) return null
+
                 if (isEvent) {
-                  if (!appliesToDay(def, mobileDay)) return null
                   return (
                     <div key={def.num} style={{ padding: '11px 16px', borderRadius: 14, background: meta.bg, borderLeft: `3px solid ${meta.color}`, display: 'flex', alignItems: 'center', gap: 11 }}>
                       <span style={{ fontSize: 19 }}>{meta.icon}</span>
@@ -999,6 +1011,15 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
                         {DAYS.map(([day]) => {
                           const key  = `${day}-${def.num}`
                           const slot = slotMap.get(key)
+                          if (!appliesToDay(def, day)) {
+                            return (
+                              <td key={key} style={{ border: '.5px solid var(--border)', background: 'var(--surface2)', padding: 4, verticalAlign: 'middle', height: 80 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                                  <span style={{ color: 'var(--border)', fontSize: 12 }}>—</span>
+                                </div>
+                              </td>
+                            )
+                          }
                           return (
                             <TimetableCell
                               key={key} day={day} period={def.num}
