@@ -19,7 +19,7 @@ export function useDeputyOverview() {
       if (!user) throw new Error('Not authenticated')
       const sid = user.schoolId
 
-      const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10)
+      const yearStart = `${new Date().getFullYear()}-01-01`
       const [classesRes, attendanceRes] = await Promise.all([
         supabase
           .from('classes')
@@ -84,7 +84,7 @@ export function useDeputyKpis() {
           .from('attendance')
           .select('student_id, status')
           .eq('school_id', sid)
-          .gte('date', new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10)),
+          .gte('date', `${new Date().getFullYear()}-01-01`),
       ])
 
       const studentMap = new Map<string, { present: number; total: number }>()

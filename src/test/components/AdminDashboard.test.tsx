@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '../utils'
+import { within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // ── Virtualizer mock: jsdom has no layout, so the virtualizer returns no items
@@ -272,8 +273,8 @@ describe('AdminDashboard', () => {
     })
   })
 
-  it('clicking Deactivate passes authUserId so the Supabase Auth-level ban actually fires', async () => {
-    const mutate = vi.fn()
+  it('clicking Deactivate opens a confirm modal, and confirming passes authUserId so the Supabase Auth-level ban actually fires', async () => {
+    const mutate = vi.fn().mockResolvedValue(undefined)
     mockUseDeactivateUser.mockReturnValue({ ...MUTATION_STUB, mutateAsync: mutate })
     const user = userEvent.setup()
     render(<AdminDashboard />)
@@ -282,6 +283,14 @@ describe('AdminDashboard', () => {
 
     const deactivateButtons = screen.getAllByText('Deactivate')
     await user.click(deactivateButtons[0])
+
+    // Confirming is now behind a modal — clicking the row action alone must
+    // NOT fire the mutation immediately (a double-click/race guard fix).
+    expect(mutate).not.toHaveBeenCalled()
+
+    const confirmHeading = await screen.findByText(/Deactivate Alice Nakato\?/i)
+    const modal = confirmHeading.closest('.sui-modal-dialog') as HTMLElement
+    await user.click(within(modal).getByRole('button', { name: 'Deactivate' }))
 
     expect(mutate).toHaveBeenCalledWith(
       expect.objectContaining({ staffId: 'sf1', isActive: false, authUserId: 'au1' })

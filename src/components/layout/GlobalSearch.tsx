@@ -404,7 +404,7 @@ export function GlobalSearch({ open, onClose }: Props) {
                           {r.kind === 'page'
                             ? <PageIcon svgStr={
                                 (() => {
-                                  const nav = ROLE_NAV[user!.role] ?? []
+                                  const nav = (user && ROLE_NAV[user.role]) ?? []
                                   for (const g of nav) for (const item of g.items) if (item.path === r.path) return item.svg
                                   return ''
                                 })()

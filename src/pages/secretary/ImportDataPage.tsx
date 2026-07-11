@@ -216,7 +216,12 @@ export function ImportDataPage() {
           school_id:       user!.schoolId,
           first_name:      String(r.first_name ?? '').trim(),
           last_name:       String(r.last_name ?? '').trim(),
-          role:            String(r.role ?? 'teacher').trim() || 'teacher',
+          // Must be lowercased to match staff_role_check — validateStaffRow
+          // (lib/validators.ts) already lowercases before checking membership,
+          // so a mixed-case value like "Teacher" passed validation but was
+          // previously inserted verbatim, violating the DB constraint with a
+          // confusing error despite the wizard reporting the row as valid.
+          role:            String(r.role ?? 'teacher').trim().toLowerCase() || 'teacher',
           email:           r.email ? String(r.email).trim() : null,
           phone:           r.phone ? String(r.phone).trim() : null,
           national_id:     r.national_id ? String(r.national_id).trim() : null,

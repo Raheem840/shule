@@ -7,12 +7,13 @@ import { ConnectionProvider } from './hooks/useConnectionStatus'
 import { BandwidthProvider } from './store/BandwidthContext'
 import { ToastProvider } from './components/ui/Toast'
 import { queryClient } from './lib/queryClient'
-import { startSyncListener } from './lib/syncQueue'
 import { restoreQueryCache, persistQueryCache } from './lib/queryPersistence'
 import App from './App'
 import './index.css'
 
-startSyncListener()
+// Offline write flushing is owned entirely by useSyncQueue.ts (mounted via
+// SyncManager in AppShell) — see syncQueue.ts's header comment for why the
+// second, redundant flush loop that used to be started here was removed.
 
 // When a new SW version takes over, reload so old chunk hashes don't 404.
 // Guard: only fire when there was already a controller (i.e. a real SW swap,

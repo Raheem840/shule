@@ -975,17 +975,20 @@ function NoticesTab() {
 
   type Item = { id: string; body: string; createdAt: string; link: string | null; isPersonal: boolean; isRead: boolean }
 
+  // Merge both sources — previously showed personal notifications only when
+  // present, dropping every general school notice entirely, so a student
+  // with even one personal message never saw school-wide notices posted
+  // afterward (exam schedule change, holiday announcement, etc.).
   const items = useMemo<Item[]>(() => {
-    if (personal.length > 0) {
-      return personal.map(n => ({
-        id: n.id, body: n.body, createdAt: n.createdAt,
-        link: n.link, isPersonal: true, isRead: !!n.readAt,
-      }))
-    }
-    return school.map(n => ({
+    const fromPersonal: Item[] = personal.map(n => ({
+      id: n.id, body: n.body, createdAt: n.createdAt,
+      link: n.link, isPersonal: true, isRead: !!n.readAt,
+    }))
+    const fromSchool: Item[] = school.map(n => ({
       id: n.id, body: n.body ?? n.title, createdAt: n.createdAt,
       link: n.link, isPersonal: false, isRead: true,
     }))
+    return [...fromPersonal, ...fromSchool].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   }, [personal, school])
 
   if (pLoad || sLoad) {

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useForm, useFieldArray, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { localToday } from '../../lib/dates'
 import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
@@ -207,7 +208,7 @@ export function StaffRegistrationWizard({ open, onClose, onSuccess }: Props) {
       isExistingStaff: false,
       firstName: '', lastName: '', dateOfBirth: '', gender: '',
       nationality: '', nationalId: '', phone: '', email: '', address: '',
-      role: '', staffNumber: '', employmentDate: new Date().toISOString().slice(0, 10),
+      role: '', staffNumber: '', employmentDate: localToday(),
       employmentType: '', departmentId: '', subjects: [], classes: [],
       qualificationLevel: null, qualificationTitle: '', institution: '', graduationYear: '',
       documents: [],

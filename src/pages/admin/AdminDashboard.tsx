@@ -130,7 +130,8 @@ function umInitials(name: string) { return name.split(' ').filter(Boolean).slice
 function UserManagementSection() {
   const { data: users = [], isLoading } = useUserManagement()
   const { mutateAsync: resetPwd,    isPending: resetting } = useResetStaffPassword()
-  const { mutateAsync: toggleActive }                      = useDeactivateUser()
+  const { mutateAsync: toggleActive, isPending: toggling } = useDeactivateUser()
+  const [deactivateTarget, setDeactivateTarget] = useState<UserRow | null>(null)
   const [resetTarget,  setResetTarget]  = useState<UserRow | null>(null)
   const [resetDone,    setResetDone]    = useState(false)
   const [resetEmail, setResetEmail] = useState('')
@@ -303,7 +304,7 @@ function UserManagementSection() {
                       </button>
                     )}
                     <button
-                      onClick={() => toggleActive({ staffId: u.staffId, isActive: !u.isActive, authUserId: u.authUserId })}
+                      onClick={() => setDeactivateTarget(u)}
                       style={{
                         padding: '4px 10px', borderRadius: 7, fontSize: 10, fontWeight: 700,
                         border: `1px solid ${u.isActive ? 'rgba(245,158,11,0.4)' : 'rgba(16,185,129,0.4)'}`,
@@ -399,6 +400,57 @@ function UserManagementSection() {
                 </div>
               </>
             )}
+          </div>
+        </div>,
+        document.querySelector('.ar') ?? document.body
+      )}
+
+      {/* Deactivate/Activate confirm — previously fired instantly on click with
+          no confirmation and no isPending guard, so a double-click (or slow
+          network letting a second click land before the first settled) could
+          race two auth-disable calls for the same user with no undo prompt. */}
+      {deactivateTarget && createPortal(
+        <div
+          className="sui-overlay"
+          style={{
+            position: 'fixed', inset: 0, background: 'var(--modal-overlay)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
+          }}
+          onClick={e => { if (e.target === e.currentTarget && !toggling) setDeactivateTarget(null) }}
+        >
+          <div
+            className="sui-modal-dialog"
+            style={{
+              background: 'var(--modal-bg)', borderRadius: 20, padding: 28, width: 400,
+              border: '1px solid var(--modal-border)',
+              borderTop: '1px solid var(--modal-border-t)',
+              backdropFilter: 'blur(24px)', boxShadow: 'var(--modal-shadow)',
+            }}
+          >
+            <h3 style={{ fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 16, marginTop: 0 }}>
+              {deactivateTarget.isActive ? 'Deactivate' : 'Activate'} {deactivateTarget.name}?
+            </h3>
+            <p style={{ color: 'var(--txt2)', fontSize: 13 }}>
+              {deactivateTarget.isActive
+                ? 'This immediately revokes their system access, even with a still-valid session.'
+                : 'This restores their system access.'}
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setDeactivateTarget(null)} disabled={toggling} className="sui-btn-outline">Cancel</button>
+              <button
+                onClick={() => {
+                  void toggleActive({
+                    staffId: deactivateTarget.staffId,
+                    isActive: !deactivateTarget.isActive,
+                    authUserId: deactivateTarget.authUserId,
+                  }).then(() => setDeactivateTarget(null))
+                }}
+                disabled={toggling}
+                className="sui-btn-primary"
+              >
+                {toggling ? 'Working…' : deactivateTarget.isActive ? 'Deactivate' : 'Activate'}
+              </button>
+            </div>
           </div>
         </div>,
         document.querySelector('.ar') ?? document.body

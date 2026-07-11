@@ -14,6 +14,7 @@ import {
 } from '../../hooks/useFeePayments'
 import { useFeeStructure, useAcademicYears } from '../../hooks/useFeeStructure'
 import { useCurrentTermDefault } from '../../hooks/useCurrentTerm'
+import { localToday } from '../../lib/dates'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/Toast'
@@ -301,7 +302,7 @@ function ApplyPaymentForm({
 }) {
   const { success: toastOk, error: toastErr } = useToast()
   const applyPayment = useApplyPayment()
-  const today        = new Date().toISOString().slice(0, 10)
+  const today        = localToday()
   const [editMode, setEditMode] = useState(false)
 
   // ── Add-payment form (default) ──────────────────────────────
@@ -539,7 +540,7 @@ function NewFeeRowForm({
       (f.appliesTo === 'boarders'     && studentType === 'boarder')) &&
     (f.classId === null || f.classId === classId)
   )
-  const today        = new Date().toISOString().slice(0, 10)
+  const today        = localToday()
 
   const {
     register, handleSubmit, watch, setValue,

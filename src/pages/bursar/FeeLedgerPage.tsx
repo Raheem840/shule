@@ -19,6 +19,8 @@ import {
   type LedgerRow, type FeeFilters,
 } from '../../hooks/useFeePayments'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
+import { useCurrentTermDefault } from '../../hooks/useCurrentTerm'
+import { localToday } from '../../lib/dates'
 import type { FeeStatus } from '../../types/app'
 
 // ── Status badge variant map ───────────────────────────────────
@@ -63,7 +65,7 @@ function AddPaymentModal({
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<AddPaymentForm>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(AddPaymentSchema) as any,
-    defaultValues: { paymentDate: new Date().toISOString().split('T')[0], amountPaid: 0, amountDue: 0 },
+    defaultValues: { paymentDate: localToday(), amountPaid: 0, amountDue: 0 },
   })
 
   const selectedId  = watch('studentId')
@@ -266,6 +268,7 @@ export function FeeLedgerPage() {
   const { data: streams } = useStreams(filters.classId ?? null)
   const { data: academicYears = [] } = useAcademicYears()
   const activeAcademicYearId = academicYears.find(y => y.isActive)?.id ?? null
+  const activeAcademicYear   = academicYears.find(y => y.isActive) ?? null
 
   // Default the ledger to the school's active academic year the first time
   // years load, rather than leaving academicYearId unset (which silently
@@ -276,6 +279,14 @@ export function FeeLedgerPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAcademicYearId])
+
+  // Auto-corrects the term filter once to whichever term today's date falls
+  // in, as soon as real term dates load — previously stayed hardcoded at
+  // Term 1 forever, silently showing Term 1 records/KPIs/export mid-Term-2/3.
+  const [autoTerm] = useCurrentTermDefault(activeAcademicYear)
+  useEffect(() => {
+    setFilters(f => ({ ...f, term: autoTerm }))
+  }, [autoTerm])
 
   const { data: rows, isLoading, error } = useFeePayments(filters)
   const updatePayment = useUpdatePayment()

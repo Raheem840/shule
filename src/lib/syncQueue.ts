@@ -1,6 +1,19 @@
-// syncQueue.ts — Flush offline writes to Supabase when connection is restored.
-// Each pending sync_queue row is attempted as a Supabase upsert.
-// On success → status = 'synced'. On error → status = 'failed' (for retry UI).
+// syncQueue.ts — offline cache priming helpers.
+//
+// This file used to ALSO own a second, independent offline-write-flush
+// implementation (flushSyncQueue/startSyncListener, wired to the browser's
+// raw 'online' event in main.tsx) that duplicated useSyncQueue.ts's flush
+// loop (wired to a verified-connection check + 90s interval via SyncManager).
+// The two had drifted: this file's ALLOWED_SYNC_TABLES was missing
+// exam_journal/notifications/sms_reminders/student_surveys, which
+// useSyncQueue.ts's SYNC_ALLOWED_TABLES already included — a queued write to
+// one of those tables that this file's listener grabbed first (it fired
+// immediately on 'online', before useSyncQueue's 2s-delayed flush) got
+// permanently marked 'failed' with no retry path, silently losing the write.
+// Removed rather than patched: useSyncQueue.ts is the actively maintained,
+// more correct implementation (verified-connection trigger, not just the
+// unreliable raw 'online' event), so there's no reason to keep two flush
+// loops racing over the same Dexie table.
 
 import { supabase } from './supabase'
 import { db }       from './db'
@@ -11,70 +24,6 @@ type UserRole =
   | 'principal' | 'deputy'       | 'dos'      | 'secretary'
   | 'bursar'    | 'class_teacher' | 'teacher'
   | 'student'   | 'parent'       | 'it_admin'
-
-// Tables that offline writes are allowed to touch. Finance tables are excluded.
-const ALLOWED_SYNC_TABLES = new Set([
-  'attendance', 'messages', 'exam_results', 'teacher_remarks',
-  'curriculum_plan', 'discipline_records', 'school_events',
-])
-
-// ── Flush pending writes ───────────────────────────────────────────────────────
-export async function flushSyncQueue(): Promise<void> {
-  const pending = await db.sync_queue
-    .where('status')
-    .equals('pending')
-    .toArray()
-
-  if (pending.length === 0) return
-
-  for (const item of pending) {
-    try {
-      if (!ALLOWED_SYNC_TABLES.has(item.tableName)) {
-        await db.sync_queue.update(item.id!, { status: 'failed' })
-        continue
-      }
-
-      const payload = JSON.parse(item.payload) as Record<string, unknown>
-
-      let error: { message: string } | null = null
-
-      if (item.actionType === 'delete') {
-        const recordId  = payload['id'] as string | undefined
-        const schoolId  = (item as any).schoolId as string | undefined
-        if (!recordId) {
-          // Guard: don't delete without an id
-        } else {
-          let q = supabase.from(item.tableName).delete().eq('id', recordId)
-          if (schoolId) q = (q as any).eq('school_id', schoolId)
-          const { error: e } = await q
-          error = e
-        }
-      } else {
-        const { error: e } = await supabase
-          .from(item.tableName)
-          .upsert(payload)
-        error = e
-      }
-
-      if (item.id != null) {
-        await db.sync_queue.update(item.id, {
-          status: error ? 'failed' : 'synced',
-        })
-      }
-    } catch {
-      if (item.id != null) {
-        await db.sync_queue.update(item.id, { status: 'failed' })
-      }
-    }
-  }
-}
-
-// ── Attach once to the window 'online' event — safe to call on app start ─────
-export function startSyncListener(): void {
-  window.addEventListener('online', () => {
-    void flushSyncQueue()
-  })
-}
 
 // ── Role-specific cache priming helpers ───────────────────────────────────────
 

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { downloadFeeTemplate } from '../../lib/importTemplates'
+import { localToday } from '../../lib/dates'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import type { ColumnSpec, ParsedRow, ImportResult } from '../../components/shared/ImportWizard'
@@ -374,7 +375,7 @@ export function BursarImportPage() {
             amount_paid:      amountPaid,
             // balance is DB-generated (amount_due - amount_paid) — never set explicitly.
             fee_structure_id: m.feeStructureId,
-            payment_date:   r.payment_date ? String(r.payment_date) : (amountPaid > 0 ? new Date().toISOString().slice(0, 10) : null),
+            payment_date:   r.payment_date ? String(r.payment_date) : (amountPaid > 0 ? localToday() : null),
             receipt_number: r.receipt_number ? String(r.receipt_number) : null,
             notes:          r.notes ? String(r.notes) : null,
             imported:       true,
@@ -393,7 +394,7 @@ export function BursarImportPage() {
         amount_paid:      amountPaid,
         amount_due:       amountDue,
         // balance is DB-generated (amount_due - amount_paid) — never set explicitly.
-        payment_date:     r.payment_date ? String(r.payment_date) : (amountPaid > 0 ? new Date().toISOString().slice(0, 10) : null),
+        payment_date:     r.payment_date ? String(r.payment_date) : (amountPaid > 0 ? localToday() : null),
         receipt_number:   r.receipt_number ? String(r.receipt_number) : null,
         notes:            r.notes ? String(r.notes) : null,
         term:             termNum,

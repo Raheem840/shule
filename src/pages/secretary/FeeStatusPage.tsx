@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useSchoolSettings } from '../../hooks/useAdmin'
+import { useAcademicYears } from '../../hooks/useFeeStructure'
 import { csvField } from '../../lib/csv'
 import { printElement, PRINT_INK, PRINT_RULE, PRINT_BRAND } from '../../lib/printElement'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
@@ -28,10 +29,12 @@ type StudentFeeStatus = {
 
 function useStudentFeeStatus(classId: string, streamId: string) {
   const { user } = useAuth()
+  const { data: academicYears = [] } = useAcademicYears()
+  const activeYearId = academicYears.find(y => y.isActive)?.id ?? null
 
   return useQuery({
-    queryKey: ['student-fee-status', user?.schoolId, classId, streamId],
-    enabled:  !!user,
+    queryKey: ['student-fee-status', user?.schoolId, classId, streamId, activeYearId],
+    enabled:  !!user && !!activeYearId,
     queryFn: async (): Promise<StudentFeeStatus[]> => {
       const sid = user!.schoolId
 
@@ -48,11 +51,18 @@ function useStudentFeeStatus(classId: string, streamId: string) {
         studQ,
         supabase.from('classes').select('id, name').eq('school_id', sid),
         supabase.from('streams').select('id, name').eq('school_id', sid),
-        // Only fetch existence (has paid / not paid) — no amounts
+        // Only fetch existence (has paid / not paid) — no amounts.
+        // Scoped to the active academic year — previously had no
+        // academic_year_id filter at all, so a student who fully paid a
+        // PAST year's fees could still show "Paid" today with a completely
+        // unpaid current year. (Still summed across all 3 terms of the
+        // active year, not one term at a time — this page has no term
+        // selector; a fully term-scoped view would need one added.)
         supabase
           .from('fee_payments')
           .select('student_id, amount_paid, amount_due')
-          .eq('school_id', sid),
+          .eq('school_id', sid)
+          .eq('academic_year_id', activeYearId!),
       ])
 
       if (studRes.error)  throw studRes.error

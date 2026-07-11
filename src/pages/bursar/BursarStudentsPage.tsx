@@ -13,6 +13,7 @@ import { Modal, ModalCancelButton } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
+import { localToday } from '../../lib/dates'
 import { useCurrentTermDefault } from '../../hooks/useCurrentTerm'
 import { ugx } from '../../hooks/useFeePayments'
 import { PillGroup } from '../../components/shared/PillGroup'
@@ -455,7 +456,7 @@ function QuickPaymentModal({
 }) {
   const toast  = useToast()
   const record = useRecordPayment()
-  const today  = new Date().toISOString().split('T')[0]
+  const today  = localToday()
 
   const [amountPaid,     setAmountPaid]     = useState('')
   const [paymentDate,    setPaymentDate]    = useState(today)

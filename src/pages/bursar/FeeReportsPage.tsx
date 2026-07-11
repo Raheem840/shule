@@ -11,12 +11,13 @@ import {
   useTopDefaulters, useFeeCollectionByStudentType, ugx,
 } from '../../hooks/useFeePayments'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
+import { useCurrentTermDefault } from '../../hooks/useCurrentTerm'
 
 const TERM_OPTIONS = [
   { value: 1, label: 'Term 1' },
   { value: 2, label: 'Term 2' },
   { value: 3, label: 'Term 3' },
-]
+] as const
 
 function ugxCompact(v: number) {
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
@@ -25,10 +26,13 @@ function ugxCompact(v: number) {
 }
 
 export function FeeReportsPage() {
-  const [term, setTerm] = useState(1)
   const [academicYearId, setAcademicYearId] = useState<string | null>(null)
 
   const { data: academicYears = [] } = useAcademicYears()
+  // Auto-corrects once to whichever term today's date falls in, as soon as
+  // real term dates load — previously stayed hardcoded at Term 1 forever, so
+  // reports/exports mid-Term-2/3 silently showed Term 1 numbers by default.
+  const [term, setTerm] = useCurrentTermDefault(academicYears.find(y => y.isActive) ?? null)
 
   // Default to the active year once years are loaded
   const resolvedYearId = useMemo(() => {

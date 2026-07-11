@@ -26,10 +26,16 @@ const ROLE_COLOURS: Record<string, string> = {
   it_admin:      '#374151',
 }
 
+// Must match staff_employment_type_check exactly (see ImportDataPage.tsx's
+// normalize step for the same constraint) — full_time/part_time/intern/
+// contract, not the permanent/volunteer values previously listed here, which
+// don't exist in the DB and left the most common value (full_time) showing
+// as a raw unformatted string.
 const EMPLOYMENT_LABEL: Record<string, string> = {
-  permanent: 'Permanent',
+  full_time: 'Full Time',
+  part_time: 'Part Time',
+  intern:    'Intern',
   contract:  'Contract',
-  volunteer: 'Volunteer',
 }
 
 const QUAL_LABELS: Record<number, string> = {

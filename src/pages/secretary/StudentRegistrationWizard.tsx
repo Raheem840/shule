@@ -3,6 +3,7 @@ import { useForm, useWatch, useFieldArray } from 'react-hook-form'
 import type { Control, FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { localToday } from '../../lib/dates'
 import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
@@ -206,7 +207,7 @@ export function StudentRegistrationWizard({ open, onClose, onSuccess }: Props) {
     defaultValues: {
       firstName: '', lastName: '', dateOfBirth: '', gender: '', nationality: '',
       religion: '', medicalNotes: '', admissionNumber: '', classId: '', streamId: '',
-      studentType: '', previousSchool: '', enrolledAt: new Date().toISOString().slice(0, 10),
+      studentType: '', previousSchool: '', enrolledAt: localToday(),
       guardians: [{ guardianName: '', relationship: '', phone: '', email: '', isPrimary: true, doNotContact: false, commsPreference: 'sms' }],
     },
   })

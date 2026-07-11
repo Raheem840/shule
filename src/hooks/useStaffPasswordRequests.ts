@@ -60,6 +60,7 @@ export function usePendingStaffPasswordRequests() {
       const { data: staffRows } = await supabase
         .from('staff')
         .select('id, first_name, last_name, staff_number, role')
+        .eq('school_id', user!.schoolId)
         .in('id', staffIds)
 
       const staffMap = new Map((staffRows ?? []).map((s: any) => [s.id as string, s]))

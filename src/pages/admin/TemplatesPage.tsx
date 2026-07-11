@@ -27,15 +27,20 @@ export function TemplatesPage() {
     setUploading(true)
     try {
       const path = await uploadTemplate(user.schoolId, file)
-      setFileName(file.name)
-      setSuccess(true)
 
-      // Save the storage path into school_profile.report_template_url
-      // so the PDF generator can find and download it when generating report cards
-      await supabase
+      // Save the storage path into school_profile.report_template_url so the
+      // PDF generator can find and download it when generating report cards.
+      // Checked before declaring success — previously discarded, so a failed
+      // update (RLS issue, network blip) still showed "success" while report
+      // cards silently kept using the old/no template.
+      const { error: profileErr } = await supabase
         .from('school_profile')
         .update({ report_template_url: path })
         .eq('id', user.schoolId)
+      if (profileErr) throw new Error(profileErr.message)
+
+      setFileName(file.name)
+      setSuccess(true)
 
       // Generate a short-lived signed URL for the preview only
       const signed = await getSignedUrl(BUCKETS.TEMPLATES, path, 300)
