@@ -51,6 +51,30 @@ export function useExamResults(journalId: string | null | undefined) {
   })
 }
 
+// ── useExamResultsForJournals ───────────────────────────────────
+// All saved results across MULTIPLE exam journals — for pages needing every
+// subject's marks for a class/term (e.g. a report preview), where using
+// useExamResults with a single journal id would silently show only one
+// subject's results.
+export function useExamResultsForJournals(journalIds: string[]) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['exam-results-multi', user?.schoolId, [...journalIds].sort()],
+    enabled:  journalIds.length > 0 && !!user,
+    queryFn:  async () => {
+      const { data, error } = await supabase
+        .from('exam_results')
+        .select(RESULT_COLS)
+        .in('exam_journal_id', journalIds)
+        .eq('school_id', user!.schoolId)
+
+      if (error) throw error
+      return (data ?? []).map(r => toResult(r as unknown as AnyRow))
+    },
+  })
+}
+
 // ── MarkRow ────────────────────────────────────────────────────
 // One row of mark data to upsert — mirrors what the mark entry UI collects.
 export type MarkRow = {

@@ -3,8 +3,9 @@ import { useClasses }        from '../../hooks/useClasses'
 import { useStudents }       from '../../hooks/useStudents'
 import { useReportCards }    from '../../hooks/useReportCards'
 import { useTeacherRemarks } from '../../hooks/useTeacherRemarks'
-import { useExamResults } from "../../hooks/useExamResults"
+import { useExamResultsForJournals } from '../../hooks/useExamResults'
 import { useExamJournals }   from '../../hooks/useExamJournal'
+import type { ExamJournal } from '../../types/app'
 import { calcCBC }           from '../../types/app'
 import { Avatar }            from '../../components/shared/Avatar'
 import type { ReportCardStatus } from '../../types/app'
@@ -22,8 +23,14 @@ const GRADE_COLOR: Record<string, string> = {
   A: 'var(--success)', B: 'var(--brand)', C: 'var(--info)', D: 'var(--warning)', E: 'var(--danger)',
 }
 
-function ScoresTable({ studentId, journalIds }: { studentId: string; journalIds: string[] }) {
-  const { data: results = [], isLoading } = useExamResults(journalIds[0] ?? null)
+function ScoresTable({ studentId, journalIds, journalsById }: {
+  studentId: string; journalIds: string[]; journalsById: Map<string, ExamJournal>
+}) {
+  // Fetches across ALL of the class's journals for this term, not just the
+  // first one — a class always has more than one subject's journal, and the
+  // previous single-journal fetch meant every subject but the first silently
+  // never appeared in this preview.
+  const { data: results = [], isLoading } = useExamResultsForJournals(journalIds)
   if (isLoading) return <div className="shule-skeleton" style={{ height: 40, borderRadius: 8 }} />
   const myResults = results.filter(r => r.studentId === studentId)
   if (myResults.length === 0) return <div style={{ fontSize: 12, color: 'var(--txt3)', padding: '8px 0' }}>No marks entered yet</div>
@@ -31,16 +38,24 @@ function ScoresTable({ studentId, journalIds }: { studentId: string; journalIds:
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
       <thead>
         <tr>
-          {['Score', 'Grade', 'Descriptor'].map(h => (
+          {['Subject', 'Score', 'Grade', 'Descriptor'].map(h => (
             <th key={h} style={{ padding: '5px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', background: 'var(--surface2)', borderBottom: '.5px solid var(--border)' }}>{h}</th>
           ))}
         </tr>
       </thead>
       <tbody>
         {myResults.map(r => {
-          const cbc = r.score != null ? calcCBC(0, 0, r.score) : null
+          const journal = journalsById.get(r.examJournalId)
+          // A single result's raw score is only a valid CBC exam grade when
+          // it's an end-of-term (out-of-80) journal — a CA result's score is
+          // 0-3 per competency and would produce a nonsensical grade if fed
+          // into calcCBC's examScore param directly (the exact CA-percentage
+          // bug class fixed elsewhere this session, applied here too).
+          const isEndOfTerm = journal?.assessmentType === 'end_of_term'
+          const cbc = isEndOfTerm && r.score != null ? calcCBC(0, 0, r.score) : null
           return (
             <tr key={r.id} style={{ borderBottom: '.5px solid var(--border)' }}>
+              <td style={{ padding: '6px 10px', color: 'var(--txt2)' }}>{journal?.name ?? '—'}</td>
               <td style={{ padding: '6px 10px', fontWeight: 700, fontFamily: 'var(--font3)', color: r.isAbsent ? 'var(--warning)' : 'var(--txt)' }}>{r.isAbsent ? 'ABS' : (r.score ?? '—')}</td>
               <td style={{ padding: '6px 10px' }}>{cbc && !r.isAbsent ? <span style={{ fontWeight: 800, fontSize: 14, color: GRADE_COLOR[cbc.grade] ?? 'var(--txt)' }}>{cbc.grade}</span> : '—'}</td>
               <td style={{ padding: '6px 10px', color: 'var(--txt2)' }}>{cbc && !r.isAbsent ? cbc.descriptor : '—'}</td>
@@ -64,8 +79,9 @@ export function ReportPreviewPage() {
   const { data: reportCards = [], isLoading: rcLoading } = useReportCards({ term: String(term), year, classId: classId || undefined }, !!classId)
   const { data: remarks } = useTeacherRemarks({ term: String(term), year, classId: classId || undefined, streamId: null })
 
-  const rcMap      = new Map(reportCards.map(r => [r.studentId, r]))
-  const journalIds = journals.map(j => j.id)
+  const rcMap       = new Map(reportCards.map(r => [r.studentId, r]))
+  const journalIds  = journals.map(j => j.id)
+  const journalsById = new Map(journals.map(j => [j.id, j]))
   const isLoading  = !!classId && rcLoading
 
   const toggle = (id: string) => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -178,7 +194,7 @@ export function ReportPreviewPage() {
                       </div>
                     )}
                     {journalIds.length > 0 ? (
-                      <ScoresTable studentId={stu.id} journalIds={journalIds} />
+                      <ScoresTable studentId={stu.id} journalIds={journalIds} journalsById={journalsById} />
                     ) : (
                       <div style={{ fontSize: 12, color: 'var(--txt3)' }}>No exam journals for Term {term} {year}</div>
                     )}

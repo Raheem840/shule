@@ -18,6 +18,15 @@ function journalTypeToEventType(assessmentType: string): TermEventType {
   return 'general'
 }
 
+// Same UTC-vs-local-date bug class fixed in EventTimeline.tsx's localToday():
+// new Date().toISOString() is the UTC date, not Uganda's local (UTC+3) date —
+// for the first ~3 hours of every local day this misdetects which term is
+// "active" at a term boundary.
+function localToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function diffDays(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / 86_400_000)
 }
@@ -33,7 +42,7 @@ function detectActiveTerm(row: Record<string, string | null>): {
   termStart: string
   termEnd: string
 } | null {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localToday()
   for (const n of [1, 2, 3] as const) {
     const s = row[`term${n}_start`]
     const e = row[`term${n}_end`]
