@@ -415,18 +415,20 @@ export function useDosCurriculumPlan(
 
       if (error) throw new Error(error.message)
 
-      // Resolve covered_by (auth_user_id) → teacher name, scoped to just the
-      // ids actually present here — not the whole school staff roster.
+      // Resolve covered_by → teacher name. covered_by is FK'd to staff.id
+      // (curriculum_plan_covered_by_fkey references staff(id)), not
+      // auth_user_id — scoped to just the ids actually present here, not
+      // the whole school staff roster.
       const coveredByIds = [...new Set((data ?? []).map((r: any) => r.covered_by).filter(Boolean))]
-      const nameByAuthId = new Map<string, string>()
+      const nameByStaffId = new Map<string, string>()
       if (coveredByIds.length > 0) {
         const { data: staffRows } = await supabase
           .from('staff')
-          .select('auth_user_id, first_name, last_name')
+          .select('id, first_name, last_name')
           .eq('school_id', user!.schoolId)
-          .in('auth_user_id', coveredByIds as string[])
+          .in('id', coveredByIds as string[])
         for (const s of (staffRows ?? []) as any[]) {
-          nameByAuthId.set(s.auth_user_id, `${s.first_name} ${s.last_name}`)
+          nameByStaffId.set(s.id, `${s.first_name} ${s.last_name}`)
         }
       }
 
@@ -442,7 +444,7 @@ export function useDosCurriculumPlan(
         plannedDate:   r.expected_date,
         coveredAt:     r.covered_at,
         coveredBy:     r.covered_by,
-        coveredByName: r.covered_by ? (nameByAuthId.get(r.covered_by) ?? null) : null,
+        coveredByName: r.covered_by ? (nameByStaffId.get(r.covered_by) ?? null) : null,
         teacherId:     null,
         sequenceOrder: idx + 1,
       }))
@@ -465,7 +467,7 @@ export function useMarkTopicCovered() {
         .update({
           covered:    true,
           covered_at: new Date().toISOString(),
-          covered_by: user.id,
+          covered_by: user.staffId ?? null,
         })
         .eq('id', topicId)
         .eq('school_id', user.schoolId)

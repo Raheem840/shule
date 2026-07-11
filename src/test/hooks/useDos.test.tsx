@@ -258,7 +258,8 @@ describe('useDosClassPerformance', () => {
 })
 
 // ── useDosCurriculumPlan — coveredByName resolution ────────────────────────
-// coveredBy stores the marker's auth_user_id; the hook resolves it to a
+// coveredBy stores the marker's staff.id (curriculum_plan_covered_by_fkey
+// references staff(id), not auth_user_id); the hook resolves it to a
 // display name via a staff lookup scoped to just the ids present in the
 // fetched topics — not the whole school staff roster.
 describe('useDosCurriculumPlan — coveredByName resolution', () => {
@@ -267,12 +268,12 @@ describe('useDosCurriculumPlan — coveredByName resolution', () => {
       data: [{
         id: 't1', school_id: 'school-1', subject_id: 'sub-1', class_id: 'cls-1',
         topic: 'Algebra', term: '1', year: 2026, expected_date: null,
-        covered: true, covered_at: '2026-02-01T00:00:00Z', covered_by: 'auth-1',
+        covered: true, covered_at: '2026-02-01T00:00:00Z', covered_by: 'staff-1',
       }],
       error: null,
     })
     setTableData('staff', {
-      data: [{ auth_user_id: 'auth-1', first_name: 'Jane', last_name: 'Doe' }],
+      data: [{ id: 'staff-1', first_name: 'Jane', last_name: 'Doe' }],
       error: null,
     })
 
