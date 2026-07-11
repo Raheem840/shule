@@ -9,10 +9,10 @@ import { useToast } from '../ui/Toast'
 
 // ── ConfirmDialog ─────────────────────────────────────────────────────────────
 function ConfirmDialog({
-  title, message, confirmLabel, onConfirm, onCancel, dangerous,
+  title, message, confirmLabel, onConfirm, onCancel, dangerous, busy,
 }: {
   title: string; message: string; confirmLabel: string;
-  onConfirm: () => void; onCancel: () => void; dangerous?: boolean
+  onConfirm: () => void; onCancel: () => void; dangerous?: boolean; busy?: boolean
 }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -20,12 +20,13 @@ function ConfirmDialog({
         <h3 style={{ margin: '0 0 10px', fontSize: 16, fontWeight: 800, color: dangerous ? 'var(--danger)' : 'var(--txt)' }}>{title}</h3>
         <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--txt2)' }}>{message}</p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button className="sui-btn-ghost" onClick={onCancel}>Cancel</button>
+          <button className="sui-btn-ghost" onClick={onCancel} disabled={busy}>Cancel</button>
           <button
             onClick={onConfirm}
+            disabled={busy}
             style={{
-              padding: '8px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13,
-              background: dangerous ? 'var(--danger)' : 'var(--brand)', color: '#fff',
+              padding: '8px 18px', borderRadius: 8, border: 'none', cursor: busy ? 'default' : 'pointer', fontWeight: 700, fontSize: 13,
+              background: dangerous ? 'var(--danger)' : 'var(--brand)', color: '#fff', opacity: busy ? 0.7 : 1,
             }}>
             {confirmLabel}
           </button>
@@ -102,6 +103,7 @@ function SelectivePromotionPanel({ onDone }: { onDone: (result: { promoted: numb
   }
 
   async function handlePromote() {
+    if (selectivePromote.isPending) return
     setShowFinalConfirm(false)
     try {
       const result = await selectivePromote.mutateAsync(Array.from(checked))
@@ -358,6 +360,7 @@ function SelectivePromotionPanel({ onDone }: { onDone: (result: { promoted: numb
           confirmLabel={`Promote ${selectedCount} Students`}
           onConfirm={handlePromote}
           onCancel={() => setShowFinalConfirm(false)}
+          busy={selectivePromote.isPending}
         />
       )}
 
@@ -426,6 +429,12 @@ export function PromoteStudentsSection() {
   const [showSelectiveFlow, setShowSelectiveFlow] = useState(false)
 
   async function handlePromoteAll() {
+    // Guards re-entrancy at the source, not just via the confirm button's
+    // disabled state — the confirm dialog closes synchronously below, but a
+    // second invocation reaching here before promote.isPending flips true
+    // (e.g. a rapid double-click landing in the same frame) would otherwise
+    // still kick off a second concurrent promotion run.
+    if (promote.isPending) return
     setShowPromoteConfirm(false)
     setProgress(0)
     try {
@@ -448,6 +457,7 @@ export function PromoteStudentsSection() {
           dangerous
           onConfirm={handlePromoteAll}
           onCancel={() => setShowPromoteConfirm(false)}
+          busy={promote.isPending}
         />
       )}
 
