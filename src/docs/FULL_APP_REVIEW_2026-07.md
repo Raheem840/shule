@@ -34,7 +34,7 @@ Findings that are real but low-severity/pre-existing/out-of-scope are logged **D
 | 2 | Principal B | PrincipalReportCardsPage, PrincipalSettingsPage, PrincipalStaffPage, PrincipalStaffProfilePage, PrincipalStudentsPage, StudentFullProfilePage | done | 12 | 14 | `7ed44b7` |
 | 3 | Deputy | DeputyDashboard, DeputyDepartmentsPage, DeputyStaffPage, DeputyStudentsPage, DeputyTimetablePage, DisciplinePage | done | 10 | 12 | `d20b7f0` |
 | 4 | DOS A | DosDashboard, DosClassesPage, DosStudentsPage, DosSubjectsPage, DosSurveysPage | done | 11 | 13 | `3daa8a4` |
-| 5 | DOS B | DosJournalsPage, DosTeachersPage, DosTimetablePage, DosCurriculumPage | pending | | | |
+| 5 | DOS B | DosJournalsPage, DosTeachersPage, DosTimetablePage, DosCurriculumPage | done | 3 files covered by reactive bug fixes this session (CA%-conversion, read-only drill-in, mobile redesign, period/day-restriction, covered_by FK mismatch — all committed + green checkpoints); DosTeachersPage reviewed directly, no findings | none | 448d943, ca33c56, d6618e8 |
 | 6 | Secretary A | StudentRegistrationWizard, StaffRegistrationWizard, StudentsPage, SecretaryStudentsPage, SecretaryStudentEditPage | pending | | | |
 | 7 | Secretary B | ParentCredentialsPage, ReportCardsPage, ClassListPage, ImportDataPage | pending | | | |
 | 8 | Secretary C | SecretaryDashboard, SecretaryReportsPage, SecretaryStaffPage, SchoolAtAGlancePage, FeeStatusPage | pending | | | |
