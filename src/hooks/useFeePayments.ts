@@ -638,38 +638,44 @@ export function useAddPayment() {
       // this modal previously always inserted, so recording a second payment for
       // a student who already had a row created a duplicate that double-counts
       // in every KPI/ledger aggregate. Match useRecordPayment's own convention.
-      // fee_structure_id must ALWAYS be part of the match (via .is() for null,
-      // not skipped) — otherwise a manual/general payment with no fee item
-      // selected can match (and silently overwrite) an unrelated existing row
-      // for a specific fee item, e.g. merging a general payment into a Tuition
-      // row and discarding that row's own receipt/date/amountDue.
-      let existQ = supabase
-        .from('fee_payments')
-        .select('id, amount_paid, amount_due')
-        .eq('school_id', user!.schoolId)
-        .eq('student_id', input.studentId)
-        .eq('term', input.term)
-      if (input.academicYearId) existQ = existQ.eq('academic_year_id', input.academicYearId)
-      existQ = input.feeStructureId
-        ? existQ.eq('fee_structure_id', input.feeStructureId)
-        : existQ.is('fee_structure_id', null)
-      const { data: existing } = await existQ.limit(1).maybeSingle()
-
-      if (existing) {
-        const ex      = existing as { id: string; amount_paid: number; amount_due: number }
-        const newPaid = Number(ex.amount_paid) + input.amountPaid
-        const { error } = await supabase
+      //
+      // Only done when a real fee_structure_id is selected — a manual/general
+      // payment (no fee item) has no identifier distinguishing one ad-hoc
+      // charge from another, so treating every null-fee_structure_id row as
+      // one mergeable bucket per student/term previously merged genuinely
+      // different charges together (e.g. a "Lunch Fee" manual entry, then
+      // later a "Transport Fee" manual entry, silently combined into one row
+      // with amount_paid summed but amount_due frozen at the first entry's
+      // value, discarding the second charge's own due amount/notes
+      // entirely). Confirmed intentional: manual entries should always be
+      // their own distinct row, never merged by null fee_structure_id.
+      if (input.feeStructureId) {
+        let existQ = supabase
           .from('fee_payments')
-          .update({
-            amount_paid:    newPaid,
-            // balance is DB-generated (amount_due - amount_paid) — never set explicitly.
-            payment_date:   input.paymentDate || null,
-            receipt_number: input.receiptNumber || null,
-            notes:          input.notes || null,
-          })
-          .eq('id', ex.id)
-        if (error) throw error
-        return ex.id
+          .select('id, amount_paid, amount_due')
+          .eq('school_id', user!.schoolId)
+          .eq('student_id', input.studentId)
+          .eq('term', input.term)
+          .eq('fee_structure_id', input.feeStructureId)
+        if (input.academicYearId) existQ = existQ.eq('academic_year_id', input.academicYearId)
+        const { data: existing } = await existQ.limit(1).maybeSingle()
+
+        if (existing) {
+          const ex      = existing as { id: string; amount_paid: number; amount_due: number }
+          const newPaid = Number(ex.amount_paid) + input.amountPaid
+          const { error } = await supabase
+            .from('fee_payments')
+            .update({
+              amount_paid:    newPaid,
+              // balance is DB-generated (amount_due - amount_paid) — never set explicitly.
+              payment_date:   input.paymentDate || null,
+              receipt_number: input.receiptNumber || null,
+              notes:          input.notes || null,
+            })
+            .eq('id', ex.id)
+          if (error) throw error
+          return ex.id
+        }
       }
 
       const { data, error } = await supabase

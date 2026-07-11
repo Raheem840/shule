@@ -1,0 +1,13 @@
+-- Reverts 20260712_000002_fee_payments_null_struct_dedupe.sql.
+--
+-- That migration assumed a manual/general payment (fee_structure_id null)
+-- represented one recurring ad-hoc charge per student/term, so de-duplicating
+-- by (student_id, term, academic_year_id) was correct. Confirmed with the
+-- school this was the WRONG assumption: a bursar recording, say, a manual
+-- "Lunch Fee" and later a separate manual "Transport Fee" for the same
+-- student/term are two genuinely distinct charges, not installments toward
+-- one bill — the unique index blocked the second one from ever being
+-- inserted as its own row. useAddPayment (useFeePayments.ts) has been fixed
+-- to match: it now only merges into an existing row when a real
+-- fee_structure_id is selected; manual entries always insert a new row.
+drop index if exists fee_payments_null_struct_student_term_idx;

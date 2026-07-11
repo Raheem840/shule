@@ -312,13 +312,14 @@ describe('useFeeCollectionByStudentType', () => {
 
 describe('useAddPayment', () => {
   it('inserts a new row (with balance = amountDue - amountPaid) when no existing record is found', async () => {
-    // The existence-check (.maybeSingle()) must resolve to "not found" while the
-    // subsequent insert's own .select().single() resolves to the new row — two
-    // different calls against the same table. Use mockImplementationOnce (not
-    // mockImplementation) so this doesn't leak into later tests in this file.
+    // A real fee_structure_id is provided here, so the existence-check runs
+    // first (.maybeSingle(), resolving "not found") before the insert's own
+    // .select().single() resolves the new row — two different calls against
+    // the same table. Use mockImplementationOnce (not mockImplementation) so
+    // this doesn't leak into later tests in this file.
     const notFoundBuilder: any = {
       select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
-      is: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     }
     const insertBuilder: any = {
@@ -333,7 +334,7 @@ describe('useAddPayment', () => {
     let returnedId: string | undefined
     await act(async () => {
       returnedId = await result.current.mutateAsync({
-        studentId: 'stu-1', feeStructureId: null, academicYearId: null,
+        studentId: 'stu-1', feeStructureId: 'fs-1', academicYearId: null,
         amountDue: 400_000, amountPaid: 200_000,
         paymentDate: '2025-06-01', receiptNumber: 'RCP-001',
         notes: null, term: 1,
@@ -351,7 +352,7 @@ describe('useAddPayment', () => {
     expect(insertedPayload).not.toHaveProperty('balance')
   })
 
-  it('updates (increments amount_paid) an existing record instead of inserting a duplicate row', async () => {
+  it('updates (increments amount_paid) an existing record for the same fee_structure_id instead of inserting a duplicate row', async () => {
     // maybeSingle() resolves the existence-check query with a pre-existing row.
     setResponse('fee_payments', {
       data: { id: 'existing-row-1', amount_paid: 100_000, amount_due: 400_000 },
@@ -362,7 +363,7 @@ describe('useAddPayment', () => {
 
     await act(async () => {
       await result.current.mutateAsync({
-        studentId: 'stu-1', feeStructureId: null, academicYearId: 'year-1',
+        studentId: 'stu-1', feeStructureId: 'fs-1', academicYearId: 'year-1',
         amountDue: 400_000, amountPaid: 150_000,
         paymentDate: '2025-06-01', receiptNumber: null,
         notes: null, term: 1,
@@ -384,20 +385,17 @@ describe('useAddPayment', () => {
     expect(feePaymentsBuilders.some(b => (b.insert as ReturnType<typeof vi.fn>).mock.calls.length > 0)).toBe(false)
   })
 
-  it('always includes fee_structure_id in the existence match (via .is() when null) — never matches an unrelated fee item', async () => {
-    // A payment with no fee item selected must not silently match/overwrite an
-    // existing row tied to a specific fee_structure_id (e.g. a Tuition row).
-    const notFoundBuilder2: any = {
-      select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
-      is: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-    }
-    const insertBuilder2: any = {
+  it('a manual/general payment (no fee_structure_id) always inserts a new row — never looks up or merges into an existing one', async () => {
+    // Confirmed intentional: two different manual charges for the same
+    // student/term (e.g. a "Lunch Fee" entry, then later a "Transport Fee"
+    // entry) are genuinely distinct — there's no fee_structure_id to tell
+    // them apart, so merging by "null" previously combined unrelated charges
+    // into one row, discarding the second one's own amount_due/notes.
+    const insertBuilder: any = {
       select: vi.fn().mockReturnThis(), insert: vi.fn().mockReturnThis(),
       single: vi.fn().mockResolvedValue({ data: { id: 'new-pay-id-2' }, error: null }),
     }
-    mockFrom.mockImplementationOnce(() => notFoundBuilder2)
-    mockFrom.mockImplementationOnce(() => insertBuilder2)
+    mockFrom.mockImplementationOnce(() => insertBuilder)
 
     const { result } = renderHook(() => useAddPayment(), { wrapper: createWrapper() })
 
@@ -410,9 +408,13 @@ describe('useAddPayment', () => {
       })
     })
 
-    expect(notFoundBuilder2.is).toHaveBeenCalledWith('fee_structure_id', null)
-    // Never falls back to skipping the fee_structure_id filter entirely.
-    expect(notFoundBuilder2.eq).not.toHaveBeenCalledWith('fee_structure_id', expect.anything())
+    // Only ONE call against fee_payments (the insert) — no existence-check
+    // query was ever made for a null fee_structure_id.
+    const feePaymentsCalls = mockFrom.mock.calls.filter(c => c[0] === 'fee_payments')
+    expect(feePaymentsCalls.length).toBe(1)
+    expect(insertBuilder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ fee_structure_id: null, amount_due: 100_000, amount_paid: 50_000 })
+    )
   })
 })
 
