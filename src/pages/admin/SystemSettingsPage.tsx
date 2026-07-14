@@ -88,7 +88,7 @@ export function SystemSettingsPage() {
   const activeYear = years.find((y: any) => y.is_active)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 720 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1100, margin: '0 auto' }}>
       {/* Page header */}
       <div style={{ display:'flex', alignItems:'flex-start', gap:14, position:'relative', overflow:'hidden' }}>
         <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,.18),transparent 70%)', filter:'blur(50px)', pointerEvents:'none' }} />
@@ -159,49 +159,51 @@ export function SystemSettingsPage() {
         </div>
       </div>
 
-      {/* Active year */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 20px' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 6 }}>Active Academic Year</div>
-        {yearsLoading ? (
-          <LoadingSpinner size={16} />
-        ) : activeYear ? (
-          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--brand)', fontFamily: 'var(--font3)' }}>{(activeYear as any).name}</div>
-        ) : (
-          <div style={{ fontSize: 13, color: 'var(--txt3)', fontStyle: 'italic' }}>No active year set</div>
-        )}
-      </div>
-
-      {/* Storage */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt)' }}>Storage Buckets</div>
+      {/* Active year + Storage — side by side so the tiny "active year" card doesn't
+          leave the table alone to stretch full width awkwardly. */}
+      <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 320px) 1fr', gap: 20, alignItems: 'start' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 20px' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', marginBottom: 6 }}>Active Academic Year</div>
+          {yearsLoading ? (
+            <LoadingSpinner size={16} />
+          ) : activeYear ? (
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--brand)', fontFamily: 'var(--font3)' }}>{(activeYear as any).name}</div>
+          ) : (
+            <div style={{ fontSize: 13, color: 'var(--txt3)', fontStyle: 'italic' }}>No active year set</div>
+          )}
         </div>
-        {bucketsLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><LoadingSpinner size="sm" /></div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', minWidth: 380, borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['Bucket', 'Files', 'Size (MB)'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {buckets.length === 0 ? (
-                  <tr><td colSpan={3} style={{ padding: 24, textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No buckets found.</td></tr>
-                ) : buckets.map(b => (
-                  <tr key={b.name} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--txt)' }}>{b.name}</td>
-                    <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt2)' }}>{b.fileCount}</td>
-                    <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt2)' }}>{b.sizeMb}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt)' }}>Storage Buckets</div>
           </div>
-        )}
+          {bucketsLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><LoadingSpinner size="sm" /></div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 380, borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+                    {['Bucket', 'Files', 'Size (MB)'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {buckets.length === 0 ? (
+                    <tr><td colSpan={3} style={{ padding: 24, textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No buckets found.</td></tr>
+                  ) : buckets.map(b => (
+                    <tr key={b.name} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--txt)' }}>{b.name}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt2)' }}>{b.fileCount}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'var(--font3)', color: 'var(--txt2)' }}>{b.sizeMb}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

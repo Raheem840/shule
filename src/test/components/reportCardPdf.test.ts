@@ -39,7 +39,7 @@ beforeEach(() => vi.clearAllMocks())
 
 function makeData(overrides: Partial<ReportCardPdfData> = {}): ReportCardPdfData {
   return {
-    school:            { name: 'Kampala Junior Academy', motto: null, logoUrl: null, templateBase64: null, templateMimeType: 'image/png' },
+    school:            { name: 'Kampala Junior Academy', motto: null, logoUrl: null, logoBase64: null, logoMimeType: 'image/jpeg', templateBase64: null, templateMimeType: 'image/png' },
     student: {
       firstName: 'Alice', lastName: 'Nakato',
       admissionNumber: 'KJA/2025/001', gender: 'Female',
@@ -198,7 +198,7 @@ describe('generateReportCardPDF', () => {
   })
 
   it('calls doc.text with the school name (uppercased)', () => {
-    generateReportCardPDF(makeData({ school: { name: 'KJA', motto: null, logoUrl: null, templateBase64: null, templateMimeType: 'image/png' } }))
+    generateReportCardPDF(makeData({ school: { name: 'KJA', motto: null, logoUrl: null, logoBase64: null, logoMimeType: 'image/jpeg', templateBase64: null, templateMimeType: 'image/png' } }))
     const textArgs = mockDoc.text.mock.calls.map((c: unknown[]) => c[0])
     expect(textArgs).toContain('KJA')
   })
@@ -241,7 +241,7 @@ describe('generateReportCardPDF', () => {
 
   it('does not crash when school motto is null', () => {
     expect(() =>
-      generateReportCardPDF(makeData({ school: { name: 'KJA', motto: null, logoUrl: null, templateBase64: null, templateMimeType: 'image/png' } }))
+      generateReportCardPDF(makeData({ school: { name: 'KJA', motto: null, logoUrl: null, logoBase64: null, logoMimeType: 'image/jpeg', templateBase64: null, templateMimeType: 'image/png' } }))
     ).not.toThrow()
   })
 
@@ -255,7 +255,7 @@ describe('generateReportCardPDF', () => {
 
   it('renders school motto when provided', () => {
     generateReportCardPDF(makeData({
-      school: { name: 'KJA', motto: 'Excellence in All', logoUrl: null, templateBase64: null, templateMimeType: 'image/png' },
+      school: { name: 'KJA', motto: 'Excellence in All', logoUrl: null, logoBase64: null, logoMimeType: 'image/jpeg', templateBase64: null, templateMimeType: 'image/png' },
     }))
     expect(mockDoc.splitTextToSize).not.toHaveBeenCalledWith('Excellence in All', expect.any(Number))
     // motto is rendered via doc.text — check for the quoted form

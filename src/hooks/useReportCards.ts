@@ -254,6 +254,31 @@ export function useGenerateReportCards() {
         }
       }
 
+      // ── Load school badge/logo as base64 (text-header fallback only —
+      // a custom letterhead template already carries its own branding) ─
+      // logo_url is a full public URL (staff-photos bucket), not a storage
+      // path, so it's fetched directly rather than through downloadFile().
+      let logoBase64:   string | null = null
+      let logoMimeType: string        = 'image/jpeg'
+      const logoUrl = (school as Record<string, unknown>).logo_url as string | null
+      if (logoUrl && !templateBase64) {
+        try {
+          const res = await fetch(logoUrl)
+          const blob = await res.blob()
+          logoMimeType = blob.type || 'image/jpeg'
+          const reader = await new Promise<string>((resolve, reject) => {
+            const fr = new FileReader()
+            fr.onload  = () => resolve(fr.result as string)
+            fr.onerror = reject
+            fr.readAsDataURL(blob)
+          })
+          logoBase64 = reader.split(',')[1] ?? null
+        } catch {
+          // Logo load failed — fall back to text-only header silently
+          logoBase64 = null
+        }
+      }
+
       // ── Fetch class + stream names ─────────────────────────
       const [clsRes, strRes] = await Promise.all([
         supabase.from('classes').select('name, level').eq('id', classId).eq('school_id', schoolId).single(),
@@ -485,6 +510,8 @@ export function useGenerateReportCards() {
               name:             school.school_name as string,
               motto:            (school.motto as string) ?? null,
               logoUrl:          (school.logo_url as string) ?? null,
+              logoBase64,
+              logoMimeType,
               templateBase64,
               templateMimeType,
             },

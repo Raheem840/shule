@@ -56,7 +56,7 @@ export function StudentFullProfilePage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 800 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none',
@@ -83,138 +83,149 @@ export function StudentFullProfilePage() {
         </div>
       </div>
 
-      {/* Personal Info */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>Personal Information</div>
-        <InfoRow label="Admission No."    value={profile.admissionNumber} />
-        <InfoRow label="Class"            value={profile.streamName ? `${profile.className} · ${profile.streamName}` : profile.className} />
-        <InfoRow label="Student Type"     value={profile.studentType ? profile.studentType.charAt(0).toUpperCase() + profile.studentType.slice(1) : null} />
-        <InfoRow label="Date of Birth"    value={profile.dob} />
-        <InfoRow label="Gender"           value={profile.gender} />
-        <InfoRow label="Nationality"      value={profile.nationality} />
-        <InfoRow label="Religion"         value={profile.religion} />
-        <InfoRow label="Previous School"  value={profile.previousSchool} />
-        <InfoRow label="Enrolled"         value={profile.enrolledAt ? new Date(profile.enrolledAt).toLocaleDateString() : null} />
-        {profile.medicalNotes && (
-          <InfoRow label="Medical Notes"  value={profile.medicalNotes} />
-        )}
-      </div>
+      {/* Two-column body — sidebar (personal info + fee status) alongside main content,
+          so wide screens don't leave the page pinned to a narrow left-aligned column. */}
+      <div className="mob-stack" style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 340px) 1fr', gap: 24, alignItems: 'start' }}>
 
-      {/* Academic Performance */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>Academic Performance</div>
-        {profile.examResults.length === 0 ? (
-          <div style={{ color: 'var(--txt3)', fontSize: 13 }}>No exam results recorded yet.</div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 360 }}>
-            <thead>
-              <tr>
-                {['Subject', 'Term', 'Year', 'Score', 'Grade'].map(h => (
-                  <th key={h} style={{ padding: '6px 10px', background: 'var(--surface2)',
-                    fontWeight: 700, fontSize: 11, color: 'var(--txt2)', textAlign: 'left' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {profile.examResults.slice(0, 30).map((r: any, i: number) => (
-                <tr key={i} className="sui-tr">
-                  <td style={{ padding: '6px 10px', fontSize: 12, color: 'var(--txt)' }}>{r.subjectName}</td>
-                  <td style={{ padding: '6px 10px', fontSize: 12, color: 'var(--txt2)' }}>{r.term}</td>
-                  <td style={{ padding: '6px 10px', fontSize: 12, color: 'var(--txt2)' }}>{r.year}</td>
-                  <td style={{ padding: '6px 10px', fontFamily: 'var(--font3)', fontSize: 13 }}>
-                    {r.score ?? '—'}
-                  </td>
-                  <td style={{ padding: '6px 10px', fontFamily: 'var(--font3)', fontSize: 13 }}>{r.grade ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* ── Sidebar ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Personal Info */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>Personal Information</div>
+            <InfoRow label="Admission No."    value={profile.admissionNumber} />
+            <InfoRow label="Class"            value={profile.streamName ? `${profile.className} · ${profile.streamName}` : profile.className} />
+            <InfoRow label="Student Type"     value={profile.studentType ? profile.studentType.charAt(0).toUpperCase() + profile.studentType.slice(1) : null} />
+            <InfoRow label="Date of Birth"    value={profile.dob} />
+            <InfoRow label="Gender"           value={profile.gender} />
+            <InfoRow label="Nationality"      value={profile.nationality} />
+            <InfoRow label="Religion"         value={profile.religion} />
+            <InfoRow label="Previous School"  value={profile.previousSchool} />
+            <InfoRow label="Enrolled"         value={profile.enrolledAt ? new Date(profile.enrolledAt).toLocaleDateString() : null} />
+            {profile.medicalNotes && (
+              <InfoRow label="Medical Notes"  value={profile.medicalNotes} />
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Attendance */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>Attendance Summary</div>
-        <div style={{ display: 'flex', gap: 16 }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 28, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--brand)' }}>
-              {profile.attendanceRate}%
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--txt3)' }}>Overall Rate</div>
-          </div>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-            <div style={{ width: '100%', height: 8, background: 'var(--surface2)', borderRadius: 99 }}>
-              <div style={{
-                height: 8, borderRadius: 99, width: `${profile.attendanceRate}%`,
-                background: profile.attendanceRate < 80 ? 'var(--danger)' : 'var(--success)',
-                transition: 'width 0.4s',
-              }} />
-            </div>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--txt2)', whiteSpace: 'nowrap' }}>
-            {profile.presentDays} / {profile.totalDays} days present
-          </div>
-        </div>
-      </div>
-
-      {/* Fee Summary — totals ONLY, no line items. Principal only — Deputy gets zero financial data. */}
-      {canSeeFinance && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>Fee Status</div>
-          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Total Billed</div>
-              <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--txt)' }}>
-                UGX {(profile.feeSummary.totalDue ?? 0).toLocaleString()}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Total Paid</div>
-              <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--success)' }}>
-                UGX {(profile.feeSummary.totalPaid ?? 0).toLocaleString()}
-              </div>
-            </div>
-            {(profile.feeSummary.totalDue ?? 0) - (profile.feeSummary.totalPaid ?? 0) > 0 && (
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Outstanding</div>
-                <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--danger)' }}>
-                  UGX {((profile.feeSummary.totalDue ?? 0) - (profile.feeSummary.totalPaid ?? 0)).toLocaleString()}
+          {/* Fee Summary — totals ONLY, no line items. Principal only — Deputy gets zero financial data. */}
+          {canSeeFinance && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>Fee Status</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Total Billed</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--txt)' }}>
+                    UGX {(profile.feeSummary.totalDue ?? 0).toLocaleString()}
+                  </div>
                 </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Total Paid</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--success)' }}>
+                    UGX {(profile.feeSummary.totalPaid ?? 0).toLocaleString()}
+                  </div>
+                </div>
+                {(profile.feeSummary.totalDue ?? 0) - (profile.feeSummary.totalPaid ?? 0) > 0 && (
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--txt3)', marginBottom: 2 }}>Outstanding</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font3)', color: 'var(--danger)' }}>
+                      UGX {((profile.feeSummary.totalDue ?? 0) - (profile.feeSummary.totalPaid ?? 0)).toLocaleString()}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 8 }}>
+                Detailed fee ledger is accessible to Bursar only.
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Main content ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Academic Performance */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>Academic Performance</div>
+            {profile.examResults.length === 0 ? (
+              <div style={{ color: 'var(--txt3)', fontSize: 13 }}>No exam results recorded yet.</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 360 }}>
+                <thead>
+                  <tr>
+                    {['Subject', 'Term', 'Year', 'Score', 'Grade'].map(h => (
+                      <th key={h} style={{ padding: '6px 10px', background: 'var(--surface2)',
+                        fontWeight: 700, fontSize: 11, color: 'var(--txt2)', textAlign: 'left' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {profile.examResults.slice(0, 30).map((r: any, i: number) => (
+                    <tr key={i} className="sui-tr">
+                      <td style={{ padding: '6px 10px', fontSize: 12, color: 'var(--txt)' }}>{r.subjectName}</td>
+                      <td style={{ padding: '6px 10px', fontSize: 12, color: 'var(--txt2)' }}>{r.term}</td>
+                      <td style={{ padding: '6px 10px', fontSize: 12, color: 'var(--txt2)' }}>{r.year}</td>
+                      <td style={{ padding: '6px 10px', fontFamily: 'var(--font3)', fontSize: 13 }}>
+                        {r.score ?? '—'}
+                      </td>
+                      <td style={{ padding: '6px 10px', fontFamily: 'var(--font3)', fontSize: 13 }}>{r.grade ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
               </div>
             )}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 8 }}>
-            Detailed fee ledger is accessible to Bursar only.
-          </div>
-        </div>
-      )}
 
-      {/* Discipline */}
-      {profile.disciplineCount > 0 && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>
-            Discipline Records ({profile.disciplineCount})
-          </div>
-          {profile.recentDiscipline.map((r: any) => (
-            <div key={r.id} style={{
-              padding: '8px 0', borderBottom: '1px solid var(--border)',
-              display: 'flex', flexDirection: 'column', gap: 4,
-            }}>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ fontWeight: 700, fontSize: 12, color: 'var(--warning)' }}>
-                  {r.nature.charAt(0).toUpperCase() + r.nature.slice(1)}
-                </span>
-                <span style={{ fontSize: 12, color: 'var(--txt3)' }}>{r.incident_date}</span>
+          {/* Attendance */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>Attendance Summary</div>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 28, fontWeight: 900, fontFamily: 'var(--font2)', color: 'var(--brand)' }}>
+                  {profile.attendanceRate}%
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--txt3)' }}>Overall Rate</div>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--txt2)' }}>
-                {r.resolution}
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+                <div style={{ width: '100%', height: 8, background: 'var(--surface2)', borderRadius: 99 }}>
+                  <div style={{
+                    height: 8, borderRadius: 99, width: `${profile.attendanceRate}%`,
+                    background: profile.attendanceRate < 80 ? 'var(--danger)' : 'var(--success)',
+                    transition: 'width 0.4s',
+                  }} />
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--txt2)', whiteSpace: 'nowrap' }}>
+                {profile.presentDays} / {profile.totalDays} days present
               </div>
             </div>
-          ))}
+          </div>
+
+          {/* Discipline */}
+          {profile.disciplineCount > 0 && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--txt)', marginBottom: 12 }}>
+                Discipline Records ({profile.disciplineCount})
+              </div>
+              {profile.recentDiscipline.map((r: any) => (
+                <div key={r.id} style={{
+                  padding: '8px 0', borderBottom: '1px solid var(--border)',
+                  display: 'flex', flexDirection: 'column', gap: 4,
+                }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 700, fontSize: 12, color: 'var(--warning)' }}>
+                      {r.nature.charAt(0).toUpperCase() + r.nature.slice(1)}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--txt3)' }}>{r.incident_date}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--txt2)' }}>
+                    {r.resolution}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Actions — suspend/expel authority belongs to the Deputy; Principal is read-only */}
       {canManageStatus ? (

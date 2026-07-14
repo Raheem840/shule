@@ -358,7 +358,7 @@ export function AppShell() {
 
           {/* School logo / badge — uploaded logo or Shule brand mark */}
           {schoolSettings?.logoUrl ? (
-            <img src={schoolSettings.logoUrl} alt="School badge" style={{ width: 34, height: 34, borderRadius: 10, objectFit: 'contain', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,.18)' }} />
+            <img src={schoolSettings.logoUrl} alt="School badge" style={{ width: 34, height: 34, objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.25))' }} />
           ) : (
             <ShuleBadge size={34} />
           )}

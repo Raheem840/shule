@@ -8,6 +8,7 @@ import { useStudents } from '../../hooks/useStudents'
 import { useClasses } from '../../hooks/useClasses'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { Modal } from '../../components/ui/Modal'
+import { DisciplineCalendarHeatmap } from '../../components/shared/DisciplineCalendarHeatmap'
 import { csvField } from '../../lib/csv'
 import type { DisciplineRecord, DisciplineNature } from '../../types/week9'
 
@@ -411,6 +412,19 @@ export function DisciplinePage() {
           )}
         </div>
       </div>
+
+      {/* ── Incident density heatmap — respects the class filter above ── */}
+      {!isLoading && !isError && records.length > 0 && (
+        <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 16, padding: '18px 20px', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
+          <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--txt)', marginBottom: 2 }}>
+            Incident Density{classFilter ? ` — ${classes.find(c => c.id === classFilter)?.name ?? ''}` : ' — All Classes'}
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginBottom: 14 }}>
+            A day-by-day view of recorded incidents — darker cells mean more incidents that day.
+          </div>
+          <DisciplineCalendarHeatmap records={records} />
+        </div>
+      )}
 
       {/* ── Loading ── */}
       {isLoading && (

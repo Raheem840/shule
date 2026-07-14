@@ -22,6 +22,8 @@ export type ReportCardPdfData = {
     name:              string
     motto:             string | null
     logoUrl:           string | null
+    logoBase64:        string | null  // school badge — drawn in the text-header fallback only
+    logoMimeType:      string         // 'image/png' | 'image/jpeg'
     templateBase64:    string | null  // PNG/JPG letterhead — used as page header if present
     templateMimeType:  string         // 'image/png' | 'image/jpeg'
   }
@@ -115,7 +117,20 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
     doc.text(`Term ${d.term}  ·  Academic Year ${d.year}`, col2, y, { align: 'center' })
     y += 6
   } else {
-    // Text-only fallback (no template uploaded)
+    // Text-only fallback (no template uploaded) — school badge, if any,
+    // sits top-left so the report card carries the school's identity even
+    // without a full custom letterhead.
+    if (d.school.logoBase64) {
+      try {
+        const logoProps = doc.getImageProperties(d.school.logoBase64)
+        const logoH     = 18
+        const logoW     = (logoProps.width / logoProps.height) * logoH
+        doc.addImage(d.school.logoBase64, d.school.logoMimeType, M, y - 2, logoW, logoH)
+      } catch {
+        // Malformed image data — skip the badge, text header still renders
+      }
+    }
+
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(15)
     doc.text(d.school.name.toUpperCase(), col2, y, { align: 'center' })

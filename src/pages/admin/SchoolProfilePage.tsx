@@ -14,7 +14,7 @@ const PAGE_CSS = `
   .spg-badge-wrap { position: relative; cursor: pointer; display: inline-block; }
   .spg-badge-wrap:hover .spg-badge-ov { opacity: 1; }
   .spg-badge-ov {
-    position: absolute; inset: 0; border-radius: 50%;
+    position: absolute; inset: 0; border-radius: 16px;
     background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     opacity: 0; transition: opacity 0.2s ease; gap: 4px;
@@ -121,7 +121,7 @@ export function SchoolProfilePage() {
       <style>{PAGE_CSS}</style>
       <input ref={logoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoFile} />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 720 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 960, margin: '0 auto' }}>
 
         {/* ── Hero card ── */}
         <div style={{
@@ -144,21 +144,25 @@ export function SchoolProfilePage() {
           <div style={{ padding: '0 28px 28px', marginTop: -40 }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 20, flexWrap: 'wrap' }}>
 
-              {/* Badge */}
+              {/* Badge — an uploaded crest/seal keeps its own outline (no circular
+                  crop forced onto it); only the plain-initial fallback gets the
+                  circular gradient avatar treatment. */}
               <div className="spg-badge-wrap" onClick={() => editMode && logoRef.current?.click()}>
                 <div style={{
-                  width: 80, height: 80, borderRadius: '50%', flexShrink: 0,
+                  width: 80, height: 80, flexShrink: 0,
+                  borderRadius: logoPreview ? 0 : '50%',
                   background: logoPreview ? 'transparent' : `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}99 100%)`,
-                  border: '3px solid var(--surface)',
-                  boxShadow: `0 4px 20px ${primaryColor}35, 0 0 0 3px ${primaryColor}20`,
-                  overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: logoPreview ? 'none' : '3px solid var(--surface)',
+                  boxShadow: logoPreview ? 'none' : `0 4px 20px ${primaryColor}35, 0 0 0 3px ${primaryColor}20`,
+                  overflow: logoPreview ? 'visible' : 'hidden',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {logoPreview
-                    ? <img src={logoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ? <img src={logoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 3px 10px rgba(0,0,0,.25))' }} />
                     : <span style={{ fontSize: 32, fontWeight: 900, color: '#fff', fontFamily: 'var(--font2)' }}>{schoolInitial}</span>
                   }
                   {uploading && (
-                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: logoPreview ? 12 : '50%' }}>
                       <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', animation: 'spg-spin 0.6s linear infinite' }} />
                     </div>
                   )}

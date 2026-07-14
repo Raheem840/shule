@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useStudents } from '../../hooks/useStudents'
+import { StudentRosterList } from '../../components/shared/StudentRosterList'
+import type { Student } from '../../types/app'
 
 // ─── Level colour palette ─────────────────────────────────────────────────────
 const LEVEL_META: Record<string, { color: string; bg: string; label: string }> = {
@@ -16,9 +19,15 @@ function levelMeta(level: string | null) {
 }
 
 // ─── Stream row (lazy-loaded per class) ───────────────────────────────────────
-function StreamRows({ classId, studentsByStream }: {
+// Each stream row expands in place into a real student roster (photo, name,
+// admission number) via the shared StudentRosterList — previously this only
+// ever showed a student count, with no way to see who was actually in a stream.
+function StreamRows({ classId, students, expandedStreams, onToggleStream, onSelectStudent }: {
   classId: string
-  studentsByStream: Map<string, number>
+  students: Student[]
+  expandedStreams: Set<string>
+  onToggleStream: (streamId: string) => void
+  onSelectStudent: (student: Student) => void
 }) {
   const { data: streams = [] } = useStreams(classId)
 
@@ -31,50 +40,73 @@ function StreamRows({ classId, studentsByStream }: {
   return (
     <div>
       {streams.map((s, idx) => {
-        const count = studentsByStream.get(s.id) ?? 0
+        const streamStudents = students.filter(st => st.streamId === s.id)
         const hasTeacher = !!s.classTeacherId
+        const isOpen = expandedStreams.has(s.id)
         return (
-          <div key={s.id} style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr auto auto',
-            alignItems: 'center',
-            gap: 16,
-            padding: '12px 24px 12px 80px',
-            borderTop: '1px solid var(--border)',
-            background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)',
-          }}>
-            {/* Stream name */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div key={s.id} style={{ borderTop: '1px solid var(--border)' }}>
+            <div
+              onClick={() => onToggleStream(s.id)}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr auto auto auto',
+                alignItems: 'center',
+                gap: 16,
+                padding: '12px 24px 12px 80px',
+                background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)',
+                cursor: 'pointer',
+              }}
+            >
+              {/* Stream name */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 6, height: 6, borderRadius: '50%',
+                  background: hasTeacher ? '#10b981' : '#94a3b8',
+                  flexShrink: 0,
+                }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
+                  {s.name}
+                </span>
+              </div>
+
+              {/* Class teacher status */}
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
+                background: hasTeacher ? 'rgba(16,185,129,0.10)' : 'var(--surface2)',
+                color: hasTeacher ? '#10b981' : 'var(--txt3)',
+                border: `1px solid ${hasTeacher ? 'rgba(16,185,129,0.25)' : 'var(--border)'}`,
+              }}>
+                {hasTeacher ? 'Teacher assigned' : 'No teacher'}
+              </span>
+
+              {/* Student count */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 80, justifyContent: 'flex-end' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2">
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+                </svg>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt2)', fontFamily: 'var(--font3)' }}>
+                  {streamStudents.length}
+                </span>
+              </div>
+
+              {/* Roster toggle chevron */}
               <div style={{
-                width: 6, height: 6, borderRadius: '50%',
-                background: hasTeacher ? '#10b981' : '#94a3b8',
-                flexShrink: 0,
-              }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>
-                {s.name}
-              </span>
+                width: 22, height: 22, borderRadius: 6, border: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'transform 0.2s ease', transform: isOpen ? 'rotate(180deg)' : 'none',
+              }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2.5">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
             </div>
 
-            {/* Class teacher status */}
-            <span style={{
-              fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
-              background: hasTeacher ? 'rgba(16,185,129,0.10)' : 'var(--surface2)',
-              color: hasTeacher ? '#10b981' : 'var(--txt3)',
-              border: `1px solid ${hasTeacher ? 'rgba(16,185,129,0.25)' : 'var(--border)'}`,
-            }}>
-              {hasTeacher ? 'Teacher assigned' : 'No teacher'}
-            </span>
-
-            {/* Student count */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 80, justifyContent: 'flex-end' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2">
-                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-              </svg>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--txt2)', fontFamily: 'var(--font3)' }}>
-                {count}
-              </span>
-            </div>
+            {isOpen && (
+              <div style={{ padding: '0 24px 12px 80px' }}>
+                <StudentRosterList students={streamStudents} onSelect={onSelectStudent} />
+              </div>
+            )}
           </div>
         )
       })}
@@ -83,12 +115,15 @@ function StreamRows({ classId, studentsByStream }: {
 }
 
 // ─── Class card ───────────────────────────────────────────────────────────────
-function ClassCard({ c, studentCount, studentsByStream, expanded, onToggle }: {
+function ClassCard({ c, studentCount, classStudents, expanded, onToggle, expandedStreams, onToggleStream, onSelectStudent }: {
   c: { id: string; name: string; level: string | null }
   studentCount: number
-  studentsByStream: Map<string, number>
+  classStudents: Student[]
   expanded: boolean
   onToggle: () => void
+  expandedStreams: Set<string>
+  onToggleStream: (streamId: string) => void
+  onSelectStudent: (student: Student) => void
 }) {
   const meta = levelMeta(c.level)
 
@@ -199,7 +234,13 @@ function ClassCard({ c, studentCount, studentsByStream, expanded, onToggle }: {
               }}>{h}</div>
             ))}
           </div>
-          <StreamRows classId={c.id} studentsByStream={studentsByStream} />
+          <StreamRows
+            classId={c.id}
+            students={classStudents}
+            expandedStreams={expandedStreams}
+            onToggleStream={onToggleStream}
+            onSelectStudent={onSelectStudent}
+          />
         </div>
       )}
     </div>
@@ -210,18 +251,32 @@ function ClassCard({ c, studentCount, studentsByStream, expanded, onToggle }: {
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 export function PrincipalClassesPage() {
+  const navigate = useNavigate()
   const { data: classes  = [], isLoading } = useClasses()
   // Scoped to active students only — matches usePrincipalKpis' "Total Students"
   // convention. Without this, suspended/expelled students were counted as
   // enrolled here, disagreeing with every other student-count on the app.
   const { data: students = [] }            = useStudents({ status: 'active' })
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [expanded,        setExpanded]        = useState<Set<string>>(new Set())
+  const [expandedStreams, setExpandedStreams] = useState<Set<string>>(new Set())
 
-  const studentsByClass  = new Map<string, number>()
-  const studentsByStream = new Map<string, number>()
+  const studentsByClass = new Map<string, number>()
+  const studentsByClassId = new Map<string, Student[]>()
   for (const s of students) {
-    if (s.classId)  studentsByClass.set(s.classId,   (studentsByClass.get(s.classId)   ?? 0) + 1)
-    if (s.streamId) studentsByStream.set(s.streamId, (studentsByStream.get(s.streamId) ?? 0) + 1)
+    if (s.classId) {
+      studentsByClass.set(s.classId, (studentsByClass.get(s.classId) ?? 0) + 1)
+      const list = studentsByClassId.get(s.classId) ?? []
+      list.push(s)
+      studentsByClassId.set(s.classId, list)
+    }
+  }
+
+  function toggleStream(streamId: string) {
+    setExpandedStreams(prev => {
+      const next = new Set(prev)
+      next.has(streamId) ? next.delete(streamId) : next.add(streamId)
+      return next
+    })
   }
 
   function toggle(id: string) {
@@ -340,9 +395,12 @@ export function PrincipalClassesPage() {
               key={c.id}
               c={c}
               studentCount={studentsByClass.get(c.id) ?? 0}
-              studentsByStream={studentsByStream}
+              classStudents={studentsByClassId.get(c.id) ?? []}
               expanded={expanded.has(c.id)}
               onToggle={() => toggle(c.id)}
+              expandedStreams={expandedStreams}
+              onToggleStream={toggleStream}
+              onSelectStudent={s => navigate(`/principal/students/${s.id}`)}
             />
           ))}
         </div>
