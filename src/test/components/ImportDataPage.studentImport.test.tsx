@@ -1,10 +1,11 @@
-// SecretaryStudentsPage's import handler now delegates to the shared
-// importStudentsFromCsv() (src/lib/studentImport.ts) — the same function
-// ImportDataPage.tsx uses — so both entry points behave identically:
-// class_name required, admission_number optional (DB trigger generates it),
-// match-by-name+class overwrites the existing student instead of piling
-// duplicates, and re-importing a guardian updates the existing row instead
-// of inserting a second copy.
+// ImportDataPage's student-import handler delegates to the shared
+// importStudentsFromCsv() (src/lib/studentImport.ts) — this is now the
+// only student-import entry point (the duplicate inline modal on
+// SecretaryStudentsPage was removed since it was a stripped-down copy of
+// this page). Covers: admission_number left blank for the DB trigger,
+// match-by-name+class overwrites instead of duplicating, "skip" strategy,
+// blank CSV cells don't null out existing fields, guardian re-import
+// updates the existing row instead of inserting a second one.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '../utils'
 import type { ParsedRow, ConflictStrategy, ImportResult } from '../../components/shared/ImportWizard'
@@ -17,22 +18,16 @@ vi.mock('../../store/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
 }))
 
-vi.mock('../../hooks/useClasses', () => ({
-  useClasses: vi.fn().mockReturnValue({ data: [{ id: 'c1', name: 'S.1' }], isLoading: false }),
-  useStreams: vi.fn().mockReturnValue({ data: [], isLoading: false }),
+vi.mock('../../lib/importTemplates', () => ({
+  generateImportTemplate: vi.fn(),
 }))
 
-vi.mock('../../pages/secretary/StudentsPage', () => ({
-  StudentsPage: () => <div data-testid="students-page">students list</div>,
-}))
-vi.mock('../../pages/secretary/StudentRegistrationWizard', () => ({
-  StudentRegistrationWizard: () => null,
-}))
-vi.mock('../../components/shared/PromoteStudentsSection', () => ({
-  PromoteStudentsSection: () => null,
-}))
-vi.mock('../../components/ui/Modal', () => ({
-  Modal: ({ children }: any) => <div>{children}</div>,
+vi.mock('../../lib/validators', () => ({
+  validateStudentRow: vi.fn().mockReturnValue(null),
+  validateStaffRow:   vi.fn().mockReturnValue(null),
+  capitalizeName:     (s: string) => s,
+  normalizeEmail:     (s: string) => s,
+  normalizePhone:     (s: string) => ({ normalized: s, warning: null }),
 }))
 
 let capturedOnComplete: ((rows: ParsedRow[], strategy: ConflictStrategy) => Promise<ImportResult>) | null = null
@@ -80,12 +75,15 @@ const { mockFrom, setResponse, clearResponses, insertCalls, updateCalls } = vi.h
 
 vi.mock('../../lib/supabase', () => ({
   supabase: {
-    auth: { getSession: vi.fn().mockResolvedValue({ data: { session: null } }) },
+    auth: {
+      getSession:        vi.fn().mockResolvedValue({ data: { session: null } }),
+      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+    },
     from: mockFrom,
   },
 }))
 
-import { SecretaryStudentsPage } from '../../pages/secretary/SecretaryStudentsPage'
+import { ImportDataPage } from '../../pages/secretary/ImportDataPage'
 
 beforeEach(() => {
   capturedOnComplete = null
@@ -99,39 +97,11 @@ beforeEach(() => {
   setResponse('school_profile', { data: { short_name: 'KAB' }, error: null })
 })
 
-describe('SecretaryStudentsPage — import (delegates to shared importStudentsFromCsv)', () => {
-  it('rejects a row with a blank/unmatched class_name and only inserts the valid row', async () => {
-    render(<SecretaryStudentsPage />)
+describe('ImportDataPage — student import (shared importStudentsFromCsv)', () => {
+  it('does not require admission_number — leaves it blank for the DB trigger to generate', async () => {
+    render(<ImportDataPage />)
     expect(screen.getByTestId('import-wizard')).toBeInTheDocument()
     expect(capturedOnComplete).toBeTruthy()
-
-    const rows: ParsedRow[] = [
-      { first_name: 'Grace', last_name: 'Apio', class_name: 'S.1' },
-      { first_name: 'Joel',  last_name: 'Otim', class_name: '' },
-    ]
-
-    const result = await capturedOnComplete!(rows, 'upsert')
-
-    expect(result.failed).toHaveLength(1)
-    expect(result.failed[0]).toMatchObject({ row: 3, reason: 'Class is required' })
-    expect(result.imported).toBe(1)
-  })
-
-  it('rejects a row whose class_name does not match any existing class', async () => {
-    render(<SecretaryStudentsPage />)
-
-    const rows: ParsedRow[] = [
-      { first_name: 'Sam', last_name: 'Okot', class_name: 'Nonexistent Class' },
-    ]
-
-    const result = await capturedOnComplete!(rows, 'upsert')
-
-    expect(result.failed).toHaveLength(1)
-    expect(result.failed[0].reason).toContain('does not match any existing class')
-  })
-
-  it('does not require admission_number — leaves it blank for the DB trigger to generate', async () => {
-    render(<SecretaryStudentsPage />)
 
     const rows: ParsedRow[] = [
       { first_name: 'Grace', last_name: 'Apio', class_name: 'S.1' },
@@ -149,7 +119,7 @@ describe('SecretaryStudentsPage — import (delegates to shared importStudentsFr
       data: [{ id: 'existing-1', first_name: 'Grace', last_name: 'Apio', admission_number: 'KAB/2026/0001', class_id: 'c1' }],
       error: null,
     })
-    render(<SecretaryStudentsPage />)
+    render(<ImportDataPage />)
 
     const rows: ParsedRow[] = [
       { first_name: 'Grace', last_name: 'Apio', class_name: 'S.1', religion: 'Christian' },
@@ -170,7 +140,7 @@ describe('SecretaryStudentsPage — import (delegates to shared importStudentsFr
       data: [{ id: 'existing-1', first_name: 'Grace', last_name: 'Apio', admission_number: 'KAB/2026/0001', class_id: 'c1' }],
       error: null,
     })
-    render(<SecretaryStudentsPage />)
+    render(<ImportDataPage />)
 
     const rows: ParsedRow[] = [
       { first_name: 'Grace', last_name: 'Apio', class_name: 'S.1', religion: 'Christian' },
@@ -189,7 +159,7 @@ describe('SecretaryStudentsPage — import (delegates to shared importStudentsFr
       data: [{ id: 'existing-1', first_name: 'Grace', last_name: 'Apio', admission_number: 'KAB/2026/0001', class_id: 'c1' }],
       error: null,
     })
-    render(<SecretaryStudentsPage />)
+    render(<ImportDataPage />)
 
     // CSV row has no dob/religion/previous_school columns filled in at all.
     const rows: ParsedRow[] = [
@@ -211,7 +181,7 @@ describe('SecretaryStudentsPage — import (delegates to shared importStudentsFr
       error: null,
     })
     setResponse('student_guardians', { data: { id: 'guardian-1' }, error: null })
-    render(<SecretaryStudentsPage />)
+    render(<ImportDataPage />)
 
     const rows: ParsedRow[] = [
       { first_name: 'Grace', last_name: 'Apio', class_name: 'S.1', parent_name: 'Jane Apio', parent_phone: '0700000000' },

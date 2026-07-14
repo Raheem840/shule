@@ -1,17 +1,12 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
 import { StudentsPage } from './StudentsPage'
 import { StudentRegistrationWizard } from './StudentRegistrationWizard'
-import { ImportWizard, type ParsedRow, type ImportResult, type ConflictStrategy } from '../../components/shared/ImportWizard'
 import { PromoteStudentsSection } from '../../components/shared/PromoteStudentsSection'
-import { Modal } from '../../components/ui/Modal'
 import { useClasses, useStreams } from '../../hooks/useClasses'
-import { useAuth } from '../../store/AuthContext'
 import { useStudentById } from '../../hooks/useStudents'
 import { Avatar } from '../../components/shared/Avatar'
-import { importStudentsFromCsv, STUDENT_IMPORT_REQUIRED, STUDENT_IMPORT_OPTIONAL } from '../../lib/studentImport'
 import type { Student } from '../../types/app'
 
 // ── Class level accent colours ────────────────────────────────
@@ -149,40 +144,15 @@ function StudentProfileModal({ student, classes, streams, onClose, onEdit }: {
   return createPortal(modal, document.querySelector('.ar') ?? document.body)
 }
 
-// ── Student import field specs ────────────────────────────────
-// Shared with ImportDataPage.tsx so both import entry points behave
-// identically — same columns, same match/overwrite rule, same guardians.
-const REQUIRED = STUDENT_IMPORT_REQUIRED
-const OPTIONAL = STUDENT_IMPORT_OPTIONAL
-
 // ── Orchestrator ──────────────────────────────────────────────
 export function SecretaryStudentsPage() {
   const navigate = useNavigate()
   const [wizardOpen, setWizardOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
   const [viewed,     setViewed]     = useState<Student | null>(null)
   const [showPromote, setShowPromote] = useState(false)
 
-  const qc                     = useQueryClient()
-  const { user }               = useAuth()
   const { data: classes = [] } = useClasses()
   const { data: streams = [] } = useStreams()
-
-  // ── Import handler ────────────────────────────────────────
-  // Delegates to the shared importStudentsFromCsv() — see src/lib/studentImport.ts.
-  async function handleImportComplete(
-    rows: ParsedRow[],
-    strategy: ConflictStrategy,
-  ): Promise<ImportResult> {
-    if (!user) throw new Error('Not authenticated')
-    const outcome = await importStudentsFromCsv(rows, user.schoolId, new Date().getFullYear(), strategy)
-
-    if (outcome.imported > 0 || outcome.updated > 0) {
-      qc.invalidateQueries({ queryKey: ['students', user.schoolId] })
-    }
-
-    return { imported: outcome.imported, updated: outcome.updated, skipped: outcome.skipped, failed: outcome.failed }
-  }
 
   return (
     <>
@@ -201,7 +171,7 @@ export function SecretaryStudentsPage() {
       {/* ── Main student list ─────────────────────────────── */}
       <StudentsPage
         onRegister={() => setWizardOpen(true)}
-        onImport={()   => setImportOpen(true)}
+        onImport={()   => navigate('/secretary/import')}
         onView={s      => setViewed(s)}
       />
 
@@ -221,22 +191,6 @@ export function SecretaryStudentsPage() {
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
       />
-
-      {/* ── Import wizard ─────────────────────────────────── */}
-      <Modal
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-        title="Import Students from Excel"
-        size="lg"
-      >
-        <ImportWizard
-          context="students"
-          requiredFields={REQUIRED}
-          optionalFields={OPTIONAL}
-          onComplete={handleImportComplete}
-          onClose={() => setImportOpen(false)}
-        />
-      </Modal>
     </>
   )
 }
