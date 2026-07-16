@@ -7,6 +7,7 @@ import { useSchoolSettings } from '../../hooks/useAdmin'
 import { printElement, PRINT_INK, PRINT_RULE, PRINT_BRAND } from '../../lib/printElement'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
+import { Avatar } from '../../components/shared/Avatar'
 import type { Stream, Student } from '../../types/app'
 
 const portal = () => document.querySelector('.ar') as HTMLElement ?? document.body
@@ -46,25 +47,12 @@ function levelLabel(level: string | null): string {
   return `Level ${n}`
 }
 
-// ── Student chip (initials avatar + name + admission no.) ──────
-const CHIP_AVATAR_COLORS = ['#0d9488', '#0ea5e9', '#8b5cf6', '#f59e0b', '#f43f5e', '#10b981', '#6366f1']
-function chipColor(name: string): string {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  return CHIP_AVATAR_COLORS[Math.abs(hash) % CHIP_AVATAR_COLORS.length]!
-}
-function StudentChip({ firstName, lastName, admissionNumber }: { firstName: string; lastName: string; admissionNumber: string }) {
+// ── Student chip (real photo + name + admission no.) ───────────
+function StudentChip({ firstName, lastName, admissionNumber, photoUrl }: { firstName: string; lastName: string; admissionNumber: string; photoUrl?: string | null }) {
   const name = `${firstName} ${lastName}`
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 9px 5px 5px', borderRadius: 7, background: 'var(--surface2)', border: '.5px solid var(--border)' }}>
-      <div style={{
-        width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-        background: chipColor(name), color: '#fff',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 9.5, fontWeight: 800, fontFamily: 'var(--font2)',
-      }}>
-        {firstName[0]?.toUpperCase()}{lastName[0]?.toUpperCase()}
-      </div>
+      <Avatar photoPath={photoUrl} bucket="student-photos" name={name} size="xs" />
       <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {lastName} {firstName}
       </span>
@@ -513,7 +501,7 @@ function StreamRow({
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 6 }}>
               {sortedStudents.map(s => (
-                <StudentChip key={s.id} firstName={s.firstName} lastName={s.lastName} admissionNumber={s.admissionNumber} />
+                <StudentChip key={s.id} firstName={s.firstName} lastName={s.lastName} admissionNumber={s.admissionNumber} photoUrl={s.photoUrl} />
               ))}
             </div>
           )}
@@ -633,7 +621,7 @@ function ClassCard({
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 6 }}>
                   {students.filter(s => !s.streamId).sort(sortByName).map(s => (
-                    <StudentChip key={s.id} firstName={s.firstName} lastName={s.lastName} admissionNumber={s.admissionNumber} />
+                    <StudentChip key={s.id} firstName={s.firstName} lastName={s.lastName} admissionNumber={s.admissionNumber} photoUrl={s.photoUrl} />
                   ))}
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ImportWizard } from '../../components/shared/ImportWizard'
@@ -126,6 +126,25 @@ export function ImportDataPage() {
 
   // Non-blocking year mismatch notice — shown after import, import proceeds regardless.
   const [yearMismatchNotice, setYearMismatchNotice] = useState<YearMismatchIssue[]>([])
+
+  // Next admission-number sequence for the selected year — must reflect
+  // however far single-student registration (or a prior import) already got,
+  // not restart at 0001, since generate_admission_number() computes MAX+1
+  // scoped to school_id + year, same pattern as studentImport.ts's own
+  // historical-year sequence pre-computation.
+  const { data: nextAdmSeq = 1 } = useQuery({
+    queryKey: ['next-admission-seq', user?.schoolId, importYear],
+    enabled:  !!user?.schoolId && mode === 'students',
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('students')
+        .select('id', { count: 'exact', head: true })
+        .eq('school_id', user!.schoolId)
+        .like('admission_number', `STU/${importYear}/%`)
+      return (count ?? 0) + 1
+    },
+  })
 
   // ── Student import handler ──────────────────────────────────────────────────
   // Delegates to the shared importStudentsFromCsv() — SecretaryStudentsPage's
@@ -303,9 +322,9 @@ export function ImportDataPage() {
             ))}
           </select>
           <div style={{ fontSize: 11.5, color: 'var(--txt3)', flex: 1 }}>
-            Admission numbers will be generated as{' '}
-            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>STU/{importYear}/0001</span>,{' '}
-            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>STU/{importYear}/0002</span>, …
+            Admission numbers will continue from{' '}
+            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>STU/{importYear}/{String(nextAdmSeq).padStart(4, '0')}</span>,{' '}
+            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>STU/{importYear}/{String(nextAdmSeq + 1).padStart(4, '0')}</span>, …
           </div>
         </div>
       )}

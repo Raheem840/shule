@@ -5,6 +5,7 @@ import { useStudents } from '../../hooks/useStudents'
 import { useClasses, useStreams, useSubjects } from '../../hooks/useClasses'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
+import { Avatar } from '../../components/shared/Avatar'
 
 // ─── Attendance aggregate ──────────────────────────────────────────────────────
 type AttendanceAgg = { studentId: string; present: number; total: number }
@@ -549,15 +550,7 @@ export function DosStudentsPage() {
                   >
                     {/* Name row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{
-                        width: 38, height: 38, borderRadius: 12, flexShrink: 0,
-                        background: s.gender === 'female' ? 'rgba(236,72,153,.15)' : 'rgba(14,165,233,.15)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 12, fontWeight: 900, fontFamily: 'var(--font2)',
-                        color: s.gender === 'female' ? '#ec4899' : '#0ea5e9',
-                      }}>
-                        {s.firstName[0]}{s.lastName[0]}
-                      </div>
+                      <Avatar photoPath={s.photoUrl} bucket="student-photos" name={`${s.firstName} ${s.lastName}`} size="md" />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--txt)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.firstName} {s.lastName}</div>
                         <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 1 }}>{s.admissionNumber}</div>

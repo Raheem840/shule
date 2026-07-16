@@ -17,6 +17,7 @@ import { localToday } from '../../lib/dates'
 import { useCurrentTermDefault } from '../../hooks/useCurrentTerm'
 import { ugx } from '../../hooks/useFeePayments'
 import { PillGroup } from '../../components/shared/PillGroup'
+import { Avatar } from '../../components/shared/Avatar'
 import ExcelJS from 'exceljs'
 
 // ─────────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ interface StudentFeeRow {
   studentType:     'day' | 'boarder'
   classId:         string
   streamId:        string | null
+  photoUrl:        string | null
   className:       string
   streamName:      string | null
   amountDue:       number
@@ -88,11 +90,12 @@ function useBursarStudentFees(
       type RawStudent = {
         id: string; admission_number: string; first_name: string; last_name: string
         gender: string; student_type: string | null; class_id: string; stream_id: string | null
+        photo_url: string | null
         classes: { name: string } | null; streams: { name: string } | null
       }
       let q = supabase
         .from('students')
-        .select('id, admission_number, first_name, last_name, gender, student_type, class_id, stream_id, classes(name), streams(name)')
+        .select('id, admission_number, first_name, last_name, gender, student_type, class_id, stream_id, photo_url, classes(name), streams(name)')
         .eq('school_id', user!.schoolId)
         .eq('status', 'active')
       if (classId)     q = q.eq('class_id',     classId)
@@ -177,6 +180,7 @@ function useBursarStudentFees(
             studentType:     studentType as 'day' | 'boarder',
             classId:         s.class_id,
             streamId:        s.stream_id,
+            photoUrl:        s.photo_url,
             className:       s.classes?.name ?? '',
             streamName:      s.streams?.name ?? null,
             amountDue:       expectedDue,
@@ -204,6 +208,7 @@ function useBursarStudentFees(
           studentType:     (s.student_type === 'boarder' ? 'boarder' : 'day') as 'day' | 'boarder',
           classId:         s.class_id,
           streamId:        s.stream_id,
+          photoUrl:        s.photo_url,
           className:       s.classes?.name ?? '',
           streamName:      s.streams?.name ?? null,
           amountDue:       fees.due,
@@ -390,25 +395,6 @@ function useUpdatePaymentAmount() {
 // ─────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────
-
-function nameHash(name: string): number {
-  let h = 0
-  for (let i = 0; i < name.length; i++) h = ((h << 5) - h) + name.charCodeAt(i)
-  return Math.abs(h)
-}
-
-const AVATAR_COLORS = [
-  ['#0d9488', '#f0fdfa'],
-  ['#8b5cf6', '#f5f3ff'],
-  ['#0ea5e9', '#f0f9ff'],
-  ['#f59e0b', '#fffbeb'],
-  ['#f43f5e', '#fff1f2'],
-  ['#10b981', '#ecfdf5'],
-]
-
-function avatarColor(name: string): [string, string] {
-  return AVATAR_COLORS[nameHash(name) % AVATAR_COLORS.length] as [string, string]
-}
 
 const STATUS_CONFIG: Record<FeeStatusEx, { label: string; color: string; stripe: string; glow: string }> = {
   paid:    { label: 'Paid',     color: 'var(--success)', stripe: '#10b981', glow: 'rgba(16,185,129,.25)' },
@@ -828,7 +814,6 @@ function StudentCard({
 }) {
   const cfg     = STATUS_CONFIG[student.status]
   const fullName = `${student.firstName} ${student.lastName}`
-  const [bg, fg] = avatarColor(fullName)
 
   return (
     <div style={{
@@ -854,14 +839,7 @@ function StudentCard({
       <div style={{ flex: 1, padding: '14px 16px', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
 
         {/* Avatar */}
-        <div style={{
-          width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-          background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 15, color: fg,
-          letterSpacing: -.5, userSelect: 'none',
-        }}>
-          {student.firstName[0]}{student.lastName[0]}
-        </div>
+        <Avatar photoPath={student.photoUrl} bucket="student-photos" name={fullName} size="md" />
 
         {/* Identity */}
         <div style={{ flex: 1, minWidth: 0 }}>

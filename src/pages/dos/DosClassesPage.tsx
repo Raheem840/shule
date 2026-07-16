@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { useClasses, useStreams, useCreateClass } from '../../hooks/useClasses'
 import { useStudents } from '../../hooks/useStudents'
 import { useAssignClassTeacher } from '../../hooks/useDos'
 import { useStaff } from '../../hooks/useStaff'
 import { useToast } from '../../components/ui/Toast'
-import type { Stream, Class } from '../../types/app'
+import { StudentRosterList } from '../../components/shared/StudentRosterList'
+import type { Stream, Class, Student } from '../../types/app'
 
 // ── Add Class Modal ────────────────────────────────────────────────────────────
 const DOS_LEVELS = [
@@ -151,10 +153,12 @@ function AssignTeacherModal({ stream, onClose }: { stream: Stream; onClose: () =
 
 // ─── Streams panel (right panel when a card is selected) ─────────────────────
 function StreamsPanel({ cls }: { cls: Class }) {
+  const navigate = useNavigate()
   const { data: streams = [], isLoading } = useStreams(cls.id)
   const { data: students = [], isLoading: loadingStudents } = useStudents({ classId: cls.id, status: 'active' })
   const { data: staff = [] } = useStaff()
   const [assignStream, setAssignStream] = useState<Stream | null>(null)
+  const [expandedStreamId, setExpandedStreamId] = useState<string | null>(null)
 
   const staffMap = useMemo(
     () => new Map(staff.map(s => [s.id, `${s.firstName} ${s.lastName}`])),
@@ -242,55 +246,72 @@ function StreamsPanel({ cls }: { cls: Class }) {
             {streams.map(s => {
               const teacherName = s.classTeacherId ? (staffMap.get(s.classTeacherId) ?? null) : null
               const count = streamCounts.get(s.id) ?? 0
+              const expanded = expandedStreamId === s.id
+              const streamStudents = students.filter(st => st.streamId === s.id)
               return (
                 <div key={s.id} style={{
-                  padding: '12px 14px', borderRadius: 12,
-                  border: '.5px solid var(--border)', background: 'var(--surface2)',
-                  display: 'flex', alignItems: 'center', gap: 12, transition: 'all .14s',
+                  borderRadius: 12, border: '.5px solid var(--border)', background: 'var(--surface2)',
+                  overflow: 'hidden', transition: 'all .14s',
                 }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                    background: 'linear-gradient(145deg,rgba(13,148,136,.15),rgba(13,148,136,.06))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 14, color: 'var(--brand)',
-                  }}>
-                    {s.name.slice(0, 2)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>{s.name}</div>
-                    {teacherName ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                        <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>{teacherName}</span>
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 3 }}>No class teacher</div>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-                    <span style={{
-                      padding: '2px 9px', borderRadius: 99, fontSize: 10.5, fontWeight: 700,
-                      background: 'rgba(14,165,233,.10)', color: 'var(--info)',
-                      border: '.5px solid rgba(14,165,233,.2)',
+                  <div
+                    onClick={() => setExpandedStreamId(expanded ? null : s.id)}
+                    style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+                  >
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                      background: 'linear-gradient(145deg,rgba(13,148,136,.15),rgba(13,148,136,.06))',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 14, color: 'var(--brand)',
                     }}>
-                      {count} stu
-                    </span>
-                    <button
-                      onClick={() => setAssignStream(s)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 4,
-                        padding: '8px 12px', minHeight: 36, borderRadius: 9,
-                        border: '.5px solid rgba(139,92,246,.3)',
-                        background: 'rgba(139,92,246,.06)', color: '#8b5cf6',
-                        fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all .13s',
-                      }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(139,92,246,.14)' }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(139,92,246,.06)' }}
-                    >
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                      {s.classTeacherId ? 'Reassign' : 'Assign'}
-                    </button>
+                      {s.name.slice(0, 2)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--txt)', fontFamily: 'var(--font2)' }}>{s.name}</div>
+                      {teacherName ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>{teacherName}</span>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 3 }}>No class teacher</div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                      <span style={{
+                        padding: '2px 9px', borderRadius: 99, fontSize: 10.5, fontWeight: 700,
+                        background: 'rgba(14,165,233,.10)', color: 'var(--info)',
+                        border: '.5px solid rgba(14,165,233,.2)',
+                      }}>
+                        {count} stu
+                      </span>
+                      <button
+                        onClick={e => { e.stopPropagation(); setAssignStream(s) }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          padding: '8px 12px', minHeight: 36, borderRadius: 9,
+                          border: '.5px solid rgba(139,92,246,.3)',
+                          background: 'rgba(139,92,246,.06)', color: '#8b5cf6',
+                          fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all .13s',
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(139,92,246,.14)' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(139,92,246,.06)' }}
+                      >
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        {s.classTeacherId ? 'Reassign' : 'Assign'}
+                      </button>
+                    </div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" strokeWidth="2.2" style={{ flexShrink: 0, transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
                   </div>
+                  {expanded && (
+                    <div style={{ borderTop: '.5px solid var(--border)' }}>
+                      <StudentRosterList
+                        students={streamStudents}
+                        onSelect={(st: Student) => navigate(`/dos/students/${st.id}`)}
+                      />
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -567,7 +588,7 @@ export function DosClassesPage() {
           {/* Right: streams panel */}
           {selectedClass && (
             <div style={{ flex: 1, minWidth: 0, minHeight: 320, position: 'sticky', top: 12 }}>
-              <StreamsPanel cls={selectedClass} />
+              <StreamsPanel key={selectedClass.id} cls={selectedClass} />
             </div>
           )}
         </div>

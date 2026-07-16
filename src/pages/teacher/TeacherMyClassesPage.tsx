@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { useStudents } from '../../hooks/useStudents'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { StudentRosterList } from '../../components/shared/StudentRosterList'
 
 // ── useMyTeachingClasses ─────────────────────────────────────────────────────
 export function useMyTeachingClasses() {
@@ -138,6 +139,7 @@ function ClassDetailPanel({ classId, className, isMyHomeroom, navigate }: {
 }) {
   const { data, isLoading } = useClassDetail(classId)
   const { data: students = [], isLoading: studsLoading } = useStudents({ classId })
+  const [streamFilter, setStreamFilter] = useState('')
 
   if (isLoading || studsLoading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem', color: 'var(--txt3)', fontSize: 13 }}>
@@ -190,30 +192,17 @@ function ClassDetailPanel({ classId, className, isMyHomeroom, navigate }: {
 
       {/* Students */}
       <div style={{ background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-        <div style={{ padding: '12px 16px', fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: 'var(--txt)', borderBottom: '.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span>Students ({students.length})</span>
+        <div style={{ padding: '12px 16px', fontFamily: 'var(--font2)', fontWeight: 800, fontSize: 13.5, color: 'var(--txt)', borderBottom: '.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <span>Students ({streamFilter ? students.filter(s => s.streamId === streamFilter).length : students.length})</span>
+          {streams.length > 1 && (
+            <select value={streamFilter} onChange={e => setStreamFilter(e.target.value)} className="sui-input" style={{ width: 'auto', fontSize: 12, padding: '5px 10px' }}>
+              <option value="">All streams</option>
+              {streams.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          )}
         </div>
-        <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-          {students.slice(0, 50).map((s, i) => (  /* show at most 50; indicator below */
-            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: i < students.length - 1 ? '.5px solid var(--border)' : 'none' }}>
-              <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,var(--brand),#0ea5e9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: '#fff', flexShrink: 0 }}>
-                {s.firstName[0]}{s.lastName[0]}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--txt)' }}>{s.firstName} {s.lastName}</div>
-                <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>{s.admissionNumber}</div>
-              </div>
-              <span style={{ fontSize: 10.5, color: 'var(--txt3)', background: 'var(--surface2)', padding: '2px 8px', borderRadius: 6 }}>{s.gender}</span>
-            </div>
-          ))}
-          {students.length > 50 && (
-            <div style={{ padding: '8px 16px', fontSize: 11, color: 'var(--txt3)', textAlign: 'center', borderTop: '.5px solid var(--border)' }}>
-              Showing first 50 of {students.length} students
-            </div>
-          )}
-          {students.length === 0 && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--txt3)', fontSize: 13 }}>No students enrolled yet.</div>
-          )}
+        <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+          <StudentRosterList students={streamFilter ? students.filter(s => s.streamId === streamFilter) : students} emptyLabel="No students enrolled yet." />
         </div>
       </div>
 
