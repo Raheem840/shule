@@ -27,7 +27,6 @@ vi.mock('../../store/AuthContext', () => ({
 
 vi.mock('../../hooks/useDos', () => ({
   useDosCurriculumPlan: vi.fn(),
-  useMarkTopicCovered:  vi.fn(),
 }))
 
 vi.mock('../../hooks/useClasses', () => ({
@@ -35,12 +34,11 @@ vi.mock('../../hooks/useClasses', () => ({
   useSubjects: vi.fn(),
 }))
 
-import { useDosCurriculumPlan, useMarkTopicCovered } from '../../hooks/useDos'
+import { useDosCurriculumPlan } from '../../hooks/useDos'
 import { useClasses, useSubjects } from '../../hooks/useClasses'
 import { DosCurriculumPage } from '../../pages/dos/DosCurriculumPage'
 
 const mockPlan     = useDosCurriculumPlan as ReturnType<typeof vi.fn>
-const mockMark     = useMarkTopicCovered  as ReturnType<typeof vi.fn>
 const mockClasses  = useClasses  as ReturnType<typeof vi.fn>
 const mockSubjects = useSubjects as ReturnType<typeof vi.fn>
 
@@ -69,7 +67,21 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockClasses.mockReturnValue({ data: CLASSES })
   mockSubjects.mockReturnValue({ data: SUBJECTS })
-  mockMark.mockReturnValue({ mutateAsync: vi.fn(), isPending: false })
+})
+
+describe('DosCurriculumPage — read-only for DoS', () => {
+  it('never renders a Mark Covered action, even for an uncovered topic', async () => {
+    mockPlan.mockReturnValue({ data: [baseTopic({ coveredAt: null, coveredBy: null })], isLoading: false, isError: false })
+
+    render(<DosCurriculumPage />)
+    await selectClassAndSubject()
+
+    await waitFor(() => {
+      expect(screen.getByText('Algebra')).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: /mark covered/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Pending')).toBeInTheDocument()
+  })
 })
 
 describe('DosCurriculumPage — Covered By column', () => {

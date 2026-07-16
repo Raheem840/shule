@@ -453,34 +453,6 @@ export function useDosCurriculumPlan(
   })
 }
 
-// ── useMarkTopicCovered ────────────────────────────────────────────────────
-export function useMarkTopicCovered() {
-  const { user } = useAuth()
-  const qc = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (topicId: string) => {
-      if (!user) throw new Error('Not authenticated')
-
-      const { error } = await supabase
-        .from('curriculum_plan')
-        .update({
-          covered:    true,
-          covered_at: new Date().toISOString(),
-          covered_by: user.staffId ?? null,
-        })
-        .eq('id', topicId)
-        .eq('school_id', user.schoolId)
-
-      if (error) throw new Error(error.message)
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['dos-curriculum', user?.schoolId] })
-      void qc.invalidateQueries({ queryKey: ['dos-overview', user?.schoolId] })
-    },
-  })
-}
-
 // ── RLS error helper ───────────────────────────────────────────────────────
 function isRlsError(error: { code?: string; message?: string }): boolean {
   return (

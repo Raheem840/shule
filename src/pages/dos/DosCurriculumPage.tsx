@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useDosCurriculumPlan, useMarkTopicCovered } from '../../hooks/useDos'
+import { useDosCurriculumPlan } from '../../hooks/useDos'
 import { useClasses, useSubjects } from '../../hooks/useClasses'
 
 export function DosCurriculumPage() {
@@ -18,7 +18,6 @@ export function DosCurriculumPage() {
   // just the auth_user_ids present in this class/subject's topics — not the
   // whole school staff roster.
   const { data: topics = [], isLoading, isError } = useDosCurriculumPlan(subjectId || null, classId || null, year)
-  const markCovered = useMarkTopicCovered()
 
   const filtered = term ? topics.filter(t => String(t.term) === term) : topics
   const covered  = filtered.filter(t => t.coveredAt != null).length
@@ -192,10 +191,9 @@ export function DosCurriculumPage() {
                               <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>Covered
                             </span>
                           ) : (
-                            <button disabled={markCovered.isPending} onClick={() => { void markCovered.mutateAsync(t.id) }}
-                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 9, border: 'none', background: 'linear-gradient(145deg,#8b5cf6,#7c3aed)', color: '#fff', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', boxShadow: '0 2px 8px rgba(139,92,246,.35)', whiteSpace: 'nowrap' }}>
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><polyline points="20 6 9 17 4 12"/></svg>Mark Covered
-                            </button>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: 'var(--surface2)', color: 'var(--txt3)', border: '.5px solid var(--border)', whiteSpace: 'nowrap' }}>
+                              Pending
+                            </span>
                           )}
                         </td>
                       </tr>
