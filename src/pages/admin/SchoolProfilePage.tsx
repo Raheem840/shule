@@ -291,12 +291,12 @@ export function SchoolProfilePage() {
                           <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                         </svg>
                         <span style={{ fontSize: 10, color: '#d97706', lineHeight: 1.5 }}>
-                          Changing this will update the prefix on all staff numbers
-                          (e.g. <strong>{data?.shortName || 'OLD'}/STAFF/001</strong> → <strong>{shortName.trim()}/STAFF/001</strong>)
+                          Changing this will update the prefix on new staff numbers going forward
+                          (e.g. <strong>{data?.shortName || 'OLD'}/STAFF/{new Date().getFullYear()}/001</strong> → <strong>{shortName.trim()}/STAFF/{new Date().getFullYear()}/001</strong>). Admission numbers always use a fixed STU prefix and are unaffected.
                         </span>
                       </div>
                     ) : (
-                      <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 4 }}>Prefix for staff IDs and admission numbers.</div>
+                      <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 4 }}>Prefix for staff IDs. Admission numbers always use a fixed STU prefix.</div>
                     )}
                   </div>
                   <div>

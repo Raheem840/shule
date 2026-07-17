@@ -416,13 +416,13 @@ export function PrincipalSettingsPage() {
                           <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                         </svg>
                         <span style={{ fontSize: 10, color: '#d97706', lineHeight: 1.5 }}>
-                          This only affects the prefix on <strong>new</strong> staff/student numbers going forward —
+                          This only affects the prefix on <strong>new</strong> staff numbers going forward —
                           existing numbers keep their current prefix
-                          (e.g. new staff will get <strong>{shortName.trim()}/STAFF/001</strong> instead of <strong>{settings?.shortName || 'OLD'}/STAFF/001</strong>)
+                          (e.g. new staff will get <strong>{shortName.trim()}/STAFF/{new Date().getFullYear()}/001</strong> instead of <strong>{settings?.shortName || 'OLD'}/STAFF/{new Date().getFullYear()}/001</strong>). Admission numbers are unaffected — they always use a fixed STU prefix.
                         </span>
                       </div>
                     ) : (
-                      <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 4 }}>Used as prefix for staff IDs and admission numbers.</div>
+                      <div style={{ fontSize: 10, color: 'var(--txt3)', marginTop: 4 }}>Used as the prefix for staff IDs. Admission numbers always use a fixed STU prefix.</div>
                     )}
                   </div>
                   <div>

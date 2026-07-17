@@ -162,9 +162,25 @@ export function useStudentById(id: string | null | undefined) {
 }
 
 // ── useNextAdmissionNumber ─────────────────────────────────────
-// staleTime: 0 — two secretaries could register at the same time.
-// Always fetch fresh to avoid duplicate admission numbers.
-// Returns the full formatted string e.g. "KJA/2025/0001" matching the DB trigger format.
+// The wizard pre-fills this straight into an editable form field and
+// submits it as-is (StudentRegistrationWizard.tsx), it does NOT leave
+// admission_number blank for the DB trigger to fill in — so this must
+// compute the exact same value generate_admission_number() would, or a
+// student ends up with a number the trigger never actually chose:
+//   - Prefix is always the fixed "STU" — NOT school short_name. Admission
+//     numbers are deliberately not short_name-based (see
+//     20260616_000003_stu_admission_prefix.sql) specifically so they stay
+//     stable if a school renames itself; a previous version of this hook
+//     used short_name here, which both re-introduced that bug and picked
+//     the wrong "last" row (ordering admission_number as a STRING mixes in
+//     any other prefix present from before this fix, e.g. picking
+//     "TS/2026/0001" over "GM/2026/0002" because "T" > "G").
+//   - staleTime: 0 — always fetch fresh so the preview doesn't go stale
+//     between two registrations in the same session. Two secretaries
+//     registering at the exact same moment could still both see the same
+//     preview and submit the same explicit number; the unique index on
+//     (school_id, admission_number) rejects the second insert rather than
+//     silently duplicating it.
 export function useNextAdmissionNumber(year: number) {
   const { user } = useAuth()
 
@@ -173,29 +189,19 @@ export function useNextAdmissionNumber(year: number) {
     enabled:  !!user?.schoolId,
     staleTime: 0,
     queryFn: async () => {
-      const [studRes, schoolRes] = await Promise.all([
-        supabase
-          .from('students')
-          .select('admission_number')
-          .eq('school_id', user!.schoolId)
-          .like('admission_number', `%/${year}/%`)
-          .order('admission_number', { ascending: false })
-          .limit(1),
-        supabase
-          .from('school_profile')
-          .select('short_name')
-          .eq('id', user!.schoolId)
-          .maybeSingle(),
-      ])
+      const { data, error } = await supabase
+        .from('students')
+        .select('admission_number')
+        .eq('school_id', user!.schoolId)
+        .like('admission_number', `STU/${year}/%`)
+      if (error) throw error
 
-      if (studRes.error) throw studRes.error
-      if (schoolRes.error) throw schoolRes.error
-
-      const prefix = (schoolRes.data?.short_name as string | null) ?? 'STU'
-      const last   = studRes.data?.[0]?.admission_number as string | undefined
-      const seq    = last ? parseInt(last.split('/').pop() ?? '0', 10) : 0
-      const next   = isNaN(seq) ? 1 : seq + 1
-      return `${prefix}/${year}/${String(next).padStart(4, '0')}`
+      let maxSeq = 0
+      for (const row of data ?? []) {
+        const m = /^STU\/\d{4}\/(\d+)$/.exec((row.admission_number as string | null) ?? '')
+        if (m) maxSeq = Math.max(maxSeq, parseInt(m[1], 10))
+      }
+      return `STU/${year}/${String(maxSeq + 1).padStart(4, '0')}`
     },
   })
 }
