@@ -107,3 +107,31 @@ describe('ImportWizard — editable preview', () => {
     await waitFor(() => expect(screen.getByText('1 with errors')).toBeInTheDocument())
   })
 })
+
+describe('ImportWizard — column auto-mapping', () => {
+  const FEE_REQUIRED: ColumnSpec[] = [
+    { key: 'student_name', label: 'Student Name', required: true },
+    { key: 'class_name',   label: 'Class Name',   required: true },
+    { key: 'amount_paid',  label: 'Amount Paid (UGX)', required: true },
+    { key: 'amount_due',   label: 'Amount Due (UGX)',  required: true },
+    { key: 'term',         label: 'Term',         required: true },
+  ]
+
+  it('auto-maps "Student Name" to the student_name field instead of leaving it unmapped, and "Amount Paid" to amount_paid instead of colliding with amount_due', async () => {
+    const onComplete = vi.fn<() => Promise<ImportResult>>()
+    const { container } = render(
+      <ImportWizard context="fees" requiredFields={FEE_REQUIRED} optionalFields={[]} onComplete={onComplete} />,
+    )
+    const file = makeCsvFile('Student Name,Class Name,Amount Paid,Amount Due,Term\nGrace Apio,S.1,100000,400000,1\n')
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    await fireEvent.change(input, { target: { files: [file] } })
+    await waitFor(() => expect(screen.getByText(/rows detected/)).toBeInTheDocument())
+
+    const selects = container.querySelectorAll('select')
+    const values = Array.from(selects).map(s => (s as HTMLSelectElement).value)
+    expect(values).toEqual(['student_name', 'class_name', 'amount_paid', 'amount_due', 'term'])
+
+    // All required fields resolved → Preview button is enabled without any manual fix-up.
+    expect(screen.getByText('Preview Data →')).toBeEnabled()
+  })
+})

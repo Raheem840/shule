@@ -361,8 +361,13 @@ function useUpdatePaymentAmount() {
       const newBalance = Math.max(0, input.amountDue - input.newPaid)
       // balance is DB-generated (amount_due - amount_paid) — never set explicitly;
       // newBalance is still computed above for the audit_log entry below.
+      const patch: Record<string, unknown> = { amount_paid: input.newPaid }
+      // An increase means money actually came in right now — stamp today's date so
+      // the Fee Ledger's "Last Payment" column reflects it. Without this, editing
+      // amount_paid on an auto-charged row (payment_date: null) left it null forever.
+      if (input.newPaid > input.oldPaid) patch.payment_date = localToday()
       const { error } = await supabase.from('fee_payments')
-        .update({ amount_paid: input.newPaid })
+        .update(patch)
         .eq('id', input.id)
         .eq('school_id', user!.schoolId)
       if (error) throw error

@@ -5,9 +5,10 @@ import type { ParsedRow } from '../../components/shared/ImportWizard'
 
 // ── ImportWizard stub — exposes a button that fires onComplete with fixed rows ──
 let capturedRows: ParsedRow[] = []
+let capturedStrategy: 'skip' | 'upsert' = 'upsert'
 vi.mock('../../components/shared/ImportWizard', () => ({
-  ImportWizard: ({ onComplete }: { onComplete: (rows: ParsedRow[], strategy: 'skip' | 'update') => Promise<unknown> }) => (
-    <button onClick={() => void onComplete(capturedRows, 'update')}>Run Wizard</button>
+  ImportWizard: ({ onComplete }: { onComplete: (rows: ParsedRow[], strategy: 'skip' | 'upsert') => Promise<unknown> }) => (
+    <button onClick={() => void onComplete(capturedRows, capturedStrategy)}>Run Wizard</button>
   ),
 }))
 
@@ -59,7 +60,7 @@ vi.mock('../../lib/importTemplates', () => ({
 
 import { BursarImportPage } from '../../pages/bursar/BursarImportPage'
 
-beforeEach(() => { vi.clearAllMocks(); clearResponses(); capturedRows = [] })
+beforeEach(() => { vi.clearAllMocks(); clearResponses(); capturedRows = []; capturedStrategy = 'upsert' })
 
 function setupBaseTables() {
   setResponse('academic_years', { data: { id: 'year-1' }, error: null })
@@ -177,5 +178,47 @@ describe('BursarImportPage — fee_structure_id resolution + dedupe', () => {
       expect.objectContaining({ fee_structure_id: 'fs-tuition' })
     )
     expect(feePaymentsBuilders.some(b => (b.insert as ReturnType<typeof vi.fn>).mock.calls.length > 0)).toBe(false)
+  })
+
+  it('detects an exact-duplicate general payment (no fee_type resolved) by amount_due/amount_paid and skips it under the "skip" strategy, while still importing a genuinely different payment for the same student/term', async () => {
+    setupBaseTables()
+    setResponse('students', {
+      data: [{ id: 'stu-1', first_name: 'Kamoga', last_name: 'Brandon', admission_number: 'A1', class_id: 'cls-1', stream_id: null }],
+      error: null,
+    })
+    // Existing general payment (no fee_type) already recorded for this student/term.
+    setResponse('fee_payments', {
+      data: [{ id: 'existing-row-1', student_id: 'stu-1', fee_structure_id: null, term: 2, amount_due: 500000, amount_paid: 350000 }],
+      error: null,
+    })
+
+    capturedStrategy = 'skip'
+    capturedRows = [
+      // Exact duplicate of the existing row — should be skipped, not inserted.
+      { student_name: 'Kamoga Brandon', class_name: 'S.1', stream_name: '', fee_type: '', term: '2', year: '2026', amount_paid: '350000', amount_due: '500000', payment_date: '', receipt_number: '', notes: '' },
+      // A genuinely different payment for the same student/term — must still import.
+      { student_name: 'Kamoga Brandon', class_name: 'S.1', stream_name: '', fee_type: '', term: '2', year: '2026', amount_paid: '20000', amount_due: '500000', payment_date: '', receipt_number: '', notes: '' },
+    ] as unknown as ParsedRow[]
+
+    const user = userEvent.setup()
+    render(<BursarImportPage />)
+    await user.click(screen.getByText('Run Wizard'))
+
+    await waitFor(() => expect(screen.getByText(/Import 2 Records/i)).toBeInTheDocument())
+    await user.click(screen.getByText(/Import 2 Records/i))
+
+    await waitFor(() => expect(screen.getByText('Import Complete')).toBeInTheDocument())
+
+    const feePaymentsBuilders = mockFrom.mock.calls
+      .map((_, i) => mockFrom.mock.results[i].value)
+      .filter((_, i) => mockFrom.mock.calls[i][0] === 'fee_payments')
+    // The duplicate must not be updated (strategy is "skip", not "upsert")...
+    expect(feePaymentsBuilders.some(b => (b.update as ReturnType<typeof vi.fn>).mock.calls.length > 0)).toBe(false)
+    // ...and only the genuinely new 20,000 payment gets inserted.
+    const insertingBuilder = feePaymentsBuilders.find(b => (b.insert as ReturnType<typeof vi.fn>).mock.calls.length > 0)
+    expect(insertingBuilder).toBeDefined()
+    const insertedRows = (insertingBuilder!.insert as ReturnType<typeof vi.fn>).mock.calls[0][0] as Array<Record<string, unknown>>
+    expect(insertedRows).toHaveLength(1)
+    expect(insertedRows[0]).toMatchObject({ amount_paid: 20000 })
   })
 })

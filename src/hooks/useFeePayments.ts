@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
+import { localToday } from '../lib/dates'
 import type { FeePayment, FeeStatus } from '../types/app'
 
 type AnyRow = Record<string, unknown>
@@ -739,6 +740,14 @@ export function useUpdatePayment() {
       if (input.receiptNumber !== undefined) patch.receipt_number = input.receiptNumber
       if (input.paymentDate   !== undefined) patch.payment_date   = input.paymentDate
       if (input.notes         !== undefined) patch.notes          = input.notes
+      // An increase in amount_paid means money actually came in right now — stamp
+      // today's date so "Last Payment" reflects it, unless the caller already
+      // supplied a specific date. Without this, editing the Amount Paid cell on an
+      // auto-charged row (amount_paid: 0, payment_date: null) left payment_date
+      // null forever, since this is the only write path for that action.
+      if (input.paymentDate === undefined && input.amountPaid > input.oldAmountPaid) {
+        patch.payment_date = localToday()
+      }
 
       const { error: updErr } = await supabase
         .from('fee_payments')

@@ -7,7 +7,7 @@ import { downloadFeeTemplate } from '../../lib/importTemplates'
 import { localToday } from '../../lib/dates'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
-import type { ColumnSpec, ParsedRow, ImportResult } from '../../components/shared/ImportWizard'
+import type { ColumnSpec, ParsedRow, ImportResult, ConflictStrategy } from '../../components/shared/ImportWizard'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -150,9 +150,15 @@ export function BursarImportPage() {
   const [importing,    setImporting]    = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [activeYearId, setActiveYearId] = useState<string | null>(null)
+  // Conflict-resolution choice made on the wizard's own "Conflicts" step. The
+  // wizard's onComplete only hands off rows for matching (the real DB write
+  // happens later from the Preview stage's own Import button below), so the
+  // chosen strategy must be carried in state to reach runImport().
+  const [importStrategy, setImportStrategy] = useState<ConflictStrategy>('upsert')
 
   // ── After wizard parses rows → run matching ─────────────────────────────────
-  const handleWizardComplete = useCallback(async (rows: ParsedRow[]): Promise<ImportResult> => {
+  const handleWizardComplete = useCallback(async (rows: ParsedRow[], strategy: ConflictStrategy): Promise<ImportResult> => {
+    setImportStrategy(strategy)
     setStage('matching')
     setMatching(true)
     setMatchError(null)
@@ -338,36 +344,64 @@ export function BursarImportPage() {
     // importing overlapping data) must UPDATE the existing record, not insert
     // a second row that would double-count in every KPI/ledger aggregate.
     const studentIds = Array.from(new Set(toImport.map(m => m.chosenId!)))
-    const existingMap = new Map<string, { id: string; fee_structure_id: string | null }>()
+    type ExistingRow = { id: string; feeStructureId: string | null; amountDue: number; amountPaid: number }
+    const existingByStudentTerm = new Map<string, ExistingRow[]>()
     if (studentIds.length > 0) {
       const { data: existingRows } = await supabase
         .from('fee_payments')
-        .select('id, student_id, fee_structure_id, term')
+        .select('id, student_id, fee_structure_id, term, amount_due, amount_paid')
         .eq('school_id', user!.schoolId)
         .eq('academic_year_id', activeYearId!)
         .in('student_id', studentIds)
-      for (const r of (existingRows ?? []) as { id: string; student_id: string; fee_structure_id: string | null; term: number }[]) {
-        existingMap.set(`${r.student_id}::${r.term}::${r.fee_structure_id ?? 'null'}`, { id: r.id, fee_structure_id: r.fee_structure_id })
+      for (const r of (existingRows ?? []) as { id: string; student_id: string; fee_structure_id: string | null; term: number; amount_due: number; amount_paid: number }[]) {
+        const bucketKey = `${r.student_id}::${r.term}`
+        const list = existingByStudentTerm.get(bucketKey) ?? []
+        list.push({ id: r.id, feeStructureId: r.fee_structure_id, amountDue: Number(r.amount_due), amountPaid: Number(r.amount_paid) })
+        existingByStudentTerm.set(bucketKey, list)
       }
     }
 
+    // Find the existing row (if any) a re-imported row represents. Prefer an
+    // exact fee_structure_id match (covers real fee-item charges, including
+    // both sides null). If the import row resolved no fee_type (the column is
+    // optional — omitting it is common), fall back to matching on the exact
+    // amount_due/amount_paid pair, which is what "duplicate" means in practice
+    // for a general/manual charge — this also correctly tells apart a true
+    // duplicate from a second, genuinely different payment for the same
+    // student/term (e.g. a top-up payment with a different amount).
+    function findExisting(studentId: string, term: number, feeStructureId: string | null, amountDue: number, amountPaid: number): ExistingRow | undefined {
+      const list = existingByStudentTerm.get(`${studentId}::${term}`) ?? []
+      if (feeStructureId) {
+        const exact = list.find(r => r.feeStructureId === feeStructureId)
+        if (exact) return exact
+        // Import resolved a real fee_type, but no row exists under that exact id —
+        // fall back to a legacy row recorded before fee_type existed (fee_structure_id
+        // null), so re-importing a corrected file updates it in place instead of
+        // inserting a duplicate.
+        return list.find(r => r.feeStructureId === null)
+      }
+      // No fee_type resolved on the import side — never treat "both null" alone as
+      // a match (two general/manual charges for the same student/term are meant to
+      // stay distinct rows, matching useAddPayment's own convention). Only match on
+      // the exact amount_due/amount_paid pair, which is what "duplicate" means in
+      // practice for a general charge.
+      return list.find(r => r.feeStructureId === null && r.amountDue === amountDue && r.amountPaid === amountPaid)
+    }
+
+    let duplicatesSkipped = 0
     const toInsert: Array<Record<string, unknown>> = []
     for (const m of toImport) {
       const r          = m.rawRow
       const amountPaid = Number(r.amount_paid ?? 0)
       const amountDue  = Number(r.amount_due  ?? amountPaid)
       const termNum    = Number(r.term ?? 1)
-      const key        = `${m.chosenId}::${termNum}::${m.feeStructureId ?? 'null'}`
-      // Earlier imports (before the fee_type column existed) always wrote
-      // fee_structure_id=null. If this row now resolves a real fee_structure_id
-      // but no row exists under that exact key, fall back to the legacy
-      // null-keyed row for the same student/term — otherwise re-importing a
-      // corrected file (now with fee_type populated) can never find the
-      // original record and inserts a duplicate instead of updating it.
-      const legacyKey  = `${m.chosenId}::${termNum}::null`
-      const existing   = existingMap.get(key) ?? (m.feeStructureId ? existingMap.get(legacyKey) : undefined)
+      const existing   = findExisting(m.chosenId!, termNum, m.feeStructureId, amountDue, amountPaid)
 
       if (existing) {
+        if (importStrategy === 'skip') {
+          duplicatesSkipped++
+          continue
+        }
         const { error } = await supabase
           .from('fee_payments')
           .update({
@@ -420,7 +454,7 @@ export function BursarImportPage() {
     void qc.invalidateQueries({ queryKey: ['bursar-kpis', user?.schoolId] })
     void qc.invalidateQueries({ queryKey: ['uncharged-counts-v2'] })
 
-    const skipped = matchedRows.filter(m => m.skipped).length
+    const skipped = matchedRows.filter(m => m.skipped).length + duplicatesSkipped
     setImportResult({ imported, updated, skipped, failed })
     setStage('done')
     setImporting(false)
@@ -565,6 +599,9 @@ export function BursarImportPage() {
             {closeCount > 0 && <Badge variant="amber" dot>{closeCount} needs confirmation</Badge>}
             {unmatchedCount > 0 && <Badge variant="red" dot>{unmatchedCount} unmatched</Badge>}
             <Badge variant="muted">{matchedRows.length} total rows</Badge>
+            <Badge variant="blue">
+              {importStrategy === 'skip' ? 'Duplicates will be skipped' : 'Duplicates will be updated'}
+            </Badge>
           </div>
 
           {pendingClose > 0 && (

@@ -99,6 +99,7 @@ const ALIASES: Record<string, string[]> = {
   first_name:       ['first name','firstname','fname','given name'],
   last_name:        ['last name','lastname','lname','surname','family name'],
   full_name:        ['full name','fullname','name','staff name'],
+  student_name:     ['student name','student','pupil name'],
   admission_number: ['adm no','admission no','admission number','reg no','student id','adm number'],
   dob:              ['dob','date of birth','birth date','birthdate'],
   gender:           ['gender','sex'],
@@ -129,20 +130,49 @@ const ALIASES: Record<string, string[]> = {
   address:              ['address','home address','residential address'],
 }
 
-function autoDetect(headers: string[]): Record<string, string> {
+function autoDetect(headers: string[], fields: ColumnSpec[]): Record<string, string> {
+  // Only consider fields that exist in this import's own context — ALIASES is
+  // shared across all contexts, and without this a fees-context header like
+  // "Student Name" could get matched against the students/staff-only
+  // "full_name" field (whose generic "name" alias fires on any header
+  // containing that substring), producing a mapping value with no matching
+  // <option>, which renders as an unmapped "Skip column".
+  const fieldKeys = new Set(fields.map(f => f.key))
+  const candidates = Object.entries(ALIASES).filter(([field]) => fieldKeys.has(field))
+
   const mapping: Record<string, string> = {}
   const used = new Set<string>()
+
+  // Pass 1 — exact match only. Runs before any substring matching so a
+  // generic alias (e.g. "amount" under amount_due) can't steal a header that
+  // has its own exact match elsewhere (e.g. "Amount Paid" exactly matching
+  // amount_paid's "amount paid" alias).
   headers.forEach(h => {
     const norm = h.toLowerCase().trim()
-    for (const [field, aliases] of Object.entries(ALIASES)) {
+    for (const [field, aliases] of candidates) {
       if (used.has(field)) continue
-      if (aliases.some(a => norm === a || norm.includes(a) || a.includes(norm))) {
+      if (aliases.some(a => norm === a)) {
         mapping[h] = field
         used.add(field)
         break
       }
     }
   })
+
+  // Pass 2 — substring match, for headers still unmapped.
+  headers.forEach(h => {
+    if (mapping[h]) return
+    const norm = h.toLowerCase().trim()
+    for (const [field, aliases] of candidates) {
+      if (used.has(field)) continue
+      if (aliases.some(a => norm.includes(a) || a.includes(norm))) {
+        mapping[h] = field
+        used.add(field)
+        break
+      }
+    }
+  })
+
   return mapping
 }
 
@@ -261,7 +291,7 @@ export function ImportWizard({ context, requiredFields, optionalFields, onComple
       if (data.headers.length === 0) throw new Error('No headers found. Check that your file has a header row.')
       if (data.allRows.length === 0) throw new Error('The file has no data rows.')
       setParsed(data)
-      setMapping(autoDetect(data.headers))
+      setMapping(autoDetect(data.headers, allFields))
       setStep(2)
     } catch (e) {
       setFileError(e instanceof Error ? e.message : 'Failed to read file')
