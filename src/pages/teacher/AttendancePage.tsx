@@ -7,6 +7,7 @@ import { useAttendance, useClassTermAttendance, useSaveAttendance } from '../../
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
 import { Avatar } from '../../components/shared/Avatar'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import type { AttendanceStatus, Student } from '../../types/app'
 
 const STATUS_CFG: Record<AttendanceStatus, { label: string; color: string; bg: string; border: string }> = {
@@ -45,7 +46,12 @@ function StatusToggle({ value, onChange, readOnly }: { value: AttendanceStatus; 
   )
 }
 
+// Desktop/tablet: single-row status pills fit at 60px. On phones the pills
+// wrap into a 2x2 grid (see .mob-att-toggle in index.css) so each stays a
+// real ~44px tap target instead of being squeezed to ~32px in one row —
+// that needs a taller virtualized row to have room.
 const ROW_HEIGHT = 60
+const ROW_HEIGHT_MOBILE = 108
 
 function AttendanceRow({
   student, status, onStatusChange, style, readOnly,
@@ -192,11 +198,14 @@ export function AttendancePage() {
     )
   }
 
+  const isMobile = useIsMobile()
+  const rowHeight = isMobile ? ROW_HEIGHT_MOBILE : ROW_HEIGHT
+
   const parentRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
     count:            students.length,
     getScrollElement: () => parentRef.current,
-    estimateSize:     () => ROW_HEIGHT,
+    estimateSize:     () => rowHeight,
     overscan:         8,
   })
 
@@ -359,7 +368,7 @@ export function AttendancePage() {
                 </tr>
               </thead>
             </table>
-            <div ref={parentRef} style={{ height: Math.min(studentCount * ROW_HEIGHT, 520), overflowY: 'auto' }}>
+            <div ref={parentRef} style={{ height: Math.min(studentCount * rowHeight, 520), overflowY: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                 <colgroup>
                   <col style={{ width: '45%' }} />
@@ -380,7 +389,7 @@ export function AttendancePage() {
                           top:    vRow.start,
                           left:   0,
                           width:  '100%',
-                          height: ROW_HEIGHT,
+                          height: rowHeight,
                           tableLayout: 'fixed',
                         }}
                       />
@@ -420,6 +429,27 @@ export function AttendancePage() {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* ── Mobile sticky action bar ──────────────────────
+          Save/Edit lives in the page header above, which can scroll out of
+          reach once a teacher is deep in a long class list mid-lesson —
+          mirrors the same pattern already used on MarkEntryPage so the
+          primary action stays thumb-reachable without leaving the list. */}
+      {isMobile && hasClass && studentCount > 0 && (
+        <div className="mob-action-bar">
+          {isReadOnly ? (
+            <button onClick={() => setIsReadOnly(false)}
+              style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: '1px solid var(--brand)', background: 'transparent', color: 'var(--brand)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+              Edit Attendance
+            </button>
+          ) : (
+            <button onClick={handleSave} disabled={saveMutation.isPending}
+              style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: 'none', background: saved ? 'linear-gradient(145deg,#10b981,#059669)' : 'linear-gradient(145deg,#0d9488,#0f766e)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: saved ? '0 3px 12px rgba(16,185,129,.35)' : '0 3px 12px rgba(13,148,136,.35)' }}>
+              {saveMutation.isPending ? 'Saving…' : saved ? '✓ Saved' : 'Save Attendance'}
+            </button>
+          )}
         </div>
       )}
     </div>

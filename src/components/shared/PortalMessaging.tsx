@@ -139,7 +139,10 @@ function PortalChatThread({ contact, myId }: { contact: StaffContact; myId: stri
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend() } }}
             placeholder={`Message ${contact.firstName}…`}
             rows={1}
-            style={{ flex: 1, resize: 'none', border: '1.5px solid var(--border)', borderRadius: 14, padding: '10px 14px', fontSize: 13.5, fontFamily: 'var(--font)', color: 'var(--txt)', background: 'var(--surface2)', outline: 'none', lineHeight: 1.5, maxHeight: 120, overflowY: 'auto' }}
+            // fontSize 16 (not 13.5) — anything smaller makes iOS Safari
+            // auto-zoom the whole page on focus, which on a chat composer
+            // used from a phone is jarring every single time it's tapped.
+            style={{ flex: 1, resize: 'none', border: '1.5px solid var(--border)', borderRadius: 14, padding: '10px 14px', fontSize: 16, fontFamily: 'var(--font)', color: 'var(--txt)', background: 'var(--surface2)', outline: 'none', lineHeight: 1.5, maxHeight: 120, overflowY: 'auto' }}
           />
           <button
             onClick={() => { void handleSend() }}

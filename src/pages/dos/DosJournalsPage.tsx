@@ -49,6 +49,23 @@ function Pill({ label, active, onClick }: { label: string; active: boolean; onCl
   )
 }
 
+function useSchoolName() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['school-name', user?.schoolId],
+    enabled: !!user,
+    staleTime: 10 * 60_000,
+    queryFn: async (): Promise<string> => {
+      const { data } = await supabase
+        .from('school_profile')
+        .select('school_name')
+        .eq('id', user!.schoolId)
+        .maybeSingle()
+      return (data?.school_name as string | undefined) ?? 'School'
+    },
+  })
+}
+
 // ─── Data hooks ───────────────────────────────────────────────────────────────
 function useAllJournals() {
   const { user } = useAuth()
@@ -173,6 +190,7 @@ export function DosJournalsPage() {
   const { data: results  = [], isLoading: rLoading }                  = useAllResults()
   const { data: classes  = [] } = useClasses()
   const { data: subjects = [] } = useSubjects()
+  const { data: schoolName = 'School' } = useSchoolName()
 
   // Journal table filters
   const [classFilter,   setClassFilter]   = useState('')
@@ -437,12 +455,22 @@ export function DosJournalsPage() {
 
   return (
     <>
-      {/* Print isolation: only .dos-analytics-print renders when printing */}
+      {/* Print isolation: only .dos-analytics-print (and its non-.no-print
+          descendants) renders when printing. `display:none` on an ancestor
+          can never be undone by a descendant's own `display` — the old rule
+          here hid the whole app root (`body > *`) and then tried to
+          re-display a node buried inside it, which produced a blank page
+          every time regardless of data. `visibility` is inheritable but,
+          unlike `display`, can be overridden per-descendant, so this hides
+          everything by default and explicitly re-reveals the report. */}
       <style>{`
         @media print {
-          body > * { display: none !important; }
-          .dos-analytics-print { display: block !important; }
-          .dos-analytics-print .no-print { display: none !important; }
+          body * { visibility: hidden; }
+          .dos-analytics-print, .dos-analytics-print * { visibility: visible; }
+          .dos-analytics-print .no-print, .dos-analytics-print .no-print * { visibility: hidden; display: none !important; }
+          .dos-analytics-print { position: absolute; top: 0; left: 0; width: 100%; }
+          .dos-print-header { display: block !important; }
+          @page { size: A4 portrait; margin: 14mm 16mm; }
         }
       `}</style>
 
@@ -599,6 +627,21 @@ export function DosJournalsPage() {
         {tab === 'analytics' && (
           <div className="dos-analytics-print" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
 
+            {/* Print-only branded header — hidden on screen, shown on paper */}
+            <div className="dos-print-header" style={{ display: 'none', marginBottom: 4 }}>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 18, color: '#0f172a' }}>{schoolName}</div>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 700, fontSize: 14, color: '#334155', marginTop: 2 }}>Exam Performance Report</div>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                Generated {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
+                {' · '}Band: {analyticsFilter.replace(/_/g, ' ')}
+                {analyticsSubject && ` · ${subjectMap.get(analyticsSubject) ?? ''}`}
+                {analyticsClass   && ` · ${classMap.get(analyticsClass) ?? ''}`}
+                {analyticsTerm    && ` · Term ${analyticsTerm}`}
+                {analyticsTeacher && ` · ${teacherList.find(t => t.id === analyticsTeacher)?.name ?? ''}`}
+              </div>
+              <div style={{ borderBottom: '2px solid #0d9488', marginTop: 10 }} />
+            </div>
+
             {/* Performance band pills */}
             <div className="no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase' as const, letterSpacing: .7, whiteSpace: 'nowrap' as const, marginRight: 4 }}>Band</span>
@@ -632,12 +675,17 @@ export function DosJournalsPage() {
               <div style={{ width: '100%', display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4 }}>
                 <button
                   onClick={() => void exportExcel()}
+                  disabled={isLoading || filteredResults.length === 0}
+                  title={filteredResults.length === 0 && !isLoading ? 'No results match the current filters' : undefined}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 7,
                     padding: '9px 16px', borderRadius: 10, border: 'none',
-                    background: 'linear-gradient(135deg,#10b981,#059669)',
-                    color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
-                    boxShadow: '0 3px 10px rgba(16,185,129,.3)', fontFamily: 'var(--font2)',
+                    background: (isLoading || filteredResults.length === 0) ? 'var(--surface2)' : 'linear-gradient(135deg,#10b981,#059669)',
+                    color: (isLoading || filteredResults.length === 0) ? 'var(--txt3)' : '#fff',
+                    fontWeight: 700, fontSize: 12.5,
+                    cursor: (isLoading || filteredResults.length === 0) ? 'not-allowed' : 'pointer',
+                    boxShadow: (isLoading || filteredResults.length === 0) ? 'none' : '0 3px 10px rgba(16,185,129,.3)',
+                    fontFamily: 'var(--font2)',
                   }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -649,12 +697,18 @@ export function DosJournalsPage() {
                 </button>
                 <button
                   onClick={handlePrint}
+                  disabled={isLoading || filteredResults.length === 0}
+                  title={filteredResults.length === 0 && !isLoading ? 'No results match the current filters' : undefined}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 7,
                     padding: '9px 16px', borderRadius: 10,
                     border: '.5px solid var(--border)',
-                    background: 'var(--surface)', color: 'var(--txt2)',
-                    fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font2)',
+                    background: 'var(--surface)',
+                    color: (isLoading || filteredResults.length === 0) ? 'var(--txt3)' : 'var(--txt2)',
+                    fontWeight: 700, fontSize: 12.5,
+                    cursor: (isLoading || filteredResults.length === 0) ? 'not-allowed' : 'pointer',
+                    opacity: (isLoading || filteredResults.length === 0) ? 0.6 : 1,
+                    fontFamily: 'var(--font2)',
                   }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

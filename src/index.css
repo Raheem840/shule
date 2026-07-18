@@ -3216,21 +3216,31 @@ select.sui-select:hover:not(:disabled):not(:focus) {
 }
 
 /* ── Teacher: Attendance — compact status toggle + tidy filter bar ──
-   The 4 status pills (Present/Absent/Late/Excused) wrap & break the
-   fixed-height virtualized row on phones. Collapse them to single-letter
-   chips that always fit on one line, with the active chip filled. */
+   The 4 status pills (Present/Absent/Late/Excused) don't fit at a real
+   44x44 tap target in one row next to the name column on a phone — a
+   single row forces them down to ~32px, too easy to mis-tap mid-lesson.
+   Instead: single-letter chips laid out as a 2x2 grid so each pill gets
+   a genuine ~44px target. AttendancePage.tsx pairs this with a taller
+   virtualized row height on mobile (ROW_HEIGHT_MOBILE) so the grid has
+   room without clipping. */
 @media (max-width: 768px) {
   .mob-att-filters > div { flex: 1 1 100% !important; }
   .mob-att-filters select,
   .mob-att-filters input[type="date"] { width: 100% !important; min-height: 40px; }
   .mob-att-filters > div:last-child { text-align: left; }
 
-  .mob-att-toggle { flex-wrap: nowrap !important; gap: 5px !important; }
+  .mob-att-toggle {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px !important;
+    width: 100%;
+  }
   .mob-att-pill {
-    width: 34px;
-    height: 32px;
+    width: 100%;
+    min-width: 44px;
+    height: 44px;
     padding: 0 !important;
-    border-radius: 9px !important;
+    border-radius: 10px !important;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -3247,10 +3257,6 @@ select.sui-select:hover:not(:disabled):not(:focus) {
     box-shadow: 0 2px 8px rgba(0,0,0,.12);
     transform: scale(1.04);
   }
-}
-
-@media (max-width: 480px) {
-  .mob-att-pill { width: 32px; height: 30px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

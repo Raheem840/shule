@@ -145,16 +145,22 @@ function SkeletonCard() {
 }
 
 // ── Form field helpers ─────────────────────────────────────────
+// fontSize 16 (not 13) is deliberate: iOS Safari auto-zooms the whole page
+// on focus for any text input under 16px, which on a phone-filled New
+// Journal modal made every field tap feel like a bug. 16px is the documented
+// minimum to suppress that zoom.
 const selectCls: React.CSSProperties = {
-  width: '100%', padding: '9px 32px 9px 12px', fontSize: 13,
+  width: '100%', padding: '12px 32px 12px 12px', fontSize: 16,
   background: 'var(--surface2)', border: '.5px solid var(--border)',
   borderRadius: 10, color: 'var(--txt)', appearance: 'none', outline: 'none',
+  boxSizing: 'border-box', minHeight: 44,
 }
 
 const inputCls: React.CSSProperties = {
-  width: '100%', padding: '9px 12px', fontSize: 13,
+  width: '100%', padding: '12px', fontSize: 16,
   background: 'var(--surface2)', border: '.5px solid var(--border)',
   borderRadius: 10, color: 'var(--txt)', outline: 'none', boxSizing: 'border-box',
+  minHeight: 44,
 }
 
 function FieldWrap({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) {
@@ -182,6 +188,56 @@ function SelectWrap({ label, value, onChange, options, disabled, error }: {
         <path d="M6 9l6 6 6-6"/>
       </svg>
     </FieldWrap>
+  )
+}
+
+// Native <input list="…">/<datalist> suggestions render as browser-chrome
+// overlays, not DOM nodes — unreliable in automated testing and unsupported
+// on mobile Safari. This is a real JS-driven dropdown instead, so the
+// Curriculum Plan topic suggestions are always inspectable and actually work
+// on every device.
+function CompetencyCombobox({ value, onChange, topics }: {
+  value: string; onChange: (v: string) => void; topics: { id: string; topic: string }[]
+}) {
+  const [open, setOpen] = useState(false)
+  const filtered = value.trim()
+    ? topics.filter(t => t.topic.toLowerCase().includes(value.trim().toLowerCase()))
+    : topics
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        role="combobox"
+        aria-expanded={open}
+        aria-controls="ca-competency-listbox"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        style={inputCls}
+        placeholder={topics.length > 0 ? 'Pick from your Curriculum Plan, or type your own' : 'e.g. Simultaneous linear equations'}
+      />
+      {open && filtered.length > 0 && (
+        <ul id="ca-competency-listbox" role="listbox"
+          style={{
+            position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 20,
+            margin: 0, padding: 4, listStyle: 'none', maxHeight: 200, overflowY: 'auto',
+            background: 'var(--surface)', border: '.5px solid var(--border)', borderRadius: 10,
+            boxShadow: '0 8px 24px rgba(0,0,0,.12)',
+          }}>
+          {filtered.map(t => (
+            <li key={t.id} role="option" aria-selected={t.topic === value}
+              onMouseDown={e => { e.preventDefault(); onChange(t.topic); setOpen(false) }}
+              style={{ padding: '8px 10px', borderRadius: 7, fontSize: 13, cursor: 'pointer', color: 'var(--txt)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
+              {t.topic}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
@@ -395,15 +451,13 @@ function CreateJournalModal({ onClose, prefillEvent }: { onClose: () => void; pr
               </FieldWrap>
               <div style={{ gridColumn: '1/-1' }}>
                 <FieldWrap label="Competency / Topic Assessed">
-                  <input
-                    list="ca-competency-topics"
-                    {...register('competency')}
-                    style={inputCls}
-                    placeholder={caTopics.length > 0 ? 'Pick from your Curriculum Plan, or type your own' : 'e.g. Simultaneous linear equations'}
-                  />
-                  <datalist id="ca-competency-topics">
-                    {caTopics.map(t => <option key={t.id} value={t.topic} />)}
-                  </datalist>
+                  <Controller name="competency" control={control} render={({ field }) => (
+                    <CompetencyCombobox
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      topics={caTopics}
+                    />
+                  )} />
                 </FieldWrap>
                 {caTopics.length === 0 && (
                   <div style={{ fontSize: 10.5, color: 'var(--txt3)', marginTop: 4 }}>
