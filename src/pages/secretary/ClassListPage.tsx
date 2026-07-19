@@ -92,7 +92,11 @@ function AddClassModal({ onClose }: { onClose: () => void }) {
     e.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) return
-    createClass.mutate({ name: trimmed, level: level || null }, {
+    // level is NOT NULL at the DB level — used for CBC/report-card grouping.
+    // Previously labeled "(Optional)" and submitted as null, which surfaced
+    // a raw Postgres constraint error instead of a friendly validation message.
+    if (!level) { err('Level is required.'); return }
+    createClass.mutate({ name: trimmed, level }, {
       onSuccess: () => { ok(`Class "${trimmed}" created`); onClose() },
       onError:   (e: Error) => err(e.message),
     })
@@ -122,7 +126,7 @@ function AddClassModal({ onClose }: { onClose: () => void }) {
           {/* Level */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font2)' }}>
-              Level (Optional)
+              Level <span style={{ color: 'var(--danger)' }}>*</span>
             </label>
             <select
               value={level}
@@ -138,7 +142,7 @@ function AddClassModal({ onClose }: { onClose: () => void }) {
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', paddingTop: 4 }}>
             <PBtn type="button" onClick={onClose}>Cancel</PBtn>
-            <PBtn primary type="submit" loading={createClass.isPending} disabled={!name.trim()}>Create Class</PBtn>
+            <PBtn primary type="submit" loading={createClass.isPending} disabled={!name.trim() || !level}>Create Class</PBtn>
           </div>
         </div>
       </form>

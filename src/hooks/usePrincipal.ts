@@ -169,11 +169,16 @@ export function useTopClasses() {
 }
 
 // ── useSchoolFeeSummary ────────────────────────────────────────────────────
-export function useSchoolFeeSummary() {
+// term is optional — PrincipalDashboard wants a whole-year summary, but
+// PrincipalAnalyticsPage's Finance tab has its own term filter that this
+// previously ignored entirely, leaving the KPI cards frozen on the same
+// all-terms numbers no matter what term was selected (while the "Fees by
+// Class" chart below, driven by useFeeCollectionByClass, filtered correctly).
+export function useSchoolFeeSummary(term?: number | null) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['fee-summary', user?.schoolId],
+    queryKey: ['fee-summary', user?.schoolId, term ?? null],
     enabled: !!user && ['bursar', 'principal'].includes(user?.role ?? ''),
     queryFn: async (): Promise<FeeSummary> => {
       const sid = user!.schoolId
@@ -186,6 +191,7 @@ export function useSchoolFeeSummary() {
         .select('amount_paid, amount_due, balance')
         .eq('school_id', sid)
       if (activeYear?.id) feeQ = feeQ.eq('academic_year_id', activeYear.id)
+      if (term != null)   feeQ = feeQ.eq('term', term)
 
       const { data: payments } = await feeQ
       const rows = payments ?? []

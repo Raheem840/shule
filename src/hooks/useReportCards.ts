@@ -621,12 +621,16 @@ function useUpdateStatus(action: 'approve' | 'release' | 'unlock') {
       if (action === 'approve') {
         patch.status          = 'approved'
         patch.approved_at     = now
-        patch.approved_by     = user!.id
+        // approved_by/released_by are FKs to staff.id, not auth.users.id —
+        // user.id is the auth UUID, which always violates
+        // report_cards_approved_by_fkey since no staff row has that as its
+        // own id.
+        patch.approved_by     = user!.staffId ?? null
         if (principalRemarks !== undefined) patch.principal_remarks = principalRemarks
       } else if (action === 'release') {
         patch.status      = 'released'
         patch.released_at = now
-        patch.released_by = user!.id
+        patch.released_by = user!.staffId ?? null
       } else {
         patch.status        = 'draft'
         patch.approved_at   = null

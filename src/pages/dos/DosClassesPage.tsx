@@ -30,7 +30,11 @@ function AddClassModal({ onClose }: { onClose: () => void }) {
     if (createClass.isPending) return
     const trimmed = name.trim()
     if (!trimmed) return
-    createClass.mutate({ name: trimmed, level: level || null }, {
+    // level is NOT NULL at the DB level — used for CBC/report-card grouping.
+    // Previously labeled "(optional)" and submitted as null, which surfaced
+    // a raw Postgres constraint error instead of a friendly validation message.
+    if (!level) { err('Level is required.'); return }
+    createClass.mutate({ name: trimmed, level }, {
       onSuccess: () => { ok(`Class "${trimmed}" created`); onClose() },
       onError:   (e: Error) => err(e.message),
     })
@@ -70,7 +74,9 @@ function AddClassModal({ onClose }: { onClose: () => void }) {
             />
           </div>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>Level (optional)</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 5 }}>
+              Level <span style={{ color: 'var(--danger)' }}>*</span>
+            </div>
             <select value={level} onChange={e => setLevel(e.target.value)} className="sui-input" style={{ width: '100%' }}>
               <option value="">— Select level —</option>
               {DOS_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
@@ -78,8 +84,8 @@ function AddClassModal({ onClose }: { onClose: () => void }) {
           </div>
           <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
             <button type="button" onClick={onClose} style={{ flex: 1, padding: '10px 0', background: 'var(--surface2)', border: '.5px solid var(--border)', borderRadius: 11, fontWeight: 600, fontSize: 13, cursor: 'pointer', color: 'var(--txt2)' }}>Cancel</button>
-            <button type="submit" disabled={!name.trim() || createClass.isPending}
-              style={{ flex: 2, padding: '10px 0', background: name.trim() ? 'linear-gradient(145deg,var(--brand),var(--brand-dark))' : 'var(--border)', color: name.trim() ? '#fff' : 'var(--txt3)', border: 'none', borderRadius: 11, fontWeight: 700, fontSize: 13, cursor: name.trim() ? 'pointer' : 'default', boxShadow: name.trim() ? '0 4px 14px rgba(13,148,136,.4)' : 'none', transition: 'all .18s' }}>
+            <button type="submit" disabled={!name.trim() || !level || createClass.isPending}
+              style={{ flex: 2, padding: '10px 0', background: (name.trim() && level) ? 'linear-gradient(145deg,var(--brand),var(--brand-dark))' : 'var(--border)', color: (name.trim() && level) ? '#fff' : 'var(--txt3)', border: 'none', borderRadius: 11, fontWeight: 700, fontSize: 13, cursor: (name.trim() && level) ? 'pointer' : 'default', boxShadow: (name.trim() && level) ? '0 4px 14px rgba(13,148,136,.4)' : 'none', transition: 'all .18s' }}>
               {createClass.isPending ? 'Creating…' : 'Create Class'}
             </button>
           </div>

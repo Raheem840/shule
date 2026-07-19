@@ -199,7 +199,6 @@ export function PrincipalAnalyticsPage() {
   const { data: gender,     isLoading: genderLoading      } = useGenderEnrollment()
   const { data: staffRoles, isLoading: staffRolesLoading  } = useStaffRoleBreakdown()
   const { data: discipline, isLoading: disciplineLoading  } = useMonthlyDiscipline()
-  const { data: fees,       isLoading: feesLoading        } = useSchoolFeeSummary()
   // Scoped to the active academic year — without this, selecting a term
   // aggregated fee_payments across every year that ever used that term
   // number (e.g. Term 1 2025 + Term 1 2026 summed into one bar per class)
@@ -208,6 +207,11 @@ export function PrincipalAnalyticsPage() {
   const { data: byClass,    isLoading: byClassLoading     } = useFeeCollectionByClass(
     Number(financeTerm), activeYearId ?? null, !activeYearLoading
   )
+  // financeTerm-scoped — previously called with no args, so the KPI cards
+  // (Expected/Collected/Outstanding/Collection Rate) stayed frozen on an
+  // all-terms total no matter which term was selected, inconsistent with
+  // the "Fees by Class" chart below which was already correctly filtered.
+  const { data: fees,       isLoading: feesLoading        } = useSchoolFeeSummary(Number(financeTerm))
 
   const filteredClassPerf  = academicClassFilter   ? (classPerf   ?? []).filter(c => c.classId === academicClassFilter)   : classPerf
   const filteredAttByClass = attendanceClassFilter  ? (attByClass ?? []).filter(c => c.classId === attendanceClassFilter) : attByClass

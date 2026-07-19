@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Button } from './Button'
 
@@ -22,14 +22,44 @@ const sizeWidths: Record<Size, string> = {
   xl: '920px',
 }
 
-// Portal into .ar so CSS tokens (--modal-bg, dark-mode overrides) cascade correctly.
-function getPortalTarget(): HTMLElement {
-  return (document.querySelector('.ar') as HTMLElement | null) ?? document.body
-}
-
 export function Modal({ open, isOpen, onClose, title, size = 'md', children, footer }: ModalProps) {
   const visible = isOpen ?? open ?? false
   const dialogRef = useRef<HTMLDivElement>(null)
+
+  // Portal into a dedicated .ar sibling appended straight to <body>, not the
+  // app's own .ar. The app's .ar (or an ancestor) sometimes carries a CSS
+  // transform (e.g. sui-page-enter), which makes any position:fixed
+  // descendant relative to that transformed box instead of the viewport —
+  // it stops covering the fixed TopBar, producing the "header stays
+  // undimmed" split. Mirrors the same fix already used by
+  // NotificationPush.tsx for the identical class of bug. .ar is still used
+  // as the class name so --modal-bg/--txt/etc. design tokens resolve.
+  const [portalEl, setPortalEl] = useState<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!visible) return
+    const arEl = document.querySelector('.ar') as HTMLElement | null
+    const el   = document.createElement('div')
+    el.className = 'ar'
+    el.style.cssText = 'position:absolute;top:0;left:0;width:0;height:0;overflow:visible;'
+    document.body.appendChild(el)
+    setPortalEl(el)
+    const syncTheme = () => {
+      const t = arEl?.getAttribute('data-theme')
+      if (t) el.setAttribute('data-theme', t)
+      else    el.removeAttribute('data-theme')
+    }
+    syncTheme()
+    let obs: MutationObserver | undefined
+    if (arEl) {
+      obs = new MutationObserver(syncTheme)
+      obs.observe(arEl, { attributes: true, attributeFilter: ['data-theme'] })
+    }
+    return () => {
+      obs?.disconnect()
+      if (document.body.contains(el)) document.body.removeChild(el)
+      setPortalEl(null)
+    }
+  }, [visible])
 
   // Escape key
   useEffect(() => {
@@ -53,7 +83,7 @@ export function Modal({ open, isOpen, onClose, title, size = 'md', children, foo
     return () => { document.body.style.overflow = '' }
   }, [visible])
 
-  if (!visible) return null
+  if (!visible || !portalEl) return null
 
   return createPortal(
     <div
@@ -175,7 +205,7 @@ export function Modal({ open, isOpen, onClose, title, size = 'md', children, foo
         )}
       </div>
     </div>,
-    getPortalTarget()
+    portalEl
   )
 }
 

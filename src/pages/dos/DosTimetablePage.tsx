@@ -639,6 +639,19 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
     (sum, def) => sum + DAYS.filter(([d]) => appliesToDay(def, d)).length, 0
   )
 
+  // A saved slot whose (day, period) is no longer reachable — its period was
+  // restricted to fewer days (or removed) after the slot was created. The
+  // grid correctly hides these cells, but the row still exists in the DB;
+  // counting it in "filled" produced an impossible ratio like "5/4 slots"
+  // since the denominator already excludes restricted days. Surfaced as an
+  // explicit warning rather than silently dropped from the count.
+  const periodDefMap = useMemo(() => new Map(periodDefs.map(d => [d.num, d])), [periodDefs])
+  const orphanedSlots = useMemo(() => slots.filter(s => {
+    const def = periodDefMap.get(s.periodNumber)
+    return !def || def.type !== 'class' || !appliesToDay(def, s.dayOfWeek)
+  }), [slots, periodDefMap])
+  const visibleFilledCount = slots.length - orphanedSlots.length
+
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     setDragActive(false)
@@ -756,12 +769,22 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
       )}
       {selectedClass && slots.length > 0 && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto', flexShrink: 0 }}>
+          {orphanedSlots.length > 0 && (
+            <span title={`${orphanedSlots.length} saved slot(s) fall on a day their period no longer runs — hidden from the grid but still saved. Reassign or delete them from Configure Periods → widen the allowed days, then remove.`}
+              style={{ padding: '5px 12px', borderRadius: 99, fontSize: 11.5, fontWeight: 700,
+                background: 'rgba(245,158,11,.1)', color: 'var(--warning)', border: '.5px solid rgba(245,158,11,.25)',
+                display: 'flex', alignItems: 'center', gap: 5, cursor: 'help',
+              }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L14.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+              {orphanedSlots.length} hidden
+            </span>
+          )}
           <span style={{ padding: '5px 12px', borderRadius: 99, fontSize: 11.5, fontWeight: 700,
             background: publishedCount === slots.length ? 'rgba(16,185,129,.1)' : 'rgba(139,92,246,.1)',
             color: publishedCount === slots.length ? 'var(--success)' : '#8b5cf6',
             border: `.5px solid ${publishedCount === slots.length ? 'rgba(16,185,129,.25)' : 'rgba(139,92,246,.25)'}`,
           }}>
-            {slots.length}/{totalClassSlots} slots
+            {visibleFilledCount}/{totalClassSlots} slots
           </span>
           <button disabled={publishMut.isPending || isFullyPublished || slots.length === 0}
             onClick={() => { void publishMut.mutateAsync({ classId: selectedClass!, streamId: selectedStream, term, year }) }}
@@ -1086,8 +1109,15 @@ function MiniCard({ cls, slots, periodDefs, onCellClick, onEdit }: {
   }, [slots])
 
   const classPeriods = periodDefs.filter(d => d.type === 'class')
-  const filled   = slots.length
-  const total    = classPeriods.length * 5
+  const periodDefMap = useMemo(() => new Map(periodDefs.map(d => [d.num, d])), [periodDefs])
+  // Excludes slots whose day is no longer reachable for their period (see
+  // BuilderView's orphanedSlots) so this % never exceeds the grid's own
+  // visible capacity.
+  const filled   = slots.filter(s => {
+    const def = periodDefMap.get(s.periodNumber)
+    return def?.type === 'class' && appliesToDay(def, s.dayOfWeek)
+  }).length
+  const total    = classPeriods.reduce((sum, def) => sum + DAYS.filter(([d]) => appliesToDay(def, d)).length, 0)
   const pct      = total > 0 ? Math.round((filled / total) * 100) : 0
   const pubCount = slots.filter(s => s.isPublished).length
   const todayCol = jsToSchoolDay(new Date().getDay())
@@ -1363,9 +1393,14 @@ function SchoolView({ term, year, periodDefs }: {
     const classSlots = allSlots.filter(s => s.classId === filterClassId)
     const slotMap = new Map(classSlots.map(s => [`${s.dayOfWeek}-${s.periodNumber}`, s]))
     const className = classNameMap.get(filterClassId) ?? ''
-    const filled = classSlots.length
-    const classPeriods = periodDefs.filter(d => d.type === 'class').length
-    const pct = classPeriods * 5 > 0 ? Math.round((filled / (classPeriods * 5)) * 100) : 0
+    const periodDefMapF = new Map(periodDefs.map(d => [d.num, d]))
+    const filled = classSlots.filter(s => {
+      const def = periodDefMapF.get(s.periodNumber)
+      return def?.type === 'class' && appliesToDay(def, s.dayOfWeek)
+    }).length
+    const classPeriodDefs = periodDefs.filter(d => d.type === 'class')
+    const totalSlotsF = classPeriodDefs.reduce((sum, def) => sum + DAYS.filter(([d]) => appliesToDay(def, d)).length, 0)
+    const pct = totalSlotsF > 0 ? Math.round((filled / totalSlotsF) * 100) : 0
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
