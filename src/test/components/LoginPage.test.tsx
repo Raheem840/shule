@@ -130,6 +130,7 @@ describe('LoginPage — password request modal', () => {
     render(<LoginPage />)
 
     await user.click(screen.getByText(/forgot password \/ new staff/i))
+    await user.click(await screen.findByText(/no email on file/i))
     await screen.findByText(/set or reset your password/i)
     const modal = modalScope
     await user.type(modal.getByPlaceholderText('name@school.ac.ug'), 'teacher@school.ac.ug')
@@ -151,6 +152,7 @@ describe('LoginPage — password request modal', () => {
     render(<LoginPage />)
 
     await user.click(screen.getByText(/forgot password \/ new staff/i))
+    await user.click(await screen.findByText(/no email on file/i))
     await screen.findByText(/set or reset your password/i)
     const modal = modalScope
     await user.type(modal.getByPlaceholderText('name@school.ac.ug'), 'x@y.ug')
@@ -166,6 +168,7 @@ describe('LoginPage — password request modal', () => {
     render(<LoginPage />)
 
     await user.click(screen.getByText(/forgot password \/ new staff/i))
+    await user.click(await screen.findByText(/no email on file/i))
     await screen.findByText(/set or reset your password/i)
     const modal = modalScope
     expect(modal.getByRole('button', { name: /submit for approval/i })).toBeDisabled()

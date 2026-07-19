@@ -32,6 +32,18 @@ export function ResetPasswordPage() {
     try {
       const { error: err } = await supabase.auth.updateUser({ password })
       if (err) { setError(err.message); return }
+
+      // Best-effort — the password change above already succeeded, so a
+      // failure here (network hiccup, etc.) shouldn't block the user from
+      // continuing. Syncs the Credentials page status for students/parents
+      // (temp_password cleared, password_reset_at stamped) and audits +
+      // notifies IT admins for staff self-resets.
+      try {
+        await supabase.functions.invoke('sync-self-password-reset')
+      } catch (syncErr) {
+        console.error('[password reset] sync-self-password-reset failed', syncErr)
+      }
+
       setDone(true)
       setTimeout(() => navigate('/login', { replace: true }), 3000)
     } finally {

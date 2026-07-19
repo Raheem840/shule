@@ -120,7 +120,34 @@ export function LoginPage() {
   const [forgotSent,      setForgotSent]      = useState(false)
   const [forgotError,     setForgotError]     = useState('')
 
+  // Email-based self-service reset — the primary path now. Falls back to
+  // the manual IT-admin-approval flow below only for accounts without a
+  // usable personal email (mainly some students). Always shows the same
+  // neutral confirmation regardless of whether the email actually matched
+  // an account, so this never leaks account existence — same reasoning
+  // Supabase's own resetPasswordForEmail follows.
+  const [resetMode,        setResetMode]        = useState<'email' | 'manual'>('email')
+  const [resetEmail,       setResetEmail]        = useState('')
+  const [resetSending,     setResetSending]      = useState(false)
+  const [resetSent,        setResetSent]         = useState(false)
+
   const requestPassword = useRequestStaffPassword()
+
+  async function handleEmailReset() {
+    if (!resetEmail.trim() || resetSending) return
+    setResetSending(true)
+    try {
+      await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+    } catch {
+      // Deliberately ignored — the confirmation message is identical either
+      // way so no information about account existence ever leaks.
+    } finally {
+      setResetSending(false)
+      setResetSent(true)
+    }
+  }
 
   const emailRef = useRef<HTMLInputElement>(null)
   useEffect(() => { emailRef.current?.focus() }, [])
@@ -351,7 +378,7 @@ export function LoginPage() {
                 <label style={{ display:'flex', justifyContent:'space-between', fontSize:11.5, fontWeight:700, color:'#475569', marginBottom:7, textTransform:'uppercase', letterSpacing:.6 }}>
                   Password
                   <button type="button"
-                    onClick={()=>{ setShowForgot(true); setForgotSent(false); setForgotError(''); setForgotEmail(''); setForgotStaffNum(''); setForgotPassword('') }}
+                    onClick={()=>{ setShowForgot(true); setResetMode('email'); setResetSent(false); setResetEmail(''); setForgotSent(false); setForgotError(''); setForgotEmail(''); setForgotStaffNum(''); setForgotPassword('') }}
                     style={{ background:'none', border:'none', cursor:'pointer', fontSize:11.5, color:'#0d9488', fontWeight:700, textTransform:'none', letterSpacing:0, fontFamily:'inherit', padding:0, transition:'color .14s' }}
                     onMouseEnter={e=>(e.currentTarget.style.color='#0f766e')}
                     onMouseLeave={e=>(e.currentTarget.style.color='#0d9488')}
@@ -441,63 +468,113 @@ export function LoginPage() {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2.2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
               </div>
               <div>
-                <div style={{ fontFamily:'Space Grotesk,sans-serif', fontSize:17, fontWeight:900, color:'#0f172a' }}>Set or reset your password</div>
-                <div style={{ fontSize:12, color:'#94a3b8', marginTop:2 }}>Your IT Admin approves it — they never see the password itself</div>
+                <div style={{ fontFamily:'Space Grotesk,sans-serif', fontSize:17, fontWeight:900, color:'#0f172a' }}>
+                  {resetMode==='email' ? 'Reset your password' : 'Set or reset your password'}
+                </div>
+                <div style={{ fontSize:12, color:'#94a3b8', marginTop:2 }}>
+                  {resetMode==='email' ? "We'll email you a secure reset link" : 'Your IT Admin approves it — they never see the password itself'}
+                </div>
               </div>
             </div>
             <div style={{ padding:'22px 24px 24px' }}>
-              {forgotSent ? (
-                <>
-                  <div style={{ textAlign:'center', padding:'8px 0 24px' }}>
-                    <div style={{ width:54, height:54, borderRadius:16, background:'rgba(16,185,129,.1)', border:'1px solid rgba(16,185,129,.2)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', boxShadow:'0 4px 20px rgba(16,185,129,.15)' }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              {resetMode==='email' ? (
+                resetSent ? (
+                  <>
+                    <div style={{ textAlign:'center', padding:'8px 0 24px' }}>
+                      <div style={{ width:54, height:54, borderRadius:16, background:'rgba(16,185,129,.1)', border:'1px solid rgba(16,185,129,.2)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', boxShadow:'0 4px 20px rgba(16,185,129,.15)' }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      </div>
+                      <div style={{ fontFamily:'Space Grotesk,sans-serif', fontSize:17, fontWeight:900, color:'#0f172a', marginBottom:10 }}>Check your email</div>
+                      <div style={{ fontSize:13, color:'#64748b', lineHeight:1.7 }}>
+                        If <strong style={{ color:'#334155' }}>{resetEmail.trim()}</strong> is on file and eligible for self-service, a reset link is on its way. Didn't get one? Ask your school's IT Admin for a manual reset instead.
+                      </div>
                     </div>
-                    <div style={{ fontFamily:'Space Grotesk,sans-serif', fontSize:17, fontWeight:900, color:'#0f172a', marginBottom:10 }}>Request submitted!</div>
-                    <div style={{ fontSize:13, color:'#64748b', lineHeight:1.7 }}>
-                      Your IT Admin has been notified and will approve your password shortly.<br/>
-                      Once approved, sign in with the password you just set.
+                    <button onClick={()=>setShowForgot(false)} className="lp-btn">Back to Sign In</button>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize:13, color:'#64748b', lineHeight:1.7, marginBottom:20 }}>
+                      Enter the email address on file for your account and we'll send you a link to set a new password.
                     </div>
-                  </div>
-                  <button onClick={()=>setShowForgot(false)} className="lp-btn">Back to Sign In</button>
-                </>
+                    <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:.6, marginBottom:7 }}>Email address</label>
+                    <input type="email" value={resetEmail} onChange={e=>setResetEmail(e.target.value)}
+                      onKeyDown={e=>{ if(e.key==='Enter') void handleEmailReset() }}
+                      placeholder="name@school.ac.ug" autoFocus
+                      className="lp-input" style={{ marginBottom:18 }}
+                    />
+                    <div style={{ display:'flex', gap:10 }}>
+                      <button type="button" onClick={()=>setShowForgot(false)}
+                        style={{ flex:1, height:46, borderRadius:12, background:'#f1f5f9', border:'1px solid #e2e8f0', color:'#475569', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit', transition:'background .14s' }}
+                        onMouseEnter={e=>(e.currentTarget.style.background='#e2e8f0')}
+                        onMouseLeave={e=>(e.currentTarget.style.background='#f1f5f9')}
+                      >Cancel</button>
+                      <button type="button" onClick={()=>void handleEmailReset()}
+                        disabled={!resetEmail.trim()||resetSending}
+                        className="lp-btn" style={{ flex:2 }}
+                      >{resetSending?'Sending…':'Send Reset Link'}</button>
+                    </div>
+                    <button type="button" onClick={()=>{ setResetMode('manual'); setForgotSent(false); setForgotError(''); setForgotEmail(''); setForgotStaffNum(''); setForgotPassword('') }}
+                      style={{ marginTop:16, width:'100%', textAlign:'center', background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#0d9488', fontWeight:700, fontFamily:'inherit' }}
+                    >No email on file? Request a reset from your IT Admin instead</button>
+                  </>
+                )
               ) : (
-                <>
-                  <div style={{ fontSize:13, color:'#64748b', lineHeight:1.7, marginBottom:20 }}>
-                    Enter your details and the password you want to use. Your IT Admin will approve the request — they'll see who's asking, never the password.
-                  </div>
-                  <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:.6, marginBottom:7 }}>Email address</label>
-                  <input type="email" value={forgotEmail} onChange={e=>setForgotEmail(e.target.value)}
-                    placeholder="name@school.ac.ug" autoFocus
-                    className="lp-input" style={{ marginBottom:14 }}
-                  />
-                  <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:.6, marginBottom:7 }}>Staff number</label>
-                  <input type="text" value={forgotStaffNum} onChange={e=>setForgotStaffNum(e.target.value)}
-                    placeholder="e.g. GM/STAFF/2026/001"
-                    className="lp-input" style={{ marginBottom:14 }}
-                  />
-                  <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:.6, marginBottom:7 }}>New password</label>
-                  <input type="password" value={forgotPassword} onChange={e=>setForgotPassword(e.target.value)}
-                    onKeyDown={e=>{ if(e.key==='Enter') void handleForgotPassword() }}
-                    placeholder="At least 8 characters"
-                    className="lp-input" style={{ marginBottom:18 }}
-                  />
-                  {forgotError && (
-                    <div style={{ marginBottom:14, padding:'10px 12px', borderRadius:10, background:'rgba(244,63,94,.05)', border:'1px solid rgba(244,63,94,.2)', color:'#be123c', fontSize:12 }}>
-                      {forgotError}
+                forgotSent ? (
+                  <>
+                    <div style={{ textAlign:'center', padding:'8px 0 24px' }}>
+                      <div style={{ width:54, height:54, borderRadius:16, background:'rgba(16,185,129,.1)', border:'1px solid rgba(16,185,129,.2)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', boxShadow:'0 4px 20px rgba(16,185,129,.15)' }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      </div>
+                      <div style={{ fontFamily:'Space Grotesk,sans-serif', fontSize:17, fontWeight:900, color:'#0f172a', marginBottom:10 }}>Request submitted!</div>
+                      <div style={{ fontSize:13, color:'#64748b', lineHeight:1.7 }}>
+                        Your IT Admin has been notified and will approve your password shortly.<br/>
+                        Once approved, sign in with the password you just set.
+                      </div>
                     </div>
-                  )}
-                  <div style={{ display:'flex', gap:10 }}>
-                    <button type="button" onClick={()=>setShowForgot(false)}
-                      style={{ flex:1, height:46, borderRadius:12, background:'#f1f5f9', border:'1px solid #e2e8f0', color:'#475569', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit', transition:'background .14s' }}
-                      onMouseEnter={e=>(e.currentTarget.style.background='#e2e8f0')}
-                      onMouseLeave={e=>(e.currentTarget.style.background='#f1f5f9')}
-                    >Cancel</button>
-                    <button type="button" onClick={()=>void handleForgotPassword()}
-                      disabled={!forgotEmail.trim()||!forgotStaffNum.trim()||forgotPassword.length<8||requestPassword.isPending}
-                      className="lp-btn" style={{ flex:2 }}
-                    >{requestPassword.isPending?'Submitting…':'Submit for Approval'}</button>
-                  </div>
-                </>
+                    <button onClick={()=>setShowForgot(false)} className="lp-btn">Back to Sign In</button>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize:13, color:'#64748b', lineHeight:1.7, marginBottom:20 }}>
+                      Enter your details and the password you want to use. Your IT Admin will approve the request — they'll see who's asking, never the password.
+                    </div>
+                    <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:.6, marginBottom:7 }}>Email address</label>
+                    <input type="email" value={forgotEmail} onChange={e=>setForgotEmail(e.target.value)}
+                      placeholder="name@school.ac.ug" autoFocus
+                      className="lp-input" style={{ marginBottom:14 }}
+                    />
+                    <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:.6, marginBottom:7 }}>Staff number</label>
+                    <input type="text" value={forgotStaffNum} onChange={e=>setForgotStaffNum(e.target.value)}
+                      placeholder="e.g. GM/STAFF/2026/001"
+                      className="lp-input" style={{ marginBottom:14 }}
+                    />
+                    <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:.6, marginBottom:7 }}>New password</label>
+                    <input type="password" value={forgotPassword} onChange={e=>setForgotPassword(e.target.value)}
+                      onKeyDown={e=>{ if(e.key==='Enter') void handleForgotPassword() }}
+                      placeholder="At least 8 characters"
+                      className="lp-input" style={{ marginBottom:18 }}
+                    />
+                    {forgotError && (
+                      <div style={{ marginBottom:14, padding:'10px 12px', borderRadius:10, background:'rgba(244,63,94,.05)', border:'1px solid rgba(244,63,94,.2)', color:'#be123c', fontSize:12 }}>
+                        {forgotError}
+                      </div>
+                    )}
+                    <div style={{ display:'flex', gap:10 }}>
+                      <button type="button" onClick={()=>setShowForgot(false)}
+                        style={{ flex:1, height:46, borderRadius:12, background:'#f1f5f9', border:'1px solid #e2e8f0', color:'#475569', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit', transition:'background .14s' }}
+                        onMouseEnter={e=>(e.currentTarget.style.background='#e2e8f0')}
+                        onMouseLeave={e=>(e.currentTarget.style.background='#f1f5f9')}
+                      >Cancel</button>
+                      <button type="button" onClick={()=>void handleForgotPassword()}
+                        disabled={!forgotEmail.trim()||!forgotStaffNum.trim()||forgotPassword.length<8||requestPassword.isPending}
+                        className="lp-btn" style={{ flex:2 }}
+                      >{requestPassword.isPending?'Submitting…':'Submit for Approval'}</button>
+                    </div>
+                    <button type="button" onClick={()=>{ setResetMode('email'); setResetSent(false); setResetEmail('') }}
+                      style={{ marginTop:16, width:'100%', textAlign:'center', background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#0d9488', fontWeight:700, fontFamily:'inherit' }}
+                    >Have an email on file? Use email reset instead</button>
+                  </>
+                )
               )}
             </div>
           </div>

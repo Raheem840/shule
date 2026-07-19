@@ -133,6 +133,12 @@ export function useUpdateProfile() {
 }
 
 // ── useChangePassword ──────────────────────────────────────────────────────
+// Staff-only (this is the in-session /profile flow). Same sync as the
+// post-recovery-link path in ResetPasswordPage.tsx — audits + notifies IT
+// admins — so every self-initiated staff password change is covered, not
+// just the new email-link one. Best-effort: the password change itself
+// already succeeded by the time this runs, so a sync failure shouldn't
+// surface as an error to the user.
 export function useChangePassword() {
   const { user } = useAuth()
   return useMutation({
@@ -140,6 +146,11 @@ export function useChangePassword() {
       if (!user) throw new Error('Not authenticated')
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) throw new Error(error.message)
+      try {
+        await supabase.functions.invoke('sync-self-password-reset')
+      } catch (syncErr) {
+        console.error('[password change] sync-self-password-reset failed', syncErr)
+      }
     },
   })
 }

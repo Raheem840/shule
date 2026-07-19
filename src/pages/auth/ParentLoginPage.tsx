@@ -174,8 +174,29 @@ export function ParentLoginPage() {
   const [loading,  setLoading]  = useState(false)
   const [showPw,   setShowPw]   = useState(false)
 
+  const [showForgot,   setShowForgot]   = useState(false)
+  const [resetEmail,   setResetEmail]   = useState('')
+  const [resetSending, setResetSending] = useState(false)
+  const [resetSent,    setResetSent]    = useState(false)
+
   const navigate  = useNavigate()
   const { user }  = useAuth()
+
+  async function handleEmailReset() {
+    if (!resetEmail.trim() || resetSending) return
+    setResetSending(true)
+    try {
+      await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+    } catch {
+      // Deliberately ignored — same neutral confirmation either way, so no
+      // information about account existence ever leaks.
+    } finally {
+      setResetSending(false)
+      setResetSent(true)
+    }
+  }
 
   // Already logged in as parent → go straight to portal
   useEffect(() => {
@@ -356,8 +377,12 @@ export function ParentLoginPage() {
 
             {/* Password */}
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--txt2)', marginBottom: 7 }}>
+              <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: 'var(--txt2)', marginBottom: 7 }}>
                 Password
+                <button type="button"
+                  onClick={() => { setShowForgot(true); setResetSent(false); setResetEmail('') }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--brand)', fontWeight: 700, fontFamily: 'inherit', padding: 0 }}
+                >Forgot password?</button>
               </label>
               <div style={{ position: 'relative' }}>
                 <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--txt3)', pointerEvents: 'none' }}>
@@ -466,6 +491,59 @@ export function ParentLoginPage() {
           .parent-right { width: 100% !important; padding: 32px 24px !important; }
         }
       `}</style>
+
+      {/* ── Forgot password modal ────────────────────────────────────────── */}
+      {showForgot && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 500,
+          background: 'rgba(15,23,42,.35)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}
+          onClick={e => e.target === e.currentTarget && setShowForgot(false)}
+        >
+          <div style={{
+            width: '100%', maxWidth: 420,
+            background: '#fff', borderRadius: 20, overflow: 'hidden',
+            boxShadow: '0 24px 80px rgba(15,23,42,.22)',
+          }}>
+            <div style={{ padding: '20px 22px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 16, color: 'var(--txt)' }}>Reset your password</div>
+              <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>We'll email you a secure reset link</div>
+            </div>
+            <div style={{ padding: '20px 22px 22px' }}>
+              {resetSent ? (
+                <>
+                  <div style={{ fontSize: 13, color: 'var(--txt3)', lineHeight: 1.7, marginBottom: 18 }}>
+                    If <strong style={{ color: 'var(--txt)' }}>{resetEmail.trim()}</strong> is on file, a reset link is on its way.
+                    Didn't get one? Contact the school office for a manual reset.
+                  </div>
+                  <button onClick={() => setShowForgot(false)}
+                    style={{ width: '100%', height: 46, borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#0d9488,#0284c7)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                  >Back to Sign In</button>
+                </>
+              ) : (
+                <>
+                  <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 7 }}>Email address</label>
+                  <input type="email" value={resetEmail} onChange={e => setResetEmail(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') void handleEmailReset() }}
+                    placeholder="you@email.com" autoFocus
+                    className="sui-input" style={{ width: '100%', marginBottom: 18 }}
+                  />
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button type="button" onClick={() => setShowForgot(false)}
+                      style={{ flex: 1, height: 46, borderRadius: 12, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                    >Cancel</button>
+                    <button type="button" onClick={() => void handleEmailReset()}
+                      disabled={!resetEmail.trim() || resetSending}
+                      style={{ flex: 2, height: 46, borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#0d9488,#0284c7)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: (!resetEmail.trim() || resetSending) ? 0.6 : 1 }}
+                    >{resetSending ? 'Sending…' : 'Send Reset Link'}</button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

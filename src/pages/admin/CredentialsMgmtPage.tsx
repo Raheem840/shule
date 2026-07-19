@@ -34,6 +34,7 @@ type StudentRow = {
   auth_user_id: string | null
   auth_email: string | null
   temp_password: string | null
+  password_reset_at: string | null
   first_name: string
   last_name: string
   admission_number: string
@@ -49,6 +50,7 @@ type ParentRow = {
   phone: string | null
   student_ids: string[]
   temp_password: string | null
+  password_reset_at: string | null
   created_at: string
 }
 
@@ -656,7 +658,7 @@ function StudentsPanel({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
-        .select('id, school_id, auth_user_id, auth_email, temp_password, first_name, last_name, admission_number, class_id')
+        .select('id, school_id, auth_user_id, auth_email, temp_password, password_reset_at, first_name, last_name, admission_number, class_id')
         .eq('school_id', schoolId)
         .order('last_name', { ascending: true })
       if (error) throw error
@@ -857,6 +859,14 @@ function StudentsPanel({
                       )}
                     </div>
                   )}
+                  {/* Self-reset via the emailed link — the old admin-issued
+                      password is gone (only the student knows the real one
+                      now); shows a status instead of a stale/blank password. */}
+                  {!s.temp_password && !pending && s.password_reset_at && (
+                    <div style={{ marginTop: 6, fontSize: 10.5, color: 'var(--txt3)', fontStyle: 'italic' }}>
+                      Self-reset on {new Date(s.password_reset_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
                   <StatusPill authUserId={s.auth_user_id} />
@@ -935,7 +945,7 @@ function ParentsPanel({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('parent_accounts')
-        .select('id, school_id, auth_user_id, email, full_name, phone, student_ids, temp_password, created_at')
+        .select('id, school_id, auth_user_id, email, full_name, phone, student_ids, temp_password, password_reset_at, created_at')
         .eq('school_id', schoolId)
         .order('full_name', { ascending: true })
       if (error) throw error
@@ -1080,6 +1090,14 @@ function ParentsPanel({
                     <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: .5 }}>Temp PW:</span>
                       <ParentPasswordReveal password={p.temp_password} />
+                    </div>
+                  )}
+                  {/* Self-reset via the emailed link — the old admin-issued
+                      password is gone (only the parent knows the real one
+                      now); shows a status instead of a stale/blank password. */}
+                  {!p.temp_password && p.password_reset_at && (
+                    <div style={{ marginTop: 6, fontSize: 10.5, color: 'var(--txt3)', fontStyle: 'italic' }}>
+                      Self-reset on {new Date(p.password_reset_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </div>
                   )}
                 </div>
