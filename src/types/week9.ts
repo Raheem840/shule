@@ -234,6 +234,16 @@ export type ApiConfig = {
   waAccessToken: string | null   // masked after save
   atEnabled: boolean
   waEnabled: boolean
+  // Per-field "is a value actually stored" flags — atEnabled/waEnabled only
+  // reflect the primary key (at_api_key / wa_access_token) and previously
+  // got reused to decide every field's "saved" display, so saving just the
+  // API Key made Username show as masked/saved too even though it was
+  // never entered.
+  atApiKeySet:        boolean
+  atUsernameSet:       boolean
+  atSenderIdSet:       boolean
+  waPhoneNumberIdSet:  boolean
+  waAccessTokenSet:    boolean
 }
 
 // ── TERM PROGRESS ─────────────────────────────────────────────────────────

@@ -225,13 +225,15 @@ export function useApiConfigStatus() {
     queryKey: ['api-config', user?.schoolId],
     enabled: !!user,
     queryFn: async (): Promise<ApiConfig> => {
-      // Derive "enabled" purely from whether the credentials exist. The schema
-      // has no at_enabled/wa_enabled flags — and exposing the raw keys here
-      // would breach the finance/secrets isolation rule, so we only return
-      // booleans indicating presence.
+      // Derive "enabled"/"set" purely from whether each credential exists.
+      // The schema has no at_enabled/wa_enabled flags — and exposing the
+      // raw keys here would breach the finance/secrets isolation rule, so
+      // we only return booleans indicating presence, per field — not just
+      // for the two "primary" keys, or every other field in that provider
+      // wrongly shows as saved the moment the primary one is.
       const { data } = await supabase
         .from('school_profile')
-        .select('at_api_key, wa_access_token')
+        .select('at_api_key, at_username, at_sender_id, wa_phone_number_id, wa_access_token')
         .eq('id', user!.schoolId)
         .maybeSingle()
 
@@ -244,6 +246,11 @@ export function useApiConfigStatus() {
         waAccessToken:   null,
         atEnabled:       Boolean(row['at_api_key']),
         waEnabled:       Boolean(row['wa_access_token']),
+        atApiKeySet:       Boolean(row['at_api_key']),
+        atUsernameSet:     Boolean(row['at_username']),
+        atSenderIdSet:     Boolean(row['at_sender_id']),
+        waPhoneNumberIdSet: Boolean(row['wa_phone_number_id']),
+        waAccessTokenSet:   Boolean(row['wa_access_token']),
       }
     },
     staleTime: 5 * 60_000,

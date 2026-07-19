@@ -35,7 +35,7 @@ function ApiKeyRow({ label, keyName, savedLabel }: { label: string; keyName: Key
           {save.isPending ? 'Saving…' : 'Save'}
         </button>
       </div>
-      <div style={{ fontSize: 11, color: 'var(--txt3)' }}>Keys are stored securely in Supabase Vault — never in the database.</div>
+      <div style={{ fontSize: 11, color: 'var(--txt3)' }}>Keys are saved to your school's account and never shown in plain text again after saving.</div>
     </div>
   )
 }
@@ -94,9 +94,9 @@ export function ApiConfigPage() {
                   {data?.atEnabled ? 'Enabled' : 'Disabled'}
                 </button>
               </div>
-              <ApiKeyRow label="API Key"   keyName="at_api_key"   savedLabel={data?.atEnabled ? '●●●●●●●●●●●●' : undefined} />
-              <ApiKeyRow label="Username"  keyName="at_username"  savedLabel={data?.atEnabled ? '●●●●●●●●' : undefined} />
-              <ApiKeyRow label="Sender ID" keyName="at_sender_id" />
+              <ApiKeyRow label="API Key"   keyName="at_api_key"   savedLabel={data?.atApiKeySet   ? '●●●●●●●●●●●●' : undefined} />
+              <ApiKeyRow label="Username"  keyName="at_username"  savedLabel={data?.atUsernameSet ? '●●●●●●●●'     : undefined} />
+              <ApiKeyRow label="Sender ID" keyName="at_sender_id" savedLabel={data?.atSenderIdSet ? '●●●●●'        : undefined} />
             </div>
 
             {/* WhatsApp */}
@@ -116,13 +116,13 @@ export function ApiConfigPage() {
                   {data?.waEnabled ? 'Enabled' : 'Disabled'}
                 </button>
               </div>
-              <ApiKeyRow label="Phone Number ID" keyName="wa_phone_number_id" />
-              <ApiKeyRow label="Access Token"    keyName="wa_access_token"    savedLabel={data?.waEnabled ? '●●●●●●●●●●●●●●●●' : undefined} />
+              <ApiKeyRow label="Phone Number ID" keyName="wa_phone_number_id" savedLabel={data?.waPhoneNumberIdSet ? '●●●●●●●●●●●●' : undefined} />
+              <ApiKeyRow label="Access Token"    keyName="wa_access_token"    savedLabel={data?.waAccessTokenSet   ? '●●●●●●●●●●●●●●●●' : undefined} />
             </div>
           </div>
 
           <div style={{ padding: '12px 16px', background: 'var(--surface2)', borderRadius: 10, fontSize: 12, color: 'var(--txt3)' }}>
-            API keys are stored in Supabase Vault using a SECURITY DEFINER function. They are never returned in plain text after saving.
+            API keys are saved via a restricted database function only your school's IT Admin/Principal can call. They are never returned in plain text after saving.
           </div>
         </>
       )}
