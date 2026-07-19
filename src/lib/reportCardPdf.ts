@@ -73,6 +73,16 @@ function fmtDate(iso: string | null): string {
   }
 }
 
+// jsPDF's addImage() format param wants a short type token ("JPEG", "PNG"),
+// not a full MIME string — passing "image/jpeg" straight through makes it
+// try to call a non-existent "processIMAGE/JPEG" method and throw, which
+// the caller's try/catch swallows silently. The badge/letterhead image
+// never rendered and there was no visible error anywhere to explain why.
+function toPdfImageFormat(mimeType: string): string {
+  const sub = mimeType.split('/')[1] ?? 'JPEG'
+  return sub.toUpperCase() === 'JPG' ? 'JPEG' : sub.toUpperCase()
+}
+
 function gradeColor(grade: string | null): [number, number, number] {
   if (grade === 'A') return [16, 185, 129]   // green
   if (grade === 'B') return [14, 165, 233]   // blue
@@ -91,23 +101,21 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
   const col2 = W / 2
   let y      = 14
 
-  // ── Header — uploaded template OR text fallback ───────────────
+  // ── Header — uploaded template OR designed fallback ────────────
   if (d.school.templateBase64) {
     // Place the school's uploaded letterhead image as the header
     // Fit it full-width; height is proportional (we cap at 60mm)
     const imgProps = doc.getImageProperties(d.school.templateBase64)
     const imgW     = W - M * 2
     const imgH     = Math.min(60, (imgProps.height / imgProps.width) * imgW)
-    doc.addImage(d.school.templateBase64, d.school.templateMimeType, M, y, imgW, imgH)
+    doc.addImage(d.school.templateBase64, toPdfImageFormat(d.school.templateMimeType), M, y, imgW, imgH)
     y += imgH + 4
 
-    // Thin teal rule below the template image
     doc.setDrawColor(13, 148, 136)
     doc.setLineWidth(0.6)
     doc.line(M, y, W - M, y)
     y += 4
 
-    // Title + term still needed below the image
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
     doc.text('STUDENT REPORT CARD', col2, y, { align: 'center' })
@@ -115,42 +123,59 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
     doc.text(`Term ${d.term}  ·  Academic Year ${d.year}`, col2, y, { align: 'center' })
-    y += 6
+    y += 8
   } else {
-    // Text-only fallback (no template uploaded) — school badge, if any,
-    // sits top-left so the report card carries the school's identity even
-    // without a full custom letterhead.
+    // Designed fallback (no custom letterhead uploaded): a soft brand-tint
+    // banner behind the school identity, badge centered above the name for
+    // a composed, single-document feel rather than plain stacked text.
+    const bandH = d.school.logoBase64 ? 34 : 26
+    doc.setFillColor(240, 253, 250) // brand-light
+    doc.rect(0, 0, W, bandH, 'F')
+
     if (d.school.logoBase64) {
       try {
         const logoProps = doc.getImageProperties(d.school.logoBase64)
-        const logoH     = 18
+        const logoH     = 16
         const logoW     = (logoProps.width / logoProps.height) * logoH
-        doc.addImage(d.school.logoBase64, d.school.logoMimeType, M, y - 2, logoW, logoH)
+        doc.addImage(d.school.logoBase64, toPdfImageFormat(d.school.logoMimeType), col2 - logoW / 2, 5, logoW, logoH)
+        y = 25
       } catch {
         // Malformed image data — skip the badge, text header still renders
+        y = 12
       }
+    } else {
+      y = 12
     }
 
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(15)
+    doc.setFontSize(16)
+    doc.setTextColor(15, 23, 42)
     doc.text(d.school.name.toUpperCase(), col2, y, { align: 'center' })
-    y += 6
+    y += 5.5
 
     if (d.school.motto) {
       doc.setFont('helvetica', 'italic')
-      doc.setFontSize(9)
+      doc.setFontSize(8.5)
+      doc.setTextColor(71, 85, 105)
       doc.text(`"${d.school.motto}"`, col2, y, { align: 'center' })
-      y += 5
+      y += 4.5
     }
+    doc.setTextColor(0)
+
+    y = Math.max(y, bandH) + 6
 
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
+    doc.setFontSize(12)
+    doc.setTextColor(13, 148, 136)
     doc.text('STUDENT REPORT CARD', col2, y, { align: 'center' })
+    doc.setTextColor(0)
     y += 5
 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
+    doc.setTextColor(100, 116, 139)
     doc.text(`Term ${d.term}  ·  Academic Year ${d.year}`, col2, y, { align: 'center' })
+    doc.setTextColor(0)
     y += 6
 
     doc.setDrawColor(13, 148, 136)
@@ -293,23 +318,46 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6
 
   // ── Overall Performance ──────────────────────────────────────
-  y = ensureSpace(doc, y, 20)
+  y = ensureSpace(doc, y, 30)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.setTextColor(13, 148, 136)
   doc.text('OVERALL PERFORMANCE', M, y)
   doc.setTextColor(0)
-  y += 5
+  y += 6
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
   // totalGradePoints sums 0 for every ungraded subject — showing "0" here
   // when nothing has actually been graded yet (avgGrade === 'Pending')
   // reads as a real zero result rather than "no complete subject yet".
+  const gradedSubjects  = d.subjects.filter(s => s.total !== null)
+  const marksObtained   = gradedSubjects.reduce((s, r) => s + (r.total ?? 0), 0)
+  const marksPossible   = gradedSubjects.length * 100
   const gradePointsDisplay = d.avgGrade === 'Pending' ? '—' : String(d.totalGradePoints)
-  doc.text(`Total Grade Points: ${gradePointsDisplay}`, M, y)
-  doc.text(`Average Grade: ${d.avgGrade} — ${d.avgDescriptor}`, col2, y)
-  y += 7
+  const marksDisplay       = gradedSubjects.length > 0 ? `${marksObtained.toFixed(0)} / ${marksPossible}` : '—'
+
+  const stats = [
+    { label: 'TOTAL MARKS OBTAINED', value: marksDisplay },
+    { label: 'TOTAL GRADE POINTS',   value: gradePointsDisplay },
+    { label: 'AVERAGE GRADE',        value: `${d.avgGrade}${d.avgGrade !== 'Pending' ? ` — ${d.avgDescriptor}` : ''}` },
+  ]
+  const statW = (W - M * 2 - 6) / 3
+  stats.forEach((s, i) => {
+    const bx = M + i * (statW + 3)
+    doc.setFillColor(248, 250, 252)
+    doc.setDrawColor(226, 232, 240)
+    doc.setLineWidth(0.3)
+    doc.roundedRect(bx, y, statW, 16, 2, 2, 'FD')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6.5)
+    doc.setTextColor(100, 116, 139)
+    doc.text(s.label, bx + 3, y + 5)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(s.value.length > 12 ? 9 : 11)
+    doc.setTextColor(13, 148, 136)
+    doc.text(s.value, bx + 3, y + 12)
+    doc.setTextColor(0)
+  })
+  y += 22
 
   doc.setDrawColor(226, 232, 240)
   doc.line(M, y, W - M, y)
@@ -387,7 +435,10 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
   doc.line(M, y, W - M, y)
   y += 5
 
-  // ── Footer ────────────────────────────────────────────────────
+  // ── Footer — digital-only, no signature lines. This report card is
+  // released and viewed entirely in-app (student/parent portal), never
+  // physically signed, so wet-signature blanks would just sit permanently
+  // empty. A digital-issue notice replaces them instead. ─────────────────
   y = ensureSpace(doc, y, 20)
   if (d.nextTermStartDate) {
     doc.setFont('helvetica', 'bold')
@@ -395,14 +446,22 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
     doc.text(`Next Term Begins: `, M, y)
     doc.setFont('helvetica', 'normal')
     doc.text(fmtDate(d.nextTermStartDate), M + 36, y)
-    y += 7
+    y += 8
   }
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  doc.text('Class Teacher: _________________________  Date: _____________', M, y)
-  y += 6
-  doc.text('Principal: ____________________________', M, y)
+  doc.setDrawColor(226, 232, 240)
+  doc.setLineWidth(0.3)
+  doc.line(M, y, W - M, y)
+  y += 5
+
+  doc.setFont('helvetica', 'italic')
+  doc.setFontSize(7.5)
+  doc.setTextColor(148, 163, 184)
+  doc.text(
+    `Digitally issued by ${d.school.name} · Approved by the Principal · ${fmtDate(new Date().toISOString())}`,
+    col2, y, { align: 'center' },
+  )
+  doc.setTextColor(0)
 
   return doc
 }

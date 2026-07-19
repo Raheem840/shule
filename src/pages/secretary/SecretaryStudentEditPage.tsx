@@ -7,6 +7,7 @@ import { useStudentGuardians } from '../../hooks/useParentPortal'
 import { supabase } from '../../lib/supabase'
 import { uploadFile, BUCKETS } from '../../lib/storage'
 import { compressToJpeg } from '../../lib/fileValidation'
+import { getFriendlyErrorMessage } from '../../lib/errors'
 import { useAuth } from '../../store/AuthContext'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { Avatar } from '../../components/shared/Avatar'
@@ -234,7 +235,7 @@ export function SecretaryStudentEditPage() {
       const r = await createLogin.mutateAsync(studentId)
       setActivationState({ phase: 'done', email: r.email, password: r.tempPassword })
     } catch (e: unknown) {
-      setActivationState({ phase: 'error', message: e instanceof Error ? e.message : 'Activation failed' })
+      setActivationState({ phase: 'error', message: getFriendlyErrorMessage(e, 'Activation failed') })
     }
   }
 

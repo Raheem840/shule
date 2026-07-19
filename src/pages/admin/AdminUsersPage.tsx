@@ -22,6 +22,7 @@ import {
 } from '../../hooks/useStudents'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../components/ui/Toast'
+import { getFriendlyErrorMessage } from '../../lib/errors'
 import { Avatar } from '../../components/shared/Avatar'
 import { generateTempPassword } from '../../lib/passwords'
 import type { Staff } from '../../types/app'
@@ -1728,7 +1729,7 @@ export function AdminUsersPage() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             <div>
               <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--danger)', fontFamily: 'var(--font2)', marginBottom: 4 }}>Failed to load staff</div>
-              <div style={{ fontSize: 12, color: 'var(--txt2)', fontFamily: 'var(--font3)', marginBottom: 4 }}>{(staffError as Error).message}</div>
+              <div style={{ fontSize: 12, color: 'var(--txt2)', fontFamily: 'var(--font3)', marginBottom: 4 }}>{getFriendlyErrorMessage(staffError)}</div>
               <div style={{ fontSize: 11, color: 'var(--txt3)' }}>
                 School ID: <code style={{ fontFamily: 'var(--font3)', background: 'var(--surface2)', padding: '1px 6px', borderRadius: 4 }}>{user?.schoolId ?? 'none'}</code>
                 {' · '}Role: <code style={{ fontFamily: 'var(--font3)', background: 'var(--surface2)', padding: '1px 6px', borderRadius: 4 }}>{user?.role ?? 'none'}</code>

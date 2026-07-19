@@ -11,6 +11,7 @@ import { TermPicker } from '../../components/ui/TermPicker'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
 import { useCurrentTermDefaultString } from '../../hooks/useCurrentTerm'
 import { useToast } from '../../components/ui/Toast'
+import { getFriendlyErrorMessage } from '../../lib/errors'
 import type { Student } from '../../types/app'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -364,7 +365,7 @@ export function TeacherRemarksPage() {
       {saveRemarks.isError && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(244,63,94,.08)', border: '.5px solid rgba(244,63,94,.22)', color: 'var(--danger)', fontSize: 13 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          {(saveRemarks.error as Error).message}
+          {getFriendlyErrorMessage(saveRemarks.error)}
         </div>
       )}
 

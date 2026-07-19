@@ -10,6 +10,7 @@ import { Button }         from '../../components/ui/Button'
 import { Badge }          from '../../components/ui/Badge'
 import { Modal }          from '../../components/ui/Modal'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { getFriendlyErrorMessage } from '../../lib/errors'
 import { PillGroup } from '../../components/shared/PillGroup'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useStudents }    from '../../hooks/useStudents'
@@ -610,7 +611,7 @@ export function FeeLedgerPage() {
         </div>
       ) : error ? (
         <div style={{ padding: '1rem', background: 'var(--danger-bg)', borderRadius: 'var(--r)', color: 'var(--danger)', fontSize: 13 }}>
-          {(error as Error).message}
+          {getFriendlyErrorMessage(error)}
         </div>
       ) : (
         <div className="table-scroll" style={{

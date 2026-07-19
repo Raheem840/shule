@@ -9,6 +9,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { useToast } from '../../components/ui/Toast'
+import { getFriendlyErrorMessage } from '../../lib/errors'
 import { Modal, ModalCancelButton } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { useClasses, useStreams } from '../../hooks/useClasses'
@@ -1546,7 +1547,7 @@ export function BursarStudentsPage() {
             background: 'rgba(244,63,94,.08)', border: '1px solid rgba(244,63,94,.25)',
             borderRadius: 12, color: 'var(--danger)', fontSize: 13,
           }}>
-            {(error as Error).message}
+            {getFriendlyErrorMessage(error)}
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>

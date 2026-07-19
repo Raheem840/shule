@@ -13,6 +13,7 @@ import {
 } from 'recharts'
 import { useExamJournals, useCreateJournal, useNextCALabel, useCurriculumTopicsForCA, useJournalMarkCounts } from '../../hooks/useExamJournal'
 import { useJournalEvent } from '../../hooks/useTeacherEvents'
+import { getFriendlyErrorMessage } from '../../lib/errors'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -480,7 +481,7 @@ function CreateJournalModal({ onClose, prefillEvent }: { onClose: () => void; pr
 
           {create.isError && (
             <div style={{ color: 'var(--danger)', fontSize: 12, padding: '8px 12px', background: 'rgba(244,63,94,.08)', borderRadius: 10 }}>
-              {(create.error as Error).message}
+              {getFriendlyErrorMessage(create.error)}
             </div>
           )}
 

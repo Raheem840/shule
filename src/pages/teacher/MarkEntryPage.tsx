@@ -22,6 +22,7 @@ import {
 } from '../../components/shared/ImportWizard'
 import { useAuth } from '../../store/AuthContext'
 import { useToast } from '../../components/ui/Toast'
+import { getFriendlyErrorMessage } from '../../lib/errors'
 import { ReportCardCalcExplainer } from '../../components/shared/ReportCardCalcExplainer'
 import type { Student } from '../../types/app'
 import type { MarkRow } from '../../hooks/useExamResults'
@@ -1081,7 +1082,7 @@ export function MarkEntryPage() {
 
       {saveMarks.isError && (
         <div style={{ padding: '10px 14px', background: 'rgba(244,63,94,.08)', color: 'var(--danger)', borderRadius: 10, fontSize: 13 }}>
-          {(saveMarks.error as Error).message}
+          {getFriendlyErrorMessage(saveMarks.error)}
         </div>
       )}
 

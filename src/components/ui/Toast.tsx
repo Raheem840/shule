@@ -7,6 +7,7 @@ import {
   useEffect,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { getFriendlyErrorMessage } from '../../lib/errors'
 
 type ToastVariant = 'success' | 'error' | 'warning' | 'info'
 
@@ -19,7 +20,14 @@ interface ToastItem {
 
 interface ToastContextValue {
   success: (message: string, duration?: number) => void
-  error:   (message: string, duration?: number) => void
+  // Accepts the raw error (Error object, Postgrest error, or plain string)
+  // rather than requiring every call site to extract .message itself — this
+  // is the one place every error toast in the app funnels through, so it's
+  // where raw/technical messages (Postgres constraint text, stack traces,
+  // "Failed to fetch") get swapped for something a user can act on. The
+  // original is always logged to the console for debugging regardless of
+  // what's shown on screen.
+  error:   (message: unknown, duration?: number) => void
   warning: (message: string, duration?: number) => void
   info:    (message: string, duration?: number) => void
   dismiss: (id: string) => void
@@ -127,7 +135,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const ctx: ToastContextValue = {
     success: (m, d) => add(m, 'success', d),
-    error:   (m, d) => add(m, 'error',   d),
+    error:   (m, d) => add(getFriendlyErrorMessage(m), 'error', d),
     warning: (m, d) => add(m, 'warning', d),
     info:    (m, d) => add(m, 'info',    d),
     dismiss,

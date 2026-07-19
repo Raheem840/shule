@@ -10,6 +10,7 @@ import {
 } from '../../hooks/useSmsReminders'
 import { ugx } from '../../hooks/useFeePayments'
 import { useSchoolSettings } from '../../hooks/useAdmin'
+import { getFriendlyErrorMessage } from '../../lib/errors'
 import type { SmsChannel } from '../../types/app'
 
 // ── Status badge variant map ───────────────────────────────────
@@ -491,7 +492,7 @@ export function SmsReminderPage() {
             )}
             {sendReminders.isError && (
               <div style={{ padding: '0.6rem 0.85rem', background: 'var(--danger-bg)', borderRadius: 'var(--r)', fontSize: 12.5, color: 'var(--danger)', fontWeight: 600 }}>
-                {(sendReminders.error as Error).message}
+                {getFriendlyErrorMessage(sendReminders.error)}
               </div>
             )}
           </div>

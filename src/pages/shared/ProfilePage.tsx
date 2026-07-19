@@ -10,6 +10,7 @@ import { useBandwidth } from '../../store/BandwidthContext'
 import { ROLE_LABEL } from '../../config/roleNav'
 import { useAuth } from '../../store/AuthContext'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { getFriendlyErrorMessage } from '../../lib/errors'
 import type { UserRole } from '../../store/AuthContext'
 
 // ── Role → gradient colour ──────────────────────────────────────────────────
@@ -184,7 +185,7 @@ export function ProfilePage() {
       setPwdMsg('Password changed successfully.')
       setNewPwd(''); setConfPwd('')
       setTimeout(() => setPwdMsg(''), 5000)
-    } catch (err: any) { setPwdErr(err.message) }
+    } catch (err) { setPwdErr(getFriendlyErrorMessage(err)) }
   }
 
 
@@ -192,7 +193,7 @@ export function ProfilePage() {
     const file = e.target.files?.[0]
     if (!file) return
     try { await updatePhoto.mutateAsync(file) }
-    catch (err: any) { setSaveMsg({ text: `Photo upload failed: ${err.message}`, ok: false }) }
+    catch (err) { setSaveMsg({ text: `Photo upload failed: ${getFriendlyErrorMessage(err)}`, ok: false }) }
   }
 
   if (isLoading) return (

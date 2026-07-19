@@ -207,13 +207,15 @@ export type GenerateInput = {
   onProgress?: (done: number, total: number) => void
 }
 
-export function useGenerateReportCards() {
-  const { user } = useAuth()
-  const qc = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (input: GenerateInput) => {
-      if (!user) throw new Error('Not authenticated')
+// Standalone so it can also be called by useUpdateReportCardStatus's approve
+// path — a report card's PDF is generated once, up-front, before a
+// principal remark exists to bake into it; approving without regenerating
+// left the PDF's "Principal's Remarks" section permanently blank even
+// though the DB row (and the "Remarks ✓" list indicator) had the text.
+async function runGenerateReportCards(
+  user: NonNullable<ReturnType<typeof useAuth>['user']>,
+  input: GenerateInput,
+) {
       if (!['principal', 'dos', 'secretary'].includes(user.role ?? '')) throw new Error('Forbidden')
       const { studentIds, term, year, classId, streamId, onProgress } = input
       const schoolId = user!.schoolId
@@ -580,6 +582,16 @@ export function useGenerateReportCards() {
 
       onProgress?.(studentIds.length, studentIds.length)
       return results
+}
+
+export function useGenerateReportCards() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: GenerateInput) => {
+      if (!user) throw new Error('Not authenticated')
+      return runGenerateReportCards(user, input)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['report-cards', user?.schoolId] })
@@ -648,6 +660,47 @@ function useUpdateStatus(action: 'approve' | 'release' | 'unlock') {
         .eq('school_id', user!.schoolId)
 
       if (error) throw error
+
+      // The PDF is generated once, up-front, before a principal remark
+      // exists — approving only ever touched the DB row's principal_remarks
+      // column, never the already-uploaded PDF file, so the printed
+      // "Principal's Remarks" section stayed permanently blank even though
+      // the DB (and the "Remarks ✓" list indicator) had the text. Regenerate
+      // that one student's PDF now that the remark is saved, reusing the
+      // same pipeline as bulk Generate. Best-effort — a regeneration hiccup
+      // shouldn't block the approval itself, which already succeeded above.
+      if (action === 'approve') {
+        try {
+          const { data: rc } = await supabase
+            .from('report_cards')
+            .select('student_id, term, year')
+            .eq('id', reportCardId)
+            .eq('school_id', user!.schoolId)
+            .single()
+          const studentId = (rc as Record<string, unknown> | null)?.student_id as string | undefined
+          if (studentId) {
+            const { data: stu } = await supabase
+              .from('students')
+              .select('class_id, stream_id')
+              .eq('id', studentId)
+              .eq('school_id', user!.schoolId)
+              .single()
+            const classId = (stu as Record<string, unknown> | null)?.class_id as string | null
+            if (classId) {
+              await runGenerateReportCards(user, {
+                studentIds: [studentId],
+                term:       (rc as Record<string, unknown>).term as string,
+                year:       (rc as Record<string, unknown>).year as number,
+                classId,
+                streamId:   (stu as Record<string, unknown> | null)?.stream_id as string | null ?? null,
+              })
+            }
+          }
+        } catch (regenErr) {
+          console.error('[report card] PDF regeneration after approve failed', regenErr)
+        }
+      }
+
       return reportCardId
     },
     onSuccess: (_id, vars) => {
