@@ -3017,8 +3017,10 @@ select.sui-select:hover:not(:disabled):not(:focus) {
   .mob-child-hero-overlay {
     position: relative;
     z-index: 1;
-    /* leave room for the 76px avatar that overlaps from the body below */
-    padding: 0 1.1rem 0.95rem 96px;
+    /* leave room for the 76px avatar that overlaps from the body below —
+       avatar's right edge sits at ~93.6px (1.1rem body padding + 76px), so
+       96px left only 2.4px of real clearance. Widened to a genuine gap. */
+    padding: 0 1.1rem 0.95rem 112px;
     width: 100%;
   }
   .mob-child-hero-name {
@@ -3100,7 +3102,26 @@ select.sui-select:hover:not(:disabled):not(:focus) {
     letter-spacing: .2px;
   }
 
-  /* KPI strip: bolder Monzo-style numbers in the 2×2 grid */
+  /* KPI strip: bolder Monzo-style numbers in a real 2×2 grid. The comment
+     above always said "2×2 grid" but the inline style used
+     grid-template-columns: repeat(auto-fit, minmax(80px,1fr)), which wraps
+     unpredictably on narrow phones — and the border-right-except-last logic
+     (written for a single row of 4) left a stray divider hanging off the
+     top-right cell with no border between the two rows at all, reading as
+     one cramped block instead of a clean divided grid. Forced to an actual
+     2-column grid with explicit per-cell dividers below. */
+  .portal-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    row-gap: 2px;
+  }
+  .portal-kpi-grid > div {
+    padding-top: 0.9rem !important;
+    padding-bottom: 0.9rem !important;
+  }
+  .portal-kpi-grid > div:nth-child(1) { border-right: 1px solid var(--border) !important; border-bottom: 1px solid var(--border); }
+  .portal-kpi-grid > div:nth-child(2) { border-right: none !important; border-bottom: 1px solid var(--border); }
+  .portal-kpi-grid > div:nth-child(3) { border-right: 1px solid var(--border) !important; }
+  .portal-kpi-grid > div:nth-child(4) { border-right: none !important; }
   .portal-kpi-grid > div > div:first-child {
     font-size: 19px !important;
     letter-spacing: -.4px !important;
