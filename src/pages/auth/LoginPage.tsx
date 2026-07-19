@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useRequestStaffPassword } from '../../hooks/useStaffPasswordRequests'
+import { isPlaceholderSchoolEmail } from '../../lib/placeholderEmail'
 import type { UserRole } from '../../store/AuthContext'
 
 // ── JWT helpers ────────────────────────────────────────────────────────────────
@@ -130,11 +131,34 @@ export function LoginPage() {
   const [resetEmail,       setResetEmail]        = useState('')
   const [resetSending,     setResetSending]      = useState(false)
   const [resetSent,        setResetSent]         = useState(false)
+  const [resetIsPlaceholder, setResetIsPlaceholder] = useState(false)
+  const [schoolShortName,  setSchoolShortName]   = useState<string | null>(null)
 
   const requestPassword = useRequestStaffPassword()
 
+  // school_profile has RLS off (public) — safe to read before login. Purely
+  // a UX nicety (placeholder-email detection below), so any failure here is
+  // swallowed — it must never block or crash the login page itself.
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.from('school_profile').select('short_name').limit(1).maybeSingle()
+        setSchoolShortName((data as { short_name?: string } | null)?.short_name ?? null)
+      } catch {
+        // ignore — purely a UX nicety, never blocks login
+      }
+    })()
+  }, [])
+
   async function handleEmailReset() {
     if (!resetEmail.trim() || resetSending) return
+    // Auto-generated placeholder addresses (student/staff accounts with no
+    // real email on file) can never receive this link — steer to the
+    // IT-admin fallback immediately instead of a silent, unexplained no-op.
+    if (isPlaceholderSchoolEmail(resetEmail, schoolShortName)) {
+      setResetIsPlaceholder(true)
+      return
+    }
     setResetSending(true)
     try {
       await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
@@ -378,7 +402,7 @@ export function LoginPage() {
                 <label style={{ display:'flex', justifyContent:'space-between', fontSize:11.5, fontWeight:700, color:'#475569', marginBottom:7, textTransform:'uppercase', letterSpacing:.6 }}>
                   Password
                   <button type="button"
-                    onClick={()=>{ setShowForgot(true); setResetMode('email'); setResetSent(false); setResetEmail(''); setForgotSent(false); setForgotError(''); setForgotEmail(''); setForgotStaffNum(''); setForgotPassword('') }}
+                    onClick={()=>{ setShowForgot(true); setResetMode('email'); setResetSent(false); setResetEmail(''); setResetIsPlaceholder(false); setForgotSent(false); setForgotError(''); setForgotEmail(''); setForgotStaffNum(''); setForgotPassword('') }}
                     style={{ background:'none', border:'none', cursor:'pointer', fontSize:11.5, color:'#0d9488', fontWeight:700, textTransform:'none', letterSpacing:0, fontFamily:'inherit', padding:0, transition:'color .14s' }}
                     onMouseEnter={e=>(e.currentTarget.style.color='#0f766e')}
                     onMouseLeave={e=>(e.currentTarget.style.color='#0d9488')}
@@ -497,11 +521,21 @@ export function LoginPage() {
                       Enter the email address on file for your account and we'll send you a link to set a new password.
                     </div>
                     <label style={{ display:'block', fontSize:11.5, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:.6, marginBottom:7 }}>Email address</label>
-                    <input type="email" value={resetEmail} onChange={e=>setResetEmail(e.target.value)}
+                    <input type="email" value={resetEmail} onChange={e=>{ setResetEmail(e.target.value); setResetIsPlaceholder(false) }}
                       onKeyDown={e=>{ if(e.key==='Enter') void handleEmailReset() }}
                       placeholder="name@school.ac.ug" autoFocus
-                      className="lp-input" style={{ marginBottom:18 }}
+                      className="lp-input" style={{ marginBottom: resetIsPlaceholder ? 12 : 18 }}
                     />
+                    {resetIsPlaceholder && (
+                      <div style={{ marginBottom:16, padding:'12px 14px', borderRadius:10, background:'rgba(245,158,11,.06)', border:'1px solid rgba(245,158,11,.25)' }}>
+                        <div style={{ fontSize:12.5, color:'#92400e', lineHeight:1.6, marginBottom:8 }}>
+                          This looks like a school-issued address that can't receive email — not something you can check.
+                        </div>
+                        <button type="button" onClick={()=>{ setResetMode('manual'); setResetIsPlaceholder(false); setForgotSent(false); setForgotError(''); setForgotEmail(resetEmail); setForgotStaffNum(''); setForgotPassword('') }}
+                          style={{ background:'none', border:'none', cursor:'pointer', fontSize:12.5, color:'#0d9488', fontWeight:700, fontFamily:'inherit', padding:0 }}
+                        >Request a reset from your IT Admin instead →</button>
+                      </div>
+                    )}
                     <div style={{ display:'flex', gap:10 }}>
                       <button type="button" onClick={()=>setShowForgot(false)}
                         style={{ flex:1, height:46, borderRadius:12, background:'#f1f5f9', border:'1px solid #e2e8f0', color:'#475569', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit', transition:'background .14s' }}

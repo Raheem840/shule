@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
+import { isPlaceholderSchoolEmail } from '../../lib/placeholderEmail'
 
 // ── Floating feature card ──────────────────────────────────────────────────
 function FeatureCard({
@@ -178,12 +179,32 @@ export function ParentLoginPage() {
   const [resetEmail,   setResetEmail]   = useState('')
   const [resetSending, setResetSending] = useState(false)
   const [resetSent,    setResetSent]    = useState(false)
+  const [resetIsPlaceholder, setResetIsPlaceholder] = useState(false)
+  const [schoolShortName,    setSchoolShortName]    = useState<string | null>(null)
 
   const navigate  = useNavigate()
   const { user }  = useAuth()
 
+  // school_profile has RLS off (public) — safe to read before login. Purely
+  // a UX nicety (placeholder-email detection below), so any failure here is
+  // swallowed — it must never block or crash the login page itself.
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.from('school_profile').select('short_name').limit(1).maybeSingle()
+        setSchoolShortName((data as { short_name?: string } | null)?.short_name ?? null)
+      } catch {
+        // ignore — purely a UX nicety, never blocks login
+      }
+    })()
+  }, [])
+
   async function handleEmailReset() {
     if (!resetEmail.trim() || resetSending) return
+    if (isPlaceholderSchoolEmail(resetEmail, schoolShortName)) {
+      setResetIsPlaceholder(true)
+      return
+    }
     setResetSending(true)
     try {
       await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
@@ -380,7 +401,7 @@ export function ParentLoginPage() {
               <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: 'var(--txt2)', marginBottom: 7 }}>
                 Password
                 <button type="button"
-                  onClick={() => { setShowForgot(true); setResetSent(false); setResetEmail('') }}
+                  onClick={() => { setShowForgot(true); setResetSent(false); setResetEmail(''); setResetIsPlaceholder(false) }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--brand)', fontWeight: 700, fontFamily: 'inherit', padding: 0 }}
                 >Forgot password?</button>
               </label>
@@ -524,11 +545,18 @@ export function ParentLoginPage() {
               ) : (
                 <>
                   <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--txt2)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 7 }}>Email address</label>
-                  <input type="email" value={resetEmail} onChange={e => setResetEmail(e.target.value)}
+                  <input type="email" value={resetEmail} onChange={e => { setResetEmail(e.target.value); setResetIsPlaceholder(false) }}
                     onKeyDown={e => { if (e.key === 'Enter') void handleEmailReset() }}
                     placeholder="you@email.com" autoFocus
-                    className="sui-input" style={{ width: '100%', marginBottom: 18 }}
+                    className="sui-input" style={{ width: '100%', marginBottom: resetIsPlaceholder ? 12 : 18 }}
                   />
+                  {resetIsPlaceholder && (
+                    <div style={{ marginBottom: 16, padding: '12px 14px', borderRadius: 10, background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.25)' }}>
+                      <div style={{ fontSize: 12.5, color: '#92400e', lineHeight: 1.6 }}>
+                        This looks like a school-issued address that can't receive email. Please contact the school office for a manual reset.
+                      </div>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button type="button" onClick={() => setShowForgot(false)}
                       style={{ flex: 1, height: 46, borderRadius: 12, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
