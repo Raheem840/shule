@@ -142,23 +142,16 @@ export async function importStudentsFromCsv(
   const streamMap    = new Map<string, string>()
   ;(streamsRes.data ?? []).forEach((s: any) => streamMap.set(`${s.class_id}::${(s.name as string).toLowerCase().trim()}`, s.id as string))
 
-  // For historical import years, pre-compute admission number sequence
-  // (the DB trigger uses NOW() year — for other years we supply the number
-  // ourselves). Prefix is always "STU" — admission numbers are NOT
-  // short_name-based (see generate_admission_number() /
-  // 20260616_000003_stu_admission_prefix.sql), so this must match the DB
-  // trigger's own fixed format, not the school's short_name.
-  let admSeqOffset = 0
+  // For historical import years the DB trigger can't help (it always uses
+  // NOW()'s year), so each new row's admission number is reserved via the
+  // reserve_admission_number(school_id, year) RPC — takes the same
+  // advisory lock the trigger itself uses, so it can't collide with a
+  // concurrent live registration or the trigger's own current-year path.
+  // Previously this was an in-memory counter seeded once from a COUNT()
+  // with no locking at all, so two concurrent historical-year imports for
+  // the same school+year could generate the exact same numbers.
   const useHistoricalYear = importYear !== currentCalYear
-  if (useHistoricalYear) {
-    const { count } = await supabase
-      .from('students')
-      .select('id', { count: 'exact', head: true })
-      .eq('school_id', schoolId)
-      .like('admission_number', `STU/${importYear}/%`)
-    admSeqOffset = count ?? 0
-  }
-  let newStudentSeq = admSeqOffset
+  const ADMISSION_NUMBER_RE = /^STU\/\d{4}\/\d{8}$/
 
   // Build lookup: "firstName|lastName|classId" → existing student
   const existingMap = new Map<string, { id: string; admissionNumber: string }>()
@@ -250,12 +243,30 @@ export async function importStudentsFromCsv(
       }
       if (activeYearId) insertData.academic_year_id = activeYearId
       if (useHistoricalYear) {
-        const seq = String(++newStudentSeq).padStart(4, '0')
-        insertData.admission_number = `STU/${importYear}/${seq}`
+        const { data: reserved, error: reserveErr } = await supabase
+          .rpc('reserve_admission_number', { p_school_id: schoolId, p_year: importYear })
+        if (reserveErr) {
+          failedItems.push({ row: i + 2, reason: `Could not reserve an admission number: ${reserveErr.message}` })
+          continue
+        }
+        insertData.admission_number = reserved as string
       }
-      // Allow CSV-supplied admission_number to override the auto-generated one
+      // Allow CSV-supplied admission_number to override the auto-generated
+      // one — but only if it actually matches the agreed format, so a bulk
+      // import can't silently seed the table with malformed numbers (a
+      // single manual edit in the registration wizard is still allowed to
+      // be more flexible; this is specifically the higher-volume,
+      // less-reviewed bulk path).
       if (r.admission_number && String(r.admission_number).trim()) {
-        insertData.admission_number = String(r.admission_number).trim()
+        const candidate = String(r.admission_number).trim()
+        if (!ADMISSION_NUMBER_RE.test(candidate)) {
+          failedItems.push({
+            row: i + 2,
+            reason: `Admission number "${candidate}" doesn't match the required format STU/YYYY/00000001`,
+          })
+          continue
+        }
+        insertData.admission_number = candidate
       }
 
       const { data: inserted, error } = await supabase
