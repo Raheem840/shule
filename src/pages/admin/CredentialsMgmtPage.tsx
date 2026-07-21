@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
+import { csvField } from '../../lib/csv'
+import { localToday } from '../../lib/dates'
 import { generateTempPassword } from '../../lib/passwords'
 import { useToast } from '../../components/ui/Toast'
 import { useClasses } from '../../hooks/useClasses'
@@ -360,13 +362,13 @@ function exportStudentsCsv(rows: StudentRow[], classMap: Map<string, string>, sc
     const sn       = schoolShortName.toLowerCase().replace(/[^a-z0-9]/g, '')
     const email    = `${admEmail}@${sn}.ug`
     const status  = r.auth_user_id ? 'Active' : 'Pending'
-    lines.push(`"${name}","${r.admission_number}","${cls}","${email}","${status}"`)
+    lines.push([name, r.admission_number, cls, email, status].map(csvField).join(','))
   })
   const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
   a.href = url
-  a.download = `student-credentials-${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `student-credentials-${localToday()}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }

@@ -6,6 +6,7 @@ import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { csvField } from '../../lib/csv'
 import { Avatar } from '../../components/shared/Avatar'
+import { localToday } from '../../lib/dates'
 import { PromoteStudentsSection } from '../../components/shared/PromoteStudentsSection'
 
 // ─── Status badge ──────────────────────────────────────────────────────────────
@@ -131,7 +132,7 @@ export function DeputyStudentsPage() {
                   .map(csvField).join(',')
               ).join('\n')
               const blob = new Blob([header + csv], { type: 'text/csv' })
-              const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `students-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href)
+              const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `students-${localToday()}.csv`; a.click(); URL.revokeObjectURL(a.href)
             }}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', flexShrink: 0, transition: 'all .15s' }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.color = 'var(--brand)' }}

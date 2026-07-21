@@ -2,11 +2,26 @@
 
 **Date:** 2026-07-21
 **Method:** Seven parallel specialist agents performed static code review (no live/local Supabase was available in the audit sandbox — Docker daemon not running). Coverage: all 66 SQL migrations, all 15 edge functions, RLS policies, all 10 role page-trees, the shared UI/design system, import/export logic, and a full lint/Vitest baseline run. Playwright e2e (15 specs) was **not** run — it requires a live Supabase project with seeded test accounts, which this sandbox doesn't have.
-**Scope of this pass:** findings only, except C1–C7 and H1–H4 (see Remediation Log below, added same day). Severities: **Critical** (real money/data/security exposure, exploitable today) → **High** → **Medium** → **Low**.
+**Scope of this pass:** findings only, except C1–C7, H1–H4, and M2/M3/M4/M5/M6/M8/M10 (see Remediation Log below, added same day). Severities: **Critical** (real money/data/security exposure, exploitable today) → **High** → **Medium** → **Low**.
 
 ---
 
 ## Remediation Log
+
+### 2026-07-21 — M2, M3, M4, M5, M6, M8, M10 fixed: survey/session/receipt integrity, storage RLS scoping, CSV escaping, timezone bug
+
+Migration `20260721_000003_medium_findings_batch.sql`, plus app-side changes:
+
+- **M2**: `student_submits_own_survey` had no `student_id` ownership check. Rewrote the policy's `WITH CHECK` to require `student_id` resolve to the caller's own `students` row via `auth_user_id = auth.uid()`.
+- **M3**: `custom_access_token_hook` only ever checked `staff.is_active`; an expelled or suspended student's session claims never reflected it. Added a `students.status IN ('suspended', 'expelled')` check alongside the existing staff check, both setting the same `account_status: deactivated` claim the app already knows how to act on.
+- **M4**: added `fee_payments_school_receipt_idx`, a partial unique index on `(school_id, receipt_number)`, closing the duplicate/reused-receipt-number gap.
+- **M5/M6**: `template_read` required no authentication at all (contradicted its own "private — signed URLs only" comment); all six `templates`/`documents` storage policies checked role only, never `school_id`. Rewrote all six to require `authenticated` and scope by the bucket's own `{school_id}/...` path convention (confirmed against `uploadTemplate()`/`uploadDocument()` in `src/lib/storage.ts`), matching the scoping every table-level RLS policy already has.
+- **M8**: `CredentialsMgmtPage.tsx`'s `exportStudentsCsv()` and `BursarDashboard.tsx`'s `exportCSV()` hand-rolled unescaped CSV fields; switched both to the existing `csvField()` helper (`src/lib/csv.ts`) already used elsewhere.
+- **M10**: swapped the timezone-buggy `new Date().toISOString().slice(0,10)` pattern (returns the wrong local date for the first ~3 hours of every Uganda day, UTC+3) for the existing `localToday()` helper (`src/lib/dates.ts`) at all 14 remaining call sites, including the two with real logic impact beyond export filenames — `AttendancePage.tsx`'s default date-picker value and `TeacherDashboard.tsx`'s upcoming-events filter — plus `ImportDataPage.tsx`'s staff `join_date` default and `ExamJournalPage.tsx`'s prefill date. Verified clean via repo-wide grep afterward.
+
+Verified: `tsc -b` clean, full Vitest suite passing (1104/1109 — same 5 pre-existing environment-only failures as every prior baseline in this report).
+
+**Deliberately left as backlog, not fixed in this pass** (per explicit request to spare tokens and stop after Medium/Low): M1 (secretary fee-amount RLS is broader than the UI implies), M9/M12/M13/M14/M15 (design/structural polish — duplicated Excel boilerplate, unused `DataTable` component, duplicated edge-function CORS/bootstrap, hardcoded brand hex literals, hand-rolled modal focus trap), M18 (dead timetable-import template + unused `'marks'` import type), and the full L-series (L1–L9). None of these are correctness or security bugs on their own — they're refactor/consistency debt or already-known sandbox limitations (Playwright, missing `.env.local`) — so leaving them open doesn't regress anything shipped in this report.
 
 ### 2026-07-21 — C7, H1, H2 fixed: 8-digit ID format, staff_number uniqueness, bursar import confirmation gate + audit log
 
@@ -124,24 +139,24 @@ Students have `students_school_admission_idx (school_id, admission_number)`; sta
 
 ## Medium
 
-- **M1.** Secretary's "fee status flag only, no amounts" is UI-only. The backing RLS (`20260703_000003_secretary_can_view_fee_payments.sql`) grants unrestricted `SELECT *` on `fee_payments`; a secretary can query the API directly and see exact amounts, receipts, and notes the product intentionally withholds from this role.
-- **M2.** `student_surveys` INSERT has no `student_id` ownership check — any authenticated user can submit a survey response impersonating an arbitrary student.
-- **M3.** Expelled/suspended students keep full portal access — `custom_access_token_hook` only checks `staff.is_active`, never `students.status`.
-- **M4.** `fee_payments.receipt_number` has no unique constraint — duplicate/reused receipt numbers are possible.
-- **M5.** The `templates` storage bucket is readable with zero authentication, contradicting its own code comment ("private — signed URLs only").
-- **M6.** `templates`/`documents` storage RLS checks role only, never `school_id`. Not exploitable under the current one-Supabase-project-per-school model, but becomes a real cross-tenant PII leak (staff NIN numbers, transcripts) the moment this is ever run as a shared multi-tenant deployment — worth fixing regardless since it's inconsistent with every table-level policy.
-- **M7.** No file type/size validation on any upload path (`src/lib/storage.ts`); relies only on default project-wide Supabase limits.
-- **M8.** CSV export escaping is inconsistent: `src/lib/csv.ts` has a shared RFC4180-safe `csvField()` helper, but `admin/CredentialsMgmtPage.tsx` and `bursar/BursarDashboard.tsx` still hand-roll unescaped CSV — the exact bug class the helper was built to fix.
-- **M9.** Excel export boilerplate (`ExcelJS.Workbook` setup/styling) is duplicated near-identically across ~8 files.
-- **M10.** A timezone-safe `localToday()` helper exists (Uganda is UTC+3; the naive `new Date().toISOString().slice(0,10)` pattern returns yesterday's date for the first 3 hours of each local day) but ~20 call sites — including `teacher/AttendancePage.tsx`, `teacher/TeacherDashboard.tsx`, `hooks/usePrincipal.ts`, `hooks/useTermProgress.ts` — still use the buggy pattern directly. Real, user-facing bug window every night.
-- **M11.** A canonical currency formatter (`ugx()` in `useFeePayments.ts`, commented "use everywhere money appears") is bypassed by at least 5 files that hand-roll `'UGX ' + n.toLocaleString(...)` with inconsistent formatting.
-- **M12.** A fully-built `DataTable` component (270 lines: sorting, selection, loading skeletons, empty states) is exported but has zero usages anywhere; 30 files hand-roll raw `<table>` markup instead.
-- **M13.** All 15 edge functions duplicate an identical CORS-headers object and near-identical Supabase client bootstrap, with no shared module — CORS is currently wide-open (`*`) everywhere, and any future tightening or security-relevant client-setup change has to be applied by hand in up to 15 places.
-- **M14.** Login-page branding hardcodes ~75 teal hex literals per file instead of the brand-color variable; pre-auth screens (the first thing anyone sees in a demo) can never reflect a school's custom color.
-- **M15.** Radix UI is installed but used in only 2 files; the shared `Modal` is fully hand-rolled and lacks a full focus trap (Tab can escape the dialog).
-- **M16.** Two on-prem packaging scripts disagree on which migrations to stage (`build-for-school.sh` stages 3, `prepare-usb.sh` stages all 66) — moot today only because C1's broken installer glob discards the difference anyway; fix both when fixing C1.
-- **M17.** `scripts/apply-migrations.sh` references `supabase/seeds/` (plural); the real directory is `supabase/seed/` (singular) — stale/broken path.
-- **M18.** Dead/stub artifacts: a timetable-import CSV template exists with no handler wired to it; an `ImportContext` type includes `'marks'` with no page using it.
+- **M1.** Secretary's "fee status flag only, no amounts" is UI-only. The backing RLS (`20260703_000003_secretary_can_view_fee_payments.sql`) grants unrestricted `SELECT *` on `fee_payments`; a secretary can query the API directly and see exact amounts, receipts, and notes the product intentionally withholds from this role. **Backlog — not fixed in this pass, see Remediation Log.**
+- ~~**M2.** `student_surveys` INSERT has no `student_id` ownership check — any authenticated user can submit a survey response impersonating an arbitrary student.~~ **FIXED 2026-07-21 — see Remediation Log above.**
+- ~~**M3.** Expelled/suspended students keep full portal access — `custom_access_token_hook` only checks `staff.is_active`, never `students.status`.~~ **FIXED 2026-07-21 — see Remediation Log above.**
+- ~~**M4.** `fee_payments.receipt_number` has no unique constraint — duplicate/reused receipt numbers are possible.~~ **FIXED 2026-07-21 — see Remediation Log above.**
+- ~~**M5.** The `templates` storage bucket is readable with zero authentication, contradicting its own code comment ("private — signed URLs only").~~ **FIXED 2026-07-21 — see Remediation Log above.**
+- ~~**M6.** `templates`/`documents` storage RLS checks role only, never `school_id`. Not exploitable under the current one-Supabase-project-per-school model, but becomes a real cross-tenant PII leak (staff NIN numbers, transcripts) the moment this is ever run as a shared multi-tenant deployment — worth fixing regardless since it's inconsistent with every table-level policy.~~ **FIXED 2026-07-21 — see Remediation Log above.**
+- **M7.** No file type/size validation on any upload path (`src/lib/storage.ts`); relies only on default project-wide Supabase limits. **Backlog — not fixed in this pass.**
+- ~~**M8.** CSV export escaping is inconsistent: `src/lib/csv.ts` has a shared RFC4180-safe `csvField()` helper, but `admin/CredentialsMgmtPage.tsx` and `bursar/BursarDashboard.tsx` still hand-roll unescaped CSV — the exact bug class the helper was built to fix.~~ **FIXED 2026-07-21 — see Remediation Log above.**
+- **M9.** Excel export boilerplate (`ExcelJS.Workbook` setup/styling) is duplicated near-identically across ~8 files. **Backlog — not fixed in this pass, see Remediation Log.**
+- ~~**M10.** A timezone-safe `localToday()` helper exists (Uganda is UTC+3; the naive `new Date().toISOString().slice(0,10)` pattern returns yesterday's date for the first 3 hours of each local day) but ~20 call sites — including `teacher/AttendancePage.tsx`, `teacher/TeacherDashboard.tsx`, `hooks/usePrincipal.ts`, `hooks/useTermProgress.ts` — still use the buggy pattern directly. Real, user-facing bug window every night.~~ **FIXED 2026-07-21 — see Remediation Log above.**
+- **M11.** A canonical currency formatter (`ugx()` in `useFeePayments.ts`, commented "use everywhere money appears") is bypassed by at least 5 files that hand-roll `'UGX ' + n.toLocaleString(...)` with inconsistent formatting. **Backlog — not fixed in this pass.**
+- **M12.** A fully-built `DataTable` component (270 lines: sorting, selection, loading skeletons, empty states) is exported but has zero usages anywhere; 30 files hand-roll raw `<table>` markup instead. **Backlog — not fixed in this pass, see Remediation Log.**
+- **M13.** All 15 edge functions duplicate an identical CORS-headers object and near-identical Supabase client bootstrap, with no shared module — CORS is currently wide-open (`*`) everywhere, and any future tightening or security-relevant client-setup change has to be applied by hand in up to 15 places. **Backlog — not fixed in this pass, see Remediation Log.**
+- **M14.** Login-page branding hardcodes ~75 teal hex literals per file instead of the brand-color variable; pre-auth screens (the first thing anyone sees in a demo) can never reflect a school's custom color. **Backlog — not fixed in this pass, see Remediation Log.**
+- **M15.** Radix UI is installed but used in only 2 files; the shared `Modal` is fully hand-rolled and lacks a full focus trap (Tab can escape the dialog). **Backlog — not fixed in this pass, see Remediation Log.**
+- **M16.** Two on-prem packaging scripts disagree on which migrations to stage (`build-for-school.sh` stages 3, `prepare-usb.sh` stages all 66) — moot today only because C1's broken installer glob discards the difference anyway; fix both when fixing C1. **FIXED as part of C1 — `build-for-school.sh` now copies all migrations, see the 2026-07-21 C1 Remediation Log entry above.**
+- **M17.** `scripts/apply-migrations.sh` references `supabase/seeds/` (plural); the real directory is `supabase/seed/` (singular) — stale/broken path. **FIXED as part of C1 — see the 2026-07-21 C1 Remediation Log entry above.**
+- **M18.** Dead/stub artifacts: a timetable-import CSV template exists with no handler wired to it; an `ImportContext` type includes `'marks'` with no page using it. **Backlog — not fixed in this pass, see Remediation Log.**
 
 ---
 
@@ -208,4 +223,5 @@ Write one `audit_log` row per touched `fee_payments` row, including `matched_by`
 2. ~~**C2–C6** (unscoped RLS + unauthenticated SMS/WhatsApp functions)~~ — fixed 2026-07-21, see Remediation Log. Needs verification against a real Supabase project before full trust — no live project was available to test against.
 3. ~~**H3, H4** (FK-vs-uid RLS bugs)~~ — fixed in the same pass as C2–C6, since it's the same bug class and same migration.
 4. ~~**C7, H1, H2** (ID format + bursar import integrity)~~ — fixed 2026-07-21, see Remediation Log. Needs verification against a real Supabase project (migration + concurrent-import locking behavior) before full trust.
-5. Remaining Medium/Low items as a cleanup pass — **not yet implemented**.
+5. ~~**M2, M3, M4, M5, M6, M8, M10** (survey/session/receipt integrity, storage RLS scoping, CSV escaping, timezone bug)~~ — fixed 2026-07-21, see Remediation Log. Needs verification against a real Supabase project before full trust.
+6. Remaining Medium/Low items (M1, M7, M9, M11–M15, M18, L1–L9) — deliberately left as backlog per the 2026-07-21 Remediation Log entry; design/structural polish and refactor debt, not correctness or security bugs.

@@ -5,6 +5,7 @@ import { useStudents } from '../../hooks/useStudents'
 import { useClasses, useStreams } from '../../hooks/useClasses'
 import { Avatar } from '../../components/shared/Avatar'
 import type { Student } from '../../types/app'
+import { localToday } from '../../lib/dates'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type StudentStatus = 'active' | 'suspended' | 'expelled'
@@ -450,7 +451,7 @@ export function PrincipalStudentsPage() {
                       return `"${s.firstName} ${s.lastName}","${s.admissionNumber}","${cls}","${s.gender}","${s.studentType ?? ''}","${s.status}"`
                     }).join('\n')
                     const blob = new Blob([header + csv], { type: 'text/csv' })
-                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `students-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href)
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `students-${localToday()}.csv`; a.click(); URL.revokeObjectURL(a.href)
                   }}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 99, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(255,255,255,.16)', color: '#fff', border: '.5px solid rgba(255,255,255,.35)' }}
                 >

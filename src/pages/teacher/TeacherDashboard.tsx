@@ -5,6 +5,7 @@ import { useAuth } from '../../store/AuthContext'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { SafeTermProgressTimeline } from '../../components/shared/TermProgressTimeline'
 import { useTeacherEvents } from '../../hooks/useTeacherEvents'
+import { localToday } from '../../lib/dates'
 
 const QUICK_LINKS = [
   { label: 'My Events',       sub: 'School calendar',      path: '/teacher/events',      accent: 'brand',   icon: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01' },
@@ -193,7 +194,7 @@ export function TeacherDashboard() {
   const { data: events = [] } = useTeacherEvents()
   const { data: kpis, isLoading: kpisLoading } = useTeacherKpis()
 
-  const today    = new Date().toISOString().slice(0, 10)
+  const today    = localToday()
   const upcoming = events
     .filter(e => e.eventDate >= today)
     .sort((a, b) => a.eventDate.localeCompare(b.eventDate))

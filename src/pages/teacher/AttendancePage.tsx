@@ -6,6 +6,7 @@ import { useStudents } from '../../hooks/useStudents'
 import { useAttendance, useClassTermAttendance, useSaveAttendance } from '../../hooks/useAttendance'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/Toast'
+import { localToday } from '../../lib/dates'
 import { Avatar } from '../../components/shared/Avatar'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import type { AttendanceStatus, Student } from '../../types/app'
@@ -90,7 +91,7 @@ function AttendanceRow({
 }
 
 export function AttendancePage() {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localToday()
 
   const location = useLocation()
   const navigate = useNavigate()

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
+import { localToday } from '../lib/dates'
 import type {
   PrincipalKpis, TopClass, FeeSummary, AuditEntry, StaffFullProfile,
 } from '../types/week9'
@@ -14,7 +15,7 @@ export function usePrincipalKpis() {
     enabled: !!user && user?.role === 'principal',
     queryFn: async (): Promise<PrincipalKpis> => {
       const sid = user!.schoolId
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localToday()
       const weekStart = new Date()
       weekStart.setDate(weekStart.getDate() - weekStart.getDay())
       const weekStartStr = weekStart.toISOString().slice(0, 10)
