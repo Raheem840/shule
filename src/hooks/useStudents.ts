@@ -205,7 +205,7 @@ export function useNextAdmissionNumber(year: number) {
         const m = /^STU\/\d{4}\/(\d+)$/.exec((row.admission_number as string | null) ?? '')
         if (m) maxSeq = Math.max(maxSeq, parseInt(m[1], 10))
       }
-      return `STU/${year}/${String(maxSeq + 1).padStart(4, '0')}`
+      return `STU/${year}/${String(maxSeq + 1).padStart(8, '0')}`
     },
   })
 }

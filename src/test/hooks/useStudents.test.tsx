@@ -160,15 +160,19 @@ describe('useStudentById', () => {
 // 20260616_000003_stu_admission_prefix.sql) — this preview must match
 // exactly what the DB trigger (generate_admission_number()) would produce.
 describe('useNextAdmissionNumber', () => {
-  it('returns seq 0001 when no students exist for the year', async () => {
+  it('returns seq 00000001 when no students exist for the year', async () => {
     setResponse('students', { data: [], error: null })
     const { result } = renderHook(() => useNextAdmissionNumber(2025), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toBe('STU/2025/0001')
+    expect(result.current.data).toBe('STU/2025/00000001')
   })
 
   it('returns max seq + 1 from existing STU admission numbers', async () => {
+    // Input fixture uses the old 4-digit format on purpose — the migration
+    // that fixed the padding doesn't rewrite existing rows, so real data
+    // stays a mix of old and new widths. The regex only cares about
+    // extracting the numeric sequence, not its width.
     setResponse('students', {
       data: [{ admission_number: 'STU/2025/0049' }],
       error: null,
@@ -176,7 +180,7 @@ describe('useNextAdmissionNumber', () => {
     const { result } = renderHook(() => useNextAdmissionNumber(2025), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toBe('STU/2025/0050')
+    expect(result.current.data).toBe('STU/2025/00000050')
   })
 
   it('ignores admission numbers with a different prefix from another school', async () => {
@@ -190,10 +194,10 @@ describe('useNextAdmissionNumber', () => {
     const { result } = renderHook(() => useNextAdmissionNumber(2025), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toBe('STU/2025/0003')
+    expect(result.current.data).toBe('STU/2025/00000003')
   })
 
-  it('returns 0001 when admission number format is unrecognized', async () => {
+  it('returns 00000001 when admission number format is unrecognized', async () => {
     setResponse('students', {
       data: [{ admission_number: 'INVALID' }],
       error: null,
@@ -201,7 +205,7 @@ describe('useNextAdmissionNumber', () => {
     const { result } = renderHook(() => useNextAdmissionNumber(2025), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toBe('STU/2025/0001')
+    expect(result.current.data).toBe('STU/2025/00000001')
   })
 })
 

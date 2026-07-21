@@ -323,8 +323,8 @@ export function ImportDataPage() {
           </select>
           <div style={{ fontSize: 11.5, color: 'var(--txt3)', flex: 1 }}>
             Admission numbers will continue from{' '}
-            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>STU/{importYear}/{String(nextAdmSeq).padStart(4, '0')}</span>,{' '}
-            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>STU/{importYear}/{String(nextAdmSeq + 1).padStart(4, '0')}</span>, …
+            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>STU/{importYear}/{String(nextAdmSeq).padStart(8, '0')}</span>,{' '}
+            <span style={{ fontFamily: 'var(--font3)', fontWeight: 700, color: 'var(--brand)' }}>STU/{importYear}/{String(nextAdmSeq + 1).padStart(8, '0')}</span>, …
           </div>
         </div>
       )}

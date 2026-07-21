@@ -2,11 +2,21 @@
 
 **Date:** 2026-07-21
 **Method:** Seven parallel specialist agents performed static code review (no live/local Supabase was available in the audit sandbox — Docker daemon not running). Coverage: all 66 SQL migrations, all 15 edge functions, RLS policies, all 10 role page-trees, the shared UI/design system, import/export logic, and a full lint/Vitest baseline run. Playwright e2e (15 specs) was **not** run — it requires a live Supabase project with seeded test accounts, which this sandbox doesn't have.
-**Scope of this pass:** findings only, except C1–C6 and H3–H4 (see Remediation Log below, added same day). Severities: **Critical** (real money/data/security exposure, exploitable today) → **High** → **Medium** → **Low**.
+**Scope of this pass:** findings only, except C1–C7 and H1–H4 (see Remediation Log below, added same day). Severities: **Critical** (real money/data/security exposure, exploitable today) → **High** → **Medium** → **Low**.
 
 ---
 
 ## Remediation Log
+
+### 2026-07-21 — C7, H1, H2 fixed: 8-digit ID format, staff_number uniqueness, bursar import confirmation gate + audit log
+
+Migration `20260721_000002_admission_staff_number_8digit_and_index.sql`, plus app-side changes:
+
+- **C7**: `generate_admission_number()` and `generate_staff_number()` both padded to 4/3 digits instead of the agreed 8 (`STU/2026/00000001`). Fixed in both DB trigger functions; existing rows are **not** rewritten, only the generator changes going forward. Also fixed the 3 JS-side preview mirrors (`useNextAdmissionNumber`, `useNextStaffNumber`, `ImportDataPage.tsx`'s preview string) and the wizard's zod format regex, so every page shows/accepts the same 8-digit format consistently. One deliberate deviation from the original remediation spec: the registration wizards' admission/staff number fields are an intentionally editable "auto-generated — edit if needed" override (confirmed in the actual component, not assumed) — kept that capability rather than forcing the field blank for the trigger to fill in, since removing it would have been a real feature regression, not a bug fix. `studentImport.ts`'s historical-year bulk-import path (the trigger only ever uses the *current* year) previously computed its own sequence via an unlocked in-memory counter — replaced with a new `reserve_admission_number(school_id, year)` RPC using the same advisory lock as the trigger, and CSV-supplied explicit admission numbers are now validated against the `STU/YYYY/00000001` format before being accepted (rejected rows go to the failed-rows list instead of entering the table malformed).
+- **H1**: added `staff_school_number_idx`, a partial unique index on `(school_id, staff_number)`, mirroring the one students already had.
+- **H2**: `BursarImportPage.tsx` — exact class+name matches now check for more than one same-name student in the pool before auto-applying (routes to the same review dropdown as fuzzy matches, new `exact-ambiguous` status, instead of silently crediting whichever the array happened to list first). Fuzzy matching now sorts candidates by ascending Levenshtein distance and only auto-selects when there's a single candidate at distance ≤ 1 (was: blanket auto-accept the first array match at distance ≤ 2). `runImport()` now writes one `audit_log` row per payment it touches, recording `matched_by` (admission_number/exact/close/manual), `match_distance`, and the source CSV row — previously bulk-imported payments left no trace of why a row matched the student it did, unlike manual payment edits.
+
+Verified: `tsc -b` clean, full Vitest suite passing (1104/1109 — same 5 pre-existing environment-only failures as every prior baseline in this report). Added focused new test coverage for the previously-untested paths (historical-year RPC reservation, CSV format rejection/acceptance, exact-ambiguous gating, fuzzy auto-select threshold, audit_log write shape). **Not run against a live Supabase project** — none available in this environment; verify the migration applies cleanly and the RPC/advisory-lock behavior holds under real concurrent load before fully trusting it.
 
 ### 2026-07-21 — C2–C6, H3, H4 fixed: unscoped RLS policies + unauthenticated SMS/WhatsApp functions
 
@@ -77,17 +87,20 @@ On-prem/local/hybrid installer applied only 4 of 66 migrations — every securit
 
 **Exploit:** anyone who has the school's Supabase project URL and public anon key (needed only to invoke the function, not to authorize inside it) can POST an arbitrary recipient list and message and send unlimited spam/phishing billed to the school's paid SMS/WhatsApp account. Combined with C5, an attacker doesn't even need this function — they can hit Africa's Talking/Meta directly with the stolen key.
 
-### C7. Admission numbers do not match the agreed format — and the logic is duplicated 5 times
+### C7. Admission numbers do not match the agreed format — and the logic is duplicated 5 times  
+**FIXED 2026-07-21 — see Remediation Log above.**
 Agreed spec: `STU/year/00000xxx` (8-digit sequence). Actual: the DB trigger (`generate_admission_number()`, most recently touched in `supabase/migrations/20260705_000005_atomic_number_generation.sql`) and all JS mirrors pad to **4 digits** (`STU/2026/0001`). The generation logic exists independently in 5 places — 2 DB trigger functions, `useNextAdmissionNumber` (`src/hooks/useStudents.ts:184-207`), `useNextStaffNumber` (`src/hooks/useStaff.ts:160-202`), a third preview in `src/pages/secretary/ImportDataPage.tsx`, and a fourth generator for historical-year bulk imports in `src/lib/studentImport.ts:230-259` with no advisory lock (race risk on concurrent historical imports). A full remediation spec for this is in the [Remediation Spec](#remediation-spec-admissionstaff-numbers--bursar-import) section below.
 
 ---
 
 ## High
 
-### H1. `staff_number` has no database uniqueness constraint
+### H1. `staff_number` has no database uniqueness constraint  
+**FIXED 2026-07-21 — see Remediation Log above.**
 Students have `students_school_admission_idx (school_id, admission_number)`; staff have no equivalent anywhere in the 66 migrations. A race, a bug, or an explicit duplicate value in a CSV import can silently create two staff members sharing one staff number.
 
-### H2. Bursar fees-ledger import: exact name+class matches auto-commit real money with zero confirmation, and leave no audit trail
+### H2. Bursar fees-ledger import: exact name+class matches auto-commit real money with zero confirmation, and leave no audit trail  
+**FIXED 2026-07-21 — see Remediation Log above.**
 `src/pages/bursar/BursarImportPage.tsx`. Only fuzzy "close" matches (Levenshtein ≤2) require a human-reviewed dropdown; exact class+name matches are applied immediately. Two same-name students in the same class/stream get silently, automatically credited to whichever record the code finds first — no ambiguity check exists on the exact-match path at all. Separately: fuzzy candidate selection picks `close[0]` (first array entry) rather than best-distance, and the class-matching substring fallback (`key.includes(normClass) || normClass.includes(key)`) can conflate two classes whose names are substrings of each other. Finally, `runImport()` never writes to `audit_log` — unlike manual payment edits, which do — so a wrong bulk-imported credit leaves no trace to find or reverse it by. Full remediation spec below.
 
 ### H3. `teacher_remarks` INSERT has no ownership check; several "own remarks" RLS policies are silently dead  
@@ -194,5 +207,5 @@ Write one `audit_log` row per touched `fee_payments` row, including `matched_by`
 1. ~~**C1** (broken installer)~~ — fixed 2026-07-21, see Remediation Log. Needs a real on-site test run before full trust.
 2. ~~**C2–C6** (unscoped RLS + unauthenticated SMS/WhatsApp functions)~~ — fixed 2026-07-21, see Remediation Log. Needs verification against a real Supabase project before full trust — no live project was available to test against.
 3. ~~**H3, H4** (FK-vs-uid RLS bugs)~~ — fixed in the same pass as C2–C6, since it's the same bug class and same migration.
-4. **C7, H1, H2** (ID format + bursar import integrity) — spec is ready above, **not yet implemented**.
+4. ~~**C7, H1, H2** (ID format + bursar import integrity)~~ — fixed 2026-07-21, see Remediation Log. Needs verification against a real Supabase project (migration + concurrent-import locking behavior) before full trust.
 5. Remaining Medium/Low items as a cleanup pass — **not yet implemented**.

@@ -8,6 +8,7 @@
 // updates the existing row instead of inserting a second one.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '../utils'
+import userEvent from '@testing-library/user-event'
 import type { ParsedRow, ConflictStrategy, ImportResult } from '../../components/shared/ImportWizard'
 
 vi.mock('../../store/AuthContext', () => ({
@@ -38,12 +39,19 @@ vi.mock('../../components/shared/ImportWizard', () => ({
   },
 }))
 
-const { mockFrom, setResponse, clearResponses, insertCalls, updateCalls } = vi.hoisted(() => {
+const { mockFrom, mockRpc, setResponse, setRpcResponse, clearResponses, insertCalls, updateCalls, rpcCalls } = vi.hoisted(() => {
   const tableData: Record<string, any> = {}
   const setResponse    = (table: string, resp: any) => { tableData[table] = resp }
   const clearResponses = () => { for (const k of Object.keys(tableData)) delete tableData[k] }
   const insertCalls: Array<{ table: string; rows: any }> = []
   const updateCalls: Array<{ table: string; patch: any }> = []
+  const rpcCalls: Array<{ fn: string; args: any }> = []
+  let rpcResponse: any = { data: null, error: null }
+  const setRpcResponse = (r: any) => { rpcResponse = r }
+  const mockRpc = vi.fn((fn: string, args: any) => {
+    rpcCalls.push({ fn, args })
+    return Promise.resolve(rpcResponse)
+  })
 
   function makeBuilder(table: string) {
     let lastInsert: any = null
@@ -70,7 +78,7 @@ const { mockFrom, setResponse, clearResponses, insertCalls, updateCalls } = vi.h
     return b
   }
   const mockFrom = vi.fn().mockImplementation(makeBuilder)
-  return { mockFrom, setResponse, clearResponses, insertCalls, updateCalls }
+  return { mockFrom, mockRpc, setResponse, setRpcResponse, clearResponses, insertCalls, updateCalls, rpcCalls }
 })
 
 vi.mock('../../lib/supabase', () => ({
@@ -80,6 +88,7 @@ vi.mock('../../lib/supabase', () => ({
       onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
     },
     from: mockFrom,
+    rpc:  mockRpc,
   },
 }))
 
@@ -89,6 +98,8 @@ beforeEach(() => {
   capturedOnComplete = null
   insertCalls.length = 0
   updateCalls.length = 0
+  rpcCalls.length = 0
+  setRpcResponse({ data: null, error: null })
   clearResponses()
   setResponse('classes', { data: [{ id: 'c1', name: 'S.1' }], error: null })
   setResponse('streams', { data: [], error: null })
@@ -194,5 +205,50 @@ describe('ImportDataPage — student import (shared importStudentsFromCsv)', () 
     expect(guardianUpdate).toBeTruthy()
     expect(guardianUpdate!.patch.phone).toBe('0700000000')
     expect(guardianInsert).toBeUndefined()
+  })
+
+  it('historical-year import reserves the admission number via the locked RPC, not an in-memory counter', async () => {
+    setRpcResponse({ data: 'STU/2020/00000001', error: null })
+    render(<ImportDataPage />)
+
+    // Switch the "Enrollment Year" selector to a past year — the DB
+    // trigger only ever uses the current year, so historical-year rows
+    // must get their number from reserve_admission_number() instead.
+    const yearSelect = screen.getByRole('combobox')
+    await userEvent.selectOptions(yearSelect, '2020')
+
+    const rows: ParsedRow[] = [
+      { first_name: 'Old', last_name: 'Student', class_name: 'S.1' },
+    ]
+    await capturedOnComplete!(rows, 'upsert')
+
+    expect(mockRpc).toHaveBeenCalledWith('reserve_admission_number', { p_school_id: 's1', p_year: 2020 })
+    const studentInsert = insertCalls.find(c => c.table === 'students')
+    expect(studentInsert!.rows.admission_number).toBe('STU/2020/00000001')
+  })
+
+  it('rejects a CSV-supplied admission_number that does not match STU/YYYY/00000001', async () => {
+    render(<ImportDataPage />)
+
+    const rows: ParsedRow[] = [
+      { first_name: 'Bad', last_name: 'Format', class_name: 'S.1', admission_number: 'NOT-A-REAL-NUMBER' },
+    ]
+    const result = await capturedOnComplete!(rows, 'upsert')
+
+    expect(result.failed).toHaveLength(1)
+    expect(result.failed[0].reason).toMatch(/doesn't match the required format/)
+    expect(insertCalls.find(c => c.table === 'students')).toBeUndefined()
+  })
+
+  it('accepts a CSV-supplied admission_number that matches the agreed 8-digit format', async () => {
+    render(<ImportDataPage />)
+
+    const rows: ParsedRow[] = [
+      { first_name: 'Good', last_name: 'Format', class_name: 'S.1', admission_number: 'STU/2026/00012345' },
+    ]
+    await capturedOnComplete!(rows, 'upsert')
+
+    const studentInsert = insertCalls.find(c => c.table === 'students')
+    expect(studentInsert!.rows.admission_number).toBe('STU/2026/00012345')
   })
 })
