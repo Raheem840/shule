@@ -39,14 +39,19 @@ supabase/.temp/
 !.env.example
 
 # ── SENSITIVE: seed data ─────────────────────────────────────
-# Seeds contain school-specific data (UUIDs, student names, credentials).
-# Deliver via USB or apply-migrations.sh — never push to git.
-supabase/seeds/
+# supabase/seed/school_template.sql is a template (placeholder values) and
+# stays committed. If you ever add a real per-school or demo seed file with
+# actual data in it, ignore that specific file — don't push real data to git.
 
 # ── SENSITIVE: school build outputs ──────────────────────────
 # .tar images and .env sidecars contain Supabase URLs and anon keys.
+# secrets.env (JWT secret, anon/service keys, DB password) lives inside
+# shule-install/ too, but is also matched explicitly below in case it's
+# ever generated somewhere else.
 shule-install/
 *.tar
+secrets.env
+*.secrets.env
 
 # ── ALWAYS COMMIT (source of truth) ──────────────────────────
 # supabase/migrations/   ← schema history

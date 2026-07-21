@@ -2,16 +2,40 @@
 
 **Date:** 2026-07-21
 **Method:** Seven parallel specialist agents performed static code review (no live/local Supabase was available in the audit sandbox — Docker daemon not running). Coverage: all 66 SQL migrations, all 15 edge functions, RLS policies, all 10 role page-trees, the shared UI/design system, import/export logic, and a full lint/Vitest baseline run. Playwright e2e (15 specs) was **not** run — it requires a live Supabase project with seeded test accounts, which this sandbox doesn't have.
-**Scope of this pass:** findings only. No fixes have been applied. Severities: **Critical** (real money/data/security exposure, exploitable today) → **High** → **Medium** → **Low**.
+**Scope of this pass:** findings only, except C1 (see Remediation Log below, added same day). Severities: **Critical** (real money/data/security exposure, exploitable today) → **High** → **Medium** → **Low**.
+
+---
+
+## Remediation Log
+
+### 2026-07-21 — C1 fixed: on-prem installer + full self-hosted backend stack
+
+Fixing C1 turned out to be bigger than the glob-pattern bug it started as: `docker-compose.school.yml` only ever defined a bare Postgres container and the frontend — there was no Auth, REST API, Realtime, Storage, or edge-function runtime for the frontend to actually talk to. On-prem/Local deployment could not have worked at all, migration bug aside. Rebuilt end-to-end:
+
+- **`scripts/install.sh`** — fixed the `migrations/0*.sql` glob to apply all 66 files; removed the broken auto-seed step (was `psql -f migrations/base.sql`, a file that never existed anywhere in the repo — every on-prem install would have hard-failed at that step); switched `docker compose` → the correct installed package; removed the exposed Postgres port and predictable default password (`ShuleDB2025`) in favor of a per-school generated password with no host port published; backups now run via `docker compose exec` instead of a host-side connection that no longer exists.
+- **`docker-compose.school.yml`** — added the full self-hosted Supabase stack (Kong gateway, GoTrue auth, PostgREST, Realtime, Storage, postgres-meta, Studio) plus one container per edge function (15), switched the database image to `supabase/postgres` (the plain `postgres:15-alpine` it used before has none of the `auth`/`storage` schemas, roles, or extensions — pgcrypto, etc. — every migration assumes exist).
+- **`supabase/kong.yml`** (new) — gateway routing for the above, modeled on Supabase's long-standing self-hosting reference pattern.
+- **`scripts/generate-local-secrets.js`** (new) — generates a unique JWT secret, signed anon/service_role keys, DB password, and Studio login per school. Previously there was no mechanism to produce these for a local install at all.
+- **`supabase/functions/Dockerfile`** (new) + **`scripts/build-for-school.sh`** — each edge function now gets pre-built into its own image with Deno dependencies cached at build time (when there's still internet), specifically so a school with zero ongoing connectivity can still run account creation, password resets, etc.
+- **`scripts/prepare-usb.sh`** — now generates secrets and pulls the complete backend image set; previously pulled only 3 images (`postgres`, `nginx`, `kong` — the last of which was never even wired into the compose file).
+- **`scripts/build-for-school.sh`**, **`scripts/prepare-usb.sh`**, **`scripts/apply-migrations.sh`** — fixed the `supabase/seeds/base.sql` / `supabase/seeds/demo.sql` references (M17): that directory is `supabase/seed/` (singular) and neither file has ever existed in this repo — every seed-copy or seed-apply step using the old path was either failing silently or, in `install.sh`, would have hard-failed the whole install. Replaced with the real `supabase/seed/school_template.sql`, applied manually post-install (it needs a live auth user ID that doesn't exist until after the IT Admin's account is created, so it can't be automated).
+- **`scripts/apply-migrations.sh`** — its edge-function deploy list was also missing 5 of the 15 functions (`request-staff-password`, `resolve-staff-password-request`, `sync-self-password-reset`, `set-user-disabled`, `send-push`); cloud installs were silently missing them too. Fixed.
+- **`docs/NEW_SCHOOL_SETUP.md`**, **`.gitignore`** — updated to match; added explicit ignore rules for generated secrets files.
+- New field guide artifact written for the physical install day (at-home prep → on-site install → manual account setup).
+
+**Not yet done / verify before relying on this for a real school:** this was built and statically verified (YAML/bash syntax, every hostname/env-var/function-name cross-referenced programmatically between `docker-compose.school.yml`, `kong.yml`, and the scripts) but **could not be run end-to-end** — this sandbox has no Docker daemon. Treat the first real on-prem installation as a supervised test run, not a routine rollout, until someone has watched it complete successfully on real hardware.
 
 ---
 
 ## Critical
 
-### C1. On-prem/local/hybrid installer applies only 4 of 66 migrations — every security fix since 2026-06-02 never reaches real school deployments
-`scripts/install.sh:75` — `for sql in migrations/0*.sql` only matches filenames starting with `0` (the four legacy `00001`–`00004` files). All 61 dated migrations (`20260603_...` onward) start with `2` and are silently skipped; bash doesn't error, it just proceeds with the initial schema only. `scripts/build-for-school.sh:78-82` independently reinforces this by hand-copying only `00001`–`00003` into the installer package.
+### ~~C1~~ — FIXED 2026-07-21, see Remediation Log above
+<details><summary>Original finding (for reference)</summary>
 
-**Impact:** any school running Local or Hybrid deployment (a real, documented mode — see `docs/NEW_SCHOOL_SETUP.md`) is frozen at the 2026-06-02 schema. Every other Critical/High finding below that was already fixed in a later migration (school_profile RLS, cross-tenant RPC takeover, attendance/discipline ID-mismatch fixes, advisory-lock race fix) is **still live** on that installation. This is the single highest-leverage fix in this report — it silently reverts ~7 weeks of security work for any school that isn't Cloud-only.
+On-prem/local/hybrid installer applied only 4 of 66 migrations — every security fix since 2026-06-02 never reached real school deployments. `scripts/install.sh:75` — `for sql in migrations/0*.sql` only matched filenames starting with `0` (the four legacy `00001`–`00004` files). All 61 dated migrations (`20260603_...` onward) start with `2` and were silently skipped; bash doesn't error, it just proceeds with the initial schema only. `scripts/build-for-school.sh:78-82` independently reinforced this by hand-copying only `00001`–`00003` into the installer package.
+
+**Impact:** any school running Local or Hybrid deployment (a real, documented mode — see `docs/NEW_SCHOOL_SETUP.md`) was frozen at the 2026-06-02 schema. Every other Critical/High finding below that was already fixed in a later migration (school_profile RLS, cross-tenant RPC takeover, attendance/discipline ID-mismatch fixes, advisory-lock race fix) was **still live** on that installation.
+</details>
 
 ### C2. Any authenticated user can read every student's plaintext login password
 `supabase/migrations/00003_rls_policies.sql:253` (`students_select_own_school`): `USING (school_id = user_school_id())` — no role or ownership restriction. `src/hooks/useStudents.ts:11-16` (`LIST_COLS`, used by nearly every role's student list) includes `temp_password` and `auth_email` in plaintext. `useStaff.ts` explicitly excludes the staff equivalent with a comment noting exactly this risk — the fix was applied to staff but never mirrored to students.
@@ -148,8 +172,8 @@ Write one `audit_log` row per touched `fee_payments` row, including `matched_by`
 
 ## Suggested overall fix priority (across the whole report)
 
-1. **C1** (broken installer) — fixes itself into re-delivering every other already-patched fix to on-prem schools; do this first.
-2. **C2–C6** (unscoped RLS + unauthenticated SMS/WhatsApp functions) — these are live, exploitable-today data/money exposures on any Cloud deployment right now, independent of C1.
+1. ~~**C1** (broken installer)~~ — fixed 2026-07-21, see Remediation Log. Needs a real on-site test run before full trust.
+2. **C2–C6** (unscoped RLS + unauthenticated SMS/WhatsApp functions) — these are live, exploitable-today data/money exposures on any Cloud deployment right now, independent of C1, and are **not yet fixed**.
 3. **H3, H4** (FK-vs-uid RLS bugs) — same bug class as C2–C4, same fix pattern, should be swept together.
 4. **C7, H1, H2** (ID format + bursar import integrity) — spec is ready above.
 5. Remaining Medium/Low items as a cleanup pass.

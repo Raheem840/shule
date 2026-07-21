@@ -1,32 +1,290 @@
 version: '3.8'
 
+# Shule — on-prem / self-hosted stack.
+#
+# Brings up the full Supabase-compatible backend (Postgres + Auth + REST API
+# + Realtime + Storage + one container per edge function) behind a Kong
+# gateway, plus the Shule frontend — everything a school needs to run
+# without any internet connection, once installed.
+#
+# Secrets (POSTGRES_PASSWORD, JWT_SECRET, ANON_KEY, SERVICE_ROLE_KEY,
+# DASHBOARD_USERNAME, DASHBOARD_PASSWORD) come from a generated .env file —
+# see scripts/generate-local-secrets.js. Never hardcode them here.
+
+x-function-env: &function-env
+  restart: always
+  networks: [shule-network]
+  depends_on:
+    kong:
+      condition: service_started
+  environment:
+    JWT_SECRET: ${JWT_SECRET}
+    SUPABASE_URL: http://kong:8000
+    SUPABASE_ANON_KEY: ${ANON_KEY}
+    SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+    SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
+
 services:
+
+  # ── Frontend ──────────────────────────────────────────────────────────
   shule-app:
     image: ${SCHOOL_IMAGE_NAME:-shule-frontend}
+    restart: always
     ports:
       - "80:80"
-    restart: always
-    networks:
-      - shule-network
+    networks: [shule-network]
 
+  # ── Database ──────────────────────────────────────────────────────────
+  # supabase/postgres (not plain postgres) — it ships the auth/storage/
+  # extensions schemas, roles (anon/authenticated/service_role/
+  # supabase_auth_admin/supabase_storage_admin), and extensions
+  # (pgcrypto, uuid-ossp, pg_graphql...) every migration in this repo
+  # assumes already exist, matching what Supabase Cloud provides.
   db:
-    image: postgres:15-alpine
+    image: supabase/postgres:17.6.1.136
+    restart: always
     environment:
       POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-ShuleDB2025}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXP: 3600
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    restart: always
-    networks:
-      - shule-network
+    networks: [shule-network]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+
+  # ── Auth (GoTrue) ─────────────────────────────────────────────────────
+  auth:
+    image: supabase/gotrue:v2.189.0
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [shule-network]
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgresql://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      GOTRUE_SITE_URL: ${SITE_URL}
+      GOTRUE_URI_ALLOW_LIST: ${SITE_URL}
+      GOTRUE_DISABLE_SIGNUP: "true"
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "true"
+      GOTRUE_SMS_AUTOCONFIRM: "true"
+      # Custom Access Token Hook — injects role/school_id claims. Configuring
+      # it here (env var) replaces the old manual "Auth -> Hooks" dashboard
+      # step from the previous version of this file.
+      GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED: "true"
+      GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI: pg-functions://postgres/public/custom_access_token_hook
+
+  # ── REST API (PostgREST) ─────────────────────────────────────────────
+  rest:
+    image: postgrest/postgrest:v14.12
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [shule-network]
+    environment:
+      PGRST_DB_URI: postgresql://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+
+  # ── Realtime ──────────────────────────────────────────────────────────
+  realtime:
+    image: supabase/realtime:v2.102.3
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [shule-network]
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+
+  # ── Storage ───────────────────────────────────────────────────────────
+  storage:
+    image: supabase/storage-api:v1.60.4
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    networks: [shule-network]
+    volumes:
+      - storage_data:/var/lib/storage
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      AUTH_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgresql://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      FILE_SIZE_LIMIT: "52428800"
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: shule
+      REGION: local
+      GLOBAL_S3_BUCKET: stub
+
+  # ── postgres-meta (Studio's schema browser) ──────────────────────────
+  meta:
+    image: supabase/postgres-meta:v0.96.6
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [shule-network]
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+  # ── Studio (admin dashboard) ─────────────────────────────────────────
+  studio:
+    image: supabase/studio:2026.07.07-sha-a6a04f2
+    restart: always
+    depends_on:
+      meta:
+        condition: service_started
+    networks: [shule-network]
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DEFAULT_ORGANIZATION_NAME: ${SCHOOL_NAME:-Shule School}
+      DEFAULT_PROJECT_NAME: ${SCHOOL_NAME:-Shule School}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL}
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      AUTH_JWT_SECRET: ${JWT_SECRET}
+
+  # ── Kong (API gateway) ────────────────────────────────────────────────
+  kong:
+    image: kong:2.8.1
+    restart: always
+    depends_on:
+      auth: { condition: service_started }
+      rest: { condition: service_started }
+      realtime: { condition: service_started }
+      storage: { condition: service_started }
+      meta: { condition: service_started }
+      studio: { condition: service_started }
+    ports:
+      - "8000:8000"
+    networks: [shule-network]
+    volumes:
+      - ./supabase/kong.yml:/home/kong/kong.template.yml:ro
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      DASHBOARD_USERNAME: ${DASHBOARD_USERNAME}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
+    # kong.yml is a template with $VAR placeholders — substitute them into a
+    # real config file before Kong starts (Kong's declarative config loader
+    # does not read environment variables out of the file itself).
+    entrypoint:
+      - bash
+      - -c
+      - |
+        eval "echo \"$$(cat /home/kong/kong.template.yml)\"" > /home/kong/kong.yml
+        exec /docker-entrypoint.sh kong docker-start
+
+  # ── Edge Functions (one container per function — see supabase/functions/Dockerfile) ──
+  fn-broadcast-announcement:
+    <<: *function-env
+    image: shule-fn-broadcast-announcement
+    command: ["start", "--main-service", "/home/deno/functions/broadcast-announcement"]
+  fn-create-parent-auth-user:
+    <<: *function-env
+    image: shule-fn-create-parent-auth-user
+    command: ["start", "--main-service", "/home/deno/functions/create-parent-auth-user"]
+  fn-create-staff-auth-user:
+    <<: *function-env
+    image: shule-fn-create-staff-auth-user
+    command: ["start", "--main-service", "/home/deno/functions/create-staff-auth-user"]
+  fn-create-student-auth-user:
+    <<: *function-env
+    image: shule-fn-create-student-auth-user
+    command: ["start", "--main-service", "/home/deno/functions/create-student-auth-user"]
+  fn-request-staff-password:
+    <<: *function-env
+    image: shule-fn-request-staff-password
+    command: ["start", "--main-service", "/home/deno/functions/request-staff-password"]
+  fn-reset-parent-password:
+    <<: *function-env
+    image: shule-fn-reset-parent-password
+    command: ["start", "--main-service", "/home/deno/functions/reset-parent-password"]
+  fn-reset-staff-password:
+    <<: *function-env
+    image: shule-fn-reset-staff-password
+    command: ["start", "--main-service", "/home/deno/functions/reset-staff-password"]
+  fn-reset-student-password:
+    <<: *function-env
+    image: shule-fn-reset-student-password
+    command: ["start", "--main-service", "/home/deno/functions/reset-student-password"]
+  fn-resolve-staff-password-request:
+    <<: *function-env
+    image: shule-fn-resolve-staff-password-request
+    command: ["start", "--main-service", "/home/deno/functions/resolve-staff-password-request"]
+  fn-send-push:
+    <<: *function-env
+    image: shule-fn-send-push
+    command: ["start", "--main-service", "/home/deno/functions/send-push"]
+  fn-send-sms:
+    <<: *function-env
+    image: shule-fn-send-sms
+    command: ["start", "--main-service", "/home/deno/functions/send-sms"]
+  fn-send-whatsapp:
+    <<: *function-env
+    image: shule-fn-send-whatsapp
+    command: ["start", "--main-service", "/home/deno/functions/send-whatsapp"]
+  fn-set-user-disabled:
+    <<: *function-env
+    image: shule-fn-set-user-disabled
+    command: ["start", "--main-service", "/home/deno/functions/set-user-disabled"]
+  fn-sync-self-password-reset:
+    <<: *function-env
+    image: shule-fn-sync-self-password-reset
+    command: ["start", "--main-service", "/home/deno/functions/sync-self-password-reset"]
+  fn-upload-staff-photo:
+    <<: *function-env
+    image: shule-fn-upload-staff-photo
+    command: ["start", "--main-service", "/home/deno/functions/upload-staff-photo"]
 
 networks:
   shule-network:
@@ -34,3 +292,4 @@ networks:
 
 volumes:
   postgres_data:
+  storage_data:
