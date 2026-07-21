@@ -362,17 +362,29 @@ html, body, #root {
    SIDEBAR INTERNALS
 ═══════════════════════════════════════════════════ */
 
-/* Logo + school name header */
+/* Logo + school name header — borderless (a soft fade replaces the old hard
+   rule below, so the nav still reads as a separate section without a
+   literal line) */
 .sbtop {
   padding: 1rem 1.1rem 0.75rem;
-  border-bottom: 1px solid var(--sb-border);
   flex-shrink: 0;
+  position: relative;
 }
+.sbtop::after {
+  content: '';
+  position: absolute;
+  left: 1.1rem; right: 1.1rem; bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.09) 50%, transparent);
+}
+/* Shule product mark + school badge are two distinct identity blocks — extra
+   breathing room stops their glow shadows from visually merging into one
+   another ("colliding") while keeping the school badge the dominant mark. */
 .sbrand {
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-bottom: 0.6rem;
+  margin-bottom: 1.05rem;
 }
 .slogo {
   width: 40px; height: 40px;
@@ -579,11 +591,18 @@ html, body, #root {
   font-family: var(--font2);
 }
 
-/* User pill at bottom of sidebar */
+/* User pill at bottom of sidebar — same soft-fade treatment as .sbtop, no hard border */
 .sbbot {
   padding: 0.75rem 1rem;
-  border-top: 1px solid var(--sb-border);
   flex-shrink: 0;
+  position: relative;
+}
+.sbbot::before {
+  content: '';
+  position: absolute;
+  left: 1rem; right: 1rem; top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.09) 50%, transparent);
 }
 .upill {
   display: flex;
@@ -2154,7 +2173,6 @@ select.sui-select:hover:not(:disabled):not(:focus) {
     transition: transform 0.34s cubic-bezier(0.32,0.72,0,1);
     width: min(300px, 82vw) !important;
     z-index: 100;
-    border-right: 1px solid var(--border);
     box-shadow: none;
   }
   .sb.sb-open {
@@ -3222,6 +3240,21 @@ select.sui-select:hover:not(:disabled):not(:focus) {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 10px 14px !important;
+  }
+
+  /* ── Full-viewport "pinned" list shells (Fee Ledger, Fee Tracker) ──
+     These pages size their outer shell to ~viewport height so a
+     react-virtual list has a definite box to scroll within (needed for
+     virtualization to work at all) — that height was computed for desktop
+     (topbar only, no bottom chrome) and never reserved room for the mobile
+     bottom nav, which is `position: fixed` and floats OVER content rather
+     than pushing it up. Net effect: scrolling the internal list to its
+     real end left the last row(s) physically hidden behind the opaque nav
+     bar — unreachable, reading as "can't scroll to the bottom" even though
+     the list itself was scrolling correctly. Reserve the same clearance
+     `.page` already reserves for every other (normally-flowing) page. */
+  .mob-scroll-clear-nav {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important;
   }
 }
 

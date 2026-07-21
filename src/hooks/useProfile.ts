@@ -32,11 +32,11 @@ export function useMyProfile() {
     queryFn: async (): Promise<MyProfile> => {
       const sid = user!.schoolId
 
-      const [staffRes, schoolRes, sessionRes] = await Promise.all([
+      const [staffRes, schoolRes, sessionRes, addressRes] = await Promise.all([
         supabase
           .from('staff')
           .select([
-            'id', 'first_name', 'last_name', 'email', 'phone', 'address',
+            'id', 'first_name', 'last_name', 'email', 'phone',
             'role', 'staff_number', 'photo_url', 'department_id',
             'employment_type', 'qualification_level',
             'join_date', 'is_active',
@@ -50,6 +50,10 @@ export function useMyProfile() {
           .eq('id', sid)
           .maybeSingle(),
         supabase.auth.getSession(),
+        // address is locked out of the table-wide column grant (migration
+        // 20260720_000003) — fetched via a SECURITY DEFINER RPC scoped to
+        // the caller's own row instead (see 20260721_000001).
+        supabase.rpc('get_my_staff_address'),
       ])
 
       if (staffRes.error) throw new Error(staffRes.error.message)
@@ -72,7 +76,7 @@ export function useMyProfile() {
         lastName:           row['last_name'] as string,
         email:              (row['email'] as string | null) ?? null,
         phone:              (row['phone'] as string | null) ?? null,
-        address:            (row['address'] as string | null) ?? null,
+        address:            (addressRes.data as string | null) ?? null,
         role:               row['role'] as string,
         staffNumber:        (row['staff_number'] as string | null) ?? null,
         photoUrl:           (row['photo_url'] as string | null) ?? null,
@@ -98,26 +102,19 @@ export function useUpdateProfile() {
     mutationFn: async (updates: { phone?: string | null; email?: string | null; address?: string | null }) => {
       if (!user) throw new Error('Not authenticated')
 
-      const { data: staffRow, error: staffErr } = await supabase
-        .from('staff')
-        .select('id')
-        .eq('school_id', user.schoolId)
-        .eq('auth_user_id', user.id)
-        .maybeSingle()
+      // staff_update_admin (the only general staff UPDATE RLS policy) restricts
+      // WITH CHECK to principal/secretary/it_admin/dos — a teacher/bursar/etc.
+      // could never save their own contact info through a direct table update.
+      // Routed through a SECURITY DEFINER RPC scoped to the caller's own row
+      // instead (see migration 20260721_000001). Only pass keys that changed —
+      // the RPC's sentinel defaults leave omitted columns untouched.
+      const rpcArgs: Record<string, string | null> = {}
+      if (updates.phone   !== undefined) rpcArgs['p_phone']   = updates.phone   ?? null
+      if (updates.address !== undefined) rpcArgs['p_address'] = updates.address ?? null
+      if (updates.email   !== undefined) rpcArgs['p_email']   = updates.email   ?? null
 
-      if (staffErr || !staffRow) throw new Error('Staff record not found')
-
-      const dbUpdates: Record<string, unknown> = {}
-      if (updates.phone   !== undefined) dbUpdates['phone']   = updates.phone   ?? null
-      if (updates.address !== undefined) dbUpdates['address'] = updates.address ?? null
-      if (updates.email   !== undefined) dbUpdates['email']   = updates.email   ?? null
-
-      if (Object.keys(dbUpdates).length > 0) {
-        const { error } = await supabase
-          .from('staff')
-          .update(dbUpdates)
-          .eq('id', staffRow.id)
-          .eq('school_id', user.schoolId)
+      if (Object.keys(rpcArgs).length > 0) {
+        const { error } = await supabase.rpc('update_my_staff_contact', rpcArgs)
         if (error) throw new Error(error.message)
       }
 

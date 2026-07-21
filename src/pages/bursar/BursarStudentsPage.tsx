@@ -1562,6 +1562,7 @@ export function BursarStudentsPage() {
           // Virtualized card list
           <div
             ref={parentRef}
+            className="mob-scroll-clear-nav"
             style={{ height: '100%', overflowY: 'auto', paddingRight: 4 }}
           >
             <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>

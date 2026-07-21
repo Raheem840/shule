@@ -633,6 +633,7 @@ export function FeeLedgerPage() {
           {/* Scrollable body */}
           <div
             ref={parentRef}
+            className="mob-scroll-clear-nav"
             style={{ maxHeight: 'calc(100dvh - 300px)', minHeight: 400, overflowY: 'auto' }}
           >
             {allRows.length === 0 ? (

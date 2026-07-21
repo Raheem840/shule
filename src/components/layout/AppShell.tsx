@@ -356,11 +356,14 @@ export function AppShell() {
             </svg>
           </button>
 
-          {/* School logo / badge — uploaded logo or Shule brand mark */}
+          {/* School logo / badge — uploaded logo or Shule brand mark.
+              Sized to be readable at a glance on a phone screen, not just
+              decorative — this is the only school-identity cue in the
+              mobile topbar. */}
           {schoolSettings?.logoUrl ? (
-            <img src={schoolSettings.logoUrl} alt="School badge" style={{ width: 34, height: 34, objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.25))' }} />
+            <img src={schoolSettings.logoUrl} alt="School badge" style={{ width: 42, height: 42, objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.25))' }} />
           ) : (
-            <ShuleBadge size={34} />
+            <ShuleBadge size={42} />
           )}
 
           {/* Page title (centered) */}

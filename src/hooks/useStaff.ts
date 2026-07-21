@@ -1,16 +1,12 @@
-// ⚠ SECURITY: The staff table currently has RLS DISABLED in the database.
-// All staff data is readable by any authenticated user from any school until fixed.
-// Run this SQL in Supabase immediately:
-//
-//   ALTER TABLE staff ENABLE ROW LEVEL SECURITY;
-//   CREATE POLICY "staff_select_own_school" ON staff FOR SELECT TO authenticated
-//     USING (school_id = public.user_school_id());
-//   CREATE POLICY "staff_insert_secretary" ON staff FOR INSERT TO authenticated
-//     WITH CHECK (school_id = public.user_school_id()
-//       AND public.user_role() IN ('principal','secretary','it_admin'));
-//   CREATE POLICY "staff_update_admin" ON staff FOR UPDATE TO authenticated
-//     USING (school_id = public.user_school_id()
-//       AND public.user_role() IN ('principal','secretary','it_admin'));
+// national_id, date_of_birth, address, and temp_password are deliberately
+// never selected here — migration 20260720_000003 locked those columns down
+// at the database privilege level (any authenticated staff member, any
+// role, could previously read every other staff member's plaintext
+// temp_password and PII by querying the table directly, bypassing this
+// file's column-list discipline entirely). Nothing in the app actually
+// rendered these fields anyway. If a future feature needs them, fetch via a
+// SECURITY DEFINER RPC that re-verifies the caller's role server-side
+// (matching save_school_api_key's pattern), not a raw table select.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -25,16 +21,14 @@ const LIST_COLS = [
   'role', 'department_id', 'classes', 'phone', 'email', 'join_date',
   'employment_type', 'photo_url', 'is_active',
 ].join(', ')
-// temp_password intentionally omitted from LIST_COLS — only fetch in DETAIL_COLS
-// so it is not included in dropdown/list queries used by DoS, deputy, teacher
 
 const DETAIL_COLS = [
   'id', 'school_id', 'auth_user_id', 'staff_number', 'first_name', 'last_name',
   'role', 'department_id', 'subjects', 'classes', 'phone', 'email',
-  'national_id', 'address', 'join_date', 'employment_date', 'qualification_level',
+  'join_date', 'employment_date', 'qualification_level',
   'qualification_title', 'institution', 'graduation_year',
-  'date_of_birth', 'gender',
-  'employment_type', 'photo_url', 'is_active', 'temp_password',
+  'gender',
+  'employment_type', 'photo_url', 'is_active',
 ].join(', ')
 
 function toStaff(r: AnyRow): Staff {
@@ -51,18 +45,18 @@ function toStaff(r: AnyRow): Staff {
     classes:            (r.classes as string[]) ?? [],
     phone:              (r.phone as string) ?? null,
     email:              (r.email as string) ?? null,
-    nationalId:         (r.national_id as string) ?? null,
+    nationalId:         null, // locked down at the DB level — see comment above
     joinDate:           (r.join_date as string) ?? null,
     qualificationLevel: (r.qualification_level as number) ?? null,
     employmentType:     (r.employment_type as Staff['employmentType']) ?? null,
     photoUrl:           (r.photo_url as string) ?? null,
     isActive:           (r.is_active as boolean) ?? true,
-    tempPassword:       (r.temp_password as string) ?? null,
-    address:            (r.address as string) ?? null,
+    tempPassword:       null, // locked down at the DB level — see comment above
+    address:            null, // locked down at the DB level — see comment above
     qualificationTitle: (r.qualification_title as string) ?? null,
     institution:        (r.institution as string) ?? null,
     graduationYear:     (r.graduation_year as number) ?? null,
-    dateOfBirth:        (r.date_of_birth as string) ?? null,
+    dateOfBirth:        null, // locked down at the DB level — see comment above
     gender:             (r.gender as 'male' | 'female' | null) ?? null,
   }
 }
