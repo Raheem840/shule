@@ -226,16 +226,14 @@ export function useApiConfigStatus() {
     enabled: !!user,
     queryFn: async (): Promise<ApiConfig> => {
       // Derive "enabled"/"set" purely from whether each credential exists.
-      // The schema has no at_enabled/wa_enabled flags — and exposing the
-      // raw keys here would breach the finance/secrets isolation rule, so
-      // we only return booleans indicating presence, per field — not just
-      // for the two "primary" keys, or every other field in that provider
-      // wrongly shows as saved the moment the primary one is.
-      const { data } = await supabase
-        .from('school_profile')
-        .select('at_api_key, at_username, at_sender_id, wa_phone_number_id, wa_access_token')
-        .eq('id', user!.schoolId)
-        .maybeSingle()
+      // Calls a SECURITY DEFINER RPC that never returns the actual secret
+      // values — only booleans — and is itself restricted to
+      // principal/it_admin. The raw columns are no longer selectable by the
+      // client at all (see migration 20260721_000001): even a
+      // legitimately-authorized session used to receive the live API
+      // keys/tokens over the network here just to compute presence flags
+      // that were the only thing ever rendered.
+      const { data } = await supabase.rpc('get_messaging_config_status').maybeSingle()
 
       const row = (data ?? {}) as Record<string, unknown>
       return {
@@ -244,13 +242,13 @@ export function useApiConfigStatus() {
         atSenderId:      null,
         waPhoneNumberId: null,
         waAccessToken:   null,
-        atEnabled:       Boolean(row['at_api_key']),
-        waEnabled:       Boolean(row['wa_access_token']),
-        atApiKeySet:       Boolean(row['at_api_key']),
-        atUsernameSet:     Boolean(row['at_username']),
-        atSenderIdSet:     Boolean(row['at_sender_id']),
-        waPhoneNumberIdSet: Boolean(row['wa_phone_number_id']),
-        waAccessTokenSet:   Boolean(row['wa_access_token']),
+        atEnabled:       Boolean(row['at_api_key_set']),
+        waEnabled:       Boolean(row['wa_access_token_set']),
+        atApiKeySet:       Boolean(row['at_api_key_set']),
+        atUsernameSet:     Boolean(row['at_username_set']),
+        atSenderIdSet:     Boolean(row['at_sender_id_set']),
+        waPhoneNumberIdSet: Boolean(row['wa_phone_number_id_set']),
+        waAccessTokenSet:   Boolean(row['wa_access_token_set']),
       }
     },
     staleTime: 5 * 60_000,

@@ -11,7 +11,7 @@ import type { ColumnSpec, ParsedRow, ImportResult, ConflictStrategy } from '../.
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-type MatchStatus = 'matched' | 'close' | 'unmatched'
+type MatchStatus = 'matched' | 'close' | 'exact-ambiguous' | 'unmatched'
 
 interface StudentRec {
   id:               string
@@ -45,8 +45,13 @@ interface MatchedRow {
   rawRow:        ParsedRow
   matchStatus:   MatchStatus
   student:       StudentRec | null
-  candidates:    StudentRec[]   // full class pool for close-match dropdown
+  candidates:    StudentRec[]   // review-dropdown pool for close/exact-ambiguous matches
   chosenId:      string | null  // null = not yet resolved
+  // How chosenId was decided — for the audit trail (see runImport's
+  // audit_log write), so a wrong credit can be traced back to why it
+  // matched, not just which row it came from.
+  matchedBy:      'admission_number' | 'exact' | 'close' | 'manual'
+  matchDistance:  number | null  // Levenshtein distance, only meaningful when matchedBy === 'close'
   skipped:       boolean
   dbClassName:   string         // DB-stored class name (e.g. "S.3 East") — used as bucket key
   feeStructureId: string | null // resolved from the row's fee_type column, if any
@@ -258,6 +263,8 @@ export function BursarImportPage() {
             student:     found ?? null,
             candidates:  [],
             chosenId:    found ? found.id : null,
+            matchedBy:     'admission_number',
+            matchDistance: null,
             skipped:     !found,
             dbClassName: foundClass?.name ?? String(row.class_name ?? 'Unknown').trim(),
             feeStructureId: found ? resolveFeeStructureId(feeTypeRaw, found.class_id, rowTerm) : null,
@@ -301,19 +308,39 @@ export function BursarImportPage() {
         const dbClass  = matchedClass?.name ?? String(row.class_name ?? 'Unknown').trim()
         const rowFeeId = resolveFeeStructureId(feeTypeRaw, matchedClass?.id ?? null, rowTerm)
 
-        // Exact full-name match
-        const exact = pool.find(s => normalizeName(`${s.first_name} ${s.last_name}`) === normInput)
-        if (exact) {
-          return { rowIndex: idx, rawRow: row, matchStatus: 'matched', student: exact, candidates: [], chosenId: exact.id, skipped: false, dbClassName: dbClass, feeStructureId: rowFeeId }
+        // Exact full-name match — if MORE THAN ONE student in the pool shares
+        // the same normalized name (e.g. two "John Okello" in the same
+        // class/stream), auto-applying to whichever the pool happened to
+        // list first would silently credit real money to the wrong student.
+        // Route it through the same review dropdown as a "close" match
+        // instead of auto-selecting.
+        const exactMatches = pool.filter(s => normalizeName(`${s.first_name} ${s.last_name}`) === normInput)
+        if (exactMatches.length === 1) {
+          const exact = exactMatches[0]
+          return { rowIndex: idx, rawRow: row, matchStatus: 'matched', student: exact, candidates: [], chosenId: exact.id, matchedBy: 'exact' as const, matchDistance: null, skipped: false, dbClassName: dbClass, feeStructureId: rowFeeId }
+        }
+        if (exactMatches.length > 1) {
+          return { rowIndex: idx, rawRow: row, matchStatus: 'exact-ambiguous', student: exactMatches[0], candidates: exactMatches, chosenId: null, matchedBy: 'exact' as const, matchDistance: null, skipped: false, dbClassName: dbClass, feeStructureId: rowFeeId }
         }
 
-        // Levenshtein ≤ 2
-        const close = pool.filter(s => levenshtein(normInput, normalizeName(`${s.first_name} ${s.last_name}`)) <= 2)
-        if (close.length > 0) {
-          return { rowIndex: idx, rawRow: row, matchStatus: 'close', student: close[0], candidates: pool, chosenId: null, skipped: false, dbClassName: dbClass, feeStructureId: rowFeeId }
+        // Fuzzy match (Levenshtein ≤ 2), sorted by ascending distance rather
+        // than pool/array order. Auto-select only when there is a single
+        // candidate at the minimum distance AND that distance is ≤ 1 — a
+        // distance-2 name, or a tie at any distance, still needs a human to
+        // pick, rather than silently guessing.
+        const closeWithDistance = pool
+          .map(s => ({ s, d: levenshtein(normInput, normalizeName(`${s.first_name} ${s.last_name}`)) }))
+          .filter(({ d }) => d <= 2)
+          .sort((a, b) => a.d - b.d)
+        if (closeWithDistance.length > 0) {
+          const close = closeWithDistance.map(({ s }) => s)
+          const minDistance = closeWithDistance[0].d
+          const atMin = closeWithDistance.filter(({ d }) => d === minDistance)
+          const autoChoice = (minDistance <= 1 && atMin.length === 1) ? atMin[0].s.id : null
+          return { rowIndex: idx, rawRow: row, matchStatus: 'close', student: close[0], candidates: close, chosenId: autoChoice, matchedBy: 'close' as const, matchDistance: minDistance, skipped: false, dbClassName: dbClass, feeStructureId: rowFeeId }
         }
 
-        return { rowIndex: idx, rawRow: row, matchStatus: 'unmatched', student: null, candidates: pool, chosenId: null, skipped: true, dbClassName: dbClass, feeStructureId: rowFeeId }
+        return { rowIndex: idx, rawRow: row, matchStatus: 'unmatched', student: null, candidates: pool, chosenId: null, matchedBy: 'exact' as const, matchDistance: null, skipped: true, dbClassName: dbClass, feeStructureId: rowFeeId }
       })
 
       setMatchedRows(matched)
@@ -388,6 +415,32 @@ export function BursarImportPage() {
       return list.find(r => r.feeStructureId === null && r.amountDue === amountDue && r.amountPaid === amountPaid)
     }
 
+    // Audit trail for every row this import actually writes — so a
+    // wrong-credit can be traced back to *why* it was matched, not just
+    // which row it came from. Non-fatal: an audit_log failure never blocks
+    // or rolls back the underlying payment write, matching the existing
+    // precedent in useFeePayments.ts's useUpdatePayment.
+    const auditRows: Array<Record<string, unknown>> = []
+    function auditEntry(action: 'IMPORT_INSERT' | 'IMPORT_UPDATE', recordId: string, m: MatchedRow, amountPaid: number, amountDue: number, oldValue: Record<string, unknown> | null) {
+      auditRows.push({
+        school_id:  user!.schoolId,
+        table_name: 'fee_payments',
+        record_id:  recordId,
+        action,
+        old_value:  oldValue,
+        new_value: {
+          amount_paid:    amountPaid,
+          balance:        amountDue - amountPaid,
+          matched_by:     m.matchedBy,
+          match_distance: m.matchDistance,
+          matched_class:  m.dbClassName,
+          source_row:     m.rowIndex,
+        },
+        user_id: user!.id,
+        role:    user!.role,
+      })
+    }
+
     let duplicatesSkipped = 0
     const toInsert: Array<Record<string, unknown>> = []
     for (const m of toImport) {
@@ -415,8 +468,15 @@ export function BursarImportPage() {
             imported:       true,
           })
           .eq('id', existing.id)
-        if (error) failed.push({ row: m.rowIndex + 2, reason: error.message })
-        else updated++
+        if (error) {
+          failed.push({ row: m.rowIndex + 2, reason: error.message })
+        } else {
+          updated++
+          auditEntry('IMPORT_UPDATE', existing.id, m, amountPaid, amountDue, {
+            amount_paid: existing.amountPaid,
+            balance:     existing.amountDue - existing.amountPaid,
+          })
+        }
         continue
       }
 
@@ -438,14 +498,33 @@ export function BursarImportPage() {
       })
     }
 
+    const rowIndexToMatch = new Map(toImport.map(m => [m.rowIndex, m]))
+
     for (let i = 0; i < toInsert.length; i += 50) {
       const batch = toInsert.slice(i, i + 50).map(({ __rowIndex, ...rest }) => rest)
       const rowIndices = toInsert.slice(i, i + 50).map(r => r.__rowIndex as number)
-      const { error } = await supabase.from('fee_payments').insert(batch)
+      const { data: insertedRows, error } = await supabase.from('fee_payments').insert(batch).select('id')
       if (error) {
         rowIndices.forEach(idx => failed.push({ row: idx + 2, reason: error.message }))
       } else {
         imported += batch.length
+        ;(insertedRows ?? []).forEach((row, j) => {
+          const rowIndex = rowIndices[j]
+          const m = rowIndexToMatch.get(rowIndex)
+          if (!m) return
+          const amountPaid = Number(batch[j].amount_paid ?? 0)
+          const amountDue  = Number(batch[j].amount_due ?? amountPaid)
+          auditEntry('IMPORT_INSERT', (row as { id: string }).id, m, amountPaid, amountDue, null)
+        })
+      }
+    }
+
+    if (auditRows.length > 0) {
+      for (let i = 0; i < auditRows.length; i += 50) {
+        // Not throwing on failure — the payments themselves are already
+        // saved; losing the audit trail for a batch shouldn't roll that back
+        // or block the rest of the import.
+        await supabase.from('audit_log').insert(auditRows.slice(i, i + 50))
       }
     }
 
@@ -481,6 +560,8 @@ export function BursarImportPage() {
         chosenId:    studentId,
         skipped:     false,
         matchStatus: 'matched' as MatchStatus,
+        matchedBy:     'manual',
+        matchDistance: null,
         student:     m.candidates.find(c => c.id === studentId) ?? m.student,
       }
     }))
@@ -495,9 +576,12 @@ export function BursarImportPage() {
 
   // ── Derived counts ──────────────────────────────────────────────────────────
   const matchedCount   = matchedRows.filter(m => m.matchStatus === 'matched').length
-  const closeCount     = matchedRows.filter(m => m.matchStatus === 'close' && !m.skipped).length
+  const closeCount     = matchedRows.filter(m => (m.matchStatus === 'close' || m.matchStatus === 'exact-ambiguous') && !m.skipped).length
   const unmatchedCount = matchedRows.filter(m => m.matchStatus === 'unmatched' && !m.skipped).length
-  const pendingClose   = matchedRows.filter(m => m.matchStatus === 'close' && !m.skipped && m.chosenId === null).length
+  // Rows still needing a human pick before import can proceed — both fuzzy
+  // "close" matches without a confident auto-pick AND exact matches that hit
+  // more than one same-name student in the same class/stream.
+  const pendingClose   = matchedRows.filter(m => (m.matchStatus === 'close' || m.matchStatus === 'exact-ambiguous') && !m.skipped && m.chosenId === null).length
   const willImport     = matchedRows.filter(m => !m.skipped && m.chosenId !== null).length
   const canImport      = pendingClose === 0 && willImport > 0
 
@@ -750,7 +834,7 @@ function PreviewRow({ m, onToggleSkip, onConfirm }: PreviewRowProps) {
         <polyline points="20 6 9 17 4 12"/>
       </svg>
     )
-  } else if (m.matchStatus === 'close') {
+  } else if (m.matchStatus === 'close' || m.matchStatus === 'exact-ambiguous') {
     rowBg      = 'rgba(245,158,11,0.04)'
     statusIcon = (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2">
@@ -794,7 +878,12 @@ function PreviewRow({ m, onToggleSkip, onConfirm }: PreviewRowProps) {
           )}
           {!m.skipped && m.matchStatus === 'close' && (
             <span style={{ fontSize: 11, color: 'var(--warning)', fontWeight: 600 }}>
-              → {m.student?.first_name} {m.student?.last_name}? (close match)
+              → {m.student?.first_name} {m.student?.last_name}? (close match{m.chosenId ? ' — auto-selected, review below' : ''})
+            </span>
+          )}
+          {!m.skipped && m.matchStatus === 'exact-ambiguous' && (
+            <span style={{ fontSize: 11, color: 'var(--warning)', fontWeight: 600 }}>
+              {m.candidates.length} students named this in this class — confirm which one
             </span>
           )}
           {!m.skipped && m.matchStatus === 'unmatched' && (
@@ -808,7 +897,7 @@ function PreviewRow({ m, onToggleSkip, onConfirm }: PreviewRowProps) {
 
       {/* Confirm dropdown for close matches */}
       <div>
-        {!m.skipped && m.matchStatus === 'close' && m.candidates.length > 0 && (
+        {!m.skipped && (m.matchStatus === 'close' || m.matchStatus === 'exact-ambiguous') && m.candidates.length > 0 && (
           <select
             value={m.chosenId ?? ''}
             onChange={e => { if (e.target.value) onConfirm(m.rowIndex, e.target.value) }}

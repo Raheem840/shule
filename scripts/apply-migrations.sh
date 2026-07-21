@@ -34,21 +34,20 @@ supabase db push
 echo "  ✓ Schema applied (all migrations)"
 
 # ── STEP 2: Seed data ────────────────────────────────────────────────────────
-if [ "$MODE" != "--update-only" ]; then
+# supabase/seed/school_template.sql (singular "seed/" — not "seeds/", which
+# doesn't exist) needs the school's real name/motto and an auth_user_id that
+# doesn't exist until the IT Admin's auth account is created below, so it
+# can't be applied unattended here. There is also no demo-data SQL file
+# checked into this repo — `--with-demo` used to silently fail trying to
+# read one. Both are manual steps now; see the printed instructions below.
+if [ "$MODE" = "--with-demo" ]; then
   echo ""
-  if [ "$MODE" = "--with-demo" ]; then
-    echo "→ [2/4] Applying demo seed data..."
-    supabase db execute --file supabase/seeds/demo.sql --project-ref "$PROJECT_REF"
-    echo "  ✓ Demo school + data loaded"
-  else
-    echo "→ [2/4] Applying base seed data..."
-    if [ -f "supabase/seeds/base.sql" ]; then
-      supabase db execute --file supabase/seeds/base.sql --project-ref "$PROJECT_REF"
-      echo "  ✓ Base data loaded"
-    else
-      echo "  ! No base.sql found — skipping seed"
-    fi
-  fi
+  echo "→ [2/4] --with-demo: no demo seed file exists in this repo — skipping."
+  echo "  (supabase/seed/README.md references one, but it was never added."
+  echo "  Add supabase/seed/demo_seed.sql if you want this flag to work.)"
+else
+  echo ""
+  echo "→ [2/4] Seed data is a manual step — see instructions at the end."
 fi
 
 # ── STEP 3: Deploy all edge functions ────────────────────────────────────────
@@ -61,9 +60,14 @@ FUNCTIONS=(
   "reset-staff-password"
   "reset-student-password"
   "reset-parent-password"
+  "request-staff-password"
+  "resolve-staff-password-request"
+  "sync-self-password-reset"
+  "set-user-disabled"
   "upload-staff-photo"
   "send-sms"
   "send-whatsapp"
+  "send-push"
   "broadcast-announcement"
 )
 for fn in "${FUNCTIONS[@]}"; do
@@ -89,21 +93,15 @@ echo "     → Add Hook: custom_access_token_hook"
 echo "     → Type: PostgreSQL Function"
 echo "     → Schema: public, Function: custom_access_token_hook"
 echo ""
-echo "  2. Create IT Admin auth user:"
-echo "     Dashboard → Authentication → Users → Add user"
-echo "     Email: admin@${PROJECT_REF}.shule.ug  (or any email)"
-echo "     Then run in SQL Editor:"
-echo "     INSERT INTO public.staff (school_id, auth_user_id, first_name,"
-echo "       last_name, role, email, is_active)"
-echo "     VALUES ('<SCHOOL_ID>', '<AUTH_USER_ID>', 'IT', 'Admin',"
-echo "       'it_admin', '<EMAIL>', true);"
+echo "  2. School profile + IT Admin:"
+echo "     Edit supabase/seed/school_template.sql — replace every"
+echo "     [REPLACE: ...] with this school's real name/motto/curriculum."
+echo "     Run Step 1 of it in the SQL Editor and copy the returned school_id."
+echo "     Then: Dashboard → Authentication → Users → Add user (the IT"
+echo "     Admin's login) and copy their user ID."
+echo "     Finally run Step 2 of school_template.sql with both IDs filled in."
 echo ""
-echo "  3. Create school_profile row if not seeded:"
-echo "     INSERT INTO public.school_profile (id, school_name, short_name,"
-echo "       curriculum, deployment_mode)"
-echo "     VALUES (gen_random_uuid(), 'School Name', 'shortname', 'CBC', 'cloud');"
-echo ""
-echo "  4. Log in as IT Admin and set up staff + students."
+echo "  3. Log in as IT Admin and set up staff + students."
 echo ""
 echo "  Project Dashboard: https://supabase.com/dashboard/project/${PROJECT_REF}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

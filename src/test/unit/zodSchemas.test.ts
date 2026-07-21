@@ -34,7 +34,7 @@ describe('wizardSchema (student registration)', () => {
     firstName:       'Alice',
     lastName:        'Nakato',
     dateOfBirth:     '2010-03-15',
-    admissionNumber: 'KJA/2025/0001',
+    admissionNumber: 'KJA/2025/00000001',
     classId:         'class-uuid-1',
     enrolledAt:      '2025-01-15',
     guardians:       [validGuardian],
@@ -86,7 +86,7 @@ describe('wizardSchema (student registration)', () => {
   it('optional fields can be omitted', () => {
     const minimal = {
       firstName: 'Alice', lastName: 'Nakato',
-      admissionNumber: 'KJA/2025/0001', classId: 'class-1',
+      admissionNumber: 'KJA/2025/00000001', classId: 'class-1',
       enrolledAt: '2025-01-15', guardians: [validGuardian],
     }
     expect(wizardSchema.safeParse(minimal).success).toBe(true)

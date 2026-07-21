@@ -38,7 +38,7 @@ export const wizardSchema = z.object({
   nationality:     z.string().optional(),
   religion:        z.string().optional(),
   medicalNotes:    z.string().optional(),
-  admissionNumber: z.string().regex(/^[A-Z0-9]+\/\d{4}\/\d{4}$/, 'Format: PREFIX/YYYY/0001'),
+  admissionNumber: z.string().regex(/^[A-Z0-9]+\/\d{4}\/\d{8}$/, 'Format: PREFIX/YYYY/00000001'),
   classId:         z.string().min(1, 'Class is required'),
   streamId:        z.string().optional(),
   studentType:     z.string().optional(),

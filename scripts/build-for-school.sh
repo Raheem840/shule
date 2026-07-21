@@ -2,6 +2,11 @@
 # Builds a Docker image for a specific school
 # and saves it as a .tar file for USB transport
 #
+# Local/Hybrid: don't call this directly — run scripts/prepare-usb.sh
+# instead. It generates the school's local secrets (there's no existing
+# Supabase project to draw an ANON_KEY from for a fresh on-prem install)
+# and calls this script with the right values automatically:
+#
 # Local:  ./scripts/build-for-school.sh "School Name" \
 #           http://192.168.1.100:8000 LOCAL_ANON_KEY local
 #
@@ -54,7 +59,7 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-mkdir -p shule-install/migrations shule-install/supabase-images
+mkdir -p shule-install/migrations shule-install/supabase-images shule-install/supabase
 
 # Save Docker image
 docker save "$IMAGE_NAME" > "shule-install/$IMAGE_NAME.tar"
@@ -71,15 +76,40 @@ EOF
 # Copy infrastructure files the installer needs
 cp docker-compose.school.yml shule-install/
 cp nginx.conf                shule-install/
+cp supabase/kong.yml         shule-install/supabase/
 
-# Copy core migrations — installer applies these to the local Supabase DB
-# Order matters: functions/triggers (00002) must load before RLS policies (00003)
-# since the policies call auth_school_id()/auth_role() defined there.
-cp supabase/migrations/00001_initial_schema.sql        shule-install/migrations/
-cp supabase/migrations/00002_functions_triggers.sql    shule-install/migrations/
-cp supabase/migrations/00003_rls_policies.sql           shule-install/migrations/
-# 00004 note: edge_function_notes.sql is informational only — JWT hook is in 00002
-cp supabase/seeds/base.sql                              shule-install/migrations/
+# Copy every migration in order — installer applies the whole set to the
+# local Supabase DB. (Previously only 00001-00003 were copied here, which
+# left every dated migration since 2026-06-03 — including several security
+# fixes — never reaching on-prem schools. Fixed 2026-07-21.)
+cp supabase/migrations/*.sql shule-install/migrations/
+
+# Copy the real onboarding template (supabase/seed/ is singular — a stale
+# "supabase/seeds/base.sql" reference here used to make this cp fail
+# silently, since that file never existed). This is NOT auto-applied: it
+# needs the school's real name/motto and an auth_user_id that doesn't exist
+# until Step 2 of the on-site install, so it stays a manual SQL Editor step
+# — see the printed instructions at the end of install.sh.
+cp supabase/seed/school_template.sql shule-install/school_template.sql
+
+if [ "$MODE" = "local" ] || [ "$MODE" = "hybrid" ]; then
+  echo ""
+  echo "→ Building edge function images (pre-cached for offline use)..."
+  FUNCTIONS=(
+    broadcast-announcement create-parent-auth-user create-staff-auth-user
+    create-student-auth-user request-staff-password reset-parent-password
+    reset-staff-password reset-student-password resolve-staff-password-request
+    send-push send-sms send-whatsapp set-user-disabled sync-self-password-reset
+    upload-staff-photo
+  )
+  for fn in "${FUNCTIONS[@]}"; do
+    echo "  Building: shule-fn-$fn"
+    docker build --build-arg FUNCTION_NAME="$fn" \
+      -f supabase/functions/Dockerfile -t "shule-fn-$fn" . -q
+    docker save "shule-fn-$fn" > "shule-install/supabase-images/shule-fn-$fn.tar"
+    echo "  ✓ shule-fn-$fn"
+  done
+fi
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -93,8 +123,10 @@ echo "    docker-compose.school.yml"
 echo "    nginx.conf"
 echo "    install.sh"
 echo "    README.txt"
-echo "    migrations/         ← Applied by install.sh"
-echo "    supabase-images/    ← Filled by prepare-usb.sh"
+echo "    school_template.sql ← Edit placeholders, run manually after install"
+echo "    migrations/         ← All migrations, applied by install.sh"
+echo "    supabase/kong.yml   ← Gateway config template"
+echo "    supabase-images/    ← Backend + function images, filled by prepare-usb.sh"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "Next: run  bash scripts/prepare-usb.sh  then copy shule-install/ to USB."

@@ -8,6 +8,7 @@ import {
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { useClasses, useSubjects } from '../../hooks/useClasses'
+import { localToday } from '../../lib/dates'
 import { calculateCBCGrade } from '../../types/app'
 
 // ─── Local types ──────────────────────────────────────────────────────────────
@@ -442,7 +443,7 @@ export function DosJournalsPage() {
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const a    = document.createElement('a')
     a.href     = URL.createObjectURL(blob)
-    a.download = `dos-analytics-${analyticsFilter}-${new Date().toISOString().slice(0, 10)}.xlsx`
+    a.download = `dos-analytics-${analyticsFilter}-${localToday()}.xlsx`
     a.click()
     URL.revokeObjectURL(a.href)
   }, [filteredResults, journalMeta, classMap, subjectMap, analyticsFilter])

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { useClasses, useStreams } from '../../hooks/useClasses'
+import { localToday } from '../../lib/dates'
 import { useSchoolSettings } from '../../hooks/useAdmin'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
 import { csvField } from '../../lib/csv'
@@ -176,7 +177,7 @@ export function FeeStatusPage() {
     const blob = new Blob([header + body], { type: 'text/csv' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `fee-status-${new Date().toISOString().slice(0, 10)}.csv`
+    a.download = `fee-status-${localToday()}.csv`
     a.click()
     URL.revokeObjectURL(a.href)
   }

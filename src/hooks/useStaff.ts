@@ -190,7 +190,7 @@ export function useNextStaffNumber() {
         const n = m ? parseInt(m[1], 10) : 0
         return n > max ? n : max
       }, 0)
-      return `${prefix}/STAFF/${year}/${String(maxSeq + 1).padStart(3, '0')}`
+      return `${prefix}/STAFF/${year}/${String(maxSeq + 1).padStart(8, '0')}`
     },
   })
 }

@@ -6,6 +6,7 @@ import {
   type PerformanceBand,
 } from '../../hooks/useTeacherRemarks'
 import { useStudents } from '../../hooks/useStudents'
+import { localToday } from '../../lib/dates'
 import { useMyAssignedClasses, useStreams } from '../../hooks/useClasses'
 import { TermPicker } from '../../components/ui/TermPicker'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
@@ -192,7 +193,7 @@ export function TeacherRemarksPage() {
     const blob = new Blob([header + rows], { type: 'text/csv' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `remarks-T${term}-${new Date().toISOString().slice(0,10)}.csv`
+    a.download = `remarks-T${term}-${localToday()}.csv`
     a.click()
     URL.revokeObjectURL(a.href)
   }

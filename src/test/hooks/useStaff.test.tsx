@@ -196,14 +196,14 @@ describe('useStaffById', () => {
 describe('useNextStaffNumber', () => {
   const year = new Date().getFullYear()
 
-  it('returns STF/STAFF/{year}/001 when no staff exist and no school short_name', async () => {
+  it('returns STF/STAFF/{year}/00000001 when no staff exist and no school short_name', async () => {
     setResponse('staff',          { data: [],   error: null })
     setResponse('school_profile', { data: { short_name: null }, error: null })
 
     const { result } = renderHook(() => useNextStaffNumber(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(result.current.data).toBe(`STF/STAFF/${year}/001`)
+    expect(result.current.data).toBe(`STF/STAFF/${year}/00000001`)
   })
 
   it('uses school short_name as prefix when available', async () => {
@@ -213,7 +213,7 @@ describe('useNextStaffNumber', () => {
     const { result } = renderHook(() => useNextStaffNumber(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(result.current.data).toBe(`KJA/STAFF/${year}/001`)
+    expect(result.current.data).toBe(`KJA/STAFF/${year}/00000001`)
   })
 
   it('increments from the highest sequence in the current year, ignoring other years/formats', async () => {
@@ -230,17 +230,17 @@ describe('useNextStaffNumber', () => {
     const { result } = renderHook(() => useNextStaffNumber(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(result.current.data).toBe(`KJA/STAFF/${year}/006`)
+    expect(result.current.data).toBe(`KJA/STAFF/${year}/00000006`)
   })
 
-  it('zero-pads the sequence to 3 digits', async () => {
+  it('zero-pads the sequence to 8 digits', async () => {
     setResponse('staff',          { data: [{ staff_number: `KJA/STAFF/${year}/009` }], error: null })
     setResponse('school_profile', { data: { short_name: 'KJA' }, error: null })
 
     const { result } = renderHook(() => useNextStaffNumber(), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(result.current.data).toBe(`KJA/STAFF/${year}/010`)
+    expect(result.current.data).toBe(`KJA/STAFF/${year}/00000010`)
   })
 })
 

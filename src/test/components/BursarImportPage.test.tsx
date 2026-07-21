@@ -23,7 +23,17 @@ const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
       in:          vi.fn().mockReturnThis(),
       order:       vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockImplementation(() => Promise.resolve(tableData[table] ?? { data: null, error: null })),
-      insert:      vi.fn().mockImplementation(() => Promise.resolve(tableData[`${table}_insert`] ?? { error: null })),
+      // Real supabase-js's .insert() return value is both directly
+      // awaitable (used for the audit_log write, which never chains
+      // .select()) and chainable with .select() (used for fee_payments,
+      // to get the inserted rows' ids back) — mirror both here.
+      insert: vi.fn().mockImplementation(() => {
+        const result = tableData[`${table}_insert`] ?? { error: null }
+        return {
+          then: (resolve: any, reject?: any) => Promise.resolve(result).then(resolve, reject),
+          select: vi.fn().mockImplementation(() => Promise.resolve(result)),
+        }
+      }),
       update:      vi.fn().mockReturnThis(),
       then:        (resolve: any, reject?: any) =>
         Promise.resolve(tableData[table] ?? { data: [], error: null }).then(resolve, reject),
@@ -220,5 +230,105 @@ describe('BursarImportPage — fee_structure_id resolution + dedupe', () => {
     const insertedRows = (insertingBuilder!.insert as ReturnType<typeof vi.fn>).mock.calls[0][0] as Array<Record<string, unknown>>
     expect(insertedRows).toHaveLength(1)
     expect(insertedRows[0]).toMatchObject({ amount_paid: 20000 })
+  })
+
+  it('two same-name students in the same class require manual confirmation instead of auto-crediting whichever the pool lists first', async () => {
+    setupBaseTables()
+    setResponse('students', {
+      data: [
+        { id: 'stu-1', first_name: 'John', last_name: 'Okello', admission_number: 'A1', class_id: 'cls-1', stream_id: null },
+        { id: 'stu-2', first_name: 'John', last_name: 'Okello', admission_number: 'A2', class_id: 'cls-1', stream_id: null },
+      ],
+      error: null,
+    })
+    setResponse('fee_payments', { data: [], error: null })
+
+    capturedRows = [{
+      student_name: 'John Okello', class_name: 'S.1', stream_name: '', fee_type: '',
+      term: '1', year: '2026', amount_paid: '100000', amount_due: '400000',
+      payment_date: '', receipt_number: '', notes: '',
+    } as unknown as ParsedRow]
+
+    const user = userEvent.setup()
+    render(<BursarImportPage />)
+    await user.click(screen.getByText('Run Wizard'))
+
+    // Blocked — the Import button must not offer to commit an ambiguous
+    // exact-name match without a human picking which student it is.
+    await waitFor(() => expect(screen.getByText(/row.*need confirmation/i)).toBeInTheDocument())
+    const importButton = screen.getByRole('button', { name: /Import.*Record/i })
+    expect(importButton).toBeDisabled()
+  })
+
+  it('auto-selects a fuzzy match only when there is a single candidate within edit distance 1', async () => {
+    setupBaseTables()
+    setResponse('students', {
+      // "Grace Apio" vs "Grace Apiyo" is edit distance 1 — should auto-select.
+      data: [{ id: 'stu-1', first_name: 'Grace', last_name: 'Apiyo', admission_number: 'A1', class_id: 'cls-1', stream_id: null }],
+      error: null,
+    })
+    setResponse('fee_payments', { data: [], error: null })
+    setResponse('fee_payments_insert', { data: [{ id: 'fp-1' }], error: null })
+
+    capturedRows = [{
+      student_name: 'Grace Apio', class_name: 'S.1', stream_name: '', fee_type: '',
+      term: '1', year: '2026', amount_paid: '100000', amount_due: '400000',
+      payment_date: '', receipt_number: '', notes: '',
+    } as unknown as ParsedRow]
+
+    const user = userEvent.setup()
+    render(<BursarImportPage />)
+    await user.click(screen.getByText('Run Wizard'))
+
+    // No confirmation needed — distance-1, single candidate — Import proceeds directly.
+    await waitFor(() => expect(screen.getByText(/Import 1 Record/i)).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /Import 1 Record/i })).not.toBeDisabled()
+    await user.click(screen.getByText(/Import 1 Record/i))
+
+    await waitFor(() => expect(screen.getByText('Import Complete')).toBeInTheDocument())
+    const feePaymentsBuilders = mockFrom.mock.calls
+      .map((_, i) => mockFrom.mock.results[i].value)
+      .filter((_, i) => mockFrom.mock.calls[i][0] === 'fee_payments')
+    const insertingBuilder = feePaymentsBuilders.find(b => (b.insert as ReturnType<typeof vi.fn>).mock.calls.length > 0)
+    expect(insertingBuilder!.insert).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ student_id: 'stu-1' })])
+    )
+  })
+
+  it('writes an audit_log entry recording how each imported payment was matched', async () => {
+    setupBaseTables()
+    setResponse('students', {
+      data: [{ id: 'stu-1', first_name: 'Grace', last_name: 'Apio', admission_number: 'A1', class_id: 'cls-1', stream_id: null }],
+      error: null,
+    })
+    setResponse('fee_payments', { data: [], error: null })
+    setResponse('fee_payments_insert', { data: [{ id: 'fp-1' }], error: null })
+
+    capturedRows = [{
+      student_name: 'Grace Apio', class_name: 'S.1', stream_name: '', fee_type: '',
+      term: '1', year: '2026', amount_paid: '100000', amount_due: '400000',
+      payment_date: '', receipt_number: '', notes: '',
+    } as unknown as ParsedRow]
+
+    const user = userEvent.setup()
+    render(<BursarImportPage />)
+    await user.click(screen.getByText('Run Wizard'))
+    await waitFor(() => expect(screen.getByText(/Import 1 Record/i)).toBeInTheDocument())
+    await user.click(screen.getByText(/Import 1 Record/i))
+    await waitFor(() => expect(screen.getByText('Import Complete')).toBeInTheDocument())
+
+    const auditBuilders = mockFrom.mock.calls
+      .map((_, i) => mockFrom.mock.results[i].value)
+      .filter((_, i) => mockFrom.mock.calls[i][0] === 'audit_log')
+    const insertingBuilder = auditBuilders.find(b => (b.insert as ReturnType<typeof vi.fn>).mock.calls.length > 0)
+    expect(insertingBuilder).toBeDefined()
+    expect(insertingBuilder!.insert).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({
+        table_name: 'fee_payments',
+        record_id:  'fp-1',
+        action:     'IMPORT_INSERT',
+        new_value:  expect.objectContaining({ matched_by: 'exact', source_row: 0 }),
+      })])
+    )
   })
 })

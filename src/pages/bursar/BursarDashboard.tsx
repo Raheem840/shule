@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { csvField } from '../../lib/csv'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
@@ -119,8 +120,8 @@ function ChartCard({
   function exportCSV() {
     if (!points.length) return
     const cols = ['Month', ...classNames.slice(0, 8)]
-    const rows = points.map(p => cols.map(c => c === 'Month' ? p.month : (p[c] ?? 0)).join(','))
-    const csv  = [cols.join(','), ...rows].join('\n')
+    const rows = points.map(p => cols.map(c => csvField(c === 'Month' ? p.month : (p[c] ?? 0))).join(','))
+    const csv  = [cols.map(csvField).join(','), ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
