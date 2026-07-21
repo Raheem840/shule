@@ -2,11 +2,23 @@
 
 **Date:** 2026-07-21
 **Method:** Seven parallel specialist agents performed static code review (no live/local Supabase was available in the audit sandbox — Docker daemon not running). Coverage: all 66 SQL migrations, all 15 edge functions, RLS policies, all 10 role page-trees, the shared UI/design system, import/export logic, and a full lint/Vitest baseline run. Playwright e2e (15 specs) was **not** run — it requires a live Supabase project with seeded test accounts, which this sandbox doesn't have.
-**Scope of this pass:** findings only, except C1 (see Remediation Log below, added same day). Severities: **Critical** (real money/data/security exposure, exploitable today) → **High** → **Medium** → **Low**.
+**Scope of this pass:** findings only, except C1–C6 and H3–H4 (see Remediation Log below, added same day). Severities: **Critical** (real money/data/security exposure, exploitable today) → **High** → **Medium** → **Low**.
 
 ---
 
 ## Remediation Log
+
+### 2026-07-21 — C2–C6, H3, H4 fixed: unscoped RLS policies + unauthenticated SMS/WhatsApp functions
+
+Migration `20260721_000001_fix_unscoped_rls_and_secret_leaks.sql`, plus three app-side changes:
+
+- **C2/C3/C4**: `students_select_own_school`, `parent_accounts_select`, and `attendance_select` all had the same shape — `USING (school_id = user_school_id())`, no role or ownership check — which silently made every narrower, already-correct policy sitting next to them a no-op (RLS policies are ORed). Replaced with role/ownership-scoped policies for students and attendance; dropped the broad `parent_accounts_select` outright since the correct narrower policies already existed and just needed the broad one out of the way. Also stripped `temp_password`/`auth_email` from `useStudents.ts`'s `LIST_COLS` (`src/hooks/useStudents.ts`), mirroring the fix already applied to staff.
+- **C5**: `school_profile_select_public` (`USING (true)`) is intentionally public for pre-login branding, but RLS is row-level — it also exposed live Africa's Talking/WhatsApp secrets to anyone with the public anon key, and to every logged-in user afterward. Fixed with a column-level `REVOKE` (anon/authenticated are real distinct Postgres roles here, unlike the app's collapsed staff/student/parent sub-roles) plus a new `get_messaging_config_status()` RPC — checked first that no other consumer in the app reads the raw values (only `useAdmin.ts`'s status check did, and it was already discarding them client-side, only ever showing booleans).
+- **C6**: `send-sms`/`send-whatsapp` had no authentication check at all. Added the same Authorization-header + staff-lookup + school-match pattern already used correctly in `broadcast-announcement`.
+- **H3**: `teacher_remarks_insert` let any teacher/class_teacher/principal/dos attribute a remark to any `teacher_id`, not just their own — fixed using the ownership-check pattern the table's own UPDATE policy already had. Also dropped three dead policies comparing `teacher_id` (an FK to `staff.id`) against `auth.uid()`, which could never match.
+- **H4**: `parent_accounts`' DELETE policy had the identical FK-vs-`auth.uid()` bug, silently leaving ghost rows on every attempted delete — fixed with the same role-scoped pattern already used for parent_accounts INSERT/UPDATE.
+
+Verified: `tsc -b` clean, full Vitest suite passing (the 5 failures in `schemaColumns.integration.test.ts` are the same pre-existing environment-only failures from the original baseline — missing real Supabase credentials in this sandbox, unrelated to this change), migration SQL paren-balance checked. **Not run against a live Supabase project** — none available in this environment; verify against a real project before considering these closed.
 
 ### 2026-07-21 — C1 fixed: on-prem installer + full self-hosted backend stack
 
@@ -37,25 +49,30 @@ On-prem/local/hybrid installer applied only 4 of 66 migrations — every securit
 **Impact:** any school running Local or Hybrid deployment (a real, documented mode — see `docs/NEW_SCHOOL_SETUP.md`) was frozen at the 2026-06-02 schema. Every other Critical/High finding below that was already fixed in a later migration (school_profile RLS, cross-tenant RPC takeover, attendance/discipline ID-mismatch fixes, advisory-lock race fix) was **still live** on that installation.
 </details>
 
-### C2. Any authenticated user can read every student's plaintext login password
+### C2. Any authenticated user can read every student's plaintext login password  
+**FIXED 2026-07-21 — see Remediation Log above.**
 `supabase/migrations/00003_rls_policies.sql:253` (`students_select_own_school`): `USING (school_id = user_school_id())` — no role or ownership restriction. `src/hooks/useStudents.ts:11-16` (`LIST_COLS`, used by nearly every role's student list) includes `temp_password` and `auth_email` in plaintext. `useStaff.ts` explicitly excludes the staff equivalent with a comment noting exactly this risk — the fix was applied to staff but never mirrored to students.
 
 **Exploit:** a bursar opening the ordinary Fee Ledger page (`bursar/FeeLedgerPage.tsx:53`), or a teacher, deputy, or DOS opening any student list, receives every active student's plaintext password in the network response. Trivial account takeover of the student portal by any authenticated user, no tooling beyond devtools required.
 
-### C3. Any authenticated user can read every parent's plaintext login password and full child-mapping roster
+### C3. Any authenticated user can read every parent's plaintext login password and full child-mapping roster  
+**FIXED 2026-07-21 — see Remediation Log above.**
 `00003_rls_policies.sql:172` (`parent_accounts_select`): `USING (school_id = user_school_id())`, no role/ownership check. The table includes `email`, `phone`, `full_name`, `student_ids`, and `temp_password`. Postgres ORs permissive RLS policies together, so this broad policy alone authorizes full reads regardless of the narrower `parent_can_view_own_account` / `secretary_principal_can_view_parent_accounts` policies that were presumably meant to be the real gate.
 
 **Exploit:** any teacher, bursar, or student can query the table directly and get every family's contact info, exactly which children belong to which parent, and (for unactivated accounts) a working password — enabling login as another family to view grades, attendance, and fee balances.
 
-### C4. `attendance_select` RLS policy is unscoped, silently overriding the class/role-scoped policy meant to protect it
+### C4. `attendance_select` RLS policy is unscoped, silently overriding the class/role-scoped policy meant to protect it  
+**FIXED 2026-07-21 — see Remediation Log above.**
 `00003_rls_policies.sql:58` — `attendance_select`: `USING (school_id = user_school_id())` with no role/ownership check, added alongside a narrower, correctly-scoped `"attendance: teacher sees own records"` policy. Because RLS policies are ORed, the broad one wins. This is the same bug class the team already found and fixed twice for `attendance` INSERT (`20260704_000003`) and UPDATE (`20260704_000004`, whose own comment says "same class of bug already found and fixed once") — but the SELECT side was never cleaned up.
 
 **Exploit:** any student or parent can read the entire school's attendance history for every student, not just their own/their child's.
 
-### C5. Third-party SMS/WhatsApp API secrets are readable by anyone with the public anon key — no login required
+### C5. Third-party SMS/WhatsApp API secrets are readable by anyone with the public anon key — no login required  
+**FIXED 2026-07-21 — see Remediation Log above.**
 `supabase/migrations/20260706_000001_enable_rls_school_profile.sql:19-21` — `school_profile_select_public`: `FOR SELECT USING (true)`. The table stores `at_api_key`, `sms_api_key`, `wa_access_token`, `wa_phone_number_id` in plaintext (Africa's Talking + WhatsApp Cloud API live credentials). RLS is row-level, not column-level, so the "public for pre-login branding" intent leaks the secret columns too. The anon key is deliberately embedded in the client bundle, so this requires zero authentication — a direct REST call with the public key returns the school's live paid messaging credentials.
 
-### C6. `send-sms` and `send-whatsapp` edge functions have no authentication check at all
+### C6. `send-sms` and `send-whatsapp` edge functions have no authentication check at all  
+**FIXED 2026-07-21 — see Remediation Log above.**
 `supabase/functions/send-sms/index.ts`, `supabase/functions/send-whatsapp/index.ts` — neither checks the caller's `Authorization` header (contrast `broadcast-announcement/index.ts`, which does). Both take `recipients` + `schoolId` straight from the request body and send real messages via the school's live API key.
 
 **Exploit:** anyone who has the school's Supabase project URL and public anon key (needed only to invoke the function, not to authorize inside it) can POST an arbitrary recipient list and message and send unlimited spam/phishing billed to the school's paid SMS/WhatsApp account. Combined with C5, an attacker doesn't even need this function — they can hit Africa's Talking/Meta directly with the stolen key.
@@ -73,10 +90,12 @@ Students have `students_school_admission_idx (school_id, admission_number)`; sta
 ### H2. Bursar fees-ledger import: exact name+class matches auto-commit real money with zero confirmation, and leave no audit trail
 `src/pages/bursar/BursarImportPage.tsx`. Only fuzzy "close" matches (Levenshtein ≤2) require a human-reviewed dropdown; exact class+name matches are applied immediately. Two same-name students in the same class/stream get silently, automatically credited to whichever record the code finds first — no ambiguity check exists on the exact-match path at all. Separately: fuzzy candidate selection picks `close[0]` (first array entry) rather than best-distance, and the class-matching substring fallback (`key.includes(normClass) || normClass.includes(key)`) can conflate two classes whose names are substrings of each other. Finally, `runImport()` never writes to `audit_log` — unlike manual payment edits, which do — so a wrong bulk-imported credit leaves no trace to find or reverse it by. Full remediation spec below.
 
-### H3. `teacher_remarks` INSERT has no ownership check; several "own remarks" RLS policies are silently dead
+### H3. `teacher_remarks` INSERT has no ownership check; several "own remarks" RLS policies are silently dead  
+**FIXED 2026-07-21 — see Remediation Log above.**
 `teacher_remarks_insert` grants insert to any teacher/class_teacher/principal/dos with only a school match — no check that `teacher_id` is the caller's own staff row, so one teacher can write remarks attributed to a colleague. The narrower `teacher_can_insert_own_remarks` / `teacher_can_update_own_remarks` / `staff_can_view_remarks` policies compare `teacher_id = auth.uid()`, but `teacher_remarks.teacher_id` is a foreign key to `staff.id`, not to the auth user's UUID — so those conditions can essentially never be true. This is the exact bug class already found and fixed for `discipline_records` (`20260706_000002`, whose comment explicitly names this FK-vs-uid mismatch) — missed here.
 
-### H4. `parent_accounts` DELETE policy has the same FK-vs-uid bug and silently doesn't work
+### H4. `parent_accounts` DELETE policy has the same FK-vs-uid bug and silently doesn't work  
+**FIXED 2026-07-21 — see Remediation Log above.**
 `20260612_000003_parent_accounts_delete_rls.sql`: `USING (created_by = auth.uid())` — `created_by` is a foreign key to `staff.id`, not to `auth.uid()`. The migration's stated purpose (letting a secretary roll back an orphaned insert in `CreateUserWizard`) is never actually achieved — every delete attempt matches 0 rows and no-ops, leaving the exact ghost-row problem the migration was written to fix.
 
 ### H5. Passwords are stored in plaintext across four tables
@@ -173,7 +192,7 @@ Write one `audit_log` row per touched `fee_payments` row, including `matched_by`
 ## Suggested overall fix priority (across the whole report)
 
 1. ~~**C1** (broken installer)~~ — fixed 2026-07-21, see Remediation Log. Needs a real on-site test run before full trust.
-2. **C2–C6** (unscoped RLS + unauthenticated SMS/WhatsApp functions) — these are live, exploitable-today data/money exposures on any Cloud deployment right now, independent of C1, and are **not yet fixed**.
-3. **H3, H4** (FK-vs-uid RLS bugs) — same bug class as C2–C4, same fix pattern, should be swept together.
-4. **C7, H1, H2** (ID format + bursar import integrity) — spec is ready above.
-5. Remaining Medium/Low items as a cleanup pass.
+2. ~~**C2–C6** (unscoped RLS + unauthenticated SMS/WhatsApp functions)~~ — fixed 2026-07-21, see Remediation Log. Needs verification against a real Supabase project before full trust — no live project was available to test against.
+3. ~~**H3, H4** (FK-vs-uid RLS bugs)~~ — fixed in the same pass as C2–C6, since it's the same bug class and same migration.
+4. **C7, H1, H2** (ID format + bursar import integrity) — spec is ready above, **not yet implemented**.
+5. Remaining Medium/Low items as a cleanup pass — **not yet implemented**.
