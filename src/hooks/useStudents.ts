@@ -12,8 +12,12 @@ const LIST_COLS = [
   'id', 'school_id', 'admission_number', 'first_name', 'last_name',
   'dob', 'gender', 'class_id', 'stream_id',
   'photo_url', 'status', 'enrolled_at', 'auth_user_id',
-  'student_type', 'auth_email', 'temp_password',
+  'student_type',
 ].join(', ')
+// auth_email/temp_password intentionally omitted from LIST_COLS — only
+// fetch in DETAIL_COLS so a student's plaintext password isn't included in
+// every list/table query used across nearly every role's pages. Mirrors
+// the same fix already applied to staff (see useStaff.ts).
 
 const DETAIL_COLS = [
   'id', 'school_id', 'admission_number', 'first_name', 'last_name',

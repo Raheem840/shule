@@ -5,15 +5,28 @@ import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
 // ── Supabase mock ──────────────────────────────────────────────
-const { mockFrom, mockFunctions, mockRpc, setTableData, clearAll } = vi.hoisted(() => {
+const { mockFrom, mockFunctions, mockRpc, setTableData, setRpcResult, clearAll } = vi.hoisted(() => {
   const tableData: Record<string, any> = {}
   const setTableData = (t: string, r: any) => { tableData[t] = r }
-  const clearAll     = () => { for (const k of Object.keys(tableData)) delete tableData[k] }
 
   const mockFunctionsInvoke = vi.fn().mockResolvedValue({ data: { ok: true }, error: null })
   const mockFunctions = { invoke: mockFunctionsInvoke }
 
-  const mockRpc = vi.fn().mockResolvedValue({ data: { at_enabled: true, wa_enabled: false }, error: null })
+  // supabase-js's real .rpc() return value is both directly awaitable
+  // (used by save_school_api_key) and chainable with .maybeSingle()/.single()
+  // (used by get_messaging_config_status) — mirror both here.
+  const DEFAULT_RPC_RESULT = { data: { at_enabled: true, wa_enabled: false }, error: null }
+  let rpcResult: any = DEFAULT_RPC_RESULT
+  const setRpcResult = (r: any) => { rpcResult = r }
+  const clearAll = () => {
+    for (const k of Object.keys(tableData)) delete tableData[k]
+    rpcResult = DEFAULT_RPC_RESULT
+  }
+  const mockRpc = vi.fn().mockImplementation(() => ({
+    then: (resolve: any, reject?: any) => Promise.resolve(rpcResult).then(resolve, reject),
+    maybeSingle: vi.fn().mockImplementation(() => Promise.resolve(rpcResult)),
+    single: vi.fn().mockImplementation(() => Promise.resolve(rpcResult)),
+  }))
 
   function makeBuilder(table: string) {
     const b: any = {
@@ -35,7 +48,7 @@ const { mockFrom, mockFunctions, mockRpc, setTableData, clearAll } = vi.hoisted(
   }
 
   const mockFrom = vi.fn().mockImplementation(makeBuilder)
-  return { mockFrom, mockFunctions, mockRpc, setTableData, clearAll }
+  return { mockFrom, mockFunctions, mockRpc, setTableData, setRpcResult, clearAll }
 })
 
 vi.mock('../../lib/supabase', () => ({
@@ -189,10 +202,14 @@ describe('useSaveApiConfig', () => {
 // ── useApiConfigStatus ─────────────────────────────────────────────────────
 describe('useApiConfigStatus', () => {
   it('returns only enabled flags — never raw key values', async () => {
-    // school_profile carries at_api_key + wa_access_token; the hook derives
-    // enabled flags purely from their presence and never returns the raw values.
-    setTableData('school_profile', {
-      data: { at_api_key: 'present', wa_access_token: null },
+    // The raw secret columns aren't selectable by the client at all (see
+    // migration 20260721_000001) — the hook calls a SECURITY DEFINER RPC
+    // that returns only presence booleans, never the actual values.
+    setRpcResult({
+      data: {
+        at_api_key_set: true, at_username_set: false, at_sender_id_set: false,
+        wa_phone_number_id_set: false, wa_access_token_set: false,
+      },
       error: null,
     })
 

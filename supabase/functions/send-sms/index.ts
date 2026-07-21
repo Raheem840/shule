@@ -12,6 +12,14 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     const { recipients, schoolId } = await req.json()
 
     if (!recipients?.length || !schoolId) {
@@ -26,6 +34,36 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
+
+    // Verify the caller is a real, active staff member of this school —
+    // previously this function had no authentication check at all: anyone
+    // with the project URL and public anon key could send unlimited
+    // messages billed to the school's live SMS account.
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    )
+    const { data: { user: caller } } = await userClient.auth.getUser()
+    if (!caller) {
+      return new Response(JSON.stringify({ error: 'Invalid token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    const { data: callerStaff } = await adminClient
+      .from('staff')
+      .select('school_id, is_active')
+      .eq('auth_user_id', caller.id)
+      .single()
+
+    if (!callerStaff || callerStaff.is_active === false || callerStaff.school_id !== schoolId) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
 
     // Get API credentials from school_profile
     const { data: school } = await adminClient
