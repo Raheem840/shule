@@ -6,6 +6,7 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { localToday } from '../../lib/dates'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -264,7 +265,7 @@ function CreateJournalModal({ onClose, prefillEvent }: { onClose: () => void; pr
         classId:   prefillEvent?.classId ?? '',
         streamId:  prefillEvent?.streamId ?? null,
         term:      prefillEvent?.term ?? '',
-        date: prefillEvent?.eventDate.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+        date: prefillEvent?.eventDate.slice(0, 10) ?? localToday(),
         totalMarks: prefillEvent?.totalMarks ?? (prefillAssessmentType === 'end_of_term' ? 80 : 100),
         passMark:   prefillEvent?.passMark   ?? 50,
         notes: null,
@@ -927,7 +928,7 @@ function MyAnalyticsPanel({
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const a    = document.createElement('a')
     a.href     = URL.createObjectURL(blob)
-    a.download = `my-results-${bandFilter}-${new Date().toISOString().slice(0, 10)}.xlsx`
+    a.download = `my-results-${bandFilter}-${localToday()}.xlsx`
     a.click()
     URL.revokeObjectURL(a.href)
   }, [filteredResults, journalMeta, subjectMap, classMap, bandFilter])

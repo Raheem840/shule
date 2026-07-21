@@ -6,6 +6,7 @@ import { useClasses, useStreams } from '../../hooks/useClasses'
 import { useGenerateParentAccess, useResetParentPassword, useParentAccounts, type GeneratedAccess } from '../../hooks/useParentPortal'
 import { useSendCredentialsSms } from '../../hooks/useStaffAuth'
 import { Avatar } from '../../components/shared/Avatar'
+import { localToday } from '../../lib/dates'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { generateTempPassword } from '../../lib/passwords'
@@ -1126,7 +1127,7 @@ export function StudentsPage({ onRegister, onImport, onView }: Props) {
                 const blob = new Blob([header + csv], { type: 'text/csv' })
                 const a = document.createElement('a')
                 a.href = URL.createObjectURL(blob)
-                a.download = `students-${new Date().toISOString().slice(0, 10)}.csv`
+                a.download = `students-${localToday()}.csv`
                 a.click()
                 URL.revokeObjectURL(a.href)
               }}

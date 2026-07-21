@@ -7,6 +7,7 @@ import { generateImportTemplate } from '../../lib/importTemplates'
 import type { ColumnSpec, ParsedRow, ImportResult, ConflictStrategy } from '../../components/shared/ImportWizard'
 import { validateStudentRow, validateStaffRow } from '../../lib/validators'
 import { importStudentsFromCsv, STUDENT_IMPORT_REQUIRED, STUDENT_IMPORT_OPTIONAL, type YearMismatchIssue } from '../../lib/studentImport'
+import { localToday } from '../../lib/dates'
 
 // ── Column specs ─────────────────────────────────────────────────────────────
 const STUDENT_REQUIRED = STUDENT_IMPORT_REQUIRED
@@ -257,7 +258,7 @@ export function ImportDataPage() {
           date_of_birth:   r.date_of_birth ? String(r.date_of_birth).trim() : null,
           address:         r.address ? String(r.address).trim() : null,
           is_active:       true,
-          join_date:       new Date().toISOString().slice(0, 10),
+          join_date:       localToday(),
         }
         if (subjectsArr.length > 0) data.subjects = subjectsArr
         if (departmentId)           data.department_id = departmentId

@@ -142,7 +142,7 @@ export function useTermProgress(classId?: string | null, opts?: { includeJournal
         }
 
         // Truly no dates at all — show a neutral placeholder
-        const today2 = new Date().toISOString().slice(0, 10)
+        const today2 = localToday()
         return {
           termStart:      today2,
           termEnd:        today2,
