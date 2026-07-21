@@ -2,11 +2,14 @@
 
 ## Local School (no internet)
 ```
-npm run usb:prepare "School Name" \
-  http://192.168.1.100:8000 ANON_KEY
+npm run usb:prepare "School Name"
 Copy shule-install/ to USB
 On school server: sudo bash install.sh
 ```
+`usb:prepare` generates a unique secret set for this school (JWT secret,
+anon/service keys, DB password, Studio login) and builds every image the
+on-prem server needs — including pre-cached edge functions — so nothing on
+the USB needs internet access once you're at the school. Run it at home.
 
 ## Cloud School (reliable internet)
 ```
@@ -15,20 +18,33 @@ npm run build:school "School Name" \
   https://xxx.supabase.co ANON_KEY cloud
 ```
 
-## Hybrid School (local + cloud)
+## Hybrid School (local + cloud sync)
 ```
-npm run install:school CLOUD_PROJECT_REF
-npm run build:school "School Name" \
-  http://192.168.1.100:8000 LOCAL_ANON_KEY hybrid \
+npm run usb:prepare "School Name" hybrid \
   https://xxx.supabase.co CLOUD_ANON_KEY
+Copy shule-install/ to USB
+On school server: sudo bash install.sh
 ```
+Same as Local, but also wires up the cloud project as a sync target.
 
 ## After Every Installation
-1. Register JWT hook in Supabase Dashboard
-   Authentication → Hooks → Custom Access Token Hook
-2. Create IT Admin in Authentication → Users
-3. INSERT IT Admin row into staff table
-4. IT Admin creates all other staff through the app
+
+**Cloud:** register the Custom Access Token Hook manually —
+Supabase Dashboard → Authentication → Hooks → Custom Access Token Hook →
+schema `public`, function `custom_access_token_hook`.
+
+**Local/Hybrid:** the hook is already configured via an environment
+variable in `docker-compose.school.yml` — nothing to do here.
+
+**All modes**, in order:
+1. Edit `supabase/seed/school_template.sql` with the school's real
+   name/motto/curriculum, run Step 1 in the SQL Editor, copy the returned
+   `school_id`.
+2. Authentication → Users → Add User: create the IT Admin's login, copy
+   their user ID.
+3. Run Step 2 of `school_template.sql` with both IDs filled in.
+4. Log in as IT Admin — they create every other staff member from inside
+   the app.
 
 ## Every Time the Database Changes
 ```

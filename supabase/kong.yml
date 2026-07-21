@@ -1,0 +1,218 @@
+## Shule — on-prem Kong API gateway config
+##
+## This is a template: the $VAR tokens below are substituted with real
+## values (generated per-school by scripts/generate-local-secrets.js) by the
+## kong service's entrypoint in docker-compose.school.yml before Kong starts —
+## Kong itself does not read environment variables out of this file directly.
+##
+## Routing shape follows Supabase's long-standing self-hosting reference
+## (key-auth + acl, plain Authorization header pass-through — no JWT/Lua
+## conversion layer, which is only needed for the newer opaque
+## publishable/secret key format this project does not use). Kept
+## deliberately smaller than Supabase's current full reference: no
+## Supavisor pooler, SAML, MCP, or analytics routes — none of that is
+## needed for a single school's on-prem server.
+
+_format_version: '2.1'
+_transform: true
+
+###
+### Consumers
+###
+consumers:
+  - username: DASHBOARD
+  - username: anon
+    keyauth_credentials:
+      - key: $SUPABASE_ANON_KEY
+  - username: service_role
+    keyauth_credentials:
+      - key: $SUPABASE_SERVICE_KEY
+
+###
+### Access control
+###
+acls:
+  - consumer: anon
+    group: anon
+  - consumer: service_role
+    group: admin
+
+basicauth_credentials:
+  - consumer: DASHBOARD
+    username: $DASHBOARD_USERNAME
+    password: $DASHBOARD_PASSWORD
+
+###
+### Routes
+###
+services:
+  ## Open Auth routes — GoTrue itself decides whether these need a session
+  - name: auth-v1-open
+    url: http://auth:9999/verify
+    routes:
+      - name: auth-v1-open
+        strip_path: true
+        paths: [/auth/v1/verify]
+    plugins: [{ name: cors }]
+
+  - name: auth-v1-open-callback
+    url: http://auth:9999/callback
+    routes:
+      - name: auth-v1-open-callback
+        strip_path: true
+        paths: [/auth/v1/callback]
+    plugins: [{ name: cors }]
+
+  - name: auth-v1-open-authorize
+    url: http://auth:9999/authorize
+    routes:
+      - name: auth-v1-open-authorize
+        strip_path: true
+        paths: [/auth/v1/authorize]
+    plugins: [{ name: cors }]
+
+  ## Secured Auth routes — apikey required (anon or service_role); the
+  ## client's own Authorization: Bearer <jwt> header passes through untouched
+  - name: auth-v1
+    url: http://auth:9999/
+    routes:
+      - name: auth-v1-all
+        strip_path: true
+        paths: [/auth/v1/]
+    plugins:
+      - name: cors
+      - name: key-auth
+        config: { hide_credentials: false }
+      - name: acl
+        config: { hide_groups_header: true, allow: [admin, anon] }
+
+  ## PostgREST — the app's main data API
+  - name: rest-v1
+    url: http://rest:3000/
+    routes:
+      - name: rest-v1-all
+        strip_path: true
+        paths: [/rest/v1/]
+    plugins:
+      - name: cors
+      - name: key-auth
+        config: { hide_credentials: true }
+      - name: acl
+        config: { hide_groups_header: true, allow: [admin, anon] }
+
+  ## Realtime — websocket subscriptions
+  - name: realtime-v1
+    url: http://realtime:4000/socket/
+    routes:
+      - name: realtime-v1-all
+        strip_path: true
+        paths: [/realtime/v1/]
+    plugins:
+      - name: cors
+      - name: key-auth
+        config: { hide_credentials: false }
+      - name: acl
+        config: { hide_groups_header: true, allow: [admin, anon] }
+
+  ## Storage — file uploads/downloads (documents, photos, templates buckets)
+  - name: storage-v1
+    url: http://storage:5000/
+    routes:
+      - name: storage-v1-all
+        strip_path: true
+        paths: [/storage/v1/]
+    plugins:
+      - name: cors
+
+  ## Edge Functions — one container per function (see docker-compose.school.yml).
+  ## Each function keeps its own container rather than sharing Supabase CLI's
+  ## generated multi-function router, which isn't something we can safely
+  ## reproduce by hand — this is more boilerplate but each route is simple
+  ## and independently verifiable.
+  - name: fn-broadcast-announcement
+    url: http://fn-broadcast-announcement:9000/
+    routes: [{ name: fn-broadcast-announcement, strip_path: true, paths: [/functions/v1/broadcast-announcement] }]
+    plugins: [{ name: cors }]
+  - name: fn-create-parent-auth-user
+    url: http://fn-create-parent-auth-user:9000/
+    routes: [{ name: fn-create-parent-auth-user, strip_path: true, paths: [/functions/v1/create-parent-auth-user] }]
+    plugins: [{ name: cors }]
+  - name: fn-create-staff-auth-user
+    url: http://fn-create-staff-auth-user:9000/
+    routes: [{ name: fn-create-staff-auth-user, strip_path: true, paths: [/functions/v1/create-staff-auth-user] }]
+    plugins: [{ name: cors }]
+  - name: fn-create-student-auth-user
+    url: http://fn-create-student-auth-user:9000/
+    routes: [{ name: fn-create-student-auth-user, strip_path: true, paths: [/functions/v1/create-student-auth-user] }]
+    plugins: [{ name: cors }]
+  - name: fn-request-staff-password
+    url: http://fn-request-staff-password:9000/
+    routes: [{ name: fn-request-staff-password, strip_path: true, paths: [/functions/v1/request-staff-password] }]
+    plugins: [{ name: cors }]
+  - name: fn-reset-parent-password
+    url: http://fn-reset-parent-password:9000/
+    routes: [{ name: fn-reset-parent-password, strip_path: true, paths: [/functions/v1/reset-parent-password] }]
+    plugins: [{ name: cors }]
+  - name: fn-reset-staff-password
+    url: http://fn-reset-staff-password:9000/
+    routes: [{ name: fn-reset-staff-password, strip_path: true, paths: [/functions/v1/reset-staff-password] }]
+    plugins: [{ name: cors }]
+  - name: fn-reset-student-password
+    url: http://fn-reset-student-password:9000/
+    routes: [{ name: fn-reset-student-password, strip_path: true, paths: [/functions/v1/reset-student-password] }]
+    plugins: [{ name: cors }]
+  - name: fn-resolve-staff-password-request
+    url: http://fn-resolve-staff-password-request:9000/
+    routes: [{ name: fn-resolve-staff-password-request, strip_path: true, paths: [/functions/v1/resolve-staff-password-request] }]
+    plugins: [{ name: cors }]
+  - name: fn-send-push
+    url: http://fn-send-push:9000/
+    routes: [{ name: fn-send-push, strip_path: true, paths: [/functions/v1/send-push] }]
+    plugins: [{ name: cors }]
+  - name: fn-send-sms
+    url: http://fn-send-sms:9000/
+    routes: [{ name: fn-send-sms, strip_path: true, paths: [/functions/v1/send-sms] }]
+    plugins: [{ name: cors }]
+  - name: fn-send-whatsapp
+    url: http://fn-send-whatsapp:9000/
+    routes: [{ name: fn-send-whatsapp, strip_path: true, paths: [/functions/v1/send-whatsapp] }]
+    plugins: [{ name: cors }]
+  - name: fn-set-user-disabled
+    url: http://fn-set-user-disabled:9000/
+    routes: [{ name: fn-set-user-disabled, strip_path: true, paths: [/functions/v1/set-user-disabled] }]
+    plugins: [{ name: cors }]
+  - name: fn-sync-self-password-reset
+    url: http://fn-sync-self-password-reset:9000/
+    routes: [{ name: fn-sync-self-password-reset, strip_path: true, paths: [/functions/v1/sync-self-password-reset] }]
+    plugins: [{ name: cors }]
+  - name: fn-upload-staff-photo
+    url: http://fn-upload-staff-photo:9000/
+    routes: [{ name: fn-upload-staff-photo, strip_path: true, paths: [/functions/v1/upload-staff-photo] }]
+    plugins: [{ name: cors }]
+
+  ## postgres-meta — used by Studio to browse the schema; admin only
+  - name: meta
+    url: http://meta:8080/
+    routes:
+      - name: meta-all
+        strip_path: true
+        paths: [/pg/]
+    plugins:
+      - name: key-auth
+        config: { hide_credentials: false }
+      - name: acl
+        config: { hide_groups_header: true, allow: [admin] }
+
+  ## Studio dashboard — catch-all (lowest priority), protected by HTTP
+  ## basic auth. Reached at the same host:port as the API, e.g.
+  ## http://192.168.1.100:8000/ — not published on a separate port.
+  - name: dashboard
+    url: http://studio:3000/
+    routes:
+      - name: dashboard-all
+        strip_path: true
+        paths: [/]
+    plugins:
+      - name: cors
+      - name: basic-auth
+        config: { hide_credentials: true }
