@@ -470,7 +470,7 @@ export function useSuspendStudent() {
       // Disable/enable the auth account in Supabase
       if (stu?.auth_user_id) {
         await supabase.functions.invoke('set-user-disabled', {
-          body: { authUserId: stu.auth_user_id, disabled: status !== 'active' },
+          body: { authUserId: stu.auth_user_id, disabled: status !== 'active', schoolId: user.schoolId },
         })
       }
     },
@@ -512,7 +512,7 @@ export function useSuspendStaff() {
       // session is actually revoked, not just left to expire naturally.
       if (stf?.auth_user_id) {
         await supabase.functions.invoke('set-user-disabled', {
-          body: { authUserId: stf.auth_user_id, disabled: !isActive },
+          body: { authUserId: stf.auth_user_id, disabled: !isActive, schoolId: user.schoolId },
         })
       }
     },

@@ -141,6 +141,11 @@ export function SecretaryStudentEditPage() {
         dob: form.dob || null, gender: (form.gender as Student['gender']) || null,
         nationality: form.nationality || null, religion: form.religion || null,
         classId: form.classId || undefined, streamId: form.streamId || null,
+        // Keep academic_year_id in sync with the selected class — otherwise a
+        // class change (e.g. correcting a mis-enrollment) can leave the
+        // student's year pointing at their old class's year, breaking any
+        // year-scoped query (report cards, promotion, curriculum).
+        academicYearId: form.classId ? (classes.find(c => c.id === form.classId)?.academicYearId ?? undefined) : undefined,
         studentType: (form.studentType as Student['studentType']) || null,
         previousSchool: form.previousSchool || null, medicalNotes: form.medicalNotes || null,
         ...(photoUrl !== undefined ? { photoUrl } : {}),

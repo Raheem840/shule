@@ -15,17 +15,6 @@ function json(data: unknown, status = 200): Response {
   })
 }
 
-// Decode JWT payload without re-verifying (caller already verified via getUser)
-function decodeJwtPayload(token: string): Record<string, unknown> {
-  try {
-    const b64 = token.split('.')[1]
-    const padded = b64.padEnd(b64.length + (4 - b64.length % 4) % 4, '=')
-    return JSON.parse(atob(padded.replace(/-/g, '+').replace(/_/g, '/')))
-  } catch {
-    return {}
-  }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS })
@@ -49,27 +38,21 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await anonClient.auth.getUser(token)
     if (authError || !user) return json({ error: 'Invalid session' }, 401)
 
-    // Role resolution — try 3 sources in priority order:
-    // 1. JWT payload claims (set by custom access token hook — most reliable for all accounts)
-    // 2. app_metadata on the auth user (set on newer accounts)
-    // 3. staff table lookup by auth_user_id (fallback)
-    const jwtPayload = decodeJwtPayload(token)
-    let userRole =
-      (jwtPayload.user_role as string | undefined) ??
-      (user.app_metadata?.user_role as string | undefined) ??
-      ''
+    // Role resolution — always re-verify against the live staff table
+    // (is_active required). A JWT/app_metadata role claim is NOT trusted on
+    // its own: a token issued before the caller was deactivated stays valid
+    // until it expires, and trusting the stale claim would let a deactivated
+    // admin keep resetting student passwords.
+    const { data: callerStaff } = await serviceClient
+      .from('staff')
+      .select('role')
+      .eq('auth_user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+    const userRole = (callerStaff?.role as string | undefined) ?? ''
 
     if (!userRole || !ALLOWED_ROLES.includes(userRole)) {
-      const { data: callerStaff } = await serviceClient
-        .from('staff')
-        .select('role')
-        .eq('auth_user_id', user.id)
-        .maybeSingle()
-      userRole = (callerStaff?.role as string | undefined) ?? userRole
-    }
-
-    if (!ALLOWED_ROLES.includes(userRole)) {
-      return json({ error: 'Insufficient permissions — Secretary, IT Admin, or Principal required', resolvedRole: userRole }, 403)
+      return json({ error: 'Insufficient permissions — Secretary, IT Admin, or Principal required' }, 403)
     }
 
     const body = await req.json() as {

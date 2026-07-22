@@ -53,6 +53,7 @@ serve(async (req) => {
       .from('staff')
       .select('role, school_id')
       .eq('auth_user_id', caller.id)
+      .eq('is_active', true)
       .maybeSingle()
 
     if (

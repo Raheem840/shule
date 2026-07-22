@@ -204,7 +204,7 @@ describe('useSuspendStaff', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(mockInvoke).toHaveBeenCalledWith('set-user-disabled', {
-      body: { authUserId: 'auth-staff-1', disabled: true },
+      body: { authUserId: 'auth-staff-1', disabled: true, schoolId: 'school-1' },
     })
   })
 
@@ -217,7 +217,7 @@ describe('useSuspendStaff', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(mockInvoke).toHaveBeenCalledWith('set-user-disabled', {
-      body: { authUserId: 'auth-staff-1', disabled: false },
+      body: { authUserId: 'auth-staff-1', disabled: false, schoolId: 'school-1' },
     })
   })
 })

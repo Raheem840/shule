@@ -104,7 +104,7 @@ export function useDeactivateUser() {
       // but an already-issued token stays valid until it naturally expires).
       if (authUserId) {
         const { error: banError } = await supabase.functions.invoke('set-user-disabled', {
-          body: { authUserId, disabled: !isActive },
+          body: { authUserId, disabled: !isActive, schoolId: user.schoolId },
         })
         if (banError) throw new Error(`Staff record updated, but the auth-level ${isActive ? 'reactivation' : 'ban'} failed: ${banError.message}`)
       }

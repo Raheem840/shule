@@ -378,6 +378,22 @@ export function useDeleteStudent() {
   return useMutation({
     mutationFn: async (studentId: string) => {
       if (!user) throw new Error('Not authenticated')
+
+      // Ban the auth account (if any) before the row disappears — otherwise
+      // a student with an activated portal login keeps a valid, orphaned
+      // Supabase Auth account able to sign in with no matching student row.
+      const { data: stu } = await supabase
+        .from('students')
+        .select('auth_user_id')
+        .eq('id', studentId)
+        .eq('school_id', user.schoolId)
+        .maybeSingle()
+      if (stu?.auth_user_id) {
+        await supabase.functions.invoke('set-user-disabled', {
+          body: { authUserId: stu.auth_user_id, disabled: true, schoolId: user.schoolId },
+        })
+      }
+
       const { error } = await supabase
         .from('students')
         .delete()

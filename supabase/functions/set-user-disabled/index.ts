@@ -20,10 +20,10 @@ serve(async (req) => {
       })
     }
 
-    const { authUserId, disabled } = await req.json() as { authUserId: string; disabled: boolean }
+    const { authUserId, disabled, schoolId } = await req.json() as { authUserId: string; disabled: boolean; schoolId: string }
 
-    if (!authUserId || typeof disabled !== 'boolean') {
-      return new Response(JSON.stringify({ error: 'Missing required fields: authUserId, disabled' }), {
+    if (!authUserId || typeof disabled !== 'boolean' || !schoolId) {
+      return new Response(JSON.stringify({ error: 'Missing required fields: authUserId, disabled, schoolId' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -50,15 +50,39 @@ serve(async (req) => {
       })
     }
 
+    // Re-verify against the live staff table (is_active required) — a token
+    // issued before the caller was deactivated stays valid until it expires,
+    // and trusting a stale role claim would let a deactivated admin keep
+    // banning/unbanning accounts. Also confirm the caller's own school here
+    // so it can be cross-checked against the target below.
     const { data: callerStaff } = await adminClient
       .from('staff')
       .select('role, school_id')
       .eq('auth_user_id', caller.id)
+      .eq('is_active', true)
       .maybeSingle()
 
-    if (!callerStaff || !['it_admin', 'principal'].includes(callerStaff.role)) {
+    if (!callerStaff || callerStaff.school_id !== schoolId || !['it_admin', 'principal'].includes(callerStaff.role)) {
       return new Response(JSON.stringify({ error: 'Forbidden — only IT Admin or Principal can manage access' }), {
         status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Verify the target account actually belongs to the caller's school —
+    // Supabase Auth's admin API has no per-school concept, so without this
+    // check any it_admin/principal could ban/unban a user in another school
+    // by supplying their auth_user_id. The target may be staff, a student,
+    // or a parent — check all three.
+    const [{ data: targetStaff }, { data: targetStudent }, { data: targetParent }] = await Promise.all([
+      adminClient.from('staff').select('id').eq('auth_user_id', authUserId).eq('school_id', schoolId).maybeSingle(),
+      adminClient.from('students').select('id').eq('auth_user_id', authUserId).eq('school_id', schoolId).maybeSingle(),
+      adminClient.from('parent_accounts').select('id').eq('auth_user_id', authUserId).eq('school_id', schoolId).maybeSingle(),
+    ])
+
+    if (!targetStaff && !targetStudent && !targetParent) {
+      return new Response(JSON.stringify({ error: 'Target account not found in your school' }), {
+        status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }

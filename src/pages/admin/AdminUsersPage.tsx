@@ -204,9 +204,9 @@ function CredentialDeliveryPanel({ cred, onDismiss }: {
 }
 
 // ── setUserDisabled helper ────────────────────────────────────────────────────
-async function callSetUserDisabled(authUserId: string, disabled: boolean): Promise<void> {
+async function callSetUserDisabled(authUserId: string, disabled: boolean, schoolId: string): Promise<void> {
   const { error } = await supabase.functions.invoke('set-user-disabled', {
-    body: { authUserId, disabled },
+    body: { authUserId, disabled, schoolId },
   })
   if (error) throw new Error(error.message)
 }
@@ -394,7 +394,7 @@ function ActiveCard({ staff, deptName, onReset, onLink, onDeactivated }: { staff
     try {
       await Promise.all([
         supabase.from('staff').update({ is_active: false }).eq('id', staff.id).eq('school_id', staff.schoolId),
-        callSetUserDisabled(staff.authUserId, true),
+        callSetUserDisabled(staff.authUserId, true, staff.schoolId),
       ])
       ok(`${staffName}'s access revoked`)
       void qc.invalidateQueries({ queryKey: ['staff', staff.schoolId] })
@@ -410,7 +410,7 @@ function ActiveCard({ staff, deptName, onReset, onLink, onDeactivated }: { staff
     try {
       await Promise.all([
         supabase.from('staff').update({ is_active: true }).eq('id', staff.id).eq('school_id', staff.schoolId),
-        callSetUserDisabled(staff.authUserId, false),
+        callSetUserDisabled(staff.authUserId, false, staff.schoolId),
       ])
       ok(`${staffName}'s access restored`)
       void qc.invalidateQueries({ queryKey: ['staff', staff.schoolId] })
@@ -1016,7 +1016,7 @@ function StudentActiveCard({ student, className, schoolShortName, onReset, onTog
     try {
       await Promise.all([
         supabase.from('students').update({ status: 'suspended' }).eq('id', student.id).eq('school_id', student.school_id),
-        callSetUserDisabled(student.auth_user_id, true),
+        callSetUserDisabled(student.auth_user_id, true, student.school_id),
       ])
       ok(`${name}'s access revoked`)
       void qc.invalidateQueries({ queryKey: ['students-active-login', student.school_id] })
@@ -1033,7 +1033,7 @@ function StudentActiveCard({ student, className, schoolShortName, onReset, onTog
     try {
       await Promise.all([
         supabase.from('students').update({ status: 'active' }).eq('id', student.id).eq('school_id', student.school_id),
-        callSetUserDisabled(student.auth_user_id, false),
+        callSetUserDisabled(student.auth_user_id, false, student.school_id),
       ])
       ok(`${name}'s access restored`)
       void qc.invalidateQueries({ queryKey: ['students-active-login', student.school_id] })

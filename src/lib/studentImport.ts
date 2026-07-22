@@ -153,11 +153,21 @@ export async function importStudentsFromCsv(
   const useHistoricalYear = importYear !== currentCalYear
   const ADMISSION_NUMBER_RE = /^STU\/\d{4}\/\d{8}$/
 
-  // Build lookup: "firstName|lastName|classId" → existing student
-  const existingMap = new Map<string, { id: string; admissionNumber: string }>()
+  // Build lookups. Prefer admission_number (unique, unambiguous) when the CSV
+  // supplies one. Fall back to "firstName|lastName|classId" only when it
+  // isn't — and if that name+class key matches MORE THAN ONE existing
+  // student (two same-named students in the same class is not rare with
+  // common Ugandan names), mark it ambiguous so the row fails loudly instead
+  // of silently overwriting whichever one the Map happened to keep last.
+  const admissionMap = new Map<string, { id: string; admissionNumber: string }>()
+  const existingMap  = new Map<string, { id: string; admissionNumber: string }>()
+  const ambiguousKeys = new Set<string>()
   ;((existingRes as any).data ?? []).forEach((e: any) => {
+    const admNum = e.admission_number as string
+    if (admNum) admissionMap.set(admNum.toLowerCase().trim(), { id: e.id as string, admissionNumber: admNum })
     const key = `${(e.first_name as string).toLowerCase().trim()}|${(e.last_name as string).toLowerCase().trim()}|${e.class_id ?? ''}`
-    existingMap.set(key, { id: e.id as string, admissionNumber: e.admission_number as string })
+    if (existingMap.has(key)) ambiguousKeys.add(key)
+    existingMap.set(key, { id: e.id as string, admissionNumber: admNum })
   })
 
   for (let i = 0; i < rows.length; i++) {
@@ -179,8 +189,22 @@ export async function importStudentsFromCsv(
     const classId  = rawClassName  ? (classMap.get(normCls(rawClassName))  ?? null) : null
     const streamId = (classId && rawStreamName) ? (streamMap.get(`${classId}::${rawStreamName.toLowerCase()}`) ?? null) : null
 
+    const rawAdmNum = r.admission_number ? String(r.admission_number).trim() : ''
     const matchKey  = `${firstName.toLowerCase()}|${lastName.toLowerCase()}|${classId ?? ''}`
-    const existing  = existingMap.get(matchKey)
+    const existing  = rawAdmNum
+      ? admissionMap.get(rawAdmNum.toLowerCase())
+      : existingMap.get(matchKey)
+
+    if (!existing && !rawAdmNum && ambiguousKeys.has(matchKey)) {
+      // Two or more existing students share this name in this class and the
+      // row didn't supply an admission_number to disambiguate — refuse to
+      // guess which one to update.
+      failedItems.push({
+        row: i + 2,
+        reason: `Multiple existing students named "${firstName} ${lastName}" in this class — add an Admission Number column to this row to disambiguate`,
+      })
+      continue
+    }
 
     if (existing) {
       if (strategy === 'skip') {

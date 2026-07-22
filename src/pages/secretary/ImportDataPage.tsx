@@ -180,6 +180,19 @@ export function ImportDataPage() {
     const failedItems: Array<{ row: number; reason: string }> = []
     let imported = 0
 
+    // ── Role eligibility — secretary cannot create principal/it_admin via CSV
+    // import any more than they can via the interactive wizard (StaffRegistrationWizard's
+    // STAFF_ROLES deliberately excludes both). VALID_STAFF_ROLES is broader (used
+    // by it_admin's own account-management surface), so this import path needs
+    // its own, narrower allow-list to match secretary's actual authority.
+    const SECRETARY_IMPORTABLE_ROLES = ['deputy', 'dos', 'secretary', 'bursar', 'class_teacher', 'teacher']
+    rows.forEach((r, idx) => {
+      const role = String(r.role ?? '').trim().toLowerCase()
+      if (role && !SECRETARY_IMPORTABLE_ROLES.includes(role)) {
+        failedItems.push({ row: idx + 2, reason: `Role "${r.role}" cannot be created by Secretary import — allowed: ${SECRETARY_IMPORTABLE_ROLES.join(', ')}` })
+      }
+    })
+
     // ── Singleton role enforcement (principal + deputy: max 1 per school) ──
     const SINGLETON_ROLES = ['principal', 'deputy'] as const
     for (const role of SINGLETON_ROLES) {
