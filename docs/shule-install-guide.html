@@ -1166,6 +1166,45 @@ ul li strong, ol li strong { color: var(--text); }
 }
 
 .highlight-new p { color: var(--text); }
+
+/* ─── PATH CARDS ─── */
+.path-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 14px;
+  margin: 16px 0 40px;
+}
+
+.path-card {
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(8px);
+}
+
+.path-card:hover {
+  background: var(--bg-glass-hover);
+  border-color: var(--accent-glow);
+  transform: translateY(-2px);
+}
+
+.path-card-title {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.path-card-desc {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
 </style>
 </head>
 <body data-theme="dark">
@@ -1193,48 +1232,64 @@ ul li strong, ol li strong { color: var(--text); }
 
   <div class="sidebar-nav">
     <div class="nav-group">
-      <div class="nav-group-label">Before You Leave</div>
-      <a class="nav-item" onclick="goto('part0')"><span class="nav-icon">⚙️</span> Part 0 — Pre-Requisites</a>
-      <a class="nav-sub" onclick="goto('s0-1')">0.1 Install Docker</a>
-      <a class="nav-sub" onclick="goto('s0-2')">0.2 Clone Supabase</a>
-      <a class="nav-sub" onclick="goto('s0-3')">0.3 Configure .env</a>
-      <a class="nav-sub" onclick="goto('s0-4')">0.4 Get Anon Key</a>
-      <a class="nav-sub" onclick="goto('s0-5')">0.5 Test Local Stack</a>
+      <div class="nav-group-label">Every Install</div>
+      <a class="nav-item" onclick="goto('choose-path')"><span class="nav-icon">🧭</span> Choose Your Path</a>
+      <a class="nav-item" onclick="goto('part0')"><span class="nav-icon">⚙️</span> Part 0 — Prerequisites</a>
+      <a class="nav-sub" onclick="goto('s0-1')">0.1 Install Docker + Node</a>
+      <a class="nav-sub" onclick="goto('s0-2')">0.2 Clone the Repo</a>
+      <a class="nav-sub" onclick="goto('s0-3')">0.3 Install the Supabase CLI</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Local / Hybrid Path</div>
       <a class="nav-item" onclick="goto('part1')"><span class="nav-icon">🏠</span> Part 1 — Prepare USB</a>
-      <a class="nav-sub" onclick="goto('s1-1')">1.1 Format USB</a>
-      <a class="nav-sub" onclick="goto('s1-2')">1.2 Build Docker Image</a>
-      <a class="nav-sub" onclick="goto('s1-3')">1.3 Save Docker Images</a>
-      <a class="nav-sub" onclick="goto('s1-4')">1.4 Verify Folder</a>
-      <a class="nav-sub" onclick="goto('s1-5')">1.5 Copy to USB</a>
-      <a class="nav-sub" onclick="goto('s1-6')">1.6 Print Items</a>
-    </div>
-
-    <div class="nav-group">
-      <div class="nav-group-label">At the School</div>
-      <a class="nav-item" onclick="goto('part2')"><span class="nav-icon">🏫</span> Part 2 — Server Setup</a>
+      <a class="nav-sub" onclick="goto('s1-1')">1.1 Format the USB</a>
+      <a class="nav-sub" onclick="goto('s1-2')">1.2 Run usb:prepare</a>
+      <a class="nav-sub" onclick="goto('s1-3')">1.3 Verify the Folder</a>
+      <a class="nav-sub" onclick="goto('s1-4')">1.4 Copy to USB</a>
+      <a class="nav-sub" onclick="goto('s1-5')">1.5 Print Items</a>
+      <a class="nav-item" onclick="goto('part2')"><span class="nav-icon">🏫</span> Part 2 — Server Install</a>
       <a class="nav-sub" onclick="goto('s2-1')">2.1 Install Ubuntu</a>
-      <a class="nav-sub" onclick="goto('s2-2')">2.2 Mount USB</a>
-      <a class="nav-sub" onclick="goto('s2-3')">2.3 Copy Files</a>
-      <a class="nav-sub" onclick="goto('s2-4')">2.4 Run Installer</a>
-      <a class="nav-sub" onclick="goto('s2-5')">2.5 Verify System</a>
+      <a class="nav-sub" onclick="goto('s2-2')">2.2 Mount the USB</a>
+      <a class="nav-sub" onclick="goto('s2-3')">2.3 Run install.sh</a>
+      <a class="nav-sub" onclick="goto('s2-4')">2.4 Verify the Stack</a>
+      <a class="nav-item" onclick="goto('part3')"><span class="nav-icon">🗄️</span> Part 3 — First Login</a>
+      <a class="nav-sub" onclick="goto('s3-1')">3.1 Seed the School</a>
+      <a class="nav-sub" onclick="goto('s3-2')">3.2 Create IT Admin</a>
+      <a class="nav-sub" onclick="goto('s3-3')">3.3 Verify Login</a>
     </div>
 
     <div class="nav-group">
-      <div class="nav-group-label">Database & Auth</div>
-      <a class="nav-item" onclick="goto('part3')"><span class="nav-icon">🗄️</span> Part 3 — Supabase Studio</a>
-      <a class="nav-sub" onclick="goto('s3-1')">3.1 JWT Hook</a>
-      <a class="nav-sub" onclick="goto('s3-2')">3.2 IT Admin User</a>
-      <a class="nav-sub" onclick="goto('s3-3')">3.3 Staff Row SQL</a>
-      <a class="nav-sub" onclick="goto('s3-4')">3.4 Login Test</a>
+      <div class="nav-group-label">Cloud Path</div>
+      <a class="nav-item" onclick="goto('part4')"><span class="nav-icon">☁️</span> Part 4 — Online Setup</a>
+      <a class="nav-sub" onclick="goto('s4-1')">4.1 Create Supabase Project</a>
+      <a class="nav-sub" onclick="goto('s4-2')">4.2 Push Schema + Functions</a>
+      <a class="nav-sub" onclick="goto('s4-3')">4.3 Create Storage Buckets</a>
+      <a class="nav-sub" onclick="goto('s4-4')">4.4 Auth Hook + Seed</a>
+      <a class="nav-sub" onclick="goto('s4-5')">4.5 Verify Login</a>
     </div>
 
     <div class="nav-group">
-      <div class="nav-group-label">Go Live</div>
-      <a class="nav-item" onclick="goto('part4')"><span class="nav-icon">🎨</span> Part 4 — School Setup</a>
-      <a class="nav-item" onclick="goto('part5')"><span class="nav-icon">👥</span> Part 5 — Staff Reg</a>
-      <a class="nav-item" onclick="goto('part6')"><span class="nav-icon">📱</span> Part 6 — Devices</a>
-      <a class="nav-item" onclick="goto('part7')"><span class="nav-icon">🎓</span> Part 7 — Training</a>
-      <a class="nav-item" onclick="goto('part8')"><span class="nav-icon">🤝</span> Part 8 — Handover</a>
+      <div class="nav-group-label">Cloud / Hybrid Path</div>
+      <a class="nav-item" onclick="goto('part5')"><span class="nav-icon">📦</span> Part 5 — Data Migration</a>
+      <a class="nav-sub" onclick="goto('s5-1')">5.1 Schema vs Data</a>
+      <a class="nav-sub" onclick="goto('s5-2')">5.2 Import Students / Staff</a>
+      <a class="nav-sub" onclick="goto('s5-3')">5.3 Import Fee Ledger</a>
+      <a class="nav-sub" onclick="goto('s5-4')">5.4 What Isn't Bulk-Importable Yet</a>
+      <a class="nav-item" onclick="goto('part6')"><span class="nav-icon">▲</span> Part 6 — Vercel Deploy</a>
+      <a class="nav-sub" onclick="goto('s6-1')">6.1 New Vercel Project</a>
+      <a class="nav-sub" onclick="goto('s6-2')">6.2 School Name + Env Vars</a>
+      <a class="nav-sub" onclick="goto('s6-3')">6.3 Deploy + Verify</a>
+      <a class="nav-sub" onclick="goto('s6-4')">6.4 Custom Domain (Optional)</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Go Live — Every Path</div>
+      <a class="nav-item" onclick="goto('part7')"><span class="nav-icon">🎨</span> Part 7 — School Setup</a>
+      <a class="nav-item" onclick="goto('part8')"><span class="nav-icon">👥</span> Part 8 — Staff Reg</a>
+      <a class="nav-item" onclick="goto('part9')"><span class="nav-icon">📱</span> Part 9 — Devices</a>
+      <a class="nav-item" onclick="goto('part10')"><span class="nav-icon">🎓</span> Part 10 — Training</a>
+      <a class="nav-item" onclick="goto('part11')"><span class="nav-icon">🤝</span> Part 11 — Handover</a>
     </div>
   </div>
 
@@ -1262,203 +1317,148 @@ ul li strong, ol li strong { color: var(--text); }
 
     <!-- HERO -->
     <div class="hero">
-      <div class="hero-badge">Complete Installation Playbook v2</div>
+      <div class="hero-badge">Complete Installation Playbook v3</div>
       <h1>Shule — From Zero<br>to <em>School Live</em></h1>
       <p class="hero-desc">
-        Every single step in exact order — from installing Docker on your own machine at home to sending the handover WhatsApp at the school gate. Nothing assumed, nothing skipped.
+        Every single step in exact order — Local, Hybrid, and Cloud paths, data migration, and getting a school its own live Vercel link. Nothing assumed, nothing skipped.
       </p>
       <div class="hero-pills">
-        <span class="hero-pill">9 Parts</span>
-        <span class="hero-pill">~1 Full Day On-Site</span>
-        <span class="hero-pill">45 min Technical Setup</span>
-        <span class="hero-pill">2 hrs Training</span>
+        <span class="hero-pill">12 Parts</span>
+        <span class="hero-pill">3 Deployment Paths</span>
+        <span class="hero-pill">Local · Hybrid · Cloud</span>
+        <span class="hero-pill">Vercel + Data Migration</span>
         <span class="hero-pill">Offline-First</span>
       </div>
     </div>
 
-    <!-- ═══ PART 0 — PRE-REQUISITES (NEW) -->
+    <!-- ═══ CHOOSE YOUR PATH -->
+    <div class="section" id="choose-path">
+      <div class="section-title"><span class="sec-num">🧭</span> Choose Your Path — Read This First</div>
+      <p>Every school takes <strong>Part 0</strong> (prerequisites), then splits by connectivity, then rejoins at <strong>Part 7</strong> (School Setup) for the rest of go-live. Pick the school's path now so you skip the parts that don't apply to them.</p>
+
+      <div class="path-grid">
+        <div class="path-card" onclick="goto('part1')">
+          <div class="path-card-title">🏠 Local</div>
+          <div class="path-card-desc">No reliable internet at the school, ever. Everything — database, auth, storage, edge functions, frontend — runs on a server PC that stays on-site. Needs one in-person visit with a prepared USB.</div>
+          <span class="chip chip-b">Parts 1 → 2 → 3</span>
+        </div>
+        <div class="path-card" onclick="goto('part1')">
+          <div class="path-card-title">🔀 Hybrid</div>
+          <div class="path-card-desc">Same on-site server as Local, for day-to-day reliability when the internet drops, but also wired to a cloud Supabase project so data isn't stranded on one machine. Same on-site steps as Local, plus a cloud project alongside.</div>
+          <span class="chip chip-b">Parts 1 → 2 → 3</span>
+          <span class="chip chip-g">+ Part 4, Part 6</span>
+        </div>
+        <div class="path-card" onclick="goto('part4')">
+          <div class="path-card-title">☁️ Cloud</div>
+          <div class="path-card-desc">Reliable internet at the school. No server hardware, no USB, no site visit for the technical setup — everything runs on Supabase's cloud and is deployed to the web via Vercel. Fastest to set up remotely.</div>
+          <span class="chip chip-g">Part 4 → Part 6</span>
+        </div>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-ico">ℹ️</div>
+        <div class="callout-body"><strong>All three paths</strong> then continue with <strong>Part 5</strong> (bringing in the school's existing records) and <strong>Parts 7–11</strong> (school profile, staff registration, device setup, training, handover) — those are identical regardless of which path you took to get the backend running.</div>
+      </div>
+    </div>
+
+    <!-- ═══ PART 0 — PREREQUISITES -->
     <div id="part0" class="part-hdr">
       <div class="part-hdr-inner">
         <div class="part-big-num">00</div>
         <div class="part-body">
-          <div class="part-eyebrow">Part 0 · New — Do This First</div>
-          <div class="part-title">Pre-Requisites — Getting the Local Anon Key</div>
-          <div class="part-desc">Before you can build the school's Docker image you need the Supabase local anon key. You get it by running Supabase self-hosted on your own machine first, reading the key from the .env file, then using it in the build command.</div>
+          <div class="part-eyebrow">Part 0 · Every Path — Do This Once</div>
+          <div class="part-title">One-Time Setup on Your Own Machine</div>
+          <div class="part-desc">Tools you install once, not per school. Skip anything you already have.</div>
         </div>
         <div class="part-tag tag-acc">Do At Home First</div>
       </div>
     </div>
 
-    <div class="callout acc">
-      <div class="callout-ico">💡</div>
-      <div class="callout-body"><strong>Why does this step exist?</strong> The local anon key is generated when you set up Supabase self-hosted Docker. The school machine does not have it yet — it is in the <code>.env</code> file inside the Supabase Docker folder that you run at home or configure before the visit. You copy this key and bake it into the school's Docker image before you go on site.</div>
-    </div>
-
     <div class="section" id="s0-1">
-      <div class="section-title"><span class="sec-num">0.1</span> Install Docker on Your Machine (Home / Office)</div>
-      <p>This runs on <strong>your laptop</strong>, not the school's server. Docker is what runs Supabase locally.</p>
+      <div class="section-title"><span class="sec-num">0.1</span> Install Docker and Node.js on Your Machine</div>
+      <p>Docker is only needed if you'll ever do a <strong>Local or Hybrid</strong> install (it builds and packages the on-prem stack). Node.js is needed for every path — it runs the npm scripts that build and deploy Shule.</p>
 
       <div class="chip chip-g">Windows</div>
       <div class="steps" style="margin-top:8px">
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Download Docker Desktop from <strong>docker.com/products/docker-desktop</strong></div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Run the installer → follow prompts → restart your machine when asked</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open a terminal (Command Prompt or PowerShell) and verify: <code>docker --version</code> → should print a version number</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Also verify: <code>docker compose version</code> → should print a version</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Download Docker Desktop from <strong>docker.com/products/docker-desktop</strong> → install → restart when asked</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Download Node.js LTS from <strong>nodejs.org</strong> → install with default options</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open a terminal and verify: <code>docker --version</code>, <code>docker compose version</code>, <code>node --version</code>, <code>npm --version</code> — all should print version numbers</div></div>
       </div>
 
       <div class="chip chip-b" style="margin-top:14px">Ubuntu / Linux</div>
       <div class="code-wrap" style="margin-top:8px">
         <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
-        <pre class="code-body"><span class="cm"># Install Docker</span>
-sudo apt update && sudo apt install -y docker.io docker-compose
+        <pre class="code-body"><span class="cm"># Docker</span>
+sudo apt update && sudo apt install -y docker.io docker-compose-v2
 sudo systemctl enable docker && sudo systemctl start docker
 sudo usermod -aG docker $USER
 
+<span class="cm"># Node.js LTS (via nvm is easiest)</span>
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+nvm install --lts
+
 <span class="cm"># Log out and back in, then verify</span>
-docker --version
-docker compose version</pre>
+docker --version && node --version && npm --version</pre>
       </div>
     </div>
 
     <div class="section" id="s0-2">
-      <div class="section-title"><span class="sec-num">0.2</span> Clone the Supabase Self-Hosted Repository</div>
-      <p>This gives you the Docker compose setup for running Supabase locally.</p>
+      <div class="section-title"><span class="sec-num">0.2</span> Clone the Shule Repo and Install Dependencies</div>
       <div class="code-wrap">
         <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
-        <pre class="code-body"><span class="cm"># Clone the Supabase self-hosted repo</span>
-git clone https://github.com/supabase/supabase
-cd supabase/docker
-
-<span class="cm"># Copy the example env file</span>
-cp .env.example .env</pre>
+        <pre class="code-body">git clone https://github.com/Raheem840/shule.git
+cd shule
+npm ci</pre>
       </div>
+      <p>All the commands in this guide (<code>npm run usb:prepare</code>, <code>npm run install:school</code>, etc.) are run from inside this <code>shule/</code> folder.</p>
     </div>
 
     <div class="section" id="s0-3">
-      <div class="section-title"><span class="sec-num">0.3</span> Configure the .env File</div>
-      <p>Open the <code>.env</code> file in a text editor. You need to change a few key values before starting:</p>
-
+      <div class="section-title"><span class="sec-num">0.3</span> Install the Supabase CLI (Cloud / Hybrid Path Only)</div>
+      <p>Skip this if the school is <strong>pure Local</strong> — the on-prem installer doesn't use the Supabase CLI at all. Any school with a cloud Supabase project needs it to push the schema.</p>
       <div class="code-wrap">
         <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
-        <pre class="code-body"><span class="cm"># Open .env in your editor</span>
-<span class="cm"># On Windows: use Notepad or VS Code</span>
-<span class="cm"># On Linux/Mac:</span>
-nano .env</pre>
+        <pre class="code-body"><span class="cm"># macOS / Linux (Homebrew)</span>
+brew install supabase/tap/supabase
+
+<span class="cm"># Or via npm, any OS</span>
+npm install -g supabase
+
+<span class="cm"># Verify</span>
+supabase --version
+
+<span class="cm"># Log in — opens a browser to authorize the CLI against your Supabase account</span>
+supabase login</pre>
       </div>
-
-      <p>Inside the <code>.env</code> file, find and update these values:</p>
-      <div class="data-tbl" style="overflow:hidden;border-radius:10px;margin:12px 0">
-        <table class="data-tbl" style="margin:0;border:none">
-          <thead><tr><th>Key in .env</th><th>What to set it to</th><th>Why</th></tr></thead>
-          <tbody>
-            <tr><td><code>POSTGRES_PASSWORD</code></td><td>A strong password you choose (e.g. <code>ShuleSchool2025!</code>)</td><td>Secures the database</td></tr>
-            <tr><td><code>JWT_SECRET</code></td><td>A long random string (32+ chars). Generate one at <strong>supabase.com/docs/guides/self-hosting/docker#generate-api-keys</strong></td><td>Signs all JWT tokens</td></tr>
-            <tr><td><code>ANON_KEY</code></td><td>Generated from your JWT_SECRET (see step 0.4)</td><td>Public key for the frontend</td></tr>
-            <tr><td><code>SERVICE_ROLE_KEY</code></td><td>Generated from your JWT_SECRET (see step 0.4)</td><td>Admin key — server only</td></tr>
-            <tr><td><code>SITE_URL</code></td><td><code>http://192.168.1.100</code></td><td>The school's local server URL</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="section" id="s0-4">
-      <div class="section-title"><span class="sec-num">0.4</span> Generate and Get the Anon Key</div>
-      <div class="highlight-new">
-        <p><strong>This is the step that was missing.</strong> The anon key does not exist until you generate it from your JWT_SECRET. Here is exactly how to get it.</p>
-      </div>
-
-      <p><strong>Method 1 — Use the Supabase key generator (recommended):</strong></p>
-      <div class="steps">
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Go to: <strong>supabase.com/docs/guides/self-hosting/docker#generate-api-keys</strong></div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Paste your <code>JWT_SECRET</code> from the <code>.env</code> file into the form on that page</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Click <strong>Generate JWT</strong> — it produces two keys: <code>anon</code> key and <code>service_role</code> key</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Copy the <strong>anon key</strong> — paste it into the <code>ANON_KEY=</code> line in your <code>.env</code> file</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Copy the <strong>service_role key</strong> — paste it into the <code>SERVICE_ROLE_KEY=</code> line. Keep this secret — never put it in the frontend.</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Save the <code>.env</code> file. Also save both keys somewhere safe (e.g. a password manager) — you will need the anon key in Part 1.</div></div>
-      </div>
-
-      <p style="margin-top:14px"><strong>Method 2 — Read the default key (quick but less secure):</strong></p>
-      <div class="callout warn">
-        <div class="callout-ico">⚠️</div>
-        <div class="callout-body">The default anon key in <code>.env.example</code> works but uses a shared public <code>JWT_SECRET</code>. Anyone who knows the default can craft tokens. <strong>For any real school installation, always generate your own key using Method 1 above.</strong></div>
-      </div>
-      <div class="code-wrap">
-        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
-        <pre class="code-body"><span class="cm"># Read the anon key from your .env file</span>
-grep ANON_KEY .env
-
-<span class="cm"># Output will look like:</span>
-<span class="cm"># ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3...</span>
-
-<span class="cm"># Copy everything AFTER the = sign — that is your local anon key</span></pre>
-      </div>
-
       <div class="callout ok">
         <div class="callout-ico">✓</div>
-        <div class="callout-body"><strong>Save this anon key now.</strong> You will paste it into the <code>npm run build:school</code> command in Part 1 Step 1.2. Without it you cannot build the school's Docker image.</div>
-      </div>
-    </div>
-
-    <div class="section" id="s0-5">
-      <div class="section-title"><span class="sec-num">0.5</span> Start Supabase Locally and Verify It Works</div>
-      <p>Start the local Supabase stack on your machine to confirm everything is configured correctly before you go to the school.</p>
-      <div class="code-wrap">
-        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
-        <pre class="code-body"><span class="cm"># Make sure you are in the supabase/docker folder</span>
-cd supabase/docker
-
-<span class="cm"># Start the full stack</span>
-docker compose up -d
-
-<span class="cm"># Wait about 30 seconds then check all containers are running</span>
-docker compose ps
-
-<span class="cm"># You should see services like: db, auth, rest, realtime, storage, kong</span>
-<span class="cm"># all showing status: running</span>
-
-<span class="cm"># Open Supabase Studio in your browser</span>
-<span class="cm"># http://localhost:3000</span>
-
-<span class="cm"># You should see the Supabase Studio dashboard</span>
-<span class="cm"># This confirms the stack works</span></pre>
-      </div>
-
-      <div class="steps">
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">All containers show <strong>running</strong> in <code>docker compose ps</code></div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Supabase Studio opens at <strong>http://localhost:3000</strong></div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Anon key is saved (from step 0.4) — ready to use in build command</div></div>
-      </div>
-
-      <div class="callout info">
-        <div class="callout-ico">ℹ️</div>
-        <div class="callout-body">You can now stop the local stack on your machine with <code>docker compose down</code>. The school's server will run its own instance from the USB. The anon key you extracted is what matters.</div>
+        <div class="callout-body">Prerequisites done. Now jump to <strong>Part 1</strong> (Local/Hybrid) or <strong>Part 4</strong> (Cloud) using the sidebar or the path cards above.</div>
       </div>
     </div>
 
     <div class="div-sep">Part 1</div>
 
-    <!-- ═══ PART 1 -->
+    <!-- ═══ PART 1 — PREPARE USB -->
     <div id="part1" class="part-hdr">
       <div class="part-hdr-inner">
         <div class="part-big-num">01</div>
         <div class="part-body">
-          <div class="part-eyebrow">Part 1 · Before You Leave Home</div>
+          <div class="part-eyebrow">Part 1 · Local / Hybrid — Before You Leave Home</div>
           <div class="part-title">Prepare the USB Installation Package</div>
-          <div class="part-desc">Build the school's Docker image using the anon key from Part 0, save all Docker images offline, and copy everything to the USB drive.</div>
+          <div class="part-desc">One command generates this school's unique secrets, builds every Docker image needed (frontend + all 15 edge functions), and packages everything so the school's server needs zero internet access.</div>
         </div>
         <div class="part-tag tag-amber">⏱ Do at Home</div>
       </div>
     </div>
 
     <div class="section" id="s1-1">
-      <div class="section-title"><span class="sec-num">1.1</span> Format and Prepare the USB Drive</div>
-      <p>Use a USB drive of <strong>minimum 32GB</strong>. The Docker images are large.</p>
+      <div class="section-title"><span class="sec-num">1.1</span> Format the USB Drive</div>
+      <p>Use a USB drive of <strong>minimum 32GB</strong> — the Docker images are large (Postgres, Auth, REST, Realtime, Storage, Studio, Kong, plus the frontend and 15 function images).</p>
 
       <div class="chip chip-g">Windows</div>
       <div class="steps" style="margin-top:8px">
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Insert USB drive → Open File Explorer → right-click the USB drive → click <strong>Format</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Insert USB drive → File Explorer → right-click the USB → <strong>Format</strong></div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">File system: <strong>exFAT</strong> · Volume label: <strong>SHULE-INSTALL</strong> · Quick Format: checked → Start → OK</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Wait for format to complete → USB is ready</div></div>
       </div>
 
       <div class="chip chip-b" style="margin-top:14px">Linux</div>
@@ -1471,73 +1471,71 @@ sudo mkfs.exfat -n SHULE-INSTALL /dev/sdX1</pre>
     </div>
 
     <div class="section" id="s1-2">
-      <div class="section-title"><span class="sec-num">1.2</span> Build the School's Docker Image</div>
-      <p>Open terminal in your Shule project folder. Replace <code>YOUR_ANON_KEY</code> with the key you saved in step 0.4:</p>
+      <div class="section-title"><span class="sec-num">1.2</span> Run <code>npm run usb:prepare</code></div>
+      <p>This single command replaces the old multi-step manual key-generation process. It calls <code>scripts/generate-local-secrets.js</code> to create a brand-new, unique secret set for this school (JWT secret, signed anon/service_role keys, DB password, Studio dashboard login), then builds the frontend image and every edge-function image, then pulls and saves all backend images for offline use.</p>
+
+      <div class="chip chip-b">Local school</div>
+      <div class="code-wrap" style="margin-top:8px">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body">npm run usb:prepare "New Youth Comprehensive School"</pre>
+      </div>
+
+      <div class="chip chip-a" style="margin-top:14px">Hybrid school</div>
+      <p style="margin-top:8px">Same command, plus the cloud project it should also sync to (create this cloud project first — see Part 4.1):</p>
       <div class="code-wrap">
         <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
-        <pre class="code-body"><span class="cm"># Navigate to your Shule project folder first</span>
-cd path/to/shule
-
-<span class="cm"># Build the school image</span>
-<span class="cm"># Replace YOUR_ANON_KEY with the key from step 0.4</span>
-npm run build:school "New Youth Comprehensive School" \
-  http://192.168.1.100:8000 YOUR_ANON_KEY local</pre>
+        <pre class="code-body">npm run usb:prepare "New Youth Comprehensive School" hybrid \
+  https://xxxxxxxxxxxx.supabase.co CLOUD_ANON_KEY</pre>
       </div>
-      <div class="callout ok">
+
+      <div class="callout ok" style="margin-top:14px">
         <div class="callout-ico">✓</div>
-        <div class="callout-body">When complete you will see: <code>✓ Build complete — Saved to: shule-install/shule-new-youth-comprehensive-school.tar</code></div>
+        <div class="callout-body">Takes several minutes (downloading and saving ~8 backend images plus building 16 app/function images). When done you'll see <strong>✓ USB Package Ready</strong> and a folder size printed.</div>
+      </div>
+      <div class="callout warn">
+        <div class="callout-ico">⚠️</div>
+        <div class="callout-body"><strong><code>shule-install/secrets.env</code> is the only copy of this school's secrets.</strong> It's git-ignored and never uploaded anywhere. Losing it means every login and API key for that school must be regenerated. Keep it as safe as you'd keep a password.</div>
       </div>
     </div>
 
     <div class="section" id="s1-3">
-      <div class="section-title"><span class="sec-num">1.3</span> Pull and Save Supabase Docker Images</div>
-      <p>This downloads all required images and saves them offline so no internet is needed at the school.</p>
-      <div class="code-wrap">
-        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
-        <pre class="code-body">npm run usb:prepare "New Youth Comprehensive School" \
-  http://192.168.1.100:8000 YOUR_ANON_KEY local</pre>
-      </div>
-      <div class="callout warn">
-        <div class="callout-ico">⚠️</div>
-        <div class="callout-body"><strong>Watch for errors.</strong> If any image fails to download, re-run before going to the school. Also copy the <code>supabase/docker/.env</code> file to your USB — you will need it at the school to start Supabase with the correct keys.</div>
+      <div class="section-title"><span class="sec-num">1.3</span> Verify the <code>shule-install/</code> Folder</div>
+      <p>Confirm every file is present before you travel. If anything is missing, re-run <code>npm run usb:prepare</code>.</p>
+      <div class="file-tree">
+<span class="ft-dir">shule-install/</span>
+├── <span class="ft-file">README.txt</span>                              <span class="ft-ok">✓</span>
+├── <span class="ft-file">install.sh</span>                              <span class="ft-ok">✓</span>
+├── <span class="ft-file">secrets.env</span>                             <span class="ft-ok">✓</span>  <span class="ft-dim">← this school's unique secrets, keep private</span>
+├── <span class="ft-file">docker-compose.school.yml</span>               <span class="ft-ok">✓</span>
+├── <span class="ft-file">nginx.conf</span>                              <span class="ft-ok">✓</span>
+├── <span class="ft-file">school_template.sql</span>                     <span class="ft-ok">✓</span>  <span class="ft-dim">← edit + run manually after install (Part 3)</span>
+├── <span class="ft-file">shule-new-youth-comprehensive-school.tar</span> <span class="ft-ok">✓</span>
+├── <span class="ft-file">shule-new-youth-comprehensive-school.env</span> <span class="ft-ok">✓</span>
+├── <span class="ft-dir">supabase/</span>
+│   └── <span class="ft-file">kong.yml</span>                           <span class="ft-ok">✓</span>
+├── <span class="ft-dir">supabase-images/</span>
+│   ├── <span class="ft-file">supabase-postgres--17.6.1.136.tar</span>  <span class="ft-ok">✓</span>
+│   ├── <span class="ft-file">supabase-gotrue--v2.189.0.tar</span>      <span class="ft-ok">✓</span>
+│   ├── <span class="ft-file">postgrest-postgrest--v14.12.tar</span>    <span class="ft-ok">✓</span>
+│   ├── <span class="ft-file">supabase-realtime--v2.102.3.tar</span>    <span class="ft-ok">✓</span>
+│   ├── <span class="ft-file">supabase-storage-api--v1.60.4.tar</span>  <span class="ft-ok">✓</span>
+│   ├── <span class="ft-file">supabase-postgres-meta--v0.96.6.tar</span><span class="ft-ok">✓</span>
+│   ├── <span class="ft-file">supabase-studio--....tar</span>           <span class="ft-ok">✓</span>
+│   ├── <span class="ft-file">kong--2.8.1.tar</span>                    <span class="ft-ok">✓</span>
+│   └── <span class="ft-file">shule-fn-*.tar</span> <span class="ft-dim">(× 15 edge functions)</span>    <span class="ft-ok">✓</span>
+└── <span class="ft-dir">migrations/</span>
+    └── <span class="ft-file">*.sql</span> <span class="ft-dim">(every dated migration in the repo)</span>       <span class="ft-ok">✓</span>
       </div>
     </div>
 
     <div class="section" id="s1-4">
-      <div class="section-title"><span class="sec-num">1.4</span> Verify the shule-install/ Folder</div>
-      <p>Confirm every file is present. If anything is missing, stop and fix it before going.</p>
-      <div class="file-tree">
-<span class="ft-dir">shule-install/</span>
-├── <span class="ft-file">README.txt</span>                                    <span class="ft-ok">✓</span>
-├── <span class="ft-file">install.sh</span>                                    <span class="ft-ok">✓</span>
-├── <span class="ft-file">docker-compose.school.yml</span>                     <span class="ft-ok">✓</span>
-├── <span class="ft-file">nginx.conf</span>                                    <span class="ft-ok">✓</span>
-├── <span class="ft-file">shule-new-youth-comprehensive-school.tar</span>      <span class="ft-ok">✓</span>
-├── <span class="ft-file">shule-new-youth-comprehensive-school.env</span>      <span class="ft-ok">✓</span>
-├── <span class="ft-dir">supabase-images/</span>
-│   ├── <span class="ft-file">postgres--15-alpine.tar</span>                   <span class="ft-ok">✓</span>
-│   ├── <span class="ft-file">nginx--alpine.tar</span>                         <span class="ft-ok">✓</span>
-│   └── <span class="ft-file">kong--2.8.1.tar</span>                           <span class="ft-ok">✓</span>
-└── <span class="ft-dir">migrations/</span>
-    ├── <span class="ft-file">00001_initial_schema.sql</span>                  <span class="ft-ok">✓</span>
-    ├── <span class="ft-file">00002_rls_policies.sql</span>                    <span class="ft-ok">✓</span>
-    ├── <span class="ft-file">00003_functions_triggers.sql</span>              <span class="ft-ok">✓</span>
-    ├── <span class="ft-file">00004_jwt_hook.sql</span>                        <span class="ft-ok">✓</span>
-    └── <span class="ft-file">base.sql</span>                                  <span class="ft-ok">✓</span>
-
-<span class="ft-dim">Also copy from supabase/docker/:</span>
-└── <span class="ft-file">.env</span>  <span class="ft-dim">← copy this file to USB too — needed to start Supabase at school</span>  <span class="ft-ok">✓</span>
-      </div>
-    </div>
-
-    <div class="section" id="s1-5">
-      <div class="section-title"><span class="sec-num">1.5</span> Copy shule-install/ to the USB Drive</div>
+      <div class="section-title"><span class="sec-num">1.4</span> Copy <code>shule-install/</code> to the USB Drive</div>
 
       <div class="chip chip-g">Windows</div>
       <div class="steps" style="margin-top:8px">
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open File Explorer → navigate to your Shule project folder → right-click <code>shule-install</code> → <strong>Copy</strong></div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open the USB (SHULE-INSTALL) → right-click → <strong>Paste</strong>. Also copy the <code>supabase/docker/.env</code> file to the USB root.</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Wait for copy to complete (10–20 minutes — Docker images are large)</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">File Explorer → your Shule project folder → right-click <code>shule-install</code> → <strong>Copy</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open the USB (SHULE-INSTALL) → right-click → <strong>Paste</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Wait for copy to complete (10–20 minutes — the images are large)</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Right-click USB → <strong>Eject</strong> → wait for "Safe to remove" → pull USB</div></div>
       </div>
 
@@ -1545,48 +1543,41 @@ npm run build:school "New Youth Comprehensive School" \
       <div class="code-wrap" style="margin-top:8px">
         <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
         <pre class="code-body">cp -r shule-install/ /media/yourname/SHULE-INSTALL/
-cp supabase/docker/.env /media/yourname/SHULE-INSTALL/
 ls -lh /media/yourname/SHULE-INSTALL/
 sudo umount /media/yourname/SHULE-INSTALL</pre>
       </div>
     </div>
 
-    <div class="section" id="s1-6">
-      <div class="section-title"><span class="sec-num">1.6</span> Print These Before You Leave</div>
+    <div class="section" id="s1-5">
+      <div class="section-title"><span class="sec-num">1.5</span> Print These Before You Leave</div>
 
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Item 1 — QR Codes (3 copies)</strong> · Go to qr-code-generator.com · Enter: <code>http://192.168.1.100</code> · Label: "Scan to open Shule"</div></div>
       </div>
 
-      <div class="cred-box" style="margin-top:12px">
-        <div style="margin-bottom:8px;font-weight:600;color:var(--text)">Item 2 — Credentials Sheet <span class="cw">(sealed envelope → Principal only)</span></div>
-        <div><span class="ck">School         : </span><span class="cv">[School Name]</span></div>
-        <div><span class="ck">System URL     : </span><span class="cv">http://192.168.1.100</span></div>
-        <div><span class="ck">IT Admin Email : </span><span class="cv">itadmin@schoolname.ac.ug</span></div>
-        <div><span class="ck">Temp Password  : </span><span class="cv">Shule@2025</span></div>
-        <div><span class="ck">DB Password    : </span><span class="cv">[POSTGRES_PASSWORD from .env]</span></div>
-        <div style="margin-top:8px"><span class="cw">Hand to Principal only. Keep sealed until handover.</span></div>
-      </div>
-
-      <p style="margin-top:14px"><strong>Item 3 — Staff Login Sheet</strong></p>
+      <p style="margin-top:14px"><strong>Item 2 — Staff Login Sheet</strong> (fill in after Part 3/8, print/write before handover)</p>
       <table class="data-tbl">
         <thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Temp Password</th></tr></thead>
         <tbody>
-          <tr><td style="color:var(--text3)">—</td><td style="color:var(--text3)">—</td><td style="color:var(--text3)">—</td><td><code>Shule@2025</code></td></tr>
+          <tr><td style="color:var(--text3)">—</td><td style="color:var(--text3)">—</td><td style="color:var(--text3)">—</td><td style="color:var(--text3)">auto-generated per staff</td></tr>
         </tbody>
       </table>
+      <div class="callout info">
+        <div class="callout-ico">ℹ️</div>
+        <div class="callout-body">The install itself doesn't print a fixed shared password — every staff account created via the app's registration wizard gets its own auto-generated temporary password (shown once at creation). <code>install.sh</code> writes the Studio dashboard login and DB password to <code>/opt/shule/CREDENTIALS.txt</code> on the server — that's what goes in the sealed envelope in Part 11.2.</div>
+      </div>
     </div>
 
     <div class="div-sep">Part 2</div>
 
-    <!-- ═══ PART 2 -->
+    <!-- ═══ PART 2 — SERVER INSTALL -->
     <div id="part2" class="part-hdr">
       <div class="part-hdr-inner">
         <div class="part-big-num">02</div>
         <div class="part-body">
-          <div class="part-eyebrow">Part 2 · At the School</div>
+          <div class="part-eyebrow">Part 2 · Local / Hybrid — At the School</div>
           <div class="part-title">Server Machine Setup and Installation</div>
-          <div class="part-desc">Set up the server PC, install Ubuntu, mount the USB, and run the one-command installer.</div>
+          <div class="part-desc">Set up the server PC, mount the USB, and run the one-command installer — it applies every migration, starts the full backend stack, and configures nightly backups.</div>
         </div>
         <div class="part-tag tag-blue">⏱ ~45 min</div>
       </div>
@@ -1602,7 +1593,7 @@ sudo umount /media/yourname/SHULE-INSTALL</pre>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Download Ubuntu Server 22.04 ISO at home (ubuntu.com) → flash to a second USB using Rufus (Windows) or Balena Etcher</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Boot the school PC from that USB → press <strong>F2, F8, F12, or Delete</strong> during startup to enter BIOS → set USB as first boot device</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Ubuntu installer → Language: <strong>English</strong> · Keyboard: <strong>English (US)</strong> · Type: <strong>Ubuntu Server (not minimized)</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Ubuntu installer → Language: <strong>English</strong> · Type: <strong>Ubuntu Server (not minimized)</strong></div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Network → connect to school WiFi or ethernet · Storage → <strong>Use entire disk → Done → Continue</strong></div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Profile: Name <code>shule</code> · Server name <code>shule-server</code> · Username <code>shule</code> · Set strong password and write it down</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Install <strong>OpenSSH: Yes</strong> · Featured snaps: skip → Done · Wait ~15 min → reboot → log in</div></div>
@@ -1620,58 +1611,52 @@ lsblk
 sudo mkdir -p /mnt/shule-usb
 sudo mount /dev/sdb1 /mnt/shule-usb
 
-<span class="cm"># Verify the files are there</span>
-ls /mnt/shule-usb/shule-install/</pre>
+<span class="cm"># Copy install files to the server, then unmount</span>
+sudo cp -r /mnt/shule-usb/shule-install /opt/shule-install
+cd /opt/shule-install
+sudo chmod +x install.sh
+ls -la
+<span class="cm"># Confirm secrets.env is present — install.sh refuses to run without it</span>
+
+sudo umount /mnt/shule-usb</pre>
       </div>
     </div>
 
     <div class="section" id="s2-3">
-      <div class="section-title"><span class="sec-num">2.3</span> Copy Install Files to the Server</div>
+      <div class="section-title"><span class="sec-num">2.3</span> Run the Install Script</div>
       <div class="code-wrap">
         <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
-        <pre class="code-body">sudo cp -r /mnt/shule-usb/shule-install/ /opt/shule-install/
-
-<span class="cm"># Also copy the Supabase .env file</span>
-sudo cp /mnt/shule-usb/.env /opt/shule-install/supabase.env
-
-cd /opt/shule-install
-sudo chmod +x install.sh
-ls -la</pre>
+        <pre class="code-body">cd /opt/shule-install
+sudo bash install.sh</pre>
       </div>
-    </div>
-
-    <div class="section" id="s2-4">
-      <div class="section-title"><span class="sec-num">2.4</span> Run the Install Script</div>
-      <div class="code-wrap">
-        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
-        <pre class="code-body">sudo bash install.sh</pre>
-      </div>
-      <p>Runs for approximately <strong>15–20 minutes</strong>. Watch each step tick off:</p>
+      <p>Runs for approximately <strong>15–20 minutes</strong>. Watch each of its 9 steps tick off:</p>
       <div class="file-tree">
-→ [1/8] Installing system dependencies... <span class="ft-ok">✓</span>
-→ [2/8] Loading Docker images...          <span class="ft-ok">✓</span>
-→ [3/8] Configuring network...            <span class="ft-ok">✓</span>
-→ [4/8] Starting Shule services...        <span class="ft-ok">✓</span>
-→ [5/8] Setting up database schema...     <span class="ft-ok">✓</span>
-→ [6/8] Loading base data...              <span class="ft-ok">✓</span>
-→ [7/8] Configuring web server...         <span class="ft-ok">✓</span>
-→ [8/8] Configuring backups...            <span class="ft-ok">✓</span>
+→ [1/9] Installing system dependencies...              <span class="ft-ok">✓</span>
+→ [2/9] Loading Docker images...                        <span class="ft-ok">✓</span>
+→ [3/9] Configuring secrets...                          <span class="ft-ok">✓</span>  <span class="ft-dim">writes /opt/shule/.env</span>
+→ [4/9] Configuring network...                          <span class="ft-ok">✓</span>  <span class="ft-dim">sets static IP 192.168.1.100</span>
+→ [5/9] Starting the database...                        <span class="ft-ok">✓</span>
+→ [6/9] Setting up database schema...                   <span class="ft-ok">✓</span>  <span class="ft-dim">applies every *.sql migration</span>
+→ [7/9] Starting API gateway, auth, storage, functions...<span class="ft-ok">✓</span>
+→ [8/9] Configuring web server...                       <span class="ft-ok">✓</span>
+→ [9/9] Configuring backups...                          <span class="ft-ok">✓</span>  <span class="ft-dim">nightly 2 AM cron backup</span>
       </div>
       <table class="data-tbl">
         <thead><tr><th>Error</th><th>Fix</th></tr></thead>
         <tbody>
-          <tr><td>Docker image not found</td><td>Re-check USB copy was complete — files may have been missed</td></tr>
-          <tr><td>Port 80 already in use</td><td>Run <code>sudo systemctl stop apache2</code></td></tr>
-          <tr><td>Database connection refused</td><td>Wait 30 more seconds and retry the database steps manually</td></tr>
+          <tr><td><code>secrets.env not found</code></td><td>You're not running from inside <code>/opt/shule-install</code>, or Part 1.2 wasn't completed before copying to USB</td></tr>
+          <tr><td>Docker image load fails</td><td>Re-check the USB copy was complete — re-run <code>npm run usb:prepare</code> and redo Part 1.4</td></tr>
+          <tr><td>Database did not become ready in time</td><td><code>docker compose -f /opt/shule/docker-compose.school.yml logs db</code></td></tr>
+          <tr><td>API gateway didn't respond in time</td><td><code>docker compose -f /opt/shule/docker-compose.school.yml ps</code> — it may just still be starting; wait and recheck</td></tr>
         </tbody>
       </table>
     </div>
 
-    <div class="section" id="s2-5">
-      <div class="section-title"><span class="sec-num">2.5</span> Verify the System Is Running</div>
+    <div class="section" id="s2-4">
+      <div class="section-title"><span class="sec-num">2.4</span> Verify the System Is Running</div>
       <div class="steps">
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open any device on the school WiFi → browser → <strong>http://192.168.1.100</strong> → Shule login page appears</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open <strong>http://192.168.1.100:3000</strong> → Supabase Studio dashboard appears</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Any device on the school WiFi → browser → <strong>http://192.168.1.100</strong> → Shule login page appears</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open <strong>http://192.168.1.100:8000</strong> → Supabase Studio login prompt appears (credentials in <code>/opt/shule/CREDENTIALS.txt</code>)</div></div>
       </div>
       <p style="margin-top:12px">If either does not load:</p>
       <div class="code-wrap">
@@ -1680,104 +1665,307 @@ ls -la</pre>
 sudo systemctl status nginx
 sudo docker compose -f /opt/shule/docker-compose.school.yml logs</pre>
       </div>
+      <div class="callout ok">
+        <div class="callout-ico">✓</div>
+        <div class="callout-body">System running. Continue to <strong>Part 3</strong> to seed the school and create the IT Admin — <code>install.sh</code> already printed these exact remaining steps at the end of its output.</div>
+      </div>
     </div>
 
     <div class="div-sep">Part 3</div>
 
-    <!-- ═══ PART 3 -->
+    <!-- ═══ PART 3 — FIRST LOGIN (LOCAL/HYBRID) -->
     <div id="part3" class="part-hdr">
       <div class="part-hdr-inner">
         <div class="part-big-num">03</div>
         <div class="part-body">
-          <div class="part-eyebrow">Part 3 · Supabase Studio — Manual Steps</div>
-          <div class="part-title">Database Auth Configuration</div>
-          <div class="part-desc">Open Supabase Studio at http://192.168.1.100:3000 and complete these in order. These cannot be automated.</div>
+          <div class="part-eyebrow">Part 3 · Local / Hybrid — In Supabase Studio</div>
+          <div class="part-title">Seed the School and Create the First Login</div>
+          <div class="part-desc">Studio is at http://192.168.1.100:8000. The Custom Access Token auth hook is <strong>already configured</strong> — it's set directly in docker-compose.school.yml's auth service environment, no manual hook step needed for Local/Hybrid.</div>
         </div>
         <div class="part-tag tag-red">⚠️ Critical</div>
       </div>
     </div>
 
     <div class="section" id="s3-1">
-      <div class="section-title"><span class="sec-num">3.1</span> Register the JWT Hook</div>
-      <div class="callout crit">
-        <div class="callout-ico">🚨</div>
-        <div class="callout-body"><strong>Most critical step.</strong> Without this, nobody can log in to Shule. Do not skip.</div>
-      </div>
+      <div class="section-title"><span class="sec-num">3.1</span> Edit and Run <code>school_template.sql</code> — Step 1</div>
       <div class="steps">
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">In Supabase Studio sidebar → <strong>Authentication → Hooks</strong></div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Find <strong>Custom Access Token Hook</strong> → click the toggle to Enable</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">In the dropdown select: <code>public.custom_access_token_hook</code></div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Click <strong>Save</strong> → green confirmation appears</div></div>
-      </div>
-      <p style="margin-top:12px">Verify in SQL Editor:</p>
-      <div class="code-wrap">
-        <div class="code-head"><span class="code-lang-tag">sql</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
-        <pre class="code-body">SELECT routine_name, routine_schema
-FROM information_schema.routines
-WHERE routine_name = 'custom_access_token_hook';
-<span class="cm">-- Should return 1 row with routine_schema = public</span></pre>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">On the server, open <code>/opt/shule-install/school_template.sql</code> in a text editor (<code>nano</code> works over SSH)</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Replace every <code>[REPLACE: ...]</code> placeholder with the school's real name, short name, motto, and curriculum</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">In Studio (<strong>http://192.168.1.100:8000</strong>) → <strong>SQL Editor</strong> → paste and run only <strong>Step 1</strong> (the <code>school_profile</code> INSERT) → copy the returned <code>id</code> (school_id)</div></div>
       </div>
     </div>
 
     <div class="section" id="s3-2">
-      <div class="section-title"><span class="sec-num">3.2</span> Create the IT Admin Auth User</div>
+      <div class="section-title"><span class="sec-num">3.2</span> Create the IT Admin Auth User and Staff Row</div>
       <div class="steps">
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Authentication → Users → click <strong>Add User</strong></div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Email: <code>itadmin@nycs.ac.ug</code> (replace nycs with school short name) · Password: <code>Shule@2025</code> · Auto Confirm: <strong>checked</strong></div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Click <strong>Create User</strong> → <strong>copy the User ID</strong> (the UUID in the ID column) — paste it somewhere safe</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Studio → <strong>Authentication → Users → Add User</strong> → enter the IT Admin's email and a password → <strong>Auto Confirm: checked</strong> → Create User → copy the returned <strong>User UID</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Back in the SQL Editor, edit and run <strong>Step 2</strong> of <code>school_template.sql</code> — the <code>staff</code> INSERT with <code>role = 'it_admin'</code> — filling in the <code>school_id</code> from 3.1 and the <code>auth_user_id</code> (User UID) from above</div></div>
+      </div>
+      <div class="callout ok">
+        <div class="callout-ico">✓</div>
+        <div class="callout-body">Should say <strong>Success. 1 row affected.</strong> Verify: <code>SELECT s.first_name, s.role, u.email FROM staff s JOIN auth.users u ON u.id = s.auth_user_id WHERE s.role = 'it_admin';</code></div>
       </div>
     </div>
 
     <div class="section" id="s3-3">
-      <div class="section-title"><span class="sec-num">3.3</span> Create the IT Admin Staff Row</div>
-      <div class="code-wrap">
-        <div class="code-head"><span class="code-lang-tag">sql</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
-        <pre class="code-body"><span class="cm">-- First get the school_id</span>
-SELECT id, school_name FROM school_profile;</pre>
-      </div>
-      <div class="code-wrap">
-        <div class="code-head"><span class="code-lang-tag">sql</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
-        <pre class="code-body"><span class="cm">-- Insert IT Admin staff row</span>
-INSERT INTO staff (
-  school_id, first_name, last_name,
-  role, auth_user_id, is_active
-) VALUES (
-  'PASTE_SCHOOL_ID_HERE',
-  'Admin', 'IT',
-  'it_admin',
-  'PASTE_AUTH_USER_ID_HERE',
-  true
-);</pre>
-      </div>
-      <div class="callout ok">
-        <div class="callout-ico">✓</div>
-        <div class="callout-body">Should say <strong>Success. 1 row affected.</strong> Verify the link: <code>SELECT s.first_name, s.role, u.email FROM staff s JOIN auth.users u ON u.id = s.auth_user_id WHERE s.role = 'it_admin';</code></div>
-      </div>
-    </div>
-
-    <div class="section" id="s3-4">
-      <div class="section-title"><span class="sec-num">3.4</span> Verify the Full Login Flow</div>
+      <div class="section-title"><span class="sec-num">3.3</span> Verify the Full Login Flow</div>
       <div class="steps">
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">New tab → <strong>http://192.168.1.100</strong> → login with <code>itadmin@nycs.ac.ug</code> / <code>Shule@2025</code></div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">You land on the <strong>IT Admin dashboard</strong> with correct sidebar — login confirmed working</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">New tab → <strong>http://192.168.1.100</strong> → log in as the IT Admin with the email/password from 3.2</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">You land on the <strong>IT Admin dashboard</strong> with the correct sidebar — login confirmed working</div></div>
       </div>
       <table class="data-tbl" style="margin-top:12px">
         <thead><tr><th>Error</th><th>Cause</th><th>Fix</th></tr></thead>
         <tbody>
-          <tr><td>"Account not linked to school role"</td><td>JWT hook not registered or staff row missing</td><td>Re-check 3.1 and 3.3</td></tr>
-          <tr><td>"Invalid login credentials"</td><td>Auth user not created correctly</td><td>Redo 3.2</td></tr>
+          <tr><td>"Account not linked to school role"</td><td>Staff row missing or <code>auth_user_id</code> mismatched</td><td>Re-check 3.2</td></tr>
+          <tr><td>"Invalid login credentials"</td><td>Auth user not created correctly</td><td>Redo 3.2's first step</td></tr>
         </tbody>
       </table>
+      <div class="callout acc" style="margin-top:14px">
+        <div class="callout-ico">➡️</div>
+        <div class="callout-body">Local/Hybrid technical setup is done. Continue to <strong>Part 5</strong> to bring in the school's existing student/staff/fee records, or straight to <strong>Part 7</strong> if this is a brand-new school with no prior records to import.</div>
+      </div>
     </div>
 
     <div class="div-sep">Part 4</div>
 
-    <!-- ═══ PART 4 -->
+    <!-- ═══ PART 4 — CLOUD / ONLINE SETUP -->
     <div id="part4" class="part-hdr">
       <div class="part-hdr-inner">
         <div class="part-big-num">04</div>
         <div class="part-body">
-          <div class="part-eyebrow">Part 4 · In the App</div>
+          <div class="part-eyebrow">Part 4 · Cloud / Hybrid — No USB, No Site Visit</div>
+          <div class="part-title">Online Setup — Supabase Cloud Project</div>
+          <div class="part-desc">The equivalent of Parts 1–3, done entirely from your own machine against a Supabase-hosted project instead of on-prem hardware. Hybrid schools also do this section, using this project as their sync target.</div>
+        </div>
+        <div class="part-tag tag-blue">⏱ ~30 min, remote</div>
+      </div>
+    </div>
+
+    <div class="section" id="s4-1">
+      <div class="section-title"><span class="sec-num">4.1</span> Create the Supabase Project</div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Go to <strong>supabase.com/dashboard</strong> → sign in → select (or create) your organization</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>New Project</strong> → Name it after the school (e.g. "New Youth Comprehensive School") → generate and save a strong database password somewhere safe</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Region: Supabase has no East Africa region — pick the closest available (Europe/Frankfurt is typically the lowest-latency option from Uganda) → Create Project → wait ~2 minutes for provisioning</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Once ready: <strong>Settings → General</strong> → copy the <strong>Reference ID</strong> (the project ref, e.g. <code>abcdefghijklmnop</code>) — you'll use it below</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Settings → API</strong> → copy the <strong>Project URL</strong> (<code>https://xxxx.supabase.co</code>) and the <strong>anon public</strong> key — you'll need both for Part 6 (Vercel)</div></div>
+      </div>
+    </div>
+
+    <div class="section" id="s4-2">
+      <div class="section-title"><span class="sec-num">4.2</span> Push the Schema, RLS, and Edge Functions</div>
+      <p>This is the "migrate everything except data" step — one command applies all 67 migrations (every table, every RLS policy, every trigger) and deploys all 15 edge functions. No student/staff/fee data is touched — the repo has no seed data file, only structure.</p>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body"><span class="cm"># From inside the shule/ project folder</span>
+npm run install:school YOUR_PROJECT_REF</pre>
+      </div>
+      <p>Watch for:</p>
+      <div class="file-tree">
+→ [1/4] Linking to project...              <span class="ft-ok">✓</span>
+→ Applying database migrations...          <span class="ft-ok">✓</span>  <span class="ft-dim">supabase db push — all 67 files</span>
+→ [2/4] Seed data is a manual step...      <span class="ft-dim">(expected — see 4.4)</span>
+→ [3/4] Deploying edge functions...        <span class="ft-ok">✓</span>  <span class="ft-dim">all 15, one by one</span>
+→ [4/4] ✓ Automated installation complete  <span class="ft-ok">✓</span>
+      </div>
+      <div class="callout warn">
+        <div class="callout-ico">⚠️</div>
+        <div class="callout-body">If <code>supabase link</code> prompts for the database password, use the one you saved in 4.1. If any edge function fails to deploy, re-run <code>npm run install:school YOUR_PROJECT_REF</code> — it's safe to run more than once.</div>
+      </div>
+    </div>
+
+    <div class="section" id="s4-3">
+      <div class="section-title"><span class="sec-num">4.3</span> Create the Storage Buckets</div>
+      <div class="highlight-new">
+        <p><strong>Don't skip this.</strong> Migrations create RLS <em>policies</em> for storage, but not the buckets themselves — Supabase Storage buckets are a dashboard-only, non-scriptable resource. Uploads (student photos, report cards, staff documents, message attachments) will fail with "bucket not found" until these exist.</p>
+      </div>
+      <p>Studio → <strong>Storage → New bucket</strong> — create exactly these 6, matching the visibility column:</p>
+      <table class="data-tbl">
+        <thead><tr><th>Bucket name</th><th>Public?</th><th>Used for</th></tr></thead>
+        <tbody>
+          <tr><td><code>staff-photos</code></td><td><span class="chip chip-g">Public</span></td><td>Staff profile photos</td></tr>
+          <tr><td><code>student-photos</code></td><td><span class="chip chip-r">Private</span></td><td>Student profile photos</td></tr>
+          <tr><td><code>documents</code></td><td><span class="chip chip-r">Private</span></td><td>Staff/registration document uploads</td></tr>
+          <tr><td><code>report-cards</code></td><td><span class="chip chip-g">Public</span></td><td>Generated report card PDFs</td></tr>
+          <tr><td><code>templates</code></td><td><span class="chip chip-r">Private</span></td><td>Report card letterhead templates</td></tr>
+          <tr><td><code>staff-attachments</code></td><td><span class="chip chip-g">Public</span></td><td>Message file attachments</td></tr>
+        </tbody>
+      </table>
+      <div class="callout ok">
+        <div class="callout-ico">✓</div>
+        <div class="callout-body">Bucket name spelling must match exactly (they're referenced literally in the app's RLS policies, which read the school's ID from the first folder segment of every uploaded file path). Once created, every bucket's access rules were already pushed in step 4.2 — nothing else to configure here.</div>
+      </div>
+    </div>
+
+    <div class="section" id="s4-4">
+      <div class="section-title"><span class="sec-num">4.4</span> Register the Auth Hook, Then Seed the School</div>
+      <div class="callout crit">
+        <div class="callout-ico">🚨</div>
+        <div class="callout-body">Unlike Local/Hybrid (where this is baked into <code>docker-compose.school.yml</code>), a Cloud project needs this hook registered <strong>by hand, every time</strong> — Supabase Cloud has no equivalent env-var shortcut. Without it, nobody can log in.</div>
+      </div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Studio → <strong>Authentication → Hooks</strong> → find <strong>Custom Access Token Hook</strong> → Enable → select <code>public.custom_access_token_hook</code> → Save</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Edit <code>supabase/seed/school_template.sql</code> locally — replace every <code>[REPLACE: ...]</code> with the school's real name/motto/curriculum</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">SQL Editor → run <strong>Step 1</strong> (school_profile INSERT) → copy the returned school_id</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Authentication → Users → Add user</strong> → the IT Admin's login, Auto Confirm checked → copy the User UID</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">SQL Editor → run <strong>Step 2</strong> (staff INSERT, <code>role = 'it_admin'</code>) with both IDs filled in</div></div>
+      </div>
+    </div>
+
+    <div class="section" id="s4-5">
+      <div class="section-title"><span class="sec-num">4.5</span> Verify Login (Local Preview)</div>
+      <p>Before deploying to Vercel (Part 6), confirm the backend works end-to-end using a local dev server pointed at the cloud project:</p>
+      <div class="code-wrap">
+        <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
+        <pre class="code-body">cp .env.example .env.local
+<span class="cm"># Edit .env.local: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY</span>
+<span class="cm"># to this project's values from Part 4.1, VITE_SHULE_MODE=production</span>
+npm run dev</pre>
+      </div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open the printed <strong>http://localhost:5173</strong> URL → log in as the IT Admin from 4.4 → lands on the IT Admin dashboard</div></div>
+      </div>
+      <div class="callout ok">
+        <div class="callout-ico">✓</div>
+        <div class="callout-body">Backend confirmed working. Continue to <strong>Part 5</strong> (Data Migration) if this school has existing records, then <strong>Part 6</strong> to put it on a real public URL.</div>
+      </div>
+    </div>
+
+    <div class="div-sep">Part 5</div>
+
+    <!-- ═══ PART 5 — DATA MIGRATION -->
+    <div id="part5" class="part-hdr">
+      <div class="part-hdr-inner">
+        <div class="part-big-num">05</div>
+        <div class="part-body">
+          <div class="part-eyebrow">Part 5 · Cloud / Hybrid — Bringing In Real Records</div>
+          <div class="part-title">Data Migration</div>
+          <div class="part-desc">Everything up to here migrated the school's structure — tables, RLS, functions — with zero data in it. This part is where the school's actual students, staff, and opening fee balances go in, using the app's own built-in import tools.</div>
+        </div>
+        <div class="part-tag tag-acc">⏱ Varies by school size</div>
+      </div>
+    </div>
+
+    <div class="section" id="s5-1">
+      <div class="section-title"><span class="sec-num">5.1</span> Schema vs. Data — What Already Happened</div>
+      <div class="callout info">
+        <div class="callout-ico">ℹ️</div>
+        <div class="callout-body"><strong>Part 4.2's <code>npm run install:school</code> already migrated everything except data</strong> — full schema, every RLS policy, every trigger, all 15 edge functions. There is no demo or production data file anywhere in the repo to accidentally carry over; a fresh Supabase project starts with empty tables. Local/Hybrid schools got the identical schema via <code>install.sh</code>'s migration step in Part 2.3. This part is entirely about the school's own historical records — the ones only they have.</div>
+      </div>
+    </div>
+
+    <div class="section" id="s5-2">
+      <div class="section-title"><span class="sec-num">5.2</span> Import Students and Staff</div>
+      <p>Log in as <strong>Secretary</strong> (create that account first if you haven't reached Part 8 yet — IT Admin can create it from Staff Management) → <strong>Data Import</strong> page.</p>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Choose <strong>Students</strong> or <strong>Staff</strong> mode → click <strong>Download Template (.csv)</strong> — a pre-built CSV with correct column headers and realistic example rows opens</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Replace the example rows with the school's real records (in Excel, Google Sheets, or any spreadsheet tool) — keep the header row exactly as downloaded</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Upload the filled CSV → the app shows a preview: matched rows, rows needing the correct admission-number year, and any format errors</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">For records from a prior school year: the import reserves each admission number safely under load using the same locking the live registration wizard uses — no collision risk even with a large concurrent import</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">If a CSV row already has an <code>admission_number</code> filled in, it must match the format <code>STU/YYYY/00000001</code> exactly — anything else is rejected with a clear reason rather than silently accepted</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Review the failed-rows list (if any) → fix in the spreadsheet → re-upload just those rows → confirm import</div></div>
+      </div>
+    </div>
+
+    <div class="section" id="s5-3">
+      <div class="section-title"><span class="sec-num">5.3</span> Import Opening Fee Balances</div>
+      <p>Log in as <strong>Bursar</strong> → <strong>Fee Import</strong> page — this is a separate flow from student/staff import, for bringing in each student's opening balance from the school's old fee ledger.</p>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Download the fee payments template, fill in student name, class, amount paid — the app matches each row to an already-imported student by admission number first, then by name + class</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Upload → review the match preview: exact single matches import automatically, but <strong>any row with more than one same-name student in the same class, or only a fuzzy name match, stops for manual confirmation</strong> — this exists specifically so a name collision can't silently credit money to the wrong student</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Resolve every flagged row in the review dropdown before confirming</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Confirm import — every imported payment writes an audit-log entry recording exactly how it was matched (by admission number, exact name, fuzzy match, or manual pick), so a balance can always be traced back to its source row later</div></div>
+      </div>
+    </div>
+
+    <div class="section" id="s5-4">
+      <div class="section-title"><span class="sec-num">5.4</span> What Isn't Bulk-Importable Yet</div>
+      <div class="callout warn">
+        <div class="callout-ico">⚠️</div>
+        <div class="callout-body">Don't promise a school these are ready. A <strong>timetable</strong> CSV template exists in the Data Import page for reference only — there's no handler wired up to actually import it; timetables are entered directly in the app. <strong>Exam marks</strong> have no bulk-import path either — teachers enter or import marks per exam journal from inside the Exams section, not from this general import tool.</div>
+      </div>
+      <div class="callout ok">
+        <div class="callout-ico">✓</div>
+        <div class="callout-body">Data migration done. Continue to <strong>Part 6</strong> to put the school on a live web address (Cloud/Hybrid), or skip straight to <strong>Part 7</strong> if this is a pure Local school with no public frontend to host.</div>
+      </div>
+    </div>
+
+    <div class="div-sep">Part 6</div>
+
+    <!-- ═══ PART 6 — VERCEL DEPLOYMENT -->
+    <div id="part6" class="part-hdr">
+      <div class="part-hdr-inner">
+        <div class="part-big-num">06</div>
+        <div class="part-body">
+          <div class="part-eyebrow">Part 6 · Cloud / Hybrid — Public Web Address</div>
+          <div class="part-title">Vercel Deployment</div>
+          <div class="part-desc">One Vercel project per school, all under your single Vercel account. There's no multi-tenant routing in the frontend — each project is a separate build carrying that one school's Supabase URL and key, baked in at build time.</div>
+        </div>
+        <div class="part-tag tag-blue">⏱ ~15 min</div>
+      </div>
+    </div>
+
+    <div class="section" id="s6-1">
+      <div class="section-title"><span class="sec-num">6.1</span> Add a New Vercel Project</div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Log in to <strong>vercel.com</strong> with your existing account (the one that hosts every school)</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Add New → Project</strong> → under "Import Git Repository", select the <code>shule</code> repo (same repo for every school — only the environment variables differ per project)</div></div>
+      </div>
+    </div>
+
+    <div class="section" id="s6-2">
+      <div class="section-title"><span class="sec-num">6.2</span> Set the School-Specific Project Name and Environment Variables</div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">On the import screen, set <strong>Project Name</strong> to something school-specific and URL-safe, e.g. <code>shule-nycs</code> — this becomes the default subdomain <code>shule-nycs.vercel.app</code></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Framework Preset should auto-detect as <strong>Vite</strong>; leave Build Command / Output Directory at their defaults (<code>npm run build</code> / <code>dist</code>)</div></div>
+      </div>
+      <p style="margin-top:12px">Expand <strong>Environment Variables</strong> and add exactly these 5, from <code>.env.example</code>:</p>
+      <table class="data-tbl">
+        <thead><tr><th>Key</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td><code>VITE_SUPABASE_URL</code></td><td>This school's Project URL from Part 4.1</td></tr>
+          <tr><td><code>VITE_SUPABASE_ANON_KEY</code></td><td>This school's anon public key from Part 4.1</td></tr>
+          <tr><td><code>VITE_SHULE_MODE</code></td><td><code>production</code></td></tr>
+          <tr><td><code>VITE_DEMO_SCHOOL_ID</code></td><td>leave blank — only used for the demo mode</td></tr>
+          <tr><td><code>VITE_VAPID_PUBLIC_KEY</code></td><td>generate with <code>npx web-push generate-vapid-keys</code> — used for push notifications</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warn">
+        <div class="callout-ico">⚠️</div>
+        <div class="callout-body">These are read once at build time via <code>import.meta.env</code> (<code>src/lib/supabase.ts</code>) — there's no runtime switch. If you ever need to point this project at a different Supabase project, update the env vars and trigger a new deploy; the old build keeps talking to the old project until then.</div>
+      </div>
+    </div>
+
+    <div class="section" id="s6-3">
+      <div class="section-title"><span class="sec-num">6.3</span> Deploy and Verify</div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Click <strong>Deploy</strong> → wait for the build to finish (a couple of minutes)</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open the live <code>https://shule-nycs.vercel.app</code> URL → the Shule login page loads</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Log in as the IT Admin from Part 4.4 → lands on the IT Admin dashboard — confirms the deployed build is talking to the right Supabase project</div></div>
+      </div>
+    </div>
+
+    <div class="section" id="s6-4">
+      <div class="section-title"><span class="sec-num">6.4</span> Custom Domain (Optional)</div>
+      <p>If the school owns a domain and wants <code>portal.theirschool.ac.ug</code> instead of the <code>.vercel.app</code> subdomain:</p>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">This Vercel project → <strong>Settings → Domains</strong> → add the domain → Vercel shows the DNS record to create (usually a CNAME)</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Add that record with the school's domain registrar → wait for DNS propagation (minutes to a few hours) → Vercel auto-issues an SSL certificate once it verifies</div></div>
+      </div>
+      <div class="callout ok">
+        <div class="callout-ico">✓</div>
+        <div class="callout-body">This school now has a live, working link — the deliverable the whole cloud/hybrid path exists to produce. Continue to <strong>Part 7</strong> for the parts every school (Local, Hybrid, Cloud) shares.</div>
+      </div>
+    </div>
+
+    <div class="div-sep">Part 7</div>
+
+    <!-- ═══ PART 7 -->
+    <div id="part7" class="part-hdr">
+      <div class="part-hdr-inner">
+        <div class="part-big-num">07</div>
+        <div class="part-body">
+          <div class="part-eyebrow">Part 7 · Every Path — In the App</div>
           <div class="part-title">School Profile Setup</div>
           <div class="part-desc">IT Admin configures the school identity, academic year, departments, and creates all senior staff accounts.</div>
         </div>
@@ -1786,14 +1974,14 @@ INSERT INTO staff (
     </div>
 
     <div class="section">
-      <div class="section-title"><span class="sec-num">4.1</span> IT Admin Configures the School</div>
+      <div class="section-title"><span class="sec-num">7.1</span> IT Admin Configures the School</div>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Log in as IT Admin → go to <strong>School Settings</strong> → upload logo, set full name, short name, motto, brand color, address, phone → Save</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Settings → <strong>Academic Year</strong> → create current year (e.g. 2025–2026) → set Term 1, 2, 3 dates → mark Active → Save</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Settings → <strong>Departments</strong> → add Sciences, Humanities, Languages, Technical → Save each</div></div>
       </div>
 
-      <div class="section-title" style="margin-top:20px"><span class="sec-num">4.2</span> Create Senior Staff Accounts</div>
+      <div class="section-title" style="margin-top:20px"><span class="sec-num">7.2</span> Create Senior Staff Accounts</div>
       <p>Go to Staff Management → Register Staff. Create accounts in this order:</p>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Secretary</strong> — <code>secretary@nycs.ac.ug</code> · Role: Secretary</div></div>
@@ -1804,74 +1992,74 @@ INSERT INTO staff (
       </div>
       <div class="callout ok">
         <div class="callout-ico">✓</div>
-        <div class="callout-body">Each account is created with password <code>Shule@2025</code> via the <code>create-staff-auth-user</code> Edge Function automatically.</div>
+        <div class="callout-body">Each account is created with an auto-generated temporary password via the <code>create-staff-auth-user</code> Edge Function automatically — shown once at creation, and every staff role from here on is created the same self-service way, entirely from inside the app.</div>
       </div>
     </div>
 
-    <div class="div-sep">Part 5</div>
+    <div class="div-sep">Part 8</div>
 
-    <!-- ═══ PART 5 -->
-    <div id="part5" class="part-hdr">
+    <!-- ═══ PART 8 -->
+    <div id="part8" class="part-hdr">
       <div class="part-hdr-inner">
-        <div class="part-big-num">05</div>
+        <div class="part-big-num">08</div>
         <div class="part-body">
-          <div class="part-eyebrow">Part 5 · Secretary</div>
+          <div class="part-eyebrow">Part 8 · Every Path — Secretary</div>
           <div class="part-title">Staff Registration</div>
-          <div class="part-desc">Secretary logs in and registers all teaching staff using the 4-step wizard.</div>
+          <div class="part-desc">Secretary logs in and registers all remaining teaching staff using the 4-step wizard (any staff not already brought in via Part 5's bulk import).</div>
         </div>
         <div class="part-tag tag-amber">⏱ ~45 min</div>
       </div>
     </div>
 
-    <div class="section" id="s5-1">
-      <div class="section-title"><span class="sec-num">5.1</span> Secretary Logs In</div>
+    <div class="section" id="s8-1">
+      <div class="section-title"><span class="sec-num">8.1</span> Secretary Logs In</div>
       <div class="steps">
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open <strong>http://192.168.1.100</strong> on Secretary's device → login: <code>secretary@nycs.ac.ug</code> / <code>Shule@2025</code></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open the school's live URL (from Part 3.3 or Part 6.3) on the Secretary's device → log in with the credentials from Part 7.2</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Secretary is prompted to change password on first login</div></div>
       </div>
 
-      <div class="section-title" style="margin-top:20px"><span class="sec-num">5.2</span> Register All Teaching Staff</div>
-      <p>Go to <strong>Staff → Register Staff</strong>. For each teacher, complete all 4 steps:</p>
+      <div class="section-title" style="margin-top:20px"><span class="sec-num">8.2</span> Register Any Remaining Teaching Staff</div>
+      <p>Go to <strong>Staff → Register Staff</strong>. For each teacher not already covered by Part 5's CSV import, complete all 4 steps:</p>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Step 1 — Personal info:</strong> Full name, date of birth, gender, National ID, phone, email. Photo is optional at this stage.</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Step 2 — Professional info:</strong> Staff number (auto-generated), Role (Teacher or Class Teacher), Department, Subjects, Classes assigned</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Step 2 — Professional info:</strong> Staff number (auto-generated, 8-digit format <code>STAFF/YYYY/00000001</code>), Role (Teacher or Class Teacher), Department, Subjects, Classes assigned</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Step 3 — Qualification level:</strong> Select from Uganda MoES dropdown. System warns if below minimum for their class level.</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Step 4 — Documents:</strong> Upload NIN (required for new staff). Mark as "existing staff" to skip mandatory uploads for staff already in the system.</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Submit — auth account auto-created, credentials auto-generated</div></div>
       </div>
     </div>
 
-    <div class="div-sep">Part 6</div>
+    <div class="div-sep">Part 9</div>
 
-    <!-- ═══ PART 6 -->
-    <div id="part6" class="part-hdr">
+    <!-- ═══ PART 9 -->
+    <div id="part9" class="part-hdr">
       <div class="part-hdr-inner">
-        <div class="part-big-num">06</div>
+        <div class="part-big-num">09</div>
         <div class="part-body">
-          <div class="part-eyebrow">Part 6 · Devices</div>
+          <div class="part-eyebrow">Part 9 · Every Path — Devices</div>
           <div class="part-title">Connect All Staff Devices</div>
-          <div class="part-desc">Get every device on school WiFi, install Shule as a PWA, and post QR codes.</div>
+          <div class="part-desc">Get every device on the right network (Local/Hybrid: school WiFi; Cloud: any internet connection), install Shule as a PWA, and post QR codes.</div>
         </div>
         <div class="part-tag tag-green">⏱ ~30 min</div>
       </div>
     </div>
 
-    <div class="section" id="s6-1">
-      <div class="section-title"><span class="sec-num">6.1</span> Connect to School WiFi and Open Shule</div>
+    <div class="section" id="s9-1">
+      <div class="section-title"><span class="sec-num">9.1</span> Connect and Open Shule</div>
       <div class="steps">
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Connect every device (laptop, tablet, phone) to the school's WiFi network</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open <strong>Chrome</strong> (recommended) or Firefox → type <code>http://192.168.1.100</code> → login page loads</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Local/Hybrid:</strong> connect every device (laptop, tablet, phone) to the school's WiFi network. <strong>Cloud:</strong> any internet connection works — no special network needed.</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open <strong>Chrome</strong> (recommended) or Firefox → type the school's URL (<code>http://192.168.1.100</code> for Local/Hybrid, or the Vercel/custom-domain URL for Cloud) → login page loads</div></div>
       </div>
 
-      <div class="section-title" style="margin-top:20px"><span class="sec-num">6.2</span> Install as PWA on Each Device</div>
+      <div class="section-title" style="margin-top:20px"><span class="sec-num">9.2</span> Install as PWA on Each Device</div>
       <div class="train-grid">
         <div class="train-card">
           <div class="train-head"><div class="train-role">Android · Chrome</div></div>
           <ul class="train-list">
-            <li>Open http://192.168.1.100 in Chrome</li>
+            <li>Open the school's Shule URL in Chrome</li>
             <li>Tap three-dot menu → <strong>Add to Home Screen</strong></li>
             <li>Name it Shule → Tap Add</li>
-            <li>Icon on home screen — opens like native app</li>
+            <li>Icon on home screen — opens like a native app</li>
           </ul>
         </div>
         <div class="train-card">
@@ -1885,14 +2073,14 @@ INSERT INTO staff (
         <div class="train-card">
           <div class="train-head"><div class="train-role">Windows · Chrome</div></div>
           <ul class="train-list">
-            <li>Open http://192.168.1.100 in Chrome</li>
+            <li>Open the school's Shule URL in Chrome</li>
             <li>Click install icon in address bar</li>
             <li>Click Install → opens as standalone window</li>
           </ul>
         </div>
       </div>
 
-      <div class="section-title" style="margin-top:20px"><span class="sec-num">6.3</span> Post the QR Codes</div>
+      <div class="section-title" style="margin-top:20px"><span class="sec-num">9.3</span> Post the QR Codes</div>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Post one in the <strong>staffroom</strong></div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Post one in the <strong>staff common room</strong></div></div>
@@ -1900,14 +2088,14 @@ INSERT INTO staff (
       </div>
     </div>
 
-    <div class="div-sep">Part 7</div>
+    <div class="div-sep">Part 10</div>
 
-    <!-- ═══ PART 7 -->
-    <div id="part7" class="part-hdr">
+    <!-- ═══ PART 10 -->
+    <div id="part10" class="part-hdr">
       <div class="part-hdr-inner">
-        <div class="part-big-num">07</div>
+        <div class="part-big-num">10</div>
         <div class="part-body">
-          <div class="part-eyebrow">Part 7 · Training</div>
+          <div class="part-eyebrow">Part 10 · Every Path — Training</div>
           <div class="part-title">Training Sessions</div>
           <div class="part-desc">Run in this exact order. Each person's device must be logged in and ready before their session starts.</div>
         </div>
@@ -1915,7 +2103,7 @@ INSERT INTO staff (
       </div>
     </div>
 
-    <div class="section" id="s7-1">
+    <div class="section" id="s10-1">
       <div class="train-grid">
         <div class="train-card">
           <div class="train-head"><div class="train-role">IT Admin</div><div class="train-dur">30 min</div></div>
@@ -1925,8 +2113,7 @@ INSERT INTO staff (
             <li>Password Reset — how to reset any staff</li>
             <li>System KPIs — IT dashboard</li>
             <li>Adding a new staff member later</li>
-            <li>Power cut — auto-restarts in 2 min</li>
-            <li>Backup location: /opt/shule/backups/</li>
+            <li><strong>Local/Hybrid:</strong> power cut — auto-restarts in ~2 min, backups at <code>/opt/shule/backups/</code></li>
           </ul>
         </div>
         <div class="train-card">
@@ -1934,7 +2121,7 @@ INSERT INTO staff (
           <ul class="train-list">
             <li>Register a new student (3-step wizard)</li>
             <li>Register a new teacher</li>
-            <li>Import students from Excel</li>
+            <li>Import students/staff from CSV</li>
             <li>Manage class lists</li>
             <li>Generate parent portal access links</li>
             <li>Fee status view (paid/unpaid — no amounts)</li>
@@ -1945,15 +2132,14 @@ INSERT INTO staff (
         <div class="train-card">
           <div class="train-head"><div class="train-role">Bursar</div><div class="train-dur">45 min</div></div>
           <ul class="train-list">
-            <li>Import fee statements from Excel</li>
-            <li>Column mapping wizard</li>
+            <li>Import fee ledger from CSV</li>
+            <li>Confirming ambiguous name matches</li>
             <li>Edit fee ledger inline</li>
             <li>Add new payment record</li>
             <li>Balance auto-calculation</li>
-            <li>Send SMS fee reminders</li>
+            <li>Send SMS/WhatsApp fee reminders</li>
             <li>Filter by class, stream, balance</li>
             <li>Export fee reports PDF / Excel</li>
-            <li>SMS delivery log</li>
           </ul>
         </div>
         <div class="train-card">
@@ -1961,7 +2147,6 @@ INSERT INTO staff (
           <ul class="train-list">
             <li>Create exam journal entry</li>
             <li>Enter marks manually</li>
-            <li>Import marks from Excel</li>
             <li>View score distribution chart</li>
             <li>Record daily attendance</li>
             <li>Enter term remarks per student</li>
@@ -1985,58 +2170,50 @@ INSERT INTO staff (
       </div>
     </div>
 
-    <div class="div-sep">Part 8</div>
+    <div class="div-sep">Part 11</div>
 
-    <!-- ═══ PART 8 -->
-    <div id="part8" class="part-hdr">
+    <!-- ═══ PART 11 -->
+    <div id="part11" class="part-hdr">
       <div class="part-hdr-inner">
-        <div class="part-big-num">08</div>
+        <div class="part-big-num">11</div>
         <div class="part-body">
-          <div class="part-eyebrow">Part 8 · Final</div>
+          <div class="part-eyebrow">Part 11 · Every Path — Final</div>
           <div class="part-title">Handover</div>
-          <div class="part-desc">Final system check, credentials handover, update Shule Admin Dashboard, and send the follow-up WhatsApp.</div>
+          <div class="part-desc">Final system check, credentials handover, and the follow-up message. This is the state the school should be in when you walk away.</div>
         </div>
         <div class="part-tag tag-green">🎉 Final Step</div>
       </div>
     </div>
 
-    <div class="section" id="s8-1">
-      <div class="section-title"><span class="sec-num">8.1</span> Final System Check</div>
+    <div class="section" id="s11-1">
+      <div class="section-title"><span class="sec-num">11.1</span> Final System Check</div>
       <div class="chk-box">
-        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Login page loads at http://192.168.1.100</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">The school has one live link — <code>http://192.168.1.100</code> (Local/Hybrid) and/or <code>https://shule-&lt;name&gt;.vercel.app</code> or custom domain (Cloud/Hybrid) — and it loads the login page</div></div>
         <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">IT Admin logs in successfully</div></div>
-        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Principal logs in — sees Principal dashboard</div></div>
-        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Secretary logs in — sees Secretary dashboard</div></div>
-        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Bursar logs in — sees Bursar dashboard</div></div>
-        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">One Teacher logs in — sees Teacher dashboard</div></div>
-        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Teacher cannot access /fees — hard blocked</div></div>
-        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">School logo appears in sidebar</div></div>
-        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">School name appears correctly everywhere</div></div>
-        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Academic year is set and active</div></div>
-        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">At least one class and stream exist</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Principal, Secretary, Bursar, and one Teacher each log in — see their correct dashboard</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Every senior staff role from Part 7 exists and can log in — <strong>all roles are created in Supabase</strong>, not just IT Admin</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Teacher cannot access <code>/fees</code> — hard blocked</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">School logo and correct name appear in the sidebar everywhere</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Academic year is set and active; at least one class and stream exist</div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">If Part 5 was run: imported students/staff appear correctly in their lists, and imported fee balances match the school's old ledger — <strong>all their data is migrated</strong></div></div>
+        <div class="chk-row" onclick="toggleCk(this)"><div class="cb2"></div><div class="cl2">Student/staff photo, report-card, and document uploads work (confirms the Part 4.3 storage buckets are correctly wired)</div></div>
       </div>
 
-      <div class="section-title" style="margin-top:20px"><span class="sec-num">8.2</span> Hand Over Credentials</div>
+      <div class="section-title" style="margin-top:20px"><span class="sec-num">11.2</span> Hand Over Credentials</div>
       <div class="steps">
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Confirm credentials sheet is printed and sealed in envelope</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Write on the outside: <strong>"SHULE SYSTEM CREDENTIALS — OPEN WITH IT ADMIN ONLY"</strong></div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Hand the envelope to the <strong>Principal personally</strong> — not the IT Admin, not the Secretary</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Tell the Principal: <em>"Keep this in the school safe. Share IT Admin credentials only with the IT Admin. Any staff password can be reset by the IT Admin at any time."</em></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Local/Hybrid:</strong> print <code>/opt/shule/CREDENTIALS.txt</code> (Studio login + DB password), seal in an envelope labelled <strong>"SHULE SYSTEM CREDENTIALS — OPEN WITH IT ADMIN ONLY"</strong></div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Cloud:</strong> share the Supabase project owner access and Vercel project access with the IT Admin (or keep them under your account per the agreed support arrangement) — document which applies for this school</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Hand credentials to the <strong>Principal personally</strong> — not the IT Admin, not the Secretary</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Tell the Principal: <em>"Keep this safe. Share IT Admin credentials only with the IT Admin. Any staff password can be reset by the IT Admin at any time."</em></div></div>
       </div>
 
-      <div class="section-title" style="margin-top:20px"><span class="sec-num">8.3</span> Add School to Shule Admin Dashboard</div>
-      <div class="steps">
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open Shule Admin Dashboard → <strong>School Registry</strong> → find the school in pending list</div></div>
-        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Update status to <span class="chip chip-g">Active Local</span> → add installation notes → assign yourself → Save</div></div>
-      </div>
-
-      <div class="section-title" style="margin-top:20px"><span class="sec-num">8.4</span> Send Follow-Up WhatsApp</div>
+      <div class="section-title" style="margin-top:20px"><span class="sec-num">11.3</span> Send Follow-Up WhatsApp</div>
       <div class="wa-box">
         Hi [Name],<br><br>
         Shule is now live at your school 🎉<br><br>
         Quick reference:<br>
-        • System URL: http://192.168.1.100<br>
-        • Open on any device connected to school WiFi<br>
+        • System URL: [http://192.168.1.100 or the school's Vercel/custom URL]<br>
+        • Open on any device [connected to school WiFi / with internet access]<br>
         • Install it on your phone using the QR code in the staffroom<br><br>
         If you need any help:<br>
         • WhatsApp us: +256XXXXXXXXX<br>
@@ -2047,7 +2224,7 @@ INSERT INTO staff (
 
       <div class="callout ok" style="margin-top:20px">
         <div class="callout-ico">🎉</div>
-        <div class="callout-body"><strong>Installation complete.</strong> The full process takes approximately one working day on site — 45 minutes technical setup, 2 hours training, plus device setup and staff registration. Shule is live.</div>
+        <div class="callout-body"><strong>Installation complete.</strong> The school has a working link, every role can log in, and their existing records are in the system. Local/Hybrid on-site work is roughly one working day (45 min technical setup, 2 hrs training, plus device setup and staff registration); Cloud setup can be done entirely remotely.</div>
       </div>
     </div>
 
