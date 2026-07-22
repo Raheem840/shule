@@ -80,11 +80,11 @@ REVOKE SELECT (
 -- and restricted to the roles that manage this page.
 CREATE OR REPLACE FUNCTION "public"."get_messaging_config_status"()
 RETURNS TABLE (
-  at_api_key_set        "boolean",
-  at_username_set       "boolean",
-  at_sender_id_set      "boolean",
-  wa_phone_number_id_set "boolean",
-  wa_access_token_set   "boolean"
+  at_api_key_set        boolean,
+  at_username_set       boolean,
+  at_sender_id_set      boolean,
+  wa_phone_number_id_set boolean,
+  wa_access_token_set   boolean
 )
 LANGUAGE "sql" STABLE SECURITY DEFINER SET search_path TO 'public'
 AS $$
