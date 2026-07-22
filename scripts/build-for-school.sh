@@ -14,21 +14,22 @@
 #           https://xxx.supabase.co CLOUD_ANON_KEY cloud
 #
 # Hybrid: ./scripts/build-for-school.sh "School Name" \
-#           http://192.168.1.100:8000 LOCAL_ANON_KEY hybrid \
-#           https://xxx.supabase.co CLOUD_ANON_KEY
+#           http://192.168.1.100:8000 LOCAL_ANON_KEY hybrid
+#
+# Note: Hybrid takes no separate cloud URL/key here — the frontend build
+# only ever points at ONE Supabase project (the local one, for Hybrid). The
+# school's separate cloud project (for off-site backup) is configured via
+# prepare-usb.sh instead, and its service-role key never becomes a frontend
+# build arg — see scripts/backup-upload.sh.
 
 SCHOOL_NAME=$1
 SUPABASE_URL=$2
 ANON_KEY=$3
 MODE=${4:-local}
-CLOUD_URL=${5:-""}
-CLOUD_KEY=${6:-""}
 
 if [ -z "$SCHOOL_NAME" ] || [ -z "$SUPABASE_URL" ] || \
    [ -z "$ANON_KEY" ]; then
-  echo "Usage: ./scripts/build-for-school.sh \
-    'School Name' SUPABASE_URL ANON_KEY [MODE] \
-    [CLOUD_URL] [CLOUD_KEY]"
+  echo "Usage: ./scripts/build-for-school.sh 'School Name' SUPABASE_URL ANON_KEY [MODE]"
   exit 1
 fi
 
@@ -48,8 +49,6 @@ docker build \
   --build-arg VITE_SUPABASE_URL="$SUPABASE_URL" \
   --build-arg VITE_SUPABASE_ANON_KEY="$ANON_KEY" \
   --build-arg VITE_SHULE_MODE="$MODE" \
-  --build-arg VITE_CLOUD_SUPABASE_URL="$CLOUD_URL" \
-  --build-arg VITE_CLOUD_SUPABASE_ANON_KEY="$CLOUD_KEY" \
   -t "$IMAGE_NAME" \
   -t "$IMAGE_NAME:$DATE_TAG" \
   .

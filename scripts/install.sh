@@ -73,6 +73,7 @@ DASHBOARD_USERNAME=${DASHBOARD_USERNAME}
 DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD}
 SECRET_KEY_BASE=${SECRET_KEY_BASE}
 EOF
+chmod 600 /opt/shule/.env
 echo "  ✓ /opt/shule/.env written (docker compose reads this automatically,"
 echo "    including after a reboot)"
 
@@ -153,16 +154,35 @@ echo "  ✓ Web server configured"
 # ── STEP 9: Setup backups and auto-restart ────────────────────
 echo "→ [9/9] Configuring backups..."
 mkdir -p /opt/shule/backups
-(crontab -l 2>/dev/null; echo "0 2 * * * cd /opt/shule && docker compose -f docker-compose.school.yml exec -T \
-  -e PGPASSWORD=$POSTGRES_PASSWORD db pg_dump -U postgres postgres \
+cp "$INSTALL_DIR/restore.sh" /opt/shule/ 2>/dev/null || true
+cp "$INSTALL_DIR/backup-upload.sh" /opt/shule/ 2>/dev/null || true
+chmod +x /opt/shule/restore.sh /opt/shule/backup-upload.sh 2>/dev/null || true
+
+# CLOUD_URL/CLOUD_SERVICE_KEY are blank for Local installs (generate-local-secrets.js
+# only fills them for hybrid) — the cron command below is safe either way,
+# since backup-upload.sh's own arg check exits early on empty values.
+cat >> /opt/shule/.env << EOF
+CLOUD_URL=${CLOUD_URL:-}
+CLOUD_SERVICE_KEY=${CLOUD_SERVICE_KEY:-}
+EOF
+
+(crontab -l 2>/dev/null; echo "0 2 * * * cd /opt/shule && set -a && . /opt/shule/.env && set +a && docker compose -f docker-compose.school.yml exec -T \
+  -e PGPASSWORD=\$POSTGRES_PASSWORD db pg_dump -U postgres postgres \
   > /opt/shule/backups/shule_\$(date +\%Y\%m\%d).sql \
-  && find /opt/shule/backups -name '*.sql' -mtime +30 -delete") \
+  && find /opt/shule/backups -name '*.sql' -mtime +30 -delete \
+  && if [ -n \"\$CLOUD_URL\" ]; then bash /opt/shule/backup-upload.sh /opt/shule/backups/shule_\$(date +\%Y\%m\%d).sql \"\$CLOUD_URL\" \"\$CLOUD_SERVICE_KEY\" \"\$SCHOOL_NAME\" >> /opt/shule/backup-upload.log 2>&1; fi") \
   | crontab -
 systemctl enable docker
 systemctl enable nginx
 echo "  ✓ Nightly backup at 2 AM configured (via docker compose exec — no"
 echo "    database port is exposed to the network)"
+if [ -n "${CLOUD_URL:-}" ]; then
+  echo "  ✓ Hybrid mode: nightly backup also uploads to the cloud project"
+  echo "    (log: /opt/shule/backup-upload.log)"
+fi
 echo "  ✓ Auto-restart on power cut configured"
+echo "  ✓ Restore script installed: /opt/shule/restore.sh (run 'sudo bash"
+echo "    restore.sh --help' equivalent — see comments at the top of the file)"
 
 # ── Print QR code ─────────────────────────────────────────────
 qrencode -t ANSI "http://192.168.1.100"
@@ -204,4 +224,7 @@ echo "     every other staff member from inside the app."
 echo ""
 echo "  Credentials: /opt/shule/CREDENTIALS.txt"
 echo "  school_template.sql: $INSTALL_DIR/school_template.sql"
+echo ""
+echo "  BACKUPS: nightly at 2 AM into /opt/shule/backups (30-day retention)."
+echo "  To restore (e.g. after a hardware failure): sudo bash /opt/shule/restore.sh"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

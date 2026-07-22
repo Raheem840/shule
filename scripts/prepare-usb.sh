@@ -6,28 +6,40 @@
 # Usage:
 #   Local:  ./scripts/prepare-usb.sh "School Name"
 #   Hybrid: ./scripts/prepare-usb.sh "School Name" hybrid \
-#             https://xxx.supabase.co CLOUD_ANON_KEY
+#             https://xxx.supabase.co CLOUD_SERVICE_ROLE_KEY
 #
 # Unlike the old version of this script, you do NOT need to already have a
 # Supabase URL/anon key for the local side — there's no existing project to
 # get one from for a fresh on-prem install, so this generates a unique,
 # school-specific secret set instead (see scripts/generate-local-secrets.js).
+#
+# Hybrid mode: the app itself still runs entirely against the LOCAL Supabase
+# stack (there is no live dual-write to the cloud — that would need
+# conflict-resolution machinery this system doesn't have). What "hybrid"
+# actually buys the school is disaster recovery: install.sh's nightly
+# pg_dump also gets uploaded to the given cloud project's Storage (see
+# scripts/backup-upload.sh / scripts/restore.sh --from-cloud), so a lost or
+# destroyed server doesn't mean lost data. CLOUD_SERVICE_ROLE_KEY must be
+# that project's service_role key (Settings -> API -> service_role) — NOT
+# the anon key, and it never reaches the frontend build or the browser.
 
 set -e
 
 SCHOOL_NAME=$1
 MODE=${2:-local}
 CLOUD_URL=${3:-""}
-CLOUD_KEY=${4:-""}
+CLOUD_SERVICE_KEY=${4:-""}
 
 if [ -z "$SCHOOL_NAME" ]; then
-  echo "Usage: ./scripts/prepare-usb.sh 'School Name' [local|hybrid] [CLOUD_URL] [CLOUD_KEY]"
+  echo "Usage: ./scripts/prepare-usb.sh 'School Name' [local|hybrid] [CLOUD_URL] [CLOUD_SERVICE_KEY]"
   exit 1
 fi
 
-if [ "$MODE" = "hybrid" ] && { [ -z "$CLOUD_URL" ] || [ -z "$CLOUD_KEY" ]; }; then
-  echo "Hybrid mode also needs the cloud project's URL and anon key:"
-  echo "  ./scripts/prepare-usb.sh 'School Name' hybrid https://xxx.supabase.co CLOUD_ANON_KEY"
+if [ "$MODE" = "hybrid" ] && { [ -z "$CLOUD_URL" ] || [ -z "$CLOUD_SERVICE_KEY" ]; }; then
+  echo "Hybrid mode also needs the cloud project's URL and service_role key"
+  echo "(Settings -> API -> service_role, NOT anon — this key only ever runs"
+  echo "server-side in the nightly backup cron, never in the browser):"
+  echo "  ./scripts/prepare-usb.sh 'School Name' hybrid https://xxx.supabase.co CLOUD_SERVICE_ROLE_KEY"
   exit 1
 fi
 
@@ -44,7 +56,7 @@ mkdir -p shule-install/migrations
 
 echo ""
 echo "→ Generating secrets for this school..."
-node scripts/generate-local-secrets.js "$SCHOOL_NAME" "$LOCAL_SITE_URL" > shule-install/secrets.env
+node scripts/generate-local-secrets.js "$SCHOOL_NAME" "$LOCAL_SITE_URL" "$MODE" "$CLOUD_URL" "$CLOUD_SERVICE_KEY" > shule-install/secrets.env
 set -a
 # shellcheck disable=SC1091
 source shule-install/secrets.env
@@ -54,9 +66,18 @@ echo "    copy and is never uploaded anywhere. Do not put it on a USB you'll"
 echo "    reuse for another school."
 
 # Build the school frontend image and, for local/hybrid, every edge
-# function image — all pre-cached so nothing needs internet on-site.
+# function image — all pre-cached so nothing needs internet on-site. The
+# frontend only ever talks to the local Supabase stack, Local or Hybrid —
+# cloud creds are NOT frontend build args, see backup-upload.sh for where
+# they're actually used (server-side backup cron only).
 bash scripts/build-for-school.sh \
-  "$SCHOOL_NAME" "$SUPABASE_PUBLIC_URL" "$ANON_KEY" "$MODE" "$CLOUD_URL" "$CLOUD_KEY"
+  "$SCHOOL_NAME" "$SUPABASE_PUBLIC_URL" "$ANON_KEY" "$MODE"
+
+# Ship the backup/restore scripts so a Hybrid school's cron and any future
+# manual restore both have them on-site.
+cp scripts/backup-upload.sh shule-install/
+cp scripts/restore.sh shule-install/
+chmod +x shule-install/backup-upload.sh shule-install/restore.sh
 
 # Pull and save the self-hosted Supabase backend images for offline use.
 echo ""
@@ -121,6 +142,13 @@ AFTER INSTALL — manual steps (install.sh prints these too):
   3. Run the staff INSERT at the bottom of school_template.sql with that
      user's ID
   4. Log in to Shule as IT Admin and create all other staff from there
+
+BACKUPS:
+  Nightly automatic backup at 2 AM, kept 30 days: /opt/shule/backups
+$([ "$MODE" = "hybrid" ] && echo "  Hybrid mode: each night's backup is also uploaded off-site to the
+  cloud project you configured — recoverable even if this server is lost.")
+  To restore: sudo bash /opt/shule/restore.sh
+  (add --from-cloud instead of a local file if the server's disk is gone too$([ "$MODE" != "hybrid" ] && echo " — only works for Hybrid installs"))
 
 SUPPORT:
   WhatsApp: +256XXXXXXXXX

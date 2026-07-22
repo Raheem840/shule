@@ -18,14 +18,22 @@ npm run build:school "School Name" \
   https://xxx.supabase.co ANON_KEY cloud
 ```
 
-## Hybrid School (local + cloud sync)
+## Hybrid School (local + cloud backup)
 ```
 npm run usb:prepare "School Name" hybrid \
-  https://xxx.supabase.co CLOUD_ANON_KEY
+  https://xxx.supabase.co CLOUD_SERVICE_ROLE_KEY
 Copy shule-install/ to USB
 On school server: sudo bash install.sh
 ```
-Same as Local, but also wires up the cloud project as a sync target.
+Note this needs the cloud project's **service_role** key (Settings → API),
+not its anon key — it only ever runs server-side in the nightly backup cron,
+never in the browser.
+
+Same as Local — the app still runs entirely against the school's own local
+Supabase stack, there is no live dual-write. What Hybrid actually adds:
+every night's local backup also gets uploaded to the cloud project's
+Storage, so the school's data survives even if the local server itself is
+lost, stolen, or its disk fails. See "Backups & Restore" below.
 
 ## After Every Installation
 
@@ -45,6 +53,29 @@ variable in `docker-compose.school.yml` — nothing to do here.
 3. Run Step 2 of `school_template.sql` with both IDs filled in.
 4. Log in as IT Admin — they create every other staff member from inside
    the app.
+
+## Backups & Restore
+
+Every Local or Hybrid install gets a nightly `pg_dump` at 2 AM into
+`/opt/shule/backups`, 30-day retention, set up automatically by
+`install.sh` step 9. Hybrid installs also upload each night's dump to the
+cloud project's Storage (`scripts/backup-upload.sh`) — off-site coverage
+for a lost/destroyed/stolen server.
+
+To restore, on the school server:
+```
+sudo bash /opt/shule/restore.sh                  # newest local backup
+sudo bash /opt/shule/restore.sh --file <path>     # a specific local backup
+sudo bash /opt/shule/restore.sh --from-cloud      # Hybrid only — pulls the
+                                                   # newest cloud backup first,
+                                                   # for when local backups
+                                                   # are gone too
+```
+Prompts for confirmation before touching anything (`--yes` skips it). Stops
+the app + edge functions, restores the database, restarts everything.
+
+Cloud School installs don't need this script — restore via Supabase's own
+point-in-time recovery / dashboard backup tooling instead.
 
 ## Every Time the Database Changes
 ```

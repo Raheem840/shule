@@ -45,6 +45,26 @@ Context-aware via `context` prop and `requiredFields`/`optionalFields` prop arra
 **Why:** Identical 5-step UX across all import contexts. Build once, use four times.
 Saved mapping templates stored per school so repeated imports are one-click.
 
+### 007 — Hybrid Mode Is Backup-Only, Not Live Dual-Write
+**Date:** 2026-07-22
+**Decision:** "Hybrid" deployment does NOT mean the frontend writes to two Supabase
+projects. The app always talks to exactly one project (the school's local stack, for
+Hybrid). What Hybrid actually wires up is a nightly off-site backup: `install.sh`'s
+existing local `pg_dump` cron also uploads that dump to a second, separate cloud
+Supabase project's Storage (`scripts/backup-upload.sh`), recoverable via
+`scripts/restore.sh --from-cloud` if the local server itself is lost.
+**Why:** A real live dual-write sync needs conflict resolution (two devices editing
+the same fee payment while briefly disconnected, etc.) that doesn't exist anywhere in
+this codebase — building it properly is its own multi-week feature, not something to
+half-implement. Backup-upload gives the actual thing a school needs from "hybrid"
+(their data survives a destroyed server) without that risk. Found via a completeness
+audit: `VITE_CLOUD_SUPABASE_URL`/`VITE_CLOUD_SUPABASE_ANON_KEY` had been wired all the
+way through `prepare-usb.sh` → `build-for-school.sh` → `Dockerfile` as frontend build
+args, but nothing in `src/` ever read them — dead, misleading plumbing, now removed.
+**Tradeoff:** No automatic cross-device sync if a school ever ran both a local server
+and cloud project live simultaneously (not a supported configuration — Hybrid means
+local-primary-with-cloud-backup, not local-and-cloud-both-live).
+
 ### 006 — Parent Multi-Student via student_ids UUID Array
 **Date:** 2025-05-17
 **Decision:** `parent_accounts.student_ids UUID[]` stores all children for a parent.
@@ -59,8 +79,10 @@ State keeps the active selection ephemeral and private per session.
 
 - [ ] Parent auth: full Supabase Auth user or magic-link token? (Leaning: full Auth user,
       Secretary generates account, parent sets password via email link)
-- [ ] `SHULE_MODE=local` build: bundle different URLs at build time or runtime?
-      (Leaning: runtime env detection via `VITE_SUPABASE_URL` in `.env.local`)
+- [x] `SHULE_MODE=local` build: bundle different URLs at build time or runtime?
+      **Decided (2026-07-22):** build time — `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`
+      are Docker build args baked into the static bundle per school
+      (`scripts/build-for-school.sh`), not read at runtime. See decision 007.
 - [ ] Africa's Talking key: Supabase Vault or server env? (Decision: Vault — never .env)
 - [ ] Student portal: should students also be Supabase Auth users or portal-link only?
       (Leaning: full Auth users, Secretary generates, student sets password)

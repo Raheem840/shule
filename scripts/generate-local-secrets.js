@@ -15,6 +15,17 @@
 //
 // Usage:
 //   node scripts/generate-local-secrets.js "School Name" http://192.168.1.100 > shule-install/secrets.env
+//   node scripts/generate-local-secrets.js "School Name" http://192.168.1.100 hybrid \
+//     https://xxx.supabase.co CLOUD_SERVICE_ROLE_KEY > shule-install/secrets.env
+//
+// The last two args (only meaningful when mode=hybrid) are the school's
+// SEPARATE cloud Supabase project, used only as an off-site target for
+// nightly backup uploads (scripts/backup-upload.sh) — never for live
+// traffic, and CLOUD_SERVICE_KEY must be that project's service_role key,
+// not its anon key. This file only ever lives on the school's own server
+// and this operator's machine — it is never bundled into the frontend
+// build, so a service-role key here is safe in a way it would NOT be as a
+// VITE_-prefixed build arg.
 
 import crypto from 'node:crypto'
 
@@ -46,9 +57,12 @@ function randomToken(bytes) {
 
 const schoolName = process.argv[2]
 const siteUrl = process.argv[3]
+const mode = process.argv[4] || 'local'
+const cloudUrl = process.argv[5] || ''
+const cloudServiceKey = process.argv[6] || ''
 
 if (!schoolName || !siteUrl) {
-  console.error('Usage: node scripts/generate-local-secrets.js "School Name" http://192.168.1.100')
+  console.error('Usage: node scripts/generate-local-secrets.js "School Name" http://192.168.1.100 [hybrid CLOUD_URL CLOUD_SERVICE_KEY]')
   process.exit(1)
 }
 
@@ -73,6 +87,9 @@ const env = {
   DASHBOARD_USERNAME: 'admin',
   DASHBOARD_PASSWORD: randomToken(20),
   SECRET_KEY_BASE: randomToken(64),
+  MODE: mode,
+  CLOUD_URL: cloudUrl,
+  CLOUD_SERVICE_KEY: cloudServiceKey,
 }
 
 // Quoted so this file is safe to both `source` in bash (SCHOOL_NAME can
