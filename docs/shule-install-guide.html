@@ -1152,8 +1152,14 @@ ul li strong, ol li strong { color: var(--text); }
   body::before, body::after { display: none; }
   .sidebar, .topbar, #scroll-prog, .theme-row { display: none; }
   .content { padding: 0; max-width: 100%; }
-  .step, .callout, .glass-card, .train-card, .path-card, .part-hdr { page-break-inside: avoid; }
+  .step, .callout, .glass-card, .train-card, .path-card, .part-hdr,
+  .example, .cred-box, .wa-box, .code-wrap, .chk-box, .chk-row,
+  .data-tbl tr, .file-tree { page-break-inside: avoid; }
+  .part-hdr { page-break-before: auto; break-before: page; }
+  #part0 { break-before: auto; }
   .cred-box::before, .wa-box::before { color: #7a5a1e; }
+  a { color: var(--accent); text-decoration: none; }
+  .code-body { white-space: pre-wrap; word-break: break-word; }
 }
 
 /* ─── MOBILE ─── */
@@ -1359,7 +1365,7 @@ ul li strong, ol li strong { color: var(--text); }
       </div>
     </div>
     <div class="topbar-right">
-      <button class="btn-print" onclick="window.print()">🖨 Print</button>
+      <button class="btn-print" onclick="window.print()" title="If nothing happens, this page is likely inside an embedded viewer that blocks pop-ups. Press Ctrl+P (Windows/Linux) or Cmd+P (Mac) instead, or open this file directly in a full browser tab.">🖨 Print</button>
       <div class="pct-badge" id="pct-badge">0%</div>
     </div>
   </div>
@@ -1380,6 +1386,11 @@ ul li strong, ol li strong { color: var(--text); }
         <span class="hero-pill">Vercel + Data Migration</span>
         <span class="hero-pill">Offline-First</span>
       </div>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-ico">🖨</div>
+      <div class="callout-body"><strong>About printing this guide.</strong> The Print button works reliably when this page is open as its own browser tab — either the repo file <code>docs/shule-install-guide.html</code> opened directly, or this page opened outside of any embedded preview. If clicking Print does nothing (common inside an embedded viewer, which browsers restrict from opening print dialogs), press <strong>Ctrl+P</strong> / <strong>Cmd+P</strong> directly instead — that's the browser's own shortcut and isn't affected by the same restriction. For a Local install, print or save this guide as a PDF <strong>at home before you travel</strong> — the school itself may have no internet to load this page at all.</div>
     </div>
 
     <!-- ═══ CHOOSE YOUR PATH -->
