@@ -40,10 +40,10 @@ if [ ! -f "$COMPOSE_FILE" ]; then
   exit 1
 fi
 
-if [ -f "/opt/shule/secrets.env" ]; then
+if [ -f "/opt/shule/.env" ]; then
   set -a
   # shellcheck disable=SC1091
-  source /opt/shule/secrets.env
+  source /opt/shule/.env
   set +a
 fi
 

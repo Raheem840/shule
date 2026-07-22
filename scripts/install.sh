@@ -60,18 +60,18 @@ fi
 set +a
 
 cat > /opt/shule/.env << EOF
-SCHOOL_NAME=${SCHOOL_NAME}
-SCHOOL_IMAGE_NAME=${SCHOOL_IMAGE_NAME:-shule-frontend}
-SITE_URL=${SITE_URL}
-API_EXTERNAL_URL=${API_EXTERNAL_URL}
-SUPABASE_PUBLIC_URL=${SUPABASE_PUBLIC_URL}
-JWT_SECRET=${JWT_SECRET}
-ANON_KEY=${ANON_KEY}
-SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}
-POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-DASHBOARD_USERNAME=${DASHBOARD_USERNAME}
-DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD}
-SECRET_KEY_BASE=${SECRET_KEY_BASE}
+SCHOOL_NAME="${SCHOOL_NAME}"
+SCHOOL_IMAGE_NAME="${SCHOOL_IMAGE_NAME:-shule-frontend}"
+SITE_URL="${SITE_URL}"
+API_EXTERNAL_URL="${API_EXTERNAL_URL}"
+SUPABASE_PUBLIC_URL="${SUPABASE_PUBLIC_URL}"
+JWT_SECRET="${JWT_SECRET}"
+ANON_KEY="${ANON_KEY}"
+SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY}"
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD}"
+DASHBOARD_USERNAME="${DASHBOARD_USERNAME}"
+DASHBOARD_PASSWORD="${DASHBOARD_PASSWORD}"
+SECRET_KEY_BASE="${SECRET_KEY_BASE}"
 EOF
 chmod 600 /opt/shule/.env
 echo "  ✓ /opt/shule/.env written (docker compose reads this automatically,"
@@ -162,8 +162,8 @@ chmod +x /opt/shule/restore.sh /opt/shule/backup-upload.sh 2>/dev/null || true
 # only fills them for hybrid) — the cron command below is safe either way,
 # since backup-upload.sh's own arg check exits early on empty values.
 cat >> /opt/shule/.env << EOF
-CLOUD_URL=${CLOUD_URL:-}
-CLOUD_SERVICE_KEY=${CLOUD_SERVICE_KEY:-}
+CLOUD_URL="${CLOUD_URL:-}"
+CLOUD_SERVICE_KEY="${CLOUD_SERVICE_KEY:-}"
 EOF
 
 (crontab -l 2>/dev/null; echo "0 2 * * * cd /opt/shule && set -a && . /opt/shule/.env && set +a && docker compose -f docker-compose.school.yml exec -T \
