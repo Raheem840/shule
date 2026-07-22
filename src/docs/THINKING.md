@@ -61,6 +61,13 @@ half-implement. Backup-upload gives the actual thing a school needs from "hybrid
 audit: `VITE_CLOUD_SUPABASE_URL`/`VITE_CLOUD_SUPABASE_ANON_KEY` had been wired all the
 way through `prepare-usb.sh` → `build-for-school.sh` → `Dockerfile` as frontend build
 args, but nothing in `src/` ever read them — dead, misleading plumbing, now removed.
+**Follow-up (2026-07-22, same day):** `school_registry.cloud_backup_enabled` was
+separately flagged as dead schema — never read or written anywhere. Closed as part of
+this same feature: `scripts/backup-upload.sh` now PATCHes it (and `last_seen_at`) on
+the school's own local project immediately after a successful cloud upload, and
+`supabase/seed/school_template.sql` gained a Step 3 that creates the `school_registry`
+row at install time for every deployment type (Sinqura-internal ops record — contact
+info, deployment type, install notes — deny-all to school JWTs, never app-visible).
 **Tradeoff:** No automatic cross-device sync if a school ever ran both a local server
 and cloud project live simultaneously (not a supported configuration — Hybrid means
 local-primary-with-cloud-backup, not local-and-cloud-both-live).

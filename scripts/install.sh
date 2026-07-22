@@ -170,7 +170,7 @@ EOF
   -e PGPASSWORD=\$POSTGRES_PASSWORD db pg_dump -U postgres postgres \
   > /opt/shule/backups/shule_\$(date +\%Y\%m\%d).sql \
   && find /opt/shule/backups -name '*.sql' -mtime +30 -delete \
-  && if [ -n \"\$CLOUD_URL\" ]; then bash /opt/shule/backup-upload.sh /opt/shule/backups/shule_\$(date +\%Y\%m\%d).sql \"\$CLOUD_URL\" \"\$CLOUD_SERVICE_KEY\" \"\$SCHOOL_NAME\" >> /opt/shule/backup-upload.log 2>&1; fi") \
+  && if [ -n \"\$CLOUD_URL\" ]; then bash /opt/shule/backup-upload.sh /opt/shule/backups/shule_\$(date +\%Y\%m\%d).sql \"\$CLOUD_URL\" \"\$CLOUD_SERVICE_KEY\" \"\$SCHOOL_NAME\" \"\$SUPABASE_PUBLIC_URL\" \"\$SERVICE_ROLE_KEY\" >> /opt/shule/backup-upload.log 2>&1; fi") \
   | crontab -
 systemctl enable docker
 systemctl enable nginx

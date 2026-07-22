@@ -35,3 +35,29 @@ INSERT INTO public.staff (
   'it_admin',
   true
 );
+
+-- Step 3: Deployment/ops record for this install (Sinqura-internal — table is
+-- deny-all to every school JWT, service_role only, so this never surfaces
+-- inside the app). Run for every deployment type, Cloud included — it's
+-- your own support/contact record, not just a backup flag. cloud_backup_enabled
+-- starts false and only ever flips to true automatically, the first time
+-- scripts/backup-upload.sh succeeds (Hybrid installs only) — leave it false
+-- here even for a Hybrid school; it's a "has a backup actually landed" flag,
+-- not a "was hybrid configured" flag. For a Cloud install it stays false
+-- permanently and that's correct — Cloud schools rely on Supabase's own
+-- hosted backups, not this mechanism.
+INSERT INTO public.school_registry (
+  school_id, contact_name, contact_email, contact_phone,
+  deployment_type, status, installation_notes, assigned_team_member,
+  cloud_backup_enabled
+) VALUES (
+  '[REPLACE: school_id from RETURNING above]',
+  '[REPLACE: on-site contact name]',
+  '[REPLACE: on-site contact email]',
+  '[REPLACE: on-site contact phone]',
+  '[REPLACE: local | cloud | hybrid]',
+  '[REPLACE: active_local | active_cloud | active_hybrid]',
+  '[REPLACE: any install notes — hardware specs, network setup, etc.]',
+  '[REPLACE: your name]',
+  false
+);

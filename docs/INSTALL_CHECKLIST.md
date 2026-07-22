@@ -4,8 +4,8 @@
 - [ ] Frontend Docker image built and saved to USB
 - [ ] All Supabase Docker images saved to USB
 - [ ] Migration files copied to USB
-- [ ] base.sql copied to USB
-- [ ] install.sh on USB
+- [ ] school_template.sql copied to USB
+- [ ] install.sh, restore.sh, backup-upload.sh on USB
 - [ ] Credentials sheet printed and sealed
 - [ ] QR code printed (http://192.168.1.100)
 
@@ -13,11 +13,13 @@
 - [ ] sudo bash install.sh ran successfully
 - [ ] All containers running (docker ps)
 - [ ] Shule accessible at http://192.168.1.100
-- [ ] Supabase Studio at http://192.168.1.100:3000
+- [ ] Supabase Studio at http://192.168.1.100:8000
 - [ ] JWT hook registered (Auth → Hooks)
 - [ ] IT Admin created in Auth → Users
 - [ ] IT Admin row inserted into staff table
 - [ ] IT Admin logs in successfully
+- [ ] Nightly backup cron confirmed in crontab (`crontab -l`) — plus cloud
+      upload configured, for Hybrid installs
 
 ## On-Site Setup (30 min)
 - [ ] School profile configured

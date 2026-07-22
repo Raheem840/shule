@@ -51,7 +51,11 @@ variable in `docker-compose.school.yml` — nothing to do here.
 2. Authentication → Users → Add User: create the IT Admin's login, copy
    their user ID.
 3. Run Step 2 of `school_template.sql` with both IDs filled in.
-4. Log in as IT Admin — they create every other staff member from inside
+4. Run Step 3 of `school_template.sql` (fills `school_registry` — your own
+   ops record for this install: contact info, deployment type, install
+   notes. Deny-all to every school JWT, so this is purely for your own
+   support use, never visible inside the app).
+5. Log in as IT Admin — they create every other staff member from inside
    the app.
 
 ## Backups & Restore

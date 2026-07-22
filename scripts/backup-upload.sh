@@ -16,8 +16,17 @@
 # copies into /opt/shule/ during install — never committed, never sent to
 # the frontend build).
 #
+# The two trailing args are optional: this school's own LOCAL Supabase
+# project (SUPABASE_PUBLIC_URL / SERVICE_ROLE_KEY, already in
+# /opt/shule/.env). When given, a successful cloud upload flips that
+# project's own school_registry.cloud_backup_enabled to true and stamps
+# last_seen_at — this is the only writer of that column anywhere in the
+# system (it's deny-all to every school JWT; it's your own support/ops
+# record, unrelated to anything a school's staff can see). If omitted, the
+# script still runs fine — it just skips that bookkeeping update.
+#
 # Usage:
-#   ./backup-upload.sh <dump-file> <CLOUD_URL> <CLOUD_SERVICE_KEY> <SCHOOL_NAME>
+#   ./backup-upload.sh <dump-file> <CLOUD_URL> <CLOUD_SERVICE_KEY> <SCHOOL_NAME> [LOCAL_URL] [LOCAL_SERVICE_KEY]
 
 set -e
 
@@ -25,9 +34,11 @@ DUMP_FILE=$1
 CLOUD_URL=$2
 CLOUD_SERVICE_KEY=$3
 SCHOOL_NAME=$4
+LOCAL_URL=$5
+LOCAL_SERVICE_KEY=$6
 
 if [ -z "$DUMP_FILE" ] || [ -z "$CLOUD_URL" ] || [ -z "$CLOUD_SERVICE_KEY" ] || [ -z "$SCHOOL_NAME" ]; then
-  echo "Usage: ./backup-upload.sh <dump-file> <CLOUD_URL> <CLOUD_SERVICE_KEY> <SCHOOL_NAME>"
+  echo "Usage: ./backup-upload.sh <dump-file> <CLOUD_URL> <CLOUD_SERVICE_KEY> <SCHOOL_NAME> [LOCAL_URL] [LOCAL_SERVICE_KEY]"
   exit 1
 fi
 
@@ -62,6 +73,16 @@ HTTP_CODE=$(curl -sS -o /tmp/backup-upload-response.json -w "%{http_code}" \
 
 if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
   echo "  ✓ Uploaded to cloud: backups/$OBJECT_PATH"
+
+  if [ -n "$LOCAL_URL" ] && [ -n "$LOCAL_SERVICE_KEY" ]; then
+    curl -sS -X PATCH "${LOCAL_URL%/}/rest/v1/school_registry" \
+      -H "Authorization: Bearer $LOCAL_SERVICE_KEY" \
+      -H "apikey: $LOCAL_SERVICE_KEY" \
+      -H "Content-Type: application/json" \
+      -H "Prefer: return=minimal" \
+      -d "{\"cloud_backup_enabled\":true,\"last_seen_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
+      > /dev/null 2>&1 || echo "  (note: could not update school_registry bookkeeping — non-fatal, backup itself succeeded)"
+  fi
 else
   echo "  ✗ Cloud upload failed (HTTP $HTTP_CODE):"
   cat /tmp/backup-upload-response.json

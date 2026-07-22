@@ -5,7 +5,7 @@
 -- This file documents the manual Dashboard steps required after migration.
 --
 -- ── STORAGE BUCKETS ──────────────────────────────────────────────────────────
--- Created automatically by migration 20260722_000002_create_storage_buckets.sql
+-- Created automatically by migration 20260722000002_create_storage_buckets.sql
 -- (INSERT INTO storage.buckets — this works fine via plain SQL on both hosted
 -- and self-hosted Supabase; no manual Dashboard step needed). Kept here as a
 -- reference of the intended public/private split:
