@@ -1122,11 +1122,38 @@ ul, ol { padding-left: 18px; margin: 8px 0 12px; }
 ul li, ol li { color: var(--text2); font-size: 13px; margin-bottom: 4px; line-height: 1.6; }
 ul li strong, ol li strong { color: var(--text); }
 
-/* ─── PRINT ─── */
+/* ─── PRINT ───
+   Forces light, legible colors regardless of which theme was on screen —
+   printing straight off the dark theme would otherwise come out either
+   near-black pages (background graphics on) or pale text on white
+   (background graphics off, so --bg-base is stripped but --text/--text2
+   are still their light-on-dark values). */
 @media print {
+  :root, [data-theme="dark"], [data-theme="light"] {
+    --bg-base: #ffffff;
+    --bg-glass: #f7f7f9;
+    --bg-glass-hover: #f0f0f4;
+    --border: #d8d8dc;
+    --border-strong: #b8b8be;
+    --accent: #7a5a1e;
+    --accent2: #5c4416;
+    --accent-dim: #f4ecd8;
+    --accent-glow: #e2d3a8;
+    --green: #0a7a4d; --green-dim: #e8f7f0;
+    --amber: #9a5b00; --amber-dim: #fdf3e0;
+    --red: #b3261e; --red-dim: #fbe9e8;
+    --blue: #1349b3; --blue-dim: #e8eefb;
+    --text: #16161a;
+    --text2: #3a3a42;
+    --text3: #6b6b74;
+    --code-bg: #f3f3f5;
+    --code-text: #1a1a1a;
+  }
+  body::before, body::after { display: none; }
   .sidebar, .topbar, #scroll-prog, .theme-row { display: none; }
-  .content { padding: 0; }
-  .step, .callout { page-break-inside: avoid; }
+  .content { padding: 0; max-width: 100%; }
+  .step, .callout, .glass-card, .train-card, .path-card, .part-hdr { page-break-inside: avoid; }
+  .cred-box::before, .wa-box::before { color: #7a5a1e; }
 }
 
 /* ─── MOBILE ─── */
@@ -1166,6 +1193,29 @@ ul li strong, ol li strong { color: var(--text); }
 }
 
 .highlight-new p { color: var(--text); }
+
+/* ─── EXAMPLE ─── */
+.example {
+  background: var(--bg-glass);
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  padding: 9px 14px 9px 16px;
+  margin: 4px 0 14px;
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.6;
+}
+.example::before {
+  content: 'e.g.';
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-right: 8px;
+}
+.example code { background: transparent; border: none; padding: 0; }
 
 /* ─── PATH CARDS ─── */
 .path-grid {
@@ -1251,8 +1301,9 @@ ul li strong, ol li strong { color: var(--text); }
       <a class="nav-item" onclick="goto('part2')"><span class="nav-icon">🏫</span> Part 2 — Server Install</a>
       <a class="nav-sub" onclick="goto('s2-1')">2.1 Install Ubuntu</a>
       <a class="nav-sub" onclick="goto('s2-2')">2.2 Mount the USB</a>
-      <a class="nav-sub" onclick="goto('s2-3')">2.3 Run install.sh</a>
-      <a class="nav-sub" onclick="goto('s2-4')">2.4 Verify the Stack</a>
+      <a class="nav-sub" onclick="goto('s2-3')">2.3 Confirm the Subnet</a>
+      <a class="nav-sub" onclick="goto('s2-4')">2.4 Run install.sh</a>
+      <a class="nav-sub" onclick="goto('s2-5')">2.5 Verify the Stack</a>
       <a class="nav-item" onclick="goto('part3')"><span class="nav-icon">🗄️</span> Part 3 — First Login</a>
       <a class="nav-sub" onclick="goto('s3-1')">3.1 Seed the School</a>
       <a class="nav-sub" onclick="goto('s3-2')">3.2 Create IT Admin</a>
@@ -1485,13 +1536,14 @@ sudo mkfs.exfat -n SHULE-INSTALL /dev/sdX1</pre>
       <div class="code-wrap">
         <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
         <pre class="code-body">npm run usb:prepare "New Youth Comprehensive School" hybrid \
-  https://xxxxxxxxxxxx.supabase.co CLOUD_ANON_KEY</pre>
+  https://wobxnzjejkvfsokkjkuh.supabase.co eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</pre>
       </div>
 
       <div class="callout ok" style="margin-top:14px">
         <div class="callout-ico">✓</div>
         <div class="callout-body">Takes several minutes (downloading and saving ~8 backend images plus building 16 app/function images). When done you'll see <strong>✓ USB Package Ready</strong> and a folder size printed.</div>
       </div>
+      <div class="example">Real terminal output looks like: <code>→ Generating secrets for this school...</code> then <code>✓ shule-install/secrets.env written</code>, then a build log line per edge function (<code>✓ shule-fn-send-sms</code>, <code>✓ shule-fn-create-staff-auth-user</code>, …), ending with <code>✓ USB Package Ready</code> and something like <code>du -sh shule-install/ → 2.1G shule-install/</code>.</div>
       <div class="callout warn">
         <div class="callout-ico">⚠️</div>
         <div class="callout-body"><strong><code>shule-install/secrets.env</code> is the only copy of this school's secrets.</strong> It's git-ignored and never uploaded anywhere. Losing it means every login and API key for that school must be regenerated. Keep it as safe as you'd keep a password.</div>
@@ -1623,7 +1675,20 @@ sudo umount /mnt/shule-usb</pre>
     </div>
 
     <div class="section" id="s2-3">
-      <div class="section-title"><span class="sec-num">2.3</span> Run the Install Script</div>
+      <div class="section-title"><span class="sec-num">2.3</span> Confirm the School's Router Subnet</div>
+      <div class="highlight-new">
+        <p><strong>Don't skip this — it's the single most common reason a Local install "disappears" after setup.</strong> <code>install.sh</code> hardcodes the server's static IP to <code>192.168.1.100/24</code> with gateway <code>192.168.1.1</code>. If the school's router actually hands out a different range (e.g. <code>192.168.0.x</code> or <code>10.0.0.x</code>), the server puts itself on a network segment none of the school's devices can reach — the install will still finish "successfully" and then nothing loads.</p>
+      </div>
+      <div class="steps">
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">On any device already connected to the school WiFi, check its assigned IP (e.g. Android/iOS WiFi settings, or <code>ipconfig</code>/<code>ifconfig</code>) — confirm it starts with <code>192.168.1.</code></div></div>
+        <div class="example">On a phone: <strong>Settings → WiFi → (tap the connected network) → IP address</strong>. A matching result looks like <code>192.168.1.47</code>. A mismatch — the case to fix — looks like <code>192.168.0.23</code> or <code>10.0.0.15</code>.</div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">If it doesn't match, either reconfigure the router's LAN range to <code>192.168.1.0/24</code> in its admin panel (simplest, and matches every URL printed elsewhere in this guide), or edit the <code>addresses</code>/<code>gateway4</code> values in the netplan block inside <code>install.sh</code> (search for <code>01-shule-static.yaml</code>) to match the router's actual range <strong>before</strong> running it</div></div>
+        <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Also check the router's DHCP pool doesn't include <code>.100</code> — if it can still hand that address to another device, you'll get an intermittent IP conflict. Either shrink the DHCP pool to end before <code>.100</code>, or add a DHCP reservation/exclusion for it, in the router's admin panel</div></div>
+      </div>
+    </div>
+
+    <div class="section" id="s2-4">
+      <div class="section-title"><span class="sec-num">2.4</span> Run the Install Script</div>
       <div class="code-wrap">
         <div class="code-head"><span class="code-lang-tag">bash</span><button class="copy-btn" onclick="cpCode(this)">Copy</button></div>
         <pre class="code-body">cd /opt/shule-install
@@ -1652,8 +1717,8 @@ sudo bash install.sh</pre>
       </table>
     </div>
 
-    <div class="section" id="s2-4">
-      <div class="section-title"><span class="sec-num">2.4</span> Verify the System Is Running</div>
+    <div class="section" id="s2-5">
+      <div class="section-title"><span class="sec-num">2.5</span> Verify the System Is Running</div>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Any device on the school WiFi → browser → <strong>http://192.168.1.100</strong> → Shule login page appears</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Open <strong>http://192.168.1.100:8000</strong> → Supabase Studio login prompt appears (credentials in <code>/opt/shule/CREDENTIALS.txt</code>)</div></div>
@@ -1691,7 +1756,13 @@ sudo docker compose -f /opt/shule/docker-compose.school.yml logs</pre>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">On the server, open <code>/opt/shule-install/school_template.sql</code> in a text editor (<code>nano</code> works over SSH)</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Replace every <code>[REPLACE: ...]</code> placeholder with the school's real name, short name, motto, and curriculum</div></div>
+        <div class="example">
+<code>[REPLACE: Full school name e.g. St. Mary's College Kisubi]</code> → <code>New Youth Comprehensive School</code><br>
+<code>[REPLACE: Abbreviation e.g. SMACK]</code> → <code>NYCS</code><br>
+<code>[REPLACE: School motto]</code> → <code>Knowledge is Light, Character is Strength</code>
+        </div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">In Studio (<strong>http://192.168.1.100:8000</strong>) → <strong>SQL Editor</strong> → paste and run only <strong>Step 1</strong> (the <code>school_profile</code> INSERT) → copy the returned <code>id</code> (school_id)</div></div>
+        <div class="example">Returned row looks like <code>id: 4f9c2e10-8a3b-4d21-9e77-1b6a0c5d8f42</code> — that UUID is the school_id you carry into 3.2.</div>
       </div>
     </div>
 
@@ -1699,12 +1770,15 @@ sudo docker compose -f /opt/shule/docker-compose.school.yml logs</pre>
       <div class="section-title"><span class="sec-num">3.2</span> Create the IT Admin Auth User and Staff Row</div>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Studio → <strong>Authentication → Users → Add User</strong> → enter the IT Admin's email and a password → <strong>Auto Confirm: checked</strong> → Create User → copy the returned <strong>User UID</strong></div></div>
+        <div class="example">Email: <code>itadmin@nycs.ac.ug</code> · Password: any strong temporary one, e.g. <code>Nycs!2026Setup</code> (the IT Admin changes it on first login) · Returned User UID looks like <code>a17e4f88-2c90-4b1a-9f03-6e58d2c471aa</code>.</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Back in the SQL Editor, edit and run <strong>Step 2</strong> of <code>school_template.sql</code> — the <code>staff</code> INSERT with <code>role = 'it_admin'</code> — filling in the <code>school_id</code> from 3.1 and the <code>auth_user_id</code> (User UID) from above</div></div>
+        <div class="example"><code>first_name</code> → <code>Grace</code>, <code>last_name</code> → <code>Namuli</code>, <code>school_id</code> → the UUID from 3.1, <code>auth_user_id</code> → the UUID from above.</div>
       </div>
       <div class="callout ok">
         <div class="callout-ico">✓</div>
         <div class="callout-body">Should say <strong>Success. 1 row affected.</strong> Verify: <code>SELECT s.first_name, s.role, u.email FROM staff s JOIN auth.users u ON u.id = s.auth_user_id WHERE s.role = 'it_admin';</code></div>
       </div>
+      <div class="example">Expected result: one row — <code>first_name: Grace | role: it_admin | email: itadmin@nycs.ac.ug</code>.</div>
     </div>
 
     <div class="section" id="s3-3">
@@ -1748,7 +1822,9 @@ sudo docker compose -f /opt/shule/docker-compose.school.yml logs</pre>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>New Project</strong> → Name it after the school (e.g. "New Youth Comprehensive School") → generate and save a strong database password somewhere safe</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Region: Supabase has no East Africa region — pick the closest available (Europe/Frankfurt is typically the lowest-latency option from Uganda) → Create Project → wait ~2 minutes for provisioning</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Once ready: <strong>Settings → General</strong> → copy the <strong>Reference ID</strong> (the project ref, e.g. <code>abcdefghijklmnop</code>) — you'll use it below</div></div>
+        <div class="example">Project name: <code>New Youth Comprehensive School</code> · Reference ID looks like <code>wobxnzjejkvfsokkjkuh</code>.</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Settings → API</strong> → copy the <strong>Project URL</strong> (<code>https://xxxx.supabase.co</code>) and the <strong>anon public</strong> key — you'll need both for Part 6 (Vercel)</div></div>
+        <div class="example">Project URL: <code>https://wobxnzjejkvfsokkjkuh.supabase.co</code> · anon key looks like <code>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0....</code> (a long 3-part token — copy the whole thing).</div>
       </div>
     </div>
 
@@ -1760,6 +1836,7 @@ sudo docker compose -f /opt/shule/docker-compose.school.yml logs</pre>
         <pre class="code-body"><span class="cm"># From inside the shule/ project folder</span>
 npm run install:school YOUR_PROJECT_REF</pre>
       </div>
+      <div class="example">With the project ref from 4.1: <code>npm run install:school wobxnzjejkvfsokkjkuh</code></div>
       <p>Watch for:</p>
       <div class="file-tree">
 → [1/4] Linking to project...              <span class="ft-ok">✓</span>
@@ -1806,8 +1883,10 @@ npm run install:school YOUR_PROJECT_REF</pre>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Studio → <strong>Authentication → Hooks</strong> → find <strong>Custom Access Token Hook</strong> → Enable → select <code>public.custom_access_token_hook</code> → Save</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Edit <code>supabase/seed/school_template.sql</code> locally — replace every <code>[REPLACE: ...]</code> with the school's real name/motto/curriculum</div></div>
+        <div class="example">Same values as Part 3.1's example: <code>New Youth Comprehensive School</code> / <code>NYCS</code> / <code>Knowledge is Light, Character is Strength</code>.</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">SQL Editor → run <strong>Step 1</strong> (school_profile INSERT) → copy the returned school_id</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Authentication → Users → Add user</strong> → the IT Admin's login, Auto Confirm checked → copy the User UID</div></div>
+        <div class="example">Email: <code>itadmin@nycs.ac.ug</code>, e.g. name <code>Grace Namuli</code> — same IT Admin as the rest of this guide.</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">SQL Editor → run <strong>Step 2</strong> (staff INSERT, <code>role = 'it_admin'</code>) with both IDs filled in</div></div>
       </div>
     </div>
@@ -1859,10 +1938,12 @@ npm run dev</pre>
       <p>Log in as <strong>Secretary</strong> (create that account first if you haven't reached Part 8 yet — IT Admin can create it from Staff Management) → <strong>Data Import</strong> page.</p>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Choose <strong>Students</strong> or <strong>Staff</strong> mode → click <strong>Download Template (.csv)</strong> — a pre-built CSV with correct column headers and realistic example rows opens</div></div>
+        <div class="example">Student template columns: <code>admission_number,first_name,last_name,dob,gender,class_name,stream_name,student_type,nationality,religion,previous_school,parent_name,parent_phone,parent_email,parent_relationship</code> — with a sample row already filled in, e.g. <code>,Amara,Nakato,2011-03-15,Female,S1,East,day,Ugandan,Christian,,Peter Nakato,+256701000002,,Father</code> (blank <code>admission_number</code> — the system generates it). Staff template columns: <code>first_name,last_name,role,email,phone,national_id,employment_type,department_name,subject1,subject2,gender,date_of_birth,address,qualification_level,qualification_title</code>, e.g. <code>Peter,Ochieng,class_teacher,peter.ochieng@school.ug,+256701987654,CM79099876543Q,full_time,Sciences,Biology,Chemistry,Male,1979-09-14,Naguru Kampala,4,Bachelor of Science + PGDE</code>.</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Replace the example rows with the school's real records (in Excel, Google Sheets, or any spreadsheet tool) — keep the header row exactly as downloaded</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Upload the filled CSV → the app shows a preview: matched rows, rows needing the correct admission-number year, and any format errors</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">For records from a prior school year: the import reserves each admission number safely under load using the same locking the live registration wizard uses — no collision risk even with a large concurrent import</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">If a CSV row already has an <code>admission_number</code> filled in, it must match the format <code>STU/YYYY/00000001</code> exactly — anything else is rejected with a clear reason rather than silently accepted</div></div>
+        <div class="example">Accepted: <code>STU/2024/00000037</code> (an S3 student who joined in 2024, being backfilled). Rejected with a reason shown in the failed-rows list: <code>STU/2024/37</code> (not zero-padded to 8 digits) or <code>2024/00000037</code> (missing the <code>STU/</code> prefix).</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Review the failed-rows list (if any) → fix in the spreadsheet → re-upload just those rows → confirm import</div></div>
       </div>
     </div>
@@ -1872,9 +1953,12 @@ npm run dev</pre>
       <p>Log in as <strong>Bursar</strong> → <strong>Fee Import</strong> page — this is a separate flow from student/staff import, for bringing in each student's opening balance from the school's old fee ledger.</p>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Download the fee payments template, fill in student name, class, amount paid — the app matches each row to an already-imported student by admission number first, then by name + class</div></div>
+        <div class="example">Columns: <code>admission_number,student_name,class_name,stream_name,fee_type,term,year,amount_paid,amount_due,payment_date,receipt_number,notes</code>. Matched by admission number (fastest, skips name matching entirely): <code>STU/2026/0002,Brian Ssemwanga,S.1,East,Tuition,1,2026,450000,450000,2026-02-01,REC-002,Term 1 full payment</code>. Matched by name+class instead (blank admission_number): <code>,Amara Nakato,S.1,East,Tuition,1,2026,250000,450000,2026-02-03,REC-001,Term 1 partial payment</code>.</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Upload → review the match preview: exact single matches import automatically, but <strong>any row with more than one same-name student in the same class, or only a fuzzy name match, stops for manual confirmation</strong> — this exists specifically so a name collision can't silently credit money to the wrong student</div></div>
+        <div class="example">Two students both named "Amara Nakato" in S1 East → the row shows status <strong>needs review</strong> with a dropdown listing both, instead of guessing which one gets the UGX 250,000.</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Resolve every flagged row in the review dropdown before confirming</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Confirm import — every imported payment writes an audit-log entry recording exactly how it was matched (by admission number, exact name, fuzzy match, or manual pick), so a balance can always be traced back to its source row later</div></div>
+        <div class="example">Audit log entry for that row: <code>matched_by: admission_number, amount_paid: 450000, balance: 0, matched_class: S.1 East, source_row: 2</code>.</div>
       </div>
     </div>
 
@@ -1923,8 +2007,8 @@ npm run dev</pre>
       <table class="data-tbl">
         <thead><tr><th>Key</th><th>Value</th></tr></thead>
         <tbody>
-          <tr><td><code>VITE_SUPABASE_URL</code></td><td>This school's Project URL from Part 4.1</td></tr>
-          <tr><td><code>VITE_SUPABASE_ANON_KEY</code></td><td>This school's anon public key from Part 4.1</td></tr>
+          <tr><td><code>VITE_SUPABASE_URL</code></td><td>This school's Project URL from Part 4.1 — e.g. <code>https://wobxnzjejkvfsokkjkuh.supabase.co</code></td></tr>
+          <tr><td><code>VITE_SUPABASE_ANON_KEY</code></td><td>This school's anon public key from Part 4.1 — e.g. <code>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</code></td></tr>
           <tr><td><code>VITE_SHULE_MODE</code></td><td><code>production</code></td></tr>
           <tr><td><code>VITE_DEMO_SCHOOL_ID</code></td><td>leave blank — only used for the demo mode</td></tr>
           <tr><td><code>VITE_VAPID_PUBLIC_KEY</code></td><td>generate with <code>npx web-push generate-vapid-keys</code> — used for push notifications</td></tr>
@@ -1950,6 +2034,7 @@ npm run dev</pre>
       <p>If the school owns a domain and wants <code>portal.theirschool.ac.ug</code> instead of the <code>.vercel.app</code> subdomain:</p>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">This Vercel project → <strong>Settings → Domains</strong> → add the domain → Vercel shows the DNS record to create (usually a CNAME)</div></div>
+        <div class="example">Domain: <code>portal.nycs.ac.ug</code> → Vercel asks for a CNAME record: <strong>Host</strong> <code>portal</code>, <strong>Value</strong> <code>cname.vercel-dns.com</code>.</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Add that record with the school's domain registrar → wait for DNS propagation (minutes to a few hours) → Vercel auto-issues an SSL certificate once it verifies</div></div>
       </div>
       <div class="callout ok">
@@ -1977,7 +2062,9 @@ npm run dev</pre>
       <div class="section-title"><span class="sec-num">7.1</span> IT Admin Configures the School</div>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Log in as IT Admin → go to <strong>School Settings</strong> → upload logo, set full name, short name, motto, brand color, address, phone → Save</div></div>
+        <div class="example">Full name <code>New Youth Comprehensive School</code>, short name <code>NYCS</code>, motto <code>Knowledge is Light, Character is Strength</code>, brand color <code>#0d9488</code>, address <code>P.O. Box 4021, Mukono, Uganda</code>, phone <code>+256 414 123 456</code>.</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Settings → <strong>Academic Year</strong> → create current year (e.g. 2025–2026) → set Term 1, 2, 3 dates → mark Active → Save</div></div>
+        <div class="example">Term 1: <code>2026-02-03</code> to <code>2026-05-08</code> · Term 2: <code>2026-05-26</code> to <code>2026-08-21</code> · Term 3: <code>2026-09-08</code> to <code>2026-12-04</code>.</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Settings → <strong>Departments</strong> → add Sciences, Humanities, Languages, Technical → Save each</div></div>
       </div>
 
@@ -1985,10 +2072,15 @@ npm run dev</pre>
       <p>Go to Staff Management → Register Staff. Create accounts in this order:</p>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Secretary</strong> — <code>secretary@nycs.ac.ug</code> · Role: Secretary</div></div>
+        <div class="example">e.g. Esther Nabirye</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Principal</strong> — <code>principal@nycs.ac.ug</code> · Role: Principal</div></div>
+        <div class="example">e.g. Robert Ssentongo</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Deputy Principal</strong> — <code>deputy@nycs.ac.ug</code> · Role: Deputy</div></div>
+        <div class="example">e.g. Sarah Nakato</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Director of Studies</strong> — <code>dos@nycs.ac.ug</code> · Role: DoS</div></div>
+        <div class="example">e.g. Michael Okello</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Bursar</strong> — <code>bursar@nycs.ac.ug</code> · Role: Bursar</div></div>
+        <div class="example">e.g. James Mukasa</div>
       </div>
       <div class="callout ok">
         <div class="callout-ico">✓</div>
@@ -2022,10 +2114,14 @@ npm run dev</pre>
       <p>Go to <strong>Staff → Register Staff</strong>. For each teacher not already covered by Part 5's CSV import, complete all 4 steps:</p>
       <div class="steps">
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Step 1 — Personal info:</strong> Full name, date of birth, gender, National ID, phone, email. Photo is optional at this stage.</div></div>
+        <div class="example">Peter Ochieng, <code>1979-09-14</code>, Male, <code>CM79099876543Q</code>, <code>+256701987654</code>, <code>peter.ochieng@school.ug</code>.</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Step 2 — Professional info:</strong> Staff number (auto-generated, 8-digit format <code>STAFF/YYYY/00000001</code>), Role (Teacher or Class Teacher), Department, Subjects, Classes assigned</div></div>
+        <div class="example">Staff number auto-fills as <code>NYCS/STAFF/2026/00000006</code> (next in sequence) — leave it as-is unless correcting a real gap. Role: <strong>Class Teacher</strong>. Department: <strong>Sciences</strong>. Subjects: <strong>Biology, Chemistry</strong>. Classes: <strong>S1 East</strong> (as homeroom).</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Step 3 — Qualification level:</strong> Select from Uganda MoES dropdown. System warns if below minimum for their class level.</div></div>
+        <div class="example">Level 4 — <code>Bachelor of Science + PGDE</code>.</div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt"><strong>Step 4 — Documents:</strong> Upload NIN (required for new staff). Mark as "existing staff" to skip mandatory uploads for staff already in the system.</div></div>
         <div class="step" onclick="toggle(this)"><div class="chk"></div><div class="step-txt">Submit — auth account auto-created, credentials auto-generated</div></div>
+        <div class="example">Peter's login: <code>peter.ochieng@school.ug</code> with an auto-generated temporary password shown once on screen — write it on the Staff Login Sheet from Part 1.5 before moving to the next person.</div>
       </div>
     </div>
 
