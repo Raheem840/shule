@@ -26,6 +26,7 @@ const { mockFrom, setTableData, clearAll } = vi.hoisted(() => {
       contains:    vi.fn().mockReturnThis(),
       insert:      mockInsert,
       update:      vi.fn().mockReturnThis(),
+      delete:      vi.fn().mockReturnThis(),
       single:      vi.fn().mockImplementation(() =>
         Promise.resolve(tableData[table] ?? { data: null, error: null })
       ),
@@ -58,6 +59,7 @@ import {
   useDeputyOverview,
   useDisciplineRecords,
   useAddDisciplineRecord,
+  useDeleteDisciplineRecord,
   useTimetable,
 } from '../../hooks/useDeputy'
 
@@ -234,6 +236,33 @@ describe('useAddDisciplineRecord', () => {
           notes:        null,
         })
       ).rejects.toThrow('Staff record not found for this user.')
+    })
+  })
+})
+
+// ── useDeleteDisciplineRecord ────────────────────────────────────────────
+describe('useDeleteDisciplineRecord', () => {
+  it('succeeds when a row was actually deleted', async () => {
+    setTableData('discipline_records', { data: [{ id: 'rec-1' }], error: null })
+
+    const { result } = renderHook(() => useDeleteDisciplineRecord(), { wrapper: createWrapper() })
+    await act(async () => { await result.current.mutateAsync('rec-1') })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  })
+
+  // RLS ("discipline_records_delete_own_or_principal") only allows deleting
+  // records recorded by the caller — a blocked delete returns success with
+  // 0 rows, not a Postgrest error, so this must be checked explicitly
+  // instead of silently reporting success on someone else's record.
+  it('throws when RLS silently blocks the delete (0 rows affected)', async () => {
+    setTableData('discipline_records', { data: [], error: null })
+
+    const { result } = renderHook(() => useDeleteDisciplineRecord(), { wrapper: createWrapper() })
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync('rec-1')
+      ).rejects.toThrow('You can only delete discipline records you recorded yourself')
     })
   })
 })

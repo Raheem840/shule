@@ -84,7 +84,7 @@ export type Student = {
   streamId: string | null
   photoUrl: string | null
   medicalNotes: string | null
-  status: 'active' | 'suspended' | 'expelled'
+  status: 'active' | 'suspended' | 'expelled' | 'completed'
   enrolledAt: string
   createdBy: string | null
   nationality: string | null

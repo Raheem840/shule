@@ -273,6 +273,16 @@ export function useStudentFullProfile(studentId: string | null) {
     enabled: !!user && !!studentId,
     queryFn: async () => {
       const sid = user!.schoolId
+      // Finance boundary: this hook backs StudentFullProfilePage, shared at
+      // both /principal/students/:id and /deputy/students/:id. The page's
+      // own render gate already hides the Fee Status section from deputy,
+      // but the fetch itself previously had no role check at all — it
+      // depended entirely on fee_payments RLS (bursar/principal-only) to
+      // come back empty for a deputy session. Skip the query outright for
+      // any non-principal caller so there's no financial data in the
+      // response even if that RLS policy is ever loosened by mistake (see
+      // the fee_structure_select gap fixed earlier this session).
+      const canSeeFinance = user!.role === 'principal'
 
       const [studentRes, resultsRes, publishedJournalsRes, attendanceRes, disciplineRes, disciplineCountRes, feeRes] = await Promise.all([
         supabase
@@ -317,11 +327,13 @@ export function useStudentFullProfile(studentId: string | null) {
           .select('id', { count: 'exact', head: true })
           .eq('school_id', sid)
           .eq('student_id', studentId!),
-        supabase
-          .from('fee_payments')
-          .select('amount_paid, amount_due')
-          .eq('school_id', sid)
-          .eq('student_id', studentId!),
+        canSeeFinance
+          ? supabase
+              .from('fee_payments')
+              .select('amount_paid, amount_due')
+              .eq('school_id', sid)
+              .eq('student_id', studentId!)
+          : Promise.resolve({ data: [], error: null }),
       ])
 
       if (studentRes.error) throw new Error(studentRes.error.message)

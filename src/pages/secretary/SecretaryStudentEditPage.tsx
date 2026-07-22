@@ -35,7 +35,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const STATUS_COLOR: Record<Student['status'], string> = {
-  active: '#10b981', suspended: '#f59e0b', expelled: '#f43f5e',
+  active: '#10b981', suspended: '#f59e0b', expelled: '#f43f5e', completed: '#64748b',
 }
 
 export function SecretaryStudentEditPage() {

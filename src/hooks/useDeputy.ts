@@ -375,13 +375,24 @@ export function useDeleteDisciplineRecord() {
       if (!user) throw new Error('Not authenticated')
       if (!isDeputyRole(user.role)) throw new Error('Forbidden')
 
-      const { error } = await supabase
+      // RLS ("discipline_records_delete_own_or_principal") only allows a
+      // deputy to delete records they themselves recorded — a delete blocked
+      // by that policy returns success with 0 rows affected, not a Postgrest
+      // error, so without checking count this silently "succeeds" (modal
+      // closes, no error shown) while the record it just supposedly deleted
+      // is still there on refetch. select() on the delete surfaces the
+      // actually-deleted row(s) so a 0-row result can be turned into a real error.
+      const { data, error } = await supabase
         .from('discipline_records')
         .delete()
         .eq('id', id)
         .eq('school_id', user.schoolId)
+        .select('id')
 
       if (error) throw new Error(error.message)
+      if (!data || data.length === 0) {
+        throw new Error('You can only delete discipline records you recorded yourself')
+      }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['discipline-records', user?.schoolId] })

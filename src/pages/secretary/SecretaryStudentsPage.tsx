@@ -35,6 +35,7 @@ function StudentProfileModal({ student, classes, streams, onClose, onEdit }: {
     active:    { bg: 'rgba(16,185,129,.1)',  color: '#065f46', dot: '#10b981' },
     suspended: { bg: 'rgba(245,158,11,.1)', color: '#92400e', dot: '#f59e0b' },
     expelled:  { bg: 'rgba(244,63,94,.1)',  color: '#9f1239', dot: '#f43f5e' },
+    completed: { bg: 'rgba(100,116,139,.1)', color: '#334155', dot: '#64748b' },
   }
   const sc = statusColors[student.status]
 

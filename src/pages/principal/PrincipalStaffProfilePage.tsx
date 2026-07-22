@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStaffById } from '../../hooks/useStaff'
 import { useSuspendStaff } from '../../hooks/usePrincipal'
+import { useAuth } from '../../store/AuthContext'
 import { useDosTeacherPerformance } from '../../hooks/useDos'
 import { Avatar } from '../../components/shared/Avatar'
 import { Modal, ModalCancelButton } from '../../components/ui/Modal'
@@ -72,6 +73,14 @@ const QUAL_LABELS: Record<number, string> = {
 }
 
 export function PrincipalStaffProfilePage() {
+  const { user } = useAuth()
+  // This page is shared at both /principal/staff/:staffId and
+  // /deputy/staff/:staffId — useSuspendStaff (usePrincipal.ts) hard-requires
+  // role === 'principal' and RLS excludes deputy from the staff UPDATE too,
+  // so a deputy could never actually suspend anyone here — but with no
+  // client-side gate, they'd see a live "Suspend Staff" button that always
+  // fails with a raw "Forbidden" error. Hide it for anyone but principal.
+  const canSuspend = user?.role === 'principal'
   const { staffId } = useParams<{ staffId: string }>()
   const navigate = useNavigate()
   const { data: staff, isLoading } = useStaffById(staffId ?? '')
@@ -143,7 +152,7 @@ export function PrincipalStaffProfilePage() {
             </div>
           </div>
         </div>
-        {staff.isActive && (
+        {staff.isActive && canSuspend && (
           <button
             onClick={() => { setConfirmText(''); setSuspendErr(''); setShowSuspendModal(true) }}
             className="sui-btn-outline"

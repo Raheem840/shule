@@ -10,11 +10,12 @@ import { localToday } from '../../lib/dates'
 import { PromoteStudentsSection } from '../../components/shared/PromoteStudentsSection'
 
 // ─── Status badge ──────────────────────────────────────────────────────────────
-function StatusBadge({ status }: { status: 'active' | 'suspended' | 'expelled' }) {
+function StatusBadge({ status }: { status: 'active' | 'suspended' | 'expelled' | 'completed' }) {
   const map = {
     active:    { label: 'Active',    color: '#10b981', bg: 'rgba(16,185,129,.1)',  border: 'rgba(16,185,129,.25)' },
     suspended: { label: 'Suspended', color: '#f59e0b', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.25)' },
     expelled:  { label: 'Expelled',  color: '#f43f5e', bg: 'rgba(244,63,94,.1)',  border: 'rgba(244,63,94,.25)'  },
+    completed: { label: 'Completed', color: '#64748b', bg: 'rgba(100,116,139,.1)', border: 'rgba(100,116,139,.25)' },
   }
   const s = map[status] ?? map.active
   return (
@@ -27,7 +28,7 @@ function StatusBadge({ status }: { status: 'active' | 'suspended' | 'expelled' }
 
 // ─── Mobile student card ───────────────────────────────────────────────────────
 function StudentCard({ s, className, streamName }: {
-  s: { id: string; firstName: string; lastName: string; admissionNumber: string; classId: string | null; streamId: string | null; status: 'active' | 'suspended' | 'expelled'; photoUrl?: string | null }
+  s: { id: string; firstName: string; lastName: string; admissionNumber: string; classId: string | null; streamId: string | null; status: 'active' | 'suspended' | 'expelled' | 'completed'; photoUrl?: string | null }
   className: string
   streamName: string
 }) {

@@ -780,6 +780,7 @@ const statusConfig: Record<Student['status'], { bg: string; color: string; dot: 
   active:    { bg: 'rgba(16,185,129,.12)',  color: '#065f46', dot: '#10b981' },
   suspended: { bg: 'rgba(245,158,11,.12)', color: '#92400e', dot: '#f59e0b' },
   expelled:  { bg: 'rgba(244,63,94,.12)',  color: '#9f1239', dot: '#f43f5e' },
+  completed: { bg: 'rgba(100,116,139,.12)', color: '#334155', dot: '#64748b' },
 }
 
 const LEVEL_COLORS: Record<number, { bg: string; border: string; text: string; accent: string }> = {
