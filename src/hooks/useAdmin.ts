@@ -127,7 +127,7 @@ export function useSchoolSettings() {
       // maybeSingle() returns null (not error) when the row doesn't exist
       const { data, error } = await supabase
         .from('school_profile')
-        .select('id, school_name, short_name, motto, logo_url, primary_color, curriculum')
+        .select('id, school_name, short_name, motto, logo_url, primary_color, curriculum, education_level')
         .eq('id', user!.schoolId)
         .maybeSingle()
 
@@ -135,14 +135,15 @@ export function useSchoolSettings() {
       if (!data) throw new Error('School profile not found for this account. Contact your system administrator.')
 
       return {
-        id:           data.id,
-        schoolName:   data.school_name,
-        shortName:    data.short_name,
-        motto:        data.motto,
-        logoUrl:      data.logo_url,
-        primaryColor: data.primary_color ?? '#0d9488',
-        currency:     'UGX',
-        curriculum:   data.curriculum ?? null,
+        id:             data.id,
+        schoolName:     data.school_name,
+        shortName:      data.short_name,
+        motto:          data.motto,
+        logoUrl:        data.logo_url,
+        primaryColor:   data.primary_color ?? '#0d9488',
+        currency:       'UGX',
+        curriculum:     data.curriculum ?? null,
+        educationLevel: (data.education_level as 'primary' | 'secondary') ?? 'secondary',
       }
     },
     staleTime: 10 * 60_000,
@@ -165,6 +166,7 @@ export function useSaveSchoolSettings() {
       if (settings.motto       != null) updates['motto']         = settings.motto
       if (settings.logoUrl     != null) updates['logo_url']      = settings.logoUrl
       if (settings.primaryColor != null) updates['primary_color'] = settings.primaryColor
+      if (settings.educationLevel != null) updates['education_level'] = settings.educationLevel
 
       const { error } = await supabase
         .from('school_profile')
@@ -179,6 +181,13 @@ export function useSaveSchoolSettings() {
       if (variables.shortName != null) {
         void qc.invalidateQueries({ queryKey: ['staff', user?.schoolId] })
         void qc.invalidateQueries({ queryKey: ['next-staff-num', user?.schoolId] })
+      }
+      // education_level changes what every future exam save/report card
+      // computes — invalidate anything that might have cached a grade
+      // computed under the old stage.
+      if (variables.educationLevel != null) {
+        void qc.invalidateQueries({ queryKey: ['exam-results'] })
+        void qc.invalidateQueries({ queryKey: ['report-cards'] })
       }
     },
   })

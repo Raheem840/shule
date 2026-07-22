@@ -224,6 +224,10 @@ export type SchoolSettings = {
   primaryColor: string
   currency: string
   curriculum: string | null
+  // Drives which grading family (CBC O-level/A-level vs PLE Primary) and
+  // report card layout applies school-wide — see src/lib/educationStage.ts
+  // and CLAUDE.md's "Primary (P1-P7) / PLE Grade Formula" section.
+  educationLevel: 'primary' | 'secondary'
 }
 
 export type ApiConfig = {

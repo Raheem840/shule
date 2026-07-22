@@ -88,6 +88,7 @@ vi.mock('../../store/AuthContext', () => ({
 import {
   useUserManagement,
   useSchoolSettings,
+  useSaveSchoolSettings,
   useSaveApiConfig,
   useApiConfigStatus,
 } from '../../hooks/useAdmin'
@@ -161,6 +162,55 @@ describe('useSchoolSettings', () => {
     expect(s.shortName).toBe('TA')
     expect(s.primaryColor).toBe('#0d9488')
     expect(s.currency).toBe('UGX')
+  })
+
+  it('defaults educationLevel to secondary when the column is null/unset', async () => {
+    setTableData('school_profile', {
+      data: { id: 'school-1', school_name: 'Test Academy', short_name: 'TA', motto: null, logo_url: null, primary_color: '#0d9488', education_level: null },
+      error: null,
+    })
+    const { result } = renderHook(() => useSchoolSettings(), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data!.educationLevel).toBe('secondary')
+  })
+
+  it('reads educationLevel=primary when set', async () => {
+    setTableData('school_profile', {
+      data: { id: 'school-1', school_name: 'Test Academy', short_name: 'TA', motto: null, logo_url: null, primary_color: '#0d9488', education_level: 'primary' },
+      error: null,
+    })
+    const { result } = renderHook(() => useSchoolSettings(), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data!.educationLevel).toBe('primary')
+  })
+})
+
+// ── useSaveSchoolSettings ────────────────────────────────────────────────
+describe('useSaveSchoolSettings', () => {
+  it('includes education_level in the update payload when provided', async () => {
+    setTableData('school_profile', { data: null, error: null })
+    const { result } = renderHook(() => useSaveSchoolSettings(), { wrapper: createWrapper() })
+
+    await act(async () => {
+      await result.current.mutateAsync({ educationLevel: 'primary' })
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    const updateBuilder = mockFrom.mock.results.find(r => r.value.update?.mock.calls.length > 0)?.value
+    expect(updateBuilder?.update.mock.calls[0][0]).toEqual({ education_level: 'primary' })
+  })
+
+  it('omits education_level from the payload when not provided', async () => {
+    setTableData('school_profile', { data: null, error: null })
+    const { result } = renderHook(() => useSaveSchoolSettings(), { wrapper: createWrapper() })
+
+    await act(async () => {
+      await result.current.mutateAsync({ motto: 'New motto' })
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    const updateBuilder = mockFrom.mock.results.find(r => r.value.update?.mock.calls.length > 0)?.value
+    expect(updateBuilder?.update.mock.calls[0][0]).not.toHaveProperty('education_level')
   })
 })
 

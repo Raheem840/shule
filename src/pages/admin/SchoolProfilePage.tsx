@@ -37,6 +37,7 @@ export function SchoolProfilePage() {
   const [primaryColor, setPrimaryColor] = useState('#0d9488')
   const [logoUrl,      setLogoUrl]      = useState<string | null>(null)
   const [logoPreview,  setLogoPreview]  = useState<string | null>(null)
+  const [showLevelModal, setShowLevelModal] = useState(false)
   const [uploading,    setUploading]    = useState(false)
 
   useEffect(() => {
@@ -330,7 +331,7 @@ export function SchoolProfilePage() {
 
         {/* Info tiles */}
         {!editMode && (
-          <div className="mob-grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, animation: 'spg-up 0.3s ease both' }}>
+          <div className="mob-grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, animation: 'spg-up 0.3s ease both' }}>
             {[
               { label: 'Short Name', value: data?.shortName, mono: true },
               { label: 'Curriculum', value: data?.curriculum },
@@ -343,7 +344,48 @@ export function SchoolProfilePage() {
                 </div>
               </div>
             ))}
+
+            {/* Education Level — drives which grading (CBC vs PLE) and report
+                card layout the whole school uses. Kept separate from the main
+                edit form and behind its own confirm modal (not just a select
+                dropped into the profile form) since an accidental change
+                here silently changes how every future exam save/report card
+                is computed for the school, not just cosmetic profile data. */}
+            {['it_admin', 'principal'].includes(user?.role ?? '') ? (
+              <button
+                onClick={() => setShowLevelModal(true)}
+                style={{ textAlign: 'left', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = primaryColor }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
+              >
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>Education Level</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', textTransform: 'capitalize' }}>{data?.educationLevel ?? 'secondary'}</span>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: primaryColor }}>Change</span>
+                </div>
+              </button>
+            ) : (
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--txt3)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>Education Level</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)', textTransform: 'capitalize' }}>{data?.educationLevel ?? 'secondary'}</div>
+              </div>
+            )}
           </div>
+        )}
+
+        {showLevelModal && data && (
+          <EducationLevelModal
+            current={data.educationLevel}
+            onClose={() => setShowLevelModal(false)}
+            onConfirm={async (level) => {
+              try {
+                await save.mutateAsync({ educationLevel: level })
+                ok(`Education level set to ${level === 'primary' ? 'Primary' : 'Secondary'}.`)
+                setShowLevelModal(false)
+              } catch (e: any) { err(e.message ?? 'Failed to update education level') }
+            }}
+            saving={save.isPending}
+          />
         )}
 
         {/* Motto strip */}
@@ -362,5 +404,131 @@ export function SchoolProfilePage() {
         )}
       </div>
     </>
+  )
+}
+
+// ── Education Level confirm modal ──────────────────────────────────────────
+// Three deliberate steps before this ever actually fires — 'pick' (choose
+// the new level), 'type' (type the exact confirmation phrase into TWO
+// separate fields, both must match), 'final' (one last explicit Yes/No) —
+// per the user's explicit ask to triple-check this specific setting, since
+// it silently changes how every future mark/report card is graded for the
+// whole school and is easy to click by accident otherwise.
+function EducationLevelModal({ current, onClose, onConfirm, saving }: {
+  current: 'primary' | 'secondary'
+  onClose: () => void
+  onConfirm: (level: 'primary' | 'secondary') => void
+  saving: boolean
+}) {
+  const [step,   setStep]   = useState<'pick' | 'type' | 'final'>('pick')
+  const [level,  setLevel]  = useState<'primary' | 'secondary'>(current)
+  const [typed1, setTyped1] = useState('')
+  const [typed2, setTyped2] = useState('')
+  const changed = level !== current
+  const phrase  = `CHANGE TO ${level.toUpperCase()}`
+  const typedMatch = typed1.trim() === phrase && typed2.trim() === phrase
+
+  function resetAndClose() {
+    setStep('pick'); setLevel(current); setTyped1(''); setTyped2('')
+    onClose()
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={e => e.target === e.currentTarget && resetAndClose()}>
+      <div style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', borderRadius: 18, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
+        <div style={{ padding: '20px 24px 16px', borderBottom: '.5px solid var(--border)' }}>
+          <div style={{ fontFamily: 'var(--font2)', fontWeight: 900, fontSize: 17, color: 'var(--txt)' }}>Education Level</div>
+        </div>
+
+        {step === 'pick' && (
+          <>
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {(['secondary', 'primary'] as const).map(opt => (
+                  <button key={opt} onClick={() => setLevel(opt)}
+                    style={{
+                      flex: 1, padding: '12px 10px', borderRadius: 12, cursor: 'pointer', textAlign: 'center',
+                      border: level === opt ? '2px solid var(--brand)' : '1px solid var(--border)',
+                      background: level === opt ? 'var(--brand-light)' : 'var(--surface2)',
+                      fontWeight: 800, fontSize: 13, color: level === opt ? 'var(--brand-dark)' : 'var(--txt2)',
+                      textTransform: 'capitalize',
+                    }}>
+                    {opt}
+                  </button>
+                ))}
+              </div>
+              {changed && (
+                <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.25)', borderRadius: 10, fontSize: 12.5, color: 'var(--txt2)', lineHeight: 1.5 }}>
+                  Changing this changes how every mark saved and report card
+                  generated from now on is graded (
+                  {level === 'primary'
+                    ? 'PLE-style D1-F9 per subject, with an aggregate/division for core subjects'
+                    : 'CBC letter grades A-E, with the A-Level formula applying to S5-S6 classes'}
+                  ). It does not rewrite marks or report cards already saved
+                  under the current setting.
+                </div>
+              )}
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: '.5px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={resetAndClose}
+                style={{ padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={() => setStep('type')} disabled={!changed}
+                style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: !changed ? 'var(--border)' : 'linear-gradient(135deg,var(--brand),var(--info))', color: '#fff', fontWeight: 700, fontSize: 13, cursor: !changed ? 'not-allowed' : 'pointer' }}>
+                Continue
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'type' && (
+          <>
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ fontSize: 12.5, color: 'var(--txt2)', lineHeight: 1.5 }}>
+                To confirm switching this school to <strong style={{ textTransform: 'capitalize' }}>{level}</strong>,
+                type <strong style={{ fontFamily: 'var(--font3)' }}>{phrase}</strong> in both boxes below.
+              </div>
+              <input className="sui-input" value={typed1} onChange={e => setTyped1(e.target.value)}
+                placeholder={phrase} autoFocus style={{ fontFamily: 'var(--font3)' }} />
+              <input className="sui-input" value={typed2} onChange={e => setTyped2(e.target.value)}
+                placeholder={phrase} style={{ fontFamily: 'var(--font3)' }} />
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: '.5px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => setStep('pick')}
+                style={{ padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                Back
+              </button>
+              <button onClick={() => setStep('final')} disabled={!typedMatch}
+                style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: !typedMatch ? 'var(--border)' : 'linear-gradient(135deg,var(--brand),var(--info))', color: '#fff', fontWeight: 700, fontSize: 13, cursor: !typedMatch ? 'not-allowed' : 'pointer' }}>
+                Continue
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'final' && (
+          <>
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ padding: '12px 14px', background: 'rgba(244,63,94,.06)', border: '1px solid rgba(244,63,94,.25)', borderRadius: 10, fontSize: 13, color: 'var(--txt)', lineHeight: 1.5 }}>
+                Last check — are you sure you want to switch this school's
+                education level to <strong style={{ textTransform: 'capitalize' }}>{level}</strong>?
+              </div>
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: '.5px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={resetAndClose} disabled={saving}
+                style={{ padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontWeight: 700, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                No, cancel
+              </button>
+              <button onClick={() => onConfirm(level)} disabled={saving}
+                style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: saving ? 'var(--border)' : 'linear-gradient(135deg,var(--danger),#e11d48)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                {saving ? 'Saving…' : 'Yes, switch it'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   )
 }

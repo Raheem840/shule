@@ -37,7 +37,19 @@ function Skeleton({ w, h, r = 8 }: { w?: string | number; h: number; r?: number 
 }
 
 // ─── Grade badge colors ────────────────────────────────────────────────────────
+// PLE's D1-F9 scale is the REVERSE of CBC's A-E — D1 (1 point) is the best
+// possible grade, F9 the worst — so it needs its own branch entirely rather
+// than falling through the CBC switch's `default` (which would render a
+// Primary student's best grade in the "danger" red color, backwards from
+// the truth). Matched by shape (D1/D2/C3.../F9) rather than a school-level
+// flag fetch, since this component only has the grade string to work with.
 function gradeColor(g: string): { bg: string; text: string; border: string } {
+  if (/^[DCPF][1-9]$/.test(g)) {
+    if (g === 'D1' || g === 'D2') return { bg: 'rgba(16,185,129,.15)', text: 'var(--success)', border: 'rgba(16,185,129,.3)' }  // distinction
+    if (g.startsWith('C'))        return { bg: 'rgba(14,165,233,.15)', text: 'var(--info)',    border: 'rgba(14,165,233,.3)' }  // credit
+    if (g.startsWith('P'))        return { bg: 'rgba(245,158,11,.15)', text: 'var(--warning)',  border: 'rgba(245,158,11,.3)' } // pass
+    return { bg: 'rgba(244,63,94,.15)', text: 'var(--danger)', border: 'rgba(244,63,94,.3)' }                                   // F9 — fail
+  }
   switch (g) {
     case 'A': return { bg: 'rgba(16,185,129,.15)', text: 'var(--success)',  border: 'rgba(16,185,129,.3)' }
     case 'B': return { bg: 'rgba(13,148,136,.15)', text: 'var(--brand)',    border: 'rgba(13,148,136,.3)' }

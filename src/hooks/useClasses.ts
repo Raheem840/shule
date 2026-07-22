@@ -114,7 +114,7 @@ export function useSubjects(level?: string) {
     queryFn: async () => {
       let q = supabase
         .from('subjects')
-        .select('id, name, curriculum_code, level, department_id, is_active')
+        .select('id, name, curriculum_code, level, department_id, is_active, is_ple_core')
         .eq('school_id', user!.schoolId)
         .order('name', { ascending: true })
 
@@ -135,6 +135,7 @@ export function useSubjects(level?: string) {
         curriculumCode: (r.curriculum_code as string) ?? null,
         level:          (r.level as string) ?? null,
         isActive:       (r.is_active as boolean) ?? true,
+        isPleCore:      (r.is_ple_core as boolean) ?? false,
       } satisfies Subject))
     },
   })
@@ -145,7 +146,7 @@ export function useAddSubject() {
   const { user } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { name: string; curriculumCode?: string; level?: string; departmentId?: string | null }) => {
+    mutationFn: async (input: { name: string; curriculumCode?: string; level?: string; departmentId?: string | null; isPleCore?: boolean }) => {
       if (!user) throw new Error('Not authenticated')
       const { data, error } = await supabase
         .from('subjects')
@@ -156,6 +157,7 @@ export function useAddSubject() {
           level:           input.level || null,
           department_id:   input.departmentId ?? null,
           is_active:       true,
+          is_ple_core:     input.isPleCore ?? false,
         })
         .select('id')
         .single()
@@ -173,13 +175,14 @@ export function useUpdateSubject() {
   const { user } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { id: string; name?: string; curriculumCode?: string; level?: string; departmentId?: string | null }) => {
+    mutationFn: async (input: { id: string; name?: string; curriculumCode?: string; level?: string; departmentId?: string | null; isPleCore?: boolean }) => {
       if (!user) throw new Error('Not authenticated')
       const patch: Record<string, unknown> = {}
       if (input.name !== undefined)           patch.name            = input.name
       if (input.curriculumCode !== undefined) patch.curriculum_code = input.curriculumCode || null
       if (input.level !== undefined)          patch.level           = input.level || null
       if (input.departmentId !== undefined)   patch.department_id   = input.departmentId
+      if (input.isPleCore !== undefined)      patch.is_ple_core     = input.isPleCore
       const { error } = await supabase
         .from('subjects')
         .update(patch)

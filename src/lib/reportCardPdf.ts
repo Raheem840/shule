@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { calcCBC } from '../types/app'
+import { calcCBC, calculatePLEGrade, plePoints, calculatePLEAggregate, calculatePLEDivision } from '../types/app'
+import type { PLEGrade, PLEDivision } from '../types/app'
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -17,24 +18,28 @@ export type SubjectPdfRow = {
   descriptor:    string | null
 }
 
+export type ReportCardSchool = {
+  name:              string
+  motto:             string | null
+  logoUrl:           string | null
+  logoBase64:        string | null  // school badge — drawn in the text-header fallback only
+  logoMimeType:      string         // 'image/png' | 'image/jpeg'
+  templateBase64:    string | null  // PNG/JPG letterhead — used as page header if present
+  templateMimeType:  string         // 'image/png' | 'image/jpeg'
+}
+
+export type ReportCardStudent = {
+  firstName:       string
+  lastName:        string
+  admissionNumber: string
+  gender:          string | null
+  className:       string
+  streamName:      string
+}
+
 export type ReportCardPdfData = {
-  school: {
-    name:              string
-    motto:             string | null
-    logoUrl:           string | null
-    logoBase64:        string | null  // school badge — drawn in the text-header fallback only
-    logoMimeType:      string         // 'image/png' | 'image/jpeg'
-    templateBase64:    string | null  // PNG/JPG letterhead — used as page header if present
-    templateMimeType:  string         // 'image/png' | 'image/jpeg'
-  }
-  student: {
-    firstName:       string
-    lastName:        string
-    admissionNumber: string
-    gender:          string | null
-    className:       string
-    streamName:      string
-  }
+  school:            ReportCardSchool
+  student:           ReportCardStudent
   term:              number
   year:              number
   termStartDate:     string | null
@@ -91,24 +96,34 @@ function gradeColor(grade: string | null): [number, number, number] {
   return [244, 63, 94]                       // red
 }
 
-// ── generateReportCardPDF ──────────────────────────────────────
-// Produces a jsPDF document for one student's report card.
-// Caller is responsible for doc.save() or uploading the blob.
-export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
-  const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const W    = 210
-  const M    = 14   // left/right margin
-  const col2 = W / 2
-  let y      = 14
+// PLE's scale is the reverse of CBC's — D1 (1 point) is the BEST grade,
+// F9 (9 points) is the worst. A grade-color function keyed the same way as
+// CBC's would show the best possible primary-school grade in danger-red,
+// which is exactly backwards — kept as its own function, not a branch
+// inside gradeColor, so the two scales can never be confused for each other.
+function pleGradeColor(grade: PLEGrade | null): [number, number, number] {
+  if (grade === 'D1' || grade === 'D2') return [16, 185, 129]   // green — distinction
+  if (grade === 'C3' || grade === 'C4' || grade === 'C5' || grade === 'C6') return [14, 165, 233]  // blue — credit
+  if (grade === 'P7' || grade === 'P8') return [245, 158, 11]   // amber — pass
+  return [244, 63, 94]                                          // red — fail (F9) or ungraded
+}
 
-  // ── Header — uploaded template OR designed fallback ────────────
-  if (d.school.templateBase64) {
-    // Place the school's uploaded letterhead image as the header
-    // Fit it full-width; height is proportional (we cap at 60mm)
-    const imgProps = doc.getImageProperties(d.school.templateBase64)
+// ── Shared header/student-info/attendance/remarks/footer ────────
+// Used by both generateReportCardPDF (CBC, O-level/A-level) and
+// generatePrimaryReportCardPDF (PLE, Primary) — identical for both stages,
+// factored out once so the two layouts can never silently drift apart.
+
+function drawHeader(doc: jsPDF, school: ReportCardSchool, term: number, year: number): number {
+  const W = 210
+  const M = 14
+  const col2 = W / 2
+  let y = 14
+
+  if (school.templateBase64) {
+    const imgProps = doc.getImageProperties(school.templateBase64)
     const imgW     = W - M * 2
     const imgH     = Math.min(60, (imgProps.height / imgProps.width) * imgW)
-    doc.addImage(d.school.templateBase64, toPdfImageFormat(d.school.templateMimeType), M, y, imgW, imgH)
+    doc.addImage(school.templateBase64, toPdfImageFormat(school.templateMimeType), M, y, imgW, imgH)
     y += imgH + 4
 
     doc.setDrawColor(13, 148, 136)
@@ -122,25 +137,21 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
     y += 5
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
-    doc.text(`Term ${d.term}  ·  Academic Year ${d.year}`, col2, y, { align: 'center' })
+    doc.text(`Term ${term}  ·  Academic Year ${year}`, col2, y, { align: 'center' })
     y += 8
   } else {
-    // Designed fallback (no custom letterhead uploaded): a soft brand-tint
-    // banner behind the school identity, badge centered above the name for
-    // a composed, single-document feel rather than plain stacked text.
-    const bandH = d.school.logoBase64 ? 34 : 26
+    const bandH = school.logoBase64 ? 34 : 26
     doc.setFillColor(240, 253, 250) // brand-light
     doc.rect(0, 0, W, bandH, 'F')
 
-    if (d.school.logoBase64) {
+    if (school.logoBase64) {
       try {
-        const logoProps = doc.getImageProperties(d.school.logoBase64)
+        const logoProps = doc.getImageProperties(school.logoBase64)
         const logoH     = 16
         const logoW     = (logoProps.width / logoProps.height) * logoH
-        doc.addImage(d.school.logoBase64, toPdfImageFormat(d.school.logoMimeType), col2 - logoW / 2, 5, logoW, logoH)
+        doc.addImage(school.logoBase64, toPdfImageFormat(school.logoMimeType), col2 - logoW / 2, 5, logoW, logoH)
         y = 25
       } catch {
-        // Malformed image data — skip the badge, text header still renders
         y = 12
       }
     } else {
@@ -150,14 +161,14 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(16)
     doc.setTextColor(15, 23, 42)
-    doc.text(d.school.name.toUpperCase(), col2, y, { align: 'center' })
+    doc.text(school.name.toUpperCase(), col2, y, { align: 'center' })
     y += 5.5
 
-    if (d.school.motto) {
+    if (school.motto) {
       doc.setFont('helvetica', 'italic')
       doc.setFontSize(8.5)
       doc.setTextColor(71, 85, 105)
-      doc.text(`"${d.school.motto}"`, col2, y, { align: 'center' })
+      doc.text(`"${school.motto}"`, col2, y, { align: 'center' })
       y += 4.5
     }
     doc.setTextColor(0)
@@ -174,7 +185,7 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
     doc.setTextColor(100, 116, 139)
-    doc.text(`Term ${d.term}  ·  Academic Year ${d.year}`, col2, y, { align: 'center' })
+    doc.text(`Term ${term}  ·  Academic Year ${year}`, col2, y, { align: 'center' })
     doc.setTextColor(0)
     y += 6
 
@@ -184,10 +195,23 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
     y += 5
   }
 
-  // ── Student info ─────────────────────────────────────────────
+  return y
+}
+
+function drawStudentInfo(
+  doc: jsPDF,
+  student: ReportCardStudent,
+  termStartDate: string | null,
+  termEndDate: string | null,
+  y: number,
+): number {
+  const W = 210
+  const M = 14
+  const col2 = W / 2
+
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
-  const fullName = `${d.student.firstName} ${d.student.lastName}`
+  const fullName = `${student.firstName} ${student.lastName}`
   doc.text(`Name: `, M, y)
   doc.setFont('helvetica', 'normal')
   doc.text(fullName, M + 12, y)
@@ -195,25 +219,25 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
   doc.setFont('helvetica', 'bold')
   doc.text(`Adm. No: `, col2, y)
   doc.setFont('helvetica', 'normal')
-  doc.text(d.student.admissionNumber, col2 + 18, y)
+  doc.text(student.admissionNumber, col2 + 18, y)
   y += 5
 
   doc.setFont('helvetica', 'bold')
   doc.text(`Class: `, M, y)
   doc.setFont('helvetica', 'normal')
-  doc.text(`${d.student.className} ${d.student.streamName}`, M + 13, y)
+  doc.text(`${student.className} ${student.streamName}`, M + 13, y)
 
   doc.setFont('helvetica', 'bold')
   doc.text(`Gender: `, col2, y)
   doc.setFont('helvetica', 'normal')
-  doc.text(d.student.gender ?? '—', col2 + 16, y)
+  doc.text(student.gender ?? '—', col2 + 16, y)
   y += 5
 
-  if (d.termStartDate || d.termEndDate) {
+  if (termStartDate || termEndDate) {
     doc.setFont('helvetica', 'bold')
     doc.text(`Term Dates: `, M, y)
     doc.setFont('helvetica', 'normal')
-    doc.text(`${fmtDate(d.termStartDate)} – ${fmtDate(d.termEndDate)}`, M + 24, y)
+    doc.text(`${fmtDate(termStartDate)} – ${fmtDate(termEndDate)}`, M + 24, y)
     y += 5
   }
 
@@ -221,6 +245,136 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
   doc.setLineWidth(0.3)
   doc.line(M, y, W - M, y)
   y += 5
+
+  return y
+}
+
+function drawAttendance(doc: jsPDF, daysPresent: number, daysAbsent: number, y: number): number {
+  const W = 210
+  const M = 14
+
+  if (daysPresent > 0 || daysAbsent > 0) {
+    y = ensureSpace(doc, y, 20)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(13, 148, 136)
+    doc.text('ATTENDANCE', M, y)
+    doc.setTextColor(0)
+    y += 5
+
+    const total      = daysPresent + daysAbsent
+    const attendRate = Math.round((daysPresent / total) * 100)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.text(
+      `Days Present: ${daysPresent}    Days Absent: ${daysAbsent}    Attendance Rate: ${attendRate}%`,
+      M, y,
+    )
+    y += 7
+
+    doc.setDrawColor(226, 232, 240)
+    doc.line(M, y, W - M, y)
+    y += 5
+  }
+
+  return y
+}
+
+// Shared for both "CLASS TEACHER'S REMARKS" and "PRINCIPAL'S REMARKS" —
+// principal remarks draws a blank signature-style line when empty instead
+// of the '—' placeholder teacher remarks always has text for.
+function drawTextSection(
+  doc: jsPDF,
+  title: string,
+  text: string | null,
+  y: number,
+  opts: { blankLineWhenEmpty?: boolean } = {},
+): number {
+  const W = 210
+  const M = 14
+
+  if (!text && opts.blankLineWhenEmpty) {
+    y = ensureSpace(doc, y, 20)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(13, 148, 136)
+    doc.text(title, M, y)
+    doc.setTextColor(0)
+    y += 5
+
+    doc.setDrawColor(150, 150, 150)
+    doc.setLineWidth(0.3)
+    doc.line(M, y + 2, W - M, y + 2)
+    doc.setDrawColor(226, 232, 240)
+    y += 8
+  } else {
+    const lines = doc.splitTextToSize(text || '—', W - M * 2)
+    y = ensureSpace(doc, y, 10 + lines.length * 4.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(13, 148, 136)
+    doc.text(title, M, y)
+    doc.setTextColor(0)
+    y += 5
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.text(lines, M, y)
+    y += lines.length * 4.5 + 4
+  }
+
+  doc.setDrawColor(226, 232, 240)
+  doc.setLineWidth(0.3)
+  doc.line(M, y, W - M, y)
+  y += 5
+
+  return y
+}
+
+// Footer — digital-only, no signature lines. This report card is released
+// and viewed entirely in-app (student/parent portal), never physically
+// signed, so wet-signature blanks would just sit permanently empty. A
+// digital-issue notice replaces them instead.
+function drawFooter(doc: jsPDF, schoolName: string, nextTermStartDate: string | null, y: number): void {
+  const W = 210
+  const M = 14
+  const col2 = W / 2
+
+  y = ensureSpace(doc, y, 20)
+  if (nextTermStartDate) {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.text(`Next Term Begins: `, M, y)
+    doc.setFont('helvetica', 'normal')
+    doc.text(fmtDate(nextTermStartDate), M + 36, y)
+    y += 8
+  }
+
+  doc.setDrawColor(226, 232, 240)
+  doc.setLineWidth(0.3)
+  doc.line(M, y, W - M, y)
+  y += 5
+
+  doc.setFont('helvetica', 'italic')
+  doc.setFontSize(7.5)
+  doc.setTextColor(148, 163, 184)
+  doc.text(
+    `Digitally issued by ${schoolName} · Approved by the Principal · ${fmtDate(new Date().toISOString())}`,
+    col2, y, { align: 'center' },
+  )
+  doc.setTextColor(0)
+}
+
+// ── generateReportCardPDF (CBC — O-level / A-level) ──────────────
+// Produces a jsPDF document for one student's report card.
+// Caller is responsible for doc.save() or uploading the blob.
+export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
+  const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const W    = 210
+  const M    = 14   // left/right margin
+
+  let y = drawHeader(doc, d.school, d.term, d.year)
+  y = drawStudentInfo(doc, d.student, d.termStartDate, d.termEndDate, y)
 
   // ── Academic Performance table ───────────────────────────────
   doc.setFont('helvetica', 'bold')
@@ -363,110 +517,15 @@ export function generateReportCardPDF(d: ReportCardPdfData): jsPDF {
   doc.line(M, y, W - M, y)
   y += 5
 
-  // ── Attendance (hidden when no data collected yet) ───────────
-  if (d.daysPresent > 0 || d.daysAbsent > 0) {
-    y = ensureSpace(doc, y, 20)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10)
-    doc.setTextColor(13, 148, 136)
-    doc.text('ATTENDANCE', M, y)
-    doc.setTextColor(0)
-    y += 5
-
-    const total      = d.daysPresent + d.daysAbsent
-    const attendRate = Math.round((d.daysPresent / total) * 100)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.text(
-      `Days Present: ${d.daysPresent}    Days Absent: ${d.daysAbsent}    Attendance Rate: ${attendRate}%`,
-      M, y,
-    )
-    y += 7
-
-    doc.setDrawColor(226, 232, 240)
-    doc.line(M, y, W - M, y)
-    y += 5
-  }
-
-  // ── Class Teacher's Remarks ───────────────────────────────────
-  const remarkLines = doc.splitTextToSize(d.teacherRemarks || '—', W - M * 2)
-  y = ensureSpace(doc, y, 10 + remarkLines.length * 4.5)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  doc.setTextColor(13, 148, 136)
-  doc.text("CLASS TEACHER'S REMARKS", M, y)
-  doc.setTextColor(0)
-  y += 5
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  doc.text(remarkLines, M, y)
-  y += remarkLines.length * 4.5 + 4
-
-  doc.setDrawColor(226, 232, 240)
-  doc.line(M, y, W - M, y)
-  y += 5
-
-  // ── Principal's Remarks ───────────────────────────────────────
-  y = ensureSpace(doc, y, 20)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  doc.setTextColor(13, 148, 136)
-  doc.text("PRINCIPAL'S REMARKS", M, y)
-  doc.setTextColor(0)
-  y += 5
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  if (d.principalRemarks) {
-    const pLines = doc.splitTextToSize(d.principalRemarks, W - M * 2)
-    doc.text(pLines, M, y)
-    y += pLines.length * 4.5 + 4
-  } else {
-    doc.setDrawColor(150, 150, 150)
-    doc.setLineWidth(0.3)
-    doc.line(M, y + 2, W - M, y + 2)
-    doc.setDrawColor(226, 232, 240)
-    y += 8
-  }
-
-  doc.setDrawColor(226, 232, 240)
-  doc.setLineWidth(0.3)
-  doc.line(M, y, W - M, y)
-  y += 5
-
-  // ── Footer — digital-only, no signature lines. This report card is
-  // released and viewed entirely in-app (student/parent portal), never
-  // physically signed, so wet-signature blanks would just sit permanently
-  // empty. A digital-issue notice replaces them instead. ─────────────────
-  y = ensureSpace(doc, y, 20)
-  if (d.nextTermStartDate) {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.text(`Next Term Begins: `, M, y)
-    doc.setFont('helvetica', 'normal')
-    doc.text(fmtDate(d.nextTermStartDate), M + 36, y)
-    y += 8
-  }
-
-  doc.setDrawColor(226, 232, 240)
-  doc.setLineWidth(0.3)
-  doc.line(M, y, W - M, y)
-  y += 5
-
-  doc.setFont('helvetica', 'italic')
-  doc.setFontSize(7.5)
-  doc.setTextColor(148, 163, 184)
-  doc.text(
-    `Digitally issued by ${d.school.name} · Approved by the Principal · ${fmtDate(new Date().toISOString())}`,
-    col2, y, { align: 'center' },
-  )
-  doc.setTextColor(0)
+  y = drawAttendance(doc, d.daysPresent, d.daysAbsent, y)
+  y = drawTextSection(doc, "CLASS TEACHER'S REMARKS", d.teacherRemarks, y)
+  y = drawTextSection(doc, "PRINCIPAL'S REMARKS", d.principalRemarks, y, { blankLineWhenEmpty: true })
+  drawFooter(doc, d.school.name, d.nextTermStartDate, y)
 
   return doc
 }
 
-// ── buildSubjectRows ───────────────────────────────────────────
+// ── buildSubjectRows (CBC) ───────────────────────────────────────
 // Groups raw result rows by subject and computes CBC metrics.
 // subjectNames is a Map<subjectId, subjectName> for display.
 export type RawResult = {
@@ -573,4 +632,219 @@ export function buildSubjectRows(
   }
 
   return rows.sort((a, b) => a.subjectName.localeCompare(b.subjectName))
+}
+
+// ── PRIMARY (PLE) report card ────────────────────────────────────
+// PLE grading has no CA/exam weighted-composite concept the way O-level's
+// CBC formula does (see calculatePLEGrade's doc-comment in types/app.ts) —
+// a Ugandan primary school's termly report simply reports the term's
+// exam-based mark per subject, graded D1-F9 directly. Kept as fully
+// separate types/functions from the CBC ones above (not a branch inside
+// them) for the same reason calculateALevelGrade stays separate from
+// calculateCBCGrade: the two layouts can be corrected independently
+// without risking cross-contamination.
+
+export type PrimarySubjectPdfRow = {
+  subjectName: string
+  score:       number | null
+  totalMarks:  number | null
+  grade:       PLEGrade | null
+  points:      number | null
+  isCore:      boolean   // one of the 4 official PLE subjects (subjects.is_ple_core)
+}
+
+export type PrimaryReportCardPdfData = {
+  school:            ReportCardSchool
+  student:           ReportCardStudent
+  term:              number
+  year:              number
+  termStartDate:     string | null
+  termEndDate:       string | null
+  nextTermStartDate: string | null
+  subjects:          PrimarySubjectPdfRow[]
+  aggregate:         number | null           // sum of points across core subjects; null until all 4 are graded
+  division:          PLEDivision | 'Pending'
+  daysPresent:       number
+  daysAbsent:        number
+  teacherRemarks:    string
+  principalRemarks:  string | null
+}
+
+export type PrimaryRawResult = {
+  subjectId:      string
+  assessmentType: string
+  score:          number | null
+  isAbsent:       boolean
+  totalMarks:     number
+}
+
+export function buildPrimarySubjectRows(
+  results:        PrimaryRawResult[],
+  subjectNames:   Map<string, string>,
+  coreSubjectIds: Set<string>,
+  allSubjectIds:  string[] = [],
+): PrimarySubjectPdfRow[] {
+  const bySubject = new Map<string, PrimaryRawResult[]>()
+  for (const r of results) {
+    const list = bySubject.get(r.subjectId) ?? []
+    list.push(r)
+    bySubject.set(r.subjectId, list)
+  }
+
+  const rows: PrimarySubjectPdfRow[] = []
+
+  for (const subjectId of allSubjectIds) {
+    if (bySubject.has(subjectId)) continue
+    rows.push({
+      subjectName: subjectNames.get(subjectId) ?? subjectId,
+      score: null, totalMarks: null, grade: null, points: null,
+      isCore: coreSubjectIds.has(subjectId),
+    })
+  }
+
+  for (const [subjectId, subResults] of bySubject) {
+    // Prefer the end-of-term mark as the term's authoritative result; fall
+    // back to whatever other assessment was actually entered (e.g. only a
+    // mid-term exists so far) rather than showing a blank subject row.
+    const entry = subResults.find(r => r.assessmentType === 'end_of_term' && !r.isAbsent && r.score !== null)
+      ?? subResults.find(r => !r.isAbsent && r.score !== null)
+      ?? null
+
+    let grade:  PLEGrade | null = null
+    let points: number | null   = null
+    if (entry && entry.score !== null && entry.totalMarks > 0) {
+      const pct = (entry.score / entry.totalMarks) * 100
+      grade  = calculatePLEGrade(pct)
+      points = plePoints(grade)
+    }
+
+    rows.push({
+      subjectName: subjectNames.get(subjectId) ?? subjectId,
+      score:       entry?.score ?? null,
+      totalMarks:  entry?.totalMarks ?? null,
+      grade,
+      points,
+      isCore: coreSubjectIds.has(subjectId),
+    })
+  }
+
+  return rows.sort((a, b) => a.subjectName.localeCompare(b.subjectName))
+}
+
+// Aggregate/division are only meaningful once all 4 core PLE subjects
+// (English, Mathematics, Science, Social Studies — flagged via
+// subjects.is_ple_core) have a grade this term. Fewer than 4 graded core
+// subjects → 'Pending', not a misleadingly-partial number.
+export function computePrimaryAggregate(
+  rows: PrimarySubjectPdfRow[],
+): { aggregate: number | null; division: PLEDivision | 'Pending' } {
+  const coreGrades = rows.filter(r => r.isCore && r.grade !== null).map(r => r.grade!)
+  if (coreGrades.length < 4) return { aggregate: null, division: 'Pending' }
+  const aggregate = calculatePLEAggregate(coreGrades)
+  return { aggregate, division: calculatePLEDivision(aggregate) }
+}
+
+export function generatePrimaryReportCardPDF(d: PrimaryReportCardPdfData): jsPDF {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const W   = 210
+  const M   = 14
+
+  let y = drawHeader(doc, d.school, d.term, d.year)
+  y = drawStudentInfo(doc, d.student, d.termStartDate, d.termEndDate, y)
+
+  // ── Academic Performance table ───────────────────────────────
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(13, 148, 136)
+  doc.text('ACADEMIC PERFORMANCE', M, y)
+  doc.setTextColor(0)
+  y += 4
+
+  const headers = ['Subject', 'Score', 'Out of', 'Grade', 'Points']
+  const body = d.subjects.map(s => [
+    s.isCore ? `${s.subjectName} *` : s.subjectName,
+    s.score      !== null ? String(s.score)      : '—',
+    s.totalMarks !== null ? String(s.totalMarks)  : '—',
+    s.grade  ?? '—',
+    s.points !== null ? String(s.points) : '—',
+  ])
+
+  autoTable(doc, {
+    startY: y,
+    head:   [headers],
+    body,
+    margin: { left: M, right: M },
+    theme:  'grid',
+    styles: { fontSize: 8, cellPadding: 2, font: 'helvetica' },
+    headStyles: { fillColor: [13, 148, 136], textColor: 255, fontStyle: 'bold', halign: 'center' },
+    columnStyles: {
+      0: { halign: 'left', cellWidth: 70 },
+      1: { halign: 'center', cellWidth: 22 },
+      2: { halign: 'center', cellWidth: 22 },
+      3: { halign: 'center', cellWidth: 22, fontStyle: 'bold' },
+      4: { halign: 'center', cellWidth: 22 },
+    },
+    didParseCell: data => {
+      if (data.section === 'body' && data.column.index === 3) {
+        const grade = data.cell.raw as string
+        if (/^[DCPF][1-9]$/.test(grade)) {
+          const [r, g, b] = pleGradeColor(grade as PLEGrade)
+          data.cell.styles.textColor = [r, g, b]
+        }
+      }
+    },
+    didDrawPage: () => {},
+  })
+
+  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4
+
+  doc.setFont('helvetica', 'italic')
+  doc.setFontSize(7)
+  doc.setTextColor(100, 116, 139)
+  doc.text('* Core PLE subject (counts toward aggregate)', M, y)
+  doc.setTextColor(0)
+  y += 6
+
+  // ── Overall Performance ──────────────────────────────────────
+  y = ensureSpace(doc, y, 26)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(13, 148, 136)
+  doc.text('OVERALL PERFORMANCE', M, y)
+  doc.setTextColor(0)
+  y += 6
+
+  const stats = [
+    { label: 'AGGREGATE', value: d.aggregate !== null ? String(d.aggregate) : '—' },
+    { label: 'DIVISION',  value: d.division },
+  ]
+  const statW = (W - M * 2 - 3) / 2
+  stats.forEach((s, i) => {
+    const bx = M + i * (statW + 3)
+    doc.setFillColor(248, 250, 252)
+    doc.setDrawColor(226, 232, 240)
+    doc.setLineWidth(0.3)
+    doc.roundedRect(bx, y, statW, 16, 2, 2, 'FD')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6.5)
+    doc.setTextColor(100, 116, 139)
+    doc.text(s.label, bx + 3, y + 5)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(13, 148, 136)
+    doc.text(s.value, bx + 3, y + 12)
+    doc.setTextColor(0)
+  })
+  y += 22
+
+  doc.setDrawColor(226, 232, 240)
+  doc.line(M, y, W - M, y)
+  y += 5
+
+  y = drawAttendance(doc, d.daysPresent, d.daysAbsent, y)
+  y = drawTextSection(doc, "CLASS TEACHER'S REMARKS", d.teacherRemarks, y)
+  y = drawTextSection(doc, "PRINCIPAL'S REMARKS", d.principalRemarks, y, { blankLineWhenEmpty: true })
+  drawFooter(doc, d.school.name, d.nextTermStartDate, y)
+
+  return doc
 }

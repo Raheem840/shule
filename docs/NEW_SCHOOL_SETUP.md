@@ -46,8 +46,11 @@ variable in `docker-compose.school.yml` — nothing to do here.
 
 **All modes**, in order:
 1. Edit `supabase/seed/school_template.sql` with the school's real
-   name/motto/curriculum, run Step 1 in the SQL Editor, copy the returned
-   `school_id`.
+   name/motto/curriculum, **and set `education_level` to `primary` (P1-P7)
+   or `secondary` (S1-S6)** — this decides grading (PLE D1-F9 vs CBC A-E)
+   and report card layout school-wide. Can be changed later from Admin →
+   School Profile, but only affects marks/report cards saved after the
+   change. Run Step 1 in the SQL Editor, copy the returned `school_id`.
 2. Authentication → Users → Add User: create the IT Admin's login, copy
    their user ID.
 3. Run Step 2 of `school_template.sql` with both IDs filled in.

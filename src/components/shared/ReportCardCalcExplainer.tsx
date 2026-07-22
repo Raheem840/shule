@@ -1,11 +1,20 @@
 import { useState } from 'react'
+import { useSchoolSettings } from '../../hooks/useAdmin'
 
 // Explains the CBC scoring formula used on every report card (calcCBC in
 // src/types/app.ts) in plain language — shown collapsed by default under
 // each report card in the student/parent portals so it doesn't compete with
 // the actual results, but is one tap away when a parent asks "why this grade?"
+//
+// CBC-only text (20% CA / 80% exam, A-E letters) — self-gates on the
+// school's education_level rather than requiring every one of its 3 call
+// sites (student/parent portals, teacher mark entry) to remember to check,
+// since a Primary school's PLE grading (D1-F9, no CA/exam split) has none
+// of this and showing it would be actively misleading, not just irrelevant.
 export function ReportCardCalcExplainer() {
   const [open, setOpen] = useState(false)
+  const { data: school } = useSchoolSettings()
+  if (school?.educationLevel === 'primary') return null
 
   return (
     <div style={{

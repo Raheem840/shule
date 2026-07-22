@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useSubjects, useAddSubject, useUpdateSubject, useToggleSubjectActive } from '../../hooks/useClasses'
+import { useSchoolSettings } from '../../hooks/useAdmin'
 import { useToast } from '../../components/ui/Toast'
 
-type SubjectForm = { name: string; curriculumCode: string; level: string }
-const EMPTY: SubjectForm = { name: '', curriculumCode: '', level: '' }
+type SubjectForm = { name: string; curriculumCode: string; level: string; isPleCore: boolean }
+const EMPTY: SubjectForm = { name: '', curriculumCode: '', level: '', isPleCore: false }
 
 // ─── Shared modal shell ────────────────────────────────────────────────────────
 function ModalShell({ title, subtitle, color, onClose, children }: {
@@ -51,16 +52,18 @@ function ModalShell({ title, subtitle, color, onClose, children }: {
 
 // ─── Add / Edit modal ──────────────────────────────────────────────────────────
 function SubjectModal({ initial, onClose }: {
-  initial: { id: string; name: string; curriculumCode: string | null; level: string | null } | null
+  initial: { id: string; name: string; curriculumCode: string | null; level: string | null; isPleCore: boolean } | null
   onClose: () => void
 }) {
   const addMut = useAddSubject()
   const updMut = useUpdateSubject()
+  const { data: school } = useSchoolSettings()
   const { success: ok, error: err } = useToast()
   const isEdit = !!initial
+  const isPrimarySchool = school?.educationLevel === 'primary'
 
   const [form, setForm] = useState<SubjectForm>(
-    initial ? { name: initial.name, curriculumCode: initial.curriculumCode ?? '', level: initial.level ?? '' } : EMPTY
+    initial ? { name: initial.name, curriculumCode: initial.curriculumCode ?? '', level: initial.level ?? '', isPleCore: initial.isPleCore } : EMPTY
   )
   const [saving, setSaving] = useState(false)
 
@@ -72,10 +75,10 @@ function SubjectModal({ initial, onClose }: {
     setSaving(true)
     try {
       if (isEdit) {
-        await updMut.mutateAsync({ id: initial!.id, name: form.name.trim(), curriculumCode: form.curriculumCode.trim(), level: form.level })
+        await updMut.mutateAsync({ id: initial!.id, name: form.name.trim(), curriculumCode: form.curriculumCode.trim(), level: form.level, isPleCore: form.isPleCore })
         ok(`${form.name} updated`)
       } else {
-        await addMut.mutateAsync({ name: form.name.trim(), curriculumCode: form.curriculumCode.trim(), level: form.level })
+        await addMut.mutateAsync({ name: form.name.trim(), curriculumCode: form.curriculumCode.trim(), level: form.level, isPleCore: form.isPleCore })
         ok(`${form.name} added`)
       }
       onClose()
@@ -106,14 +109,30 @@ function SubjectModal({ initial, onClose }: {
           <Lbl>NCDC Curriculum Code</Lbl>
           <input className="sui-input" value={form.curriculumCode} onChange={e => f('curriculumCode', e.target.value)} placeholder="e.g. MAT001" style={{ width: '100%' }} />
         </div>
-        <div>
-          <Lbl>Level</Lbl>
-          <select className="sui-input" value={form.level} onChange={e => f('level', e.target.value)} style={{ width: '100%' }}>
-            <option value="">Both O-Level & A-Level</option>
-            <option value="O-Level">O-Level (S.1–S.4)</option>
-            <option value="A-Level">A-Level (S.5–S.6)</option>
-          </select>
-        </div>
+        {!isPrimarySchool && (
+          <div>
+            <Lbl>Level</Lbl>
+            <select className="sui-input" value={form.level} onChange={e => f('level', e.target.value)} style={{ width: '100%' }}>
+              <option value="">Both O-Level & A-Level</option>
+              <option value="O-Level">O-Level (S.1–S.4)</option>
+              <option value="A-Level">A-Level (S.5–S.6)</option>
+            </select>
+          </div>
+        )}
+        {isPrimarySchool && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12, background: 'var(--surface2)', border: '.5px solid var(--border)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={form.isPleCore} onChange={e => setForm(p => ({ ...p, isPleCore: e.target.checked }))} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt)' }}>Core PLE subject</div>
+              <div style={{ fontSize: 11.5, color: 'var(--txt3)', marginTop: 2 }}>
+                Check this for exactly English, Mathematics, Science, and Social
+                Studies — the 4 subjects PLE's official aggregate/division is
+                computed from. Other subjects are graded but don't count
+                toward it.
+              </div>
+            </div>
+          </label>
+        )}
       </div>
       {/* Footer */}
       <div style={{ padding: '14px 24px 18px', borderTop: '.5px solid var(--border)', flexShrink: 0, display: 'flex', gap: 10 }}>
@@ -136,7 +155,7 @@ export function DosSubjectsPage() {
   const [levelFilter,   setLevelFilter]   = useState('')
   const [search,        setSearch]        = useState('')
   const [showInactive,  setShowInactive]  = useState(false)
-  const [modal, setModal] = useState<'add' | { id: string; name: string; curriculumCode: string | null; level: string | null } | null>(null)
+  const [modal, setModal] = useState<'add' | { id: string; name: string; curriculumCode: string | null; level: string | null; isPleCore: boolean } | null>(null)
 
   // Fetch all subjects including inactive to allow management
   const { data: allSubjects = [], isLoading } = useSubjects(levelFilter || undefined)
@@ -289,7 +308,7 @@ export function DosSubjectsPage() {
               </div>
               <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end' }}>
                 <button
-                  onClick={() => setModal({ id: s.id, name: s.name, curriculumCode: s.curriculumCode ?? null, level: s.level ?? null })}
+                  onClick={() => setModal({ id: s.id, name: s.name, curriculumCode: s.curriculumCode ?? null, level: s.level ?? null, isPleCore: s.isPleCore })}
                   style={{ padding: '5px 12px', borderRadius: 9, border: '.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt2)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', transition: 'all .13s' }}
                   onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--brand)')}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}

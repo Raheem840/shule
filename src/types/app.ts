@@ -183,6 +183,11 @@ export type Subject = {
   curriculumCode: string | null
   level: string | null          // 'O-Level' | 'A-Level'
   isActive: boolean
+  // Primary (PLE) schools only — flags one of the 4 official PLE subjects
+  // (English, Mathematics, Science, Social Studies) so report card
+  // aggregate/division computation doesn't have to fuzzy-match subject
+  // names. Always false and unused for Secondary schools.
+  isPleCore: boolean
 }
 
 // ── FEES ───────────────────────────────────────────────────────────────────
@@ -303,7 +308,7 @@ export type ExamResult = {
   studentId: string
   subjectId: string
   score: number | null            // null when is_absent = true
-  grade: 'A' | 'B' | 'C' | 'D' | 'E' | null  // null for end_of_term (needs CA to calculate)
+  grade: 'A' | 'B' | 'C' | 'D' | 'E' | PLEGrade | null  // null for end_of_term (needs CA to calculate); PLEGrade (D1-F9) for Primary schools
   isAbsent: boolean
   remarks: string | null
   term: string
@@ -346,6 +351,10 @@ export type ReportCard = {
   unlockReason: string | null
   unlockCount: number
   pdfUrl: string | null
+  // Primary (PLE) schools only — null for Secondary, whose summary lives in
+  // the generated PDF's CBC total/avgGrade instead.
+  aggregatePoints: number | null
+  division: string | null
 }
 
 // ── ATTENDANCE ─────────────────────────────────────────────────────────────
@@ -495,4 +504,105 @@ export function calcCBC(
     gradePoints: GRADE_POINTS[grade],
     descriptor:  GRADE_DESCRIPTORS[grade],
   }
+}
+
+// ── A-LEVEL (UACE, S5–S6) GRADE CALCULATION ────────────────────────────────
+// Researched 2026-07-24. Uganda's Advanced Secondary Curriculum (launched
+// Feb 2025, first S5 cohort 2025 — the abridged/streamlined transition
+// version after government dropped the from-scratch rebuild in Nov 2024)
+// shifted UACE grading from the old 7-grade A/B/C/D/E/O/F scale (O =
+// subsidiary pass, F = fail, 6 points max per principal subject, 18+2=20
+// point aggregate ceiling) to a 5-grade A–E scale — dropping O and F —
+// explicitly described by NCDC as aligned with the lower-secondary
+// competency-based model, "for a smoother transition." CONFIRMED via
+// multiple independent sources (NCDC's own public grading explainer,
+// Monitor, New Vision, Parliament of Uganda's clarification).
+//
+// NOT yet officially published as of this writing: the CA/exam weighting
+// split and the percentage cutoffs per letter grade. The first cohort under
+// this system won't sit end-of-cycle S6 exams until later in the rollout,
+// so UNEB has not released a fixed scoring table the way it eventually did
+// for O-level's NLSC. Until UNEB publishes one, this mirrors the confirmed
+// O-level CA=20%/exam=80% formula and 80/70/60/50 cutoffs as an EXPLICIT
+// SCHOOL-LEVEL CONVENTION — same honesty pattern as calculateCBCGrade — kept
+// as its own named function (not a bare re-export) so it can be corrected
+// independently the moment UNEB publishes real A-Level numbers, without
+// touching O-level's already-separately-sourced formula.
+export function calculateALevelGrade(total: number): 'A' | 'B' | 'C' | 'D' | 'E' {
+  return calculateCBCGrade(total)
+}
+
+export function calculateALevelTotal(totalPoints: number, assessed: number, examScore: number): number {
+  return calculateCBCTotal(totalPoints, assessed, examScore)
+}
+
+export function calcALevel(totalPoints: number, assessed: number, examScore: number): CBCResult {
+  return calcCBC(totalPoints, assessed, examScore)
+}
+
+// ── PRIMARY (P1–P7) / PLE GRADE CALCULATION ────────────────────────────────
+// Researched 2026-07-24. Uganda's Primary Leaving Examination (PLE, sat at
+// the end of P7) grades EXACTLY 4 subjects — English, Mathematics, Science,
+// Social Studies — on a 9-point per-subject scale. CONFIRMED, long-standing
+// UNEB convention, unrelated to and unaffected by the 2025 NLSC/A-Level
+// reforms (a 2026 UNEB proposal to abolish the aggregate system entirely
+// remains just a proposal, not implemented, as of this writing):
+//   D1=1  D2=2   (Distinction)
+//   C3=3  C4=4  C5=5  C6=6   (Credit)
+//   P7=7  P8=8   (Pass)
+//   F9=9         (Fail)
+// LOWER points = better, the reverse of CBC's A=5…E=1. Aggregate = sum of
+// the 4 core-subject points (best possible 4, worst passing 34), giving the
+// official division bands (CONFIRMED):
+//   Division 1: 4–12 · Division 2: 13–23 · Division 3: 24–29 ·
+//   Division 4: 30–34 · Ungraded: 35–36
+//
+// NOT officially published as a fixed table: the raw-percentage cutoff for
+// each D/C/P/F band. Like O-level's UCE, UNEB's real PLE grading is
+// norm-referenced/moderated per sitting, not a fixed percentage table
+// published in advance. The cutoffs below are a SCHOOL-LEVEL CONVENTION for
+// this app's termly internal report cards (every P1–P7 student gets a
+// PLE-style per-subject grade every term, not just P7 leavers) — treat as
+// convention, not a verbatim UNEB-published number, same as the O-level and
+// A-Level tables above.
+export type PLEGrade = 'D1' | 'D2' | 'C3' | 'C4' | 'C5' | 'C6' | 'P7' | 'P8' | 'F9'
+
+const PLE_GRADE_POINTS: Record<PLEGrade, number> = {
+  D1: 1, D2: 2, C3: 3, C4: 4, C5: 5, C6: 6, P7: 7, P8: 8, F9: 9,
+}
+
+export function calculatePLEGrade(percentage: number): PLEGrade {
+  if (percentage >= 90) return 'D1'
+  if (percentage >= 80) return 'D2'
+  if (percentage >= 70) return 'C3'
+  if (percentage >= 65) return 'C4'
+  if (percentage >= 60) return 'C5'
+  if (percentage >= 55) return 'C6'
+  if (percentage >= 50) return 'P7'
+  if (percentage >= 40) return 'P8'
+  return 'F9'
+}
+
+export function plePoints(grade: PLEGrade): number {
+  return PLE_GRADE_POINTS[grade]
+}
+
+// Sums grade-points across a set of subject grades — pass exactly the 4
+// core PLE subjects (English/Mathematics/Science/Social Studies) for an
+// official-style P7 exit aggregate, or any subject set for an internal
+// termly ranking aggregate across all subjects a class actually takes.
+export function calculatePLEAggregate(grades: PLEGrade[]): number {
+  return grades.reduce((sum, g) => sum + PLE_GRADE_POINTS[g], 0)
+}
+
+export type PLEDivision = 'Division 1' | 'Division 2' | 'Division 3' | 'Division 4' | 'Ungraded'
+
+// Only meaningful for a 4-subject aggregate (4–36 range) — the official P7
+// exit division bands.
+export function calculatePLEDivision(aggregate: number): PLEDivision {
+  if (aggregate <= 12) return 'Division 1'
+  if (aggregate <= 23) return 'Division 2'
+  if (aggregate <= 29) return 'Division 3'
+  if (aggregate <= 34) return 'Division 4'
+  return 'Ungraded'
 }

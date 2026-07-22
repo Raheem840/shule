@@ -34,7 +34,11 @@ vi.mock('jspdf-autotable', () => ({
   default: vi.fn(),
 }))
 
-import { buildSubjectRows, generateReportCardPDF, type ReportCardPdfData } from '../../lib/reportCardPdf'
+import {
+  buildSubjectRows, generateReportCardPDF, type ReportCardPdfData,
+  buildPrimarySubjectRows, computePrimaryAggregate, generatePrimaryReportCardPDF,
+  type PrimaryReportCardPdfData, type PrimarySubjectPdfRow,
+} from '../../lib/reportCardPdf'
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -325,5 +329,191 @@ describe('generateReportCardPDF', () => {
     }))
     const textArgs = mockDoc.text.mock.calls.map((c: unknown[]) => c[0])
     expect(textArgs).toContain('—')
+  })
+})
+
+// ── buildPrimarySubjectRows / computePrimaryAggregate ─────────────
+// Pure functions — no mocks needed.
+
+describe('buildPrimarySubjectRows', () => {
+  it('returns empty array when results is empty', () => {
+    expect(buildPrimarySubjectRows([], new Map(), new Set())).toEqual([])
+  })
+
+  it('grades from end_of_term when present, D1 for a 95% score', () => {
+    const results = [
+      { subjectId: 's1', assessmentType: 'end_of_term', score: 95, isAbsent: false, totalMarks: 100 },
+    ]
+    const [row] = buildPrimarySubjectRows(results, new Map([['s1', 'English']]), new Set(['s1']))
+    expect(row.subjectName).toBe('English')
+    expect(row.grade).toBe('D1')
+    expect(row.points).toBe(1)
+    expect(row.isCore).toBe(true)
+  })
+
+  it('falls back to a non-end_of_term assessment when no end_of_term exists', () => {
+    const results = [
+      { subjectId: 's1', assessmentType: 'mid_term', score: 45, isAbsent: false, totalMarks: 100 },
+    ]
+    const [row] = buildPrimarySubjectRows(results, new Map([['s1', 'Science']]), new Set())
+    expect(row.grade).toBe('P8')  // 45% -> P8
+    expect(row.isCore).toBe(false)
+  })
+
+  it('prefers end_of_term over other assessments when both exist', () => {
+    const results = [
+      { subjectId: 's1', assessmentType: 'mid_term',    score: 40, isAbsent: false, totalMarks: 100 },
+      { subjectId: 's1', assessmentType: 'end_of_term', score: 92, isAbsent: false, totalMarks: 100 },
+    ]
+    const [row] = buildPrimarySubjectRows(results, new Map([['s1', 'Maths']]), new Set())
+    expect(row.score).toBe(92)
+    expect(row.grade).toBe('D1')
+  })
+
+  it('absent end_of_term falls back to another non-absent assessment', () => {
+    const results = [
+      { subjectId: 's1', assessmentType: 'mid_term',    score: 50, isAbsent: false, totalMarks: 100 },
+      { subjectId: 's1', assessmentType: 'end_of_term', score: 92, isAbsent: true,  totalMarks: 100 },
+    ]
+    const [row] = buildPrimarySubjectRows(results, new Map([['s1', 'Maths']]), new Set())
+    expect(row.score).toBe(50)
+  })
+
+  it('grade stays null when the only entry is absent', () => {
+    const results = [
+      { subjectId: 's1', assessmentType: 'end_of_term', score: null, isAbsent: true, totalMarks: 100 },
+    ]
+    const [row] = buildPrimarySubjectRows(results, new Map([['s1', 'Science']]), new Set())
+    expect(row.grade).toBeNull()
+    expect(row.score).toBeNull()
+  })
+
+  it('includes a subject with no results at all as a blank row when in allSubjectIds', () => {
+    const rows = buildPrimarySubjectRows([], new Map([['s1', 'Art']]), new Set(), ['s1'])
+    expect(rows).toHaveLength(1)
+    expect(rows[0].subjectName).toBe('Art')
+    expect(rows[0].grade).toBeNull()
+  })
+
+  it('sorts subjects alphabetically', () => {
+    const results = [
+      { subjectId: 'b', assessmentType: 'end_of_term', score: 50, isAbsent: false, totalMarks: 100 },
+      { subjectId: 'a', assessmentType: 'end_of_term', score: 50, isAbsent: false, totalMarks: 100 },
+    ]
+    const names = new Map([['a', 'Mathematics'], ['b', 'English']])
+    const rows = buildPrimarySubjectRows(results, names, new Set())
+    expect(rows[0].subjectName).toBe('English')
+    expect(rows[1].subjectName).toBe('Mathematics')
+  })
+})
+
+describe('computePrimaryAggregate', () => {
+  function row(grade: PrimarySubjectPdfRow['grade'], isCore: boolean): PrimarySubjectPdfRow {
+    return { subjectName: 'x', score: null, totalMarks: null, grade, points: grade ? null : null, isCore }
+  }
+
+  it('returns Pending when fewer than 4 core subjects are graded', () => {
+    const rows = [row('D1', true), row('D2', true), row('C3', true)]
+    const result = computePrimaryAggregate(rows)
+    expect(result.aggregate).toBeNull()
+    expect(result.division).toBe('Pending')
+  })
+
+  it('computes aggregate + division from exactly the 4 core subjects, ignoring non-core', () => {
+    const rows = [
+      { subjectName: 'English', score: null, totalMarks: null, grade: 'D1' as const, points: 1, isCore: true },
+      { subjectName: 'Maths',   score: null, totalMarks: null, grade: 'D1' as const, points: 1, isCore: true },
+      { subjectName: 'Science', score: null, totalMarks: null, grade: 'D1' as const, points: 1, isCore: true },
+      { subjectName: 'SST',     score: null, totalMarks: null, grade: 'D1' as const, points: 1, isCore: true },
+      { subjectName: 'Art',     score: null, totalMarks: null, grade: 'F9' as const, points: 9, isCore: false },
+    ]
+    const result = computePrimaryAggregate(rows)
+    expect(result.aggregate).toBe(4)
+    expect(result.division).toBe('Division 1')
+  })
+
+  it('a low-scoring core set produces a worse division', () => {
+    const rows = [
+      { subjectName: 'English', score: null, totalMarks: null, grade: 'P8' as const, points: 8, isCore: true },
+      { subjectName: 'Maths',   score: null, totalMarks: null, grade: 'P8' as const, points: 8, isCore: true },
+      { subjectName: 'Science', score: null, totalMarks: null, grade: 'P8' as const, points: 8, isCore: true },
+      { subjectName: 'SST',     score: null, totalMarks: null, grade: 'P8' as const, points: 8, isCore: true },
+    ]
+    const result = computePrimaryAggregate(rows)
+    expect(result.aggregate).toBe(32)
+    expect(result.division).toBe('Division 4')
+  })
+})
+
+// ── generatePrimaryReportCardPDF ──────────────────────────────────
+
+function makePrimaryData(overrides: Partial<PrimaryReportCardPdfData> = {}): PrimaryReportCardPdfData {
+  return {
+    school:  { name: 'Kampala Junior Primary', motto: null, logoUrl: null, logoBase64: null, logoMimeType: 'image/jpeg', templateBase64: null, templateMimeType: 'image/png' },
+    student: {
+      firstName: 'Grace', lastName: 'Namutebi',
+      admissionNumber: 'KJP/2025/010', gender: 'Female',
+      className: 'P.5', streamName: 'A',
+    },
+    term:              1,
+    year:              2025,
+    termStartDate:     null,
+    termEndDate:       null,
+    nextTermStartDate: null,
+    subjects:          [],
+    aggregate:         null,
+    division:          'Pending',
+    daysPresent:       0,
+    daysAbsent:        0,
+    teacherRemarks:    'Good effort this term.',
+    principalRemarks:  null,
+    ...overrides,
+  }
+}
+
+describe('generatePrimaryReportCardPDF', () => {
+  it('returns the jsPDF doc object', () => {
+    expect(generatePrimaryReportCardPDF(makePrimaryData())).toBe(mockDoc)
+  })
+
+  it('renders the student full name and class', () => {
+    generatePrimaryReportCardPDF(makePrimaryData())
+    const textArgs = mockDoc.text.mock.calls.map((c: unknown[]) => c[0])
+    expect(textArgs).toContain('Grace Namutebi')
+    expect(textArgs).toContain('P.5 A')
+  })
+
+  it('does not throw with subject rows including a core-flagged subject', () => {
+    const subjects: PrimarySubjectPdfRow[] = [
+      { subjectName: 'English', score: 95, totalMarks: 100, grade: 'D1', points: 1, isCore: true },
+    ]
+    expect(() => generatePrimaryReportCardPDF(makePrimaryData({ subjects }))).not.toThrow()
+  })
+
+  it('renders aggregate and division when provided', () => {
+    generatePrimaryReportCardPDF(makePrimaryData({ aggregate: 8, division: 'Division 1' }))
+    const textArgs = mockDoc.text.mock.calls.map((c: unknown[]) => c[0])
+    expect(textArgs).toContain('8')
+    expect(textArgs).toContain('Division 1')
+  })
+
+  it('renders "—" for aggregate and "Pending" for division when not yet computed', () => {
+    generatePrimaryReportCardPDF(makePrimaryData({ aggregate: null, division: 'Pending' }))
+    const textArgs = mockDoc.text.mock.calls.map((c: unknown[]) => c[0])
+    expect(textArgs).toContain('Pending')
+  })
+
+  it('does not crash when attendance is 0/0', () => {
+    expect(() => generatePrimaryReportCardPDF(makePrimaryData({ daysPresent: 0, daysAbsent: 0 }))).not.toThrow()
+  })
+
+  it('renders attendance when present', () => {
+    generatePrimaryReportCardPDF(makePrimaryData({ daysPresent: 55, daysAbsent: 1 }))
+    const textArgs = mockDoc.text.mock.calls.map((c: unknown[]) => c[0])
+    expect(textArgs.some((t: unknown) => typeof t === 'string' && t.includes('Days Present: 55'))).toBe(true)
+  })
+
+  it('does not crash when principalRemarks is null', () => {
+    expect(() => generatePrimaryReportCardPDF(makePrimaryData({ principalRemarks: null }))).not.toThrow()
   })
 })

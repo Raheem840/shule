@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
-import { calculateCBCGrade } from '../types/app'
+import { calculateCBCGrade, calculateALevelGrade, calculatePLEGrade } from '../types/app'
+import { classifyClassName } from '../lib/educationStage'
 import { isJournalLocked } from './useExamJournal'
 import { sendNotifications } from '../lib/notifications'
 import type { ExamResult, ExamJournal } from '../types/app'
@@ -118,7 +119,7 @@ export function useSaveMarks() {
 
       const { data: journalRow, error: jErr } = await supabase
         .from('exam_journal')
-        .select('status, published_at')
+        .select('status, published_at, class_id')
         .eq('id', journalId)
         .eq('school_id', user.schoolId)
         .single()
@@ -132,13 +133,48 @@ export function useSaveMarks() {
         throw new Error('These results are locked. Provide a reason to make a correction.')
       }
 
+      // Which grade scale to use — decided by the school's education_level
+      // first (Primary always uses PLE's D1-F9, regardless of class name),
+      // then within a Secondary school by the journal's own class (S5/S6 =
+      // A-level, kept as its own named function independent of O-level's
+      // calculateCBCGrade even though the underlying formula is deliberately
+      // mirrored for now — see calculateALevelGrade's doc-comment in
+      // types/app.ts — so it can be corrected the moment UNEB publishes
+      // real A-Level numbers without touching O-level).
+      const { data: schoolRow } = await supabase
+        .from('school_profile')
+        .select('education_level')
+        .eq('id', user.schoolId)
+        .maybeSingle()
+      const educationLevel = (schoolRow as { education_level?: string } | null)?.education_level ?? 'secondary'
+
+      let gradeFn: (pct: number) => 'A' | 'B' | 'C' | 'D' | 'E' | ReturnType<typeof calculatePLEGrade> = calculateCBCGrade
+
+      if (educationLevel === 'primary') {
+        gradeFn = calculatePLEGrade
+      } else {
+        const journalClassId = (journalRow as { class_id: string | null }).class_id
+        if (journalClassId) {
+          const { data: classRow } = await supabase
+            .from('classes')
+            .select('name')
+            .eq('id', journalClassId)
+            .eq('school_id', user.schoolId)
+            .maybeSingle()
+          const className = (classRow as { name?: string } | null)?.name
+          if (className && classifyClassName(className).stage === 'alevel') {
+            gradeFn = calculateALevelGrade
+          }
+        }
+      }
+
       const rows = marks.map(m => {
         // Grade: null for end_of_term (needs CA to combine), calculated for all others
         let grade: ExamResult['grade'] = null
         if (!m.isAbsent && m.score !== null && assessmentType !== 'end_of_term' && totalMarks > 0) {
           // CA rubric is 0-3 points per indicator; use /3 not /totalMarks
           const pct = assessmentType === 'ca' ? (m.score / 3) * 100 : (m.score / totalMarks) * 100
-          grade = calculateCBCGrade(pct)
+          grade = gradeFn(pct)
         }
 
         return {

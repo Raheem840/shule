@@ -17,6 +17,7 @@ const { mockFrom, setResponse, clearResponses } = vi.hoisted(() => {
       upsert:      vi.fn().mockReturnThis(),
       insert:      vi.fn().mockReturnThis(),
       single:      vi.fn().mockImplementation(() => Promise.resolve(tableData[table] ?? { data: null, error: null })),
+      maybeSingle: vi.fn().mockImplementation(() => Promise.resolve(tableData[table] ?? { data: null, error: null })),
       then:        (resolve: any, reject?: any) =>
         Promise.resolve(tableData[table] ?? { data: [], error: null }).then(resolve, reject),
     }
@@ -178,6 +179,82 @@ describe('useSaveMarks', () => {
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  })
+
+  it('uses calculateALevelGrade (not calculateCBCGrade) when the journal\'s class is S5/S6', async () => {
+    setResponse('exam_journal', { data: { status: 'draft', published_at: null, class_id: 'cls-s5' }, error: null })
+    setResponse('classes', { data: { name: 'S.5' }, error: null })
+    setResponse('exam_results', { data: null, error: null })
+    const { result } = renderHook(() => useSaveMarks(), { wrapper: createWrapper() })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        journalId:      'j-1',
+        subjectId:      'sub-1',
+        assessmentType: 'mid_term',
+        totalMarks:     80,
+        term:           '1',
+        year:           2025,
+        // 80/80 = 100% -> A under both formulas today (mirrored), but
+        // proves the classes lookup + stage branch actually executes
+        // without throwing and still produces a valid CBC-shaped grade.
+        marks: [{ studentId: 'stu-1', score: 80, isAbsent: false }],
+      })
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockFrom).toHaveBeenCalledWith('classes')
+    const upsertBuilder = mockFrom.mock.results.find(r => r.value.upsert?.mock.calls.length > 0)?.value
+    const upsertedRows  = upsertBuilder?.upsert.mock.calls[0][0]
+    expect(upsertedRows[0].grade).toBe('A')
+  })
+
+  it('uses calculatePLEGrade for a Primary school regardless of class name', async () => {
+    setResponse('exam_journal', { data: { status: 'draft', published_at: null, class_id: 'cls-p3' }, error: null })
+    setResponse('school_profile', { data: { education_level: 'primary' }, error: null })
+    setResponse('exam_results', { data: null, error: null })
+    const { result } = renderHook(() => useSaveMarks(), { wrapper: createWrapper() })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        journalId:      'j-1',
+        subjectId:      'sub-1',
+        assessmentType: 'mid_term',
+        totalMarks:     100,
+        term:           '1',
+        year:           2025,
+        // 95/100 = 95% -> D1 under PLE (best grade), would be 'A' under CBC
+        marks: [{ studentId: 'stu-1', score: 95, isAbsent: false }],
+      })
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    // Primary skips the per-class lookup entirely — school-level decides.
+    expect(mockFrom).not.toHaveBeenCalledWith('classes')
+    const upsertBuilder = mockFrom.mock.results.find(r => r.value.upsert?.mock.calls.length > 0)?.value
+    const upsertedRows  = upsertBuilder?.upsert.mock.calls[0][0]
+    expect(upsertedRows[0].grade).toBe('D1')
+  })
+
+  it('does not query classes when the journal has no class_id (falls back to O-level grading)', async () => {
+    setResponse('exam_journal', { data: { status: 'draft', published_at: null, class_id: null }, error: null })
+    setResponse('exam_results', { data: null, error: null })
+    const { result } = renderHook(() => useSaveMarks(), { wrapper: createWrapper() })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        journalId:      'j-1',
+        subjectId:      'sub-1',
+        assessmentType: 'mid_term',
+        totalMarks:     80,
+        term:           '1',
+        year:           2025,
+        marks: [{ studentId: 'stu-1', score: 60, isAbsent: false }],
+      })
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockFrom).not.toHaveBeenCalledWith('classes')
   })
 
   it('sends null score and null grade for absent students', async () => {

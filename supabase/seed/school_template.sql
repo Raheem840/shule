@@ -8,8 +8,13 @@
 -- ============================================================
 
 -- Step 1: School profile
+-- education_level: 'primary' (P1-P7, PLE-style D1-F9 grading) or
+-- 'secondary' (S1-S6, CBC A-E grading — O-level S1-S4, A-level S5-S6). This
+-- decides grading + report card layout school-wide, so pick correctly here
+-- — it can be changed later from Admin -> School Profile, but only affects
+-- marks/report cards saved AFTER the change, not retroactively.
 INSERT INTO public.school_profile (
-  id, school_name, short_name, motto, primary_color, curriculum, deployment_mode, parent_portal_open
+  id, school_name, short_name, motto, primary_color, curriculum, deployment_mode, parent_portal_open, education_level
 ) VALUES (
   gen_random_uuid(),
   '[REPLACE: Full school name e.g. St. Mary''s College Kisubi]',
@@ -18,7 +23,8 @@ INSERT INTO public.school_profile (
   '#0d9488',
   'ncdc_uganda',
   'cloud',
-  true
+  true,
+  '[REPLACE: primary or secondary]'
 ) RETURNING id;
 -- ↑ Copy this UUID for the next step
 

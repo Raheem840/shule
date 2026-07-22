@@ -2,10 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { downloadFile, uploadFile, getPublicUrl } from '../lib/storage'
-import { generateReportCardPDF, buildSubjectRows } from '../lib/reportCardPdf'
+import {
+  generateReportCardPDF, buildSubjectRows,
+  generatePrimaryReportCardPDF, buildPrimarySubjectRows, computePrimaryAggregate,
+} from '../lib/reportCardPdf'
 import { computeOverallAverage, getAutoRemark } from '../lib/autoRemarks'
 import type { ReportCard, ReportCardStatus } from '../types/app'
-import type { RawResult } from '../lib/reportCardPdf'
+import type { RawResult, PrimaryRawResult } from '../lib/reportCardPdf'
 
 // ── Column lists ───────────────────────────────────────────────
 const RC_COLS = [
@@ -14,7 +17,7 @@ const RC_COLS = [
   'approved_at', 'approved_by',
   'released_at', 'released_by',
   'unlock_reason', 'unlock_count',
-  'pdf_url',
+  'pdf_url', 'aggregate_points', 'division',
 ].join(', ')
 
 type AnyRow = Record<string, unknown>
@@ -36,6 +39,8 @@ function toReportCard(r: AnyRow): ReportCard {
     unlockReason:     (r.unlock_reason as string) ?? null,
     unlockCount:      (r.unlock_count as number) ?? 0,
     pdfUrl:           (r.pdf_url as string) ?? null,
+    aggregatePoints:  (r.aggregate_points as number) ?? null,
+    division:         (r.division as string) ?? null,
   }
 }
 
@@ -224,13 +229,14 @@ async function runGenerateReportCards(
       const { studentIds, term, year, classId, streamId, onProgress } = input
       const schoolId = user!.schoolId
 
-      // ── Fetch school profile (including template URL) ─────────
+      // ── Fetch school profile (including template URL + education level) ─
       const { data: school, error: se } = await supabase
         .from('school_profile')
-        .select('school_name, motto, logo_url, report_template_url')
+        .select('school_name, motto, logo_url, report_template_url, education_level')
         .eq('id', schoolId)
         .single()
       if (se) throw se
+      const isPrimary = (school as Record<string, unknown>).education_level === 'primary'
 
       // ── Load template image as base64 if one has been uploaded ─
       // report_template_url stores the storage PATH (e.g. "school-id/report.png")
@@ -316,12 +322,14 @@ async function runGenerateReportCards(
       // ── Fetch subject names ────────────────────────────────
       const { data: subjects } = await supabase
         .from('subjects')
-        .select('id, name, level, is_active')
+        .select('id, name, level, is_active, is_ple_core')
         .eq('school_id', schoolId)
 
       const subjectNames = new Map<string, string>()
+      const coreSubjectIds = new Set<string>()
       for (const sub of (subjects ?? [])) {
         subjectNames.set(sub.id as string, sub.name as string)
+        if (sub.is_ple_core) coreSubjectIds.add(sub.id as string)
       }
 
       // Every active subject that applies to this class — a subject with no
@@ -484,6 +492,91 @@ async function runGenerateReportCards(
           const stu      = studentMap.get(studentId)
           if (!stu) throw new Error('Student not found')
 
+          const schoolInfo = {
+            name:             school.school_name as string,
+            motto:            (school.motto as string) ?? null,
+            logoUrl:          (school.logo_url as string) ?? null,
+            logoBase64,
+            logoMimeType,
+            templateBase64,
+            templateMimeType,
+          }
+          const studentInfo = {
+            firstName:       stu.first_name as string,
+            lastName:        stu.last_name as string,
+            admissionNumber: stu.admission_number as string,
+            gender:          (stu.gender as string) ?? null,
+            className,
+            streamName,
+          }
+
+          // ── Primary (PLE) branch — separate types/layout from CBC, see
+          // reportCardPdf.ts's doc-comment on why these stay independent. ──
+          if (isPrimary) {
+            const primaryResults: PrimaryRawResult[] = (resultsByStudent.get(studentId) ?? []).map(r => ({
+              subjectId:      r.subjectId,
+              assessmentType: r.assessmentType,
+              score:          r.score,
+              isAbsent:       r.isAbsent,
+              totalMarks:     r.totalMarks,
+            }))
+            const primarySubjectRows = buildPrimarySubjectRows(
+              primaryResults, subjectNames, coreSubjectIds, allSubjectIds,
+            )
+            const { aggregate, division } = computePrimaryAggregate(primarySubjectRows)
+
+            const gradedPrimary = primarySubjectRows.filter(s => s.score !== null && s.totalMarks && s.totalMarks > 0)
+            const overallAvg = gradedPrimary.length > 0
+              ? gradedPrimary.reduce((sum, s) => sum + (s.score! / s.totalMarks!) * 100, 0) / gradedPrimary.length
+              : null
+            const autoRemark = getAutoRemark(overallAvg)
+
+            const doc  = generatePrimaryReportCardPDF({
+              school: schoolInfo,
+              student: studentInfo,
+              term: Number(term),
+              year,
+              termStartDate,
+              termEndDate,
+              nextTermStartDate,
+              subjects: primarySubjectRows,
+              aggregate,
+              division,
+              daysPresent: attendanceMap.get(studentId)?.present ?? 0,
+              daysAbsent:  attendanceMap.get(studentId)?.absent  ?? 0,
+              teacherRemarks:   remarkMap.get(studentId) || autoRemark,
+              principalRemarks: principalRemarksMap.get(studentId) ?? null,
+            })
+            const blob = doc.output('blob')
+
+            const path = `${schoolId}/${year}/${term}/${studentId}.pdf`
+            await uploadFile('report-cards', path, blob, { upsert: true, contentType: 'application/pdf' })
+            const pdfUrl = getPublicUrl('report-cards', path) ?? ''
+
+            const existingStatus = existingStatusMap.get(studentId)
+            const upsertStatus = (existingStatus === 'approved' || existingStatus === 'released')
+              ? existingStatus
+              : 'ready'
+
+            const { error: rcErr } = await supabase
+              .from('report_cards')
+              .upsert({
+                school_id:        schoolId,
+                student_id:       studentId,
+                term:             String(term),
+                year,
+                status:           upsertStatus,
+                pdf_url:          pdfUrl,
+                generated_at:     new Date().toISOString(),
+                aggregate_points: aggregate,
+                division:         division === 'Pending' ? null : division,
+              }, { onConflict: 'school_id,student_id,term,year' })
+
+            if (rcErr) throw rcErr
+            results.push({ studentId, success: true })
+            continue
+          }
+
           const subjectRows = buildSubjectRows(
             resultsByStudent.get(studentId) ?? [],
             subjectNames,
@@ -512,23 +605,8 @@ async function runGenerateReportCards(
           const autoRemark = getAutoRemark(computeOverallAverage(subjectRows))
 
           const pdfData = {
-            school: {
-              name:             school.school_name as string,
-              motto:            (school.motto as string) ?? null,
-              logoUrl:          (school.logo_url as string) ?? null,
-              logoBase64,
-              logoMimeType,
-              templateBase64,
-              templateMimeType,
-            },
-            student: {
-              firstName:       stu.first_name as string,
-              lastName:        stu.last_name as string,
-              admissionNumber: stu.admission_number as string,
-              gender:          (stu.gender as string) ?? null,
-              className,
-              streamName,
-            },
+            school: schoolInfo,
+            student: studentInfo,
             term:              Number(term),
             year,
             termStartDate,
