@@ -258,11 +258,18 @@ export function DosJournalsPage() {
     return ((r.score as number) / denom) * 100
   }, [journalMeta])
 
-  // Base analytics results (subject/class/term/teacher secondary filters)
+  // Base analytics results (subject/class/term/teacher secondary filters).
+  // Unlike the Journals list tab (which deliberately shows every status via
+  // its own statusFilter dropdown, so DoS can monitor entry progress), every
+  // KPI/chart/export/print report downstream of this reads as an official
+  // school-wide figure — draft or locked marks (still being entered, or
+  // under dispute) must never feed a "School Average"/"Pass Rate"/teacher
+  // ranking a DoS user could act on before the teacher has finished.
   const baseResults = useMemo(() => {
     return results.filter(res => {
       const j = journalMeta.get(res.examJournalId)
       if (!j) return false
+      if (j.status !== 'published') return false
       if (analyticsSubject && j.subjectId !== analyticsSubject) return false
       if (analyticsClass   && j.classId   !== analyticsClass)   return false
       if (analyticsTerm    && String(j.term) !== analyticsTerm)  return false
