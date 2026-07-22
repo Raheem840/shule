@@ -5,8 +5,10 @@
 -- This file documents the manual Dashboard steps required after migration.
 --
 -- ── STORAGE BUCKETS ──────────────────────────────────────────────────────────
--- Run these via Dashboard → Storage, or via the Supabase Management API.
--- They cannot be created with plain SQL.
+-- Created automatically by migration 20260722_000002_create_storage_buckets.sql
+-- (INSERT INTO storage.buckets — this works fine via plain SQL on both hosted
+-- and self-hosted Supabase; no manual Dashboard step needed). Kept here as a
+-- reference of the intended public/private split:
 --
 -- Bucket: staff-photos      PUBLIC  — staff avatars
 -- Bucket: student-photos    PRIVATE — signed URLs only, path stored in students.photo_url
