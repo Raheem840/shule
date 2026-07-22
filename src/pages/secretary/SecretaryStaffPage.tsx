@@ -188,12 +188,18 @@ function StaffCard({ staff, deptName, onEdit }: { staff: Staff; deptName: string
                 {staff.isActive ? 'Active' : 'Inactive'}
               </span>
             </div>
-            <button
-              onClick={e => { e.stopPropagation(); onEdit(staff) }}
-              style={{ padding: '3px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font2)' }}
-            >
-              Edit
-            </button>
+            {staff.role === 'principal' || staff.role === 'it_admin' ? (
+              <span title="Principal/IT Admin accounts are managed from Admin → Users" style={{ padding: '3px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)', fontWeight: 700, fontSize: 11, fontFamily: 'var(--font2)' }}>
+                Edit
+              </span>
+            ) : (
+              <button
+                onClick={e => { e.stopPropagation(); onEdit(staff) }}
+                style={{ padding: '3px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font2)' }}
+              >
+                Edit
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -287,12 +293,18 @@ function MobileStaffRow({ staff, deptName, onEdit }: { staff: Staff; deptName: s
         <div style={{ fontSize: 10.5, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>
           {staff.staffNumber}
         </div>
-        <button
-          onClick={() => onEdit(staff)}
-          style={{ padding: '3px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font2)' }}
-        >
-          Edit
-        </button>
+        {staff.role === 'principal' || staff.role === 'it_admin' ? (
+          <span style={{ padding: '3px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--txt3)', fontWeight: 700, fontSize: 11, fontFamily: 'var(--font2)' }}>
+            Edit
+          </span>
+        ) : (
+          <button
+            onClick={() => onEdit(staff)}
+            style={{ padding: '3px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--txt2)', fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font2)' }}
+          >
+            Edit
+          </button>
+        )}
       </div>
     </div>
   )
@@ -373,7 +385,11 @@ function StaffEditModal({ staff, depts, onClose }: {
               <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: 'var(--txt3)', marginBottom: 5 }}>Role</label>
               <div style={{ position: 'relative' }}>
                 <select value={form.role} onChange={e => set('role', e.target.value)} style={sel}>
-                  {['teacher','class_teacher','dos','deputy','secretary','bursar','it_admin'].map(r => (
+                  {/* Excludes principal + it_admin — same boundary as
+                      StaffRegistrationWizard's STAFF_ROLES and the CSV
+                      import path; granting either is IT Admin/Principal
+                      territory, also enforced at the RLS level. */}
+                  {['teacher','class_teacher','dos','deputy','secretary','bursar'].map(r => (
                     <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
                   ))}
                 </select>

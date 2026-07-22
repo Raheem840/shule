@@ -45,20 +45,20 @@ serve(async (req) => {
     // admin keep resetting student passwords.
     const { data: callerStaff } = await serviceClient
       .from('staff')
-      .select('role')
+      .select('role, school_id')
       .eq('auth_user_id', user.id)
       .eq('is_active', true)
       .maybeSingle()
     const userRole = (callerStaff?.role as string | undefined) ?? ''
 
-    if (!userRole || !ALLOWED_ROLES.includes(userRole)) {
+    if (!userRole || !ALLOWED_ROLES.includes(userRole) || !callerStaff?.school_id) {
       return json({ error: 'Insufficient permissions — Secretary, IT Admin, or Principal required' }, 403)
     }
 
     const body = await req.json() as {
-      userId?: string; newPassword?: string; schoolId?: string; studentId?: string
+      userId?: string; newPassword?: string; studentId?: string
     }
-    const { userId, newPassword, schoolId: callerSchoolId, studentId } = body
+    const { userId, newPassword, studentId } = body
 
     if (!userId || !newPassword) {
       return json({ error: 'userId and newPassword are required' }, 400)
@@ -67,18 +67,23 @@ serve(async (req) => {
       return json({ error: 'Password must be at least 8 characters' }, 400)
     }
 
-    // Resolve school_id: try DB lookup first, fall back to caller-supplied value
+    // Resolve school_id from the DB (never trust a client-supplied schoolId —
+    // without this, any secretary/principal/it_admin could reset a student's
+    // password in a DIFFERENT school just by supplying their auth_user_id,
+    // since Supabase Auth's admin API has no per-school concept). If the
+    // account isn't linked yet, fall back to the caller's OWN verified
+    // school — never an arbitrary client-supplied one.
     const { data: studentRow } = await serviceClient
       .from('students')
       .select('school_id')
       .eq('auth_user_id', userId)
       .maybeSingle()
 
-    const schoolId = studentRow?.school_id ?? callerSchoolId ?? null
-
-    if (!schoolId) {
-      return json({ error: 'Could not resolve school for this student' }, 400)
+    const targetSchoolId = (studentRow?.school_id as string | undefined) ?? callerStaff.school_id
+    if (targetSchoolId !== callerStaff.school_id) {
+      return json({ error: 'Student not found in your school' }, 404)
     }
+    const schoolId = targetSchoolId
 
     // If studentId provided and auth_user_id isn't linked yet, fix the link now
     // so the DB JWT hook can find this student on next sign-in

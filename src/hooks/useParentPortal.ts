@@ -685,7 +685,13 @@ export function useGenerateParentAccess() {
         const currentIds = (existing.student_ids as string[]) ?? []
         const needsLink  = !currentIds.includes(student.id)
 
-        // Add this student to the existing account if not already there
+        // Add this student to the existing account if not already there.
+        // This alone is enough for the parent portal to pick up the new
+        // child — custom_access_token_hook derives the JWT's student_ids
+        // claim LIVE from this column on every token issuance (see
+        // 20260607000001_hook_student_ids.sql), and useOwnedStudentIds()
+        // falls back to querying this table directly whenever the JWT is
+        // stale — so no auth-side "claims sync" call is actually needed.
         if (needsLink) {
           await supabase
             .from('parent_accounts')
@@ -694,25 +700,39 @@ export function useGenerateParentAccess() {
             .eq('school_id', user!.schoolId)
         }
 
-        // Always sync auth claims so the JWT has up-to-date student_ids.
-        // Use stored temp_password (no credential change if they already have an account).
-        const password = (existing.temp_password as string) || TEMP_PASSWORD
-        const { error: fnError, data: fnData } = await supabase.functions.invoke('create-parent-auth-user', {
-          body: {
-            parentAccountId: existing.id as string,
-            email:           loginEmail,
-            schoolId:        user!.schoolId,
-            password,
-          },
-        })
-        if (fnError) {
-          const detail = (fnData as { error?: string } | null)?.error ?? fnError.message
-          throw new Error(`Failed to activate parent login: ${detail}`)
+        const isActivated   = !!(existing.auth_user_id)
+        const knownPassword = (existing.temp_password as string) || null
+
+        if (!isActivated) {
+          // Auth account was never created for this parent — create it now.
+          const password = knownPassword || TEMP_PASSWORD
+          const { error: fnError, data: fnData } = await supabase.functions.invoke('create-parent-auth-user', {
+            body: {
+              parentAccountId: existing.id as string,
+              email:           loginEmail,
+              schoolId:        user!.schoolId,
+              password,
+            },
+          })
+          if (fnError) {
+            const detail = (fnData as { error?: string } | null)?.error ?? fnError.message
+            throw new Error(`Failed to activate parent login: ${detail}`)
+          }
+          return { email: loginEmail, tempPassword: password, isNew: false, guardianName: guardianName ?? null }
         }
 
+        // Already activated — do NOT call create-parent-auth-user here. That
+        // edge function always resets the live Auth password to whatever is
+        // passed, and if this parent self-reset via "Forgot password" (DB
+        // temp_password is null in that case — see sync-self-password-reset),
+        // this used to silently overwrite their real password with a brand
+        // new one they were never shown, the next time any sibling got
+        // linked. Return the last KNOWN password (StudentsPage.tsx already
+        // handles the "no password to show, use Reset" case identically to
+        // any other already-activated account).
         return {
           email:        loginEmail,
-          tempPassword: password,
+          tempPassword: knownPassword ?? '',
           isNew:        false,
           guardianName: guardianName ?? null,
         }

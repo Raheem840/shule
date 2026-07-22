@@ -261,7 +261,7 @@ function ParentLoginSection({
         </div>
         {result ? (
           <span style={{ fontSize: 11, fontWeight: 800, color: '#065f46', background: 'rgba(16,185,129,.12)', border: '.5px solid #10b981', borderRadius: 6, padding: '3px 8px', flexShrink: 0 }}>
-            {result.isNew ? 'Created' : 'Reset'}
+            {result.isNew ? 'Created' : result.tempPassword ? 'Reset' : 'Linked'}
           </span>
         ) : existingAccount ? (
           <span style={{ fontSize: 11, fontWeight: 800, color: '#065f46', background: 'rgba(16,185,129,.12)', border: '.5px solid #10b981', borderRadius: 6, padding: '3px 8px', flexShrink: 0 }}>
@@ -302,7 +302,7 @@ function ParentLoginSection({
           )}
         </>
       )}
-      {result && (
+      {result && result.tempPassword && (
         <>
           <CredField label="Parent Email" value={result.email} />
           <CredField label="Password" value={result.tempPassword} />
@@ -318,6 +318,15 @@ function ParentLoginSection({
             isParent
             guardianName={guardian.fullName}
           />
+        </>
+      )}
+      {result && !result.tempPassword && (
+        <>
+          <CredField label="Parent Email" value={result.email} />
+          <div style={{ fontSize: 11.5, color: 'var(--txt3)', lineHeight: 1.5 }}>
+            This student is now linked to {guardian.fullName}'s existing parent account.
+            Their password isn't shown again for security — use Reset Password if they need a new one.
+          </div>
         </>
       )}
     </div>
