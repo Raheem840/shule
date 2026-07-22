@@ -249,16 +249,16 @@ html, body, #root {
    smaller — present and unconstrained, never cramped, but visually secondary. */
 .sb .slogo,
 .sb:hover .slogo, .sb.sb-pinned .slogo {
-  width: 34px !important; height: 34px !important; margin: 0 auto;
+  width: 22px !important; height: 22px !important; margin: 0;
 }
 .sb .school-ico,
 .sb:hover .school-ico, .sb.sb-pinned .school-ico {
-  width: 52px !important; height: 52px !important; font-size: 17px !important; margin: 0 auto;
+  width: 58px !important; height: 58px !important; font-size: 21px !important; margin: 0 auto;
   box-shadow: 0 4px 18px rgba(13,148,136,0.6), 0 0 0 2px rgba(255,255,255,0.16);
 }
 .sb .school-logo-img,
 .sb:hover .school-logo-img, .sb.sb-pinned .school-logo-img {
-  width: 52px !important; height: 52px !important; margin: 0 auto;
+  width: 58px !important; height: 58px !important; margin: 0 auto;
   box-shadow: 0 4px 18px rgba(0,0,0,0.4), 0 0 0 2px rgba(255,255,255,0.16);
 }
 
@@ -377,24 +377,23 @@ html, body, #root {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.09) 50%, transparent);
 }
-/* Shule product mark + school badge are two distinct identity blocks — extra
-   breathing room stops their glow shadows from visually merging into one
-   another ("colliding") while keeping the school badge the dominant mark. */
+/* Shule product brand — a small, compact tag (icon tight against its own
+   wordmark) that stays deliberately secondary to the school's own logo in
+   .school-pill below it, which is the dominant mark in the sidebar. */
 .sbrand {
   display: flex;
   align-items: center;
-  gap: 9px;
-  margin-bottom: 1.05rem;
+  gap: 5px;
+  margin-bottom: 0.85rem;
 }
 .slogo {
-  width: 40px; height: 40px;
-  border-radius: 11px;
+  width: 22px; height: 22px;
+  border-radius: 7px;
   background: linear-gradient(145deg, #0f766e 0%, #0891b2 55%, #0369a1 100%);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 0 0 1px rgba(255,255,255,0.1) inset,
-              0 4px 20px rgba(13,148,136,0.45);
-  animation: glowPulse 4s ease-in-out infinite;
+              0 2px 10px rgba(13,148,136,0.4);
   position: relative;
   overflow: hidden;
 }
@@ -409,21 +408,13 @@ html, body, #root {
 }
 .sname {
   font-family: var(--font2);
-  font-size: 13px; font-weight: 800;
+  font-size: 12px; font-weight: 800;
   background: linear-gradient(135deg, #0dd9c4, #22d3ee);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  line-height: 1.2;
-  text-align: center;
-}
-.ssub {
-  font-size: 9px;
-  color: var(--sb-label);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  margin-top: 1px;
-  text-align: center;
+  line-height: 1;
+  letter-spacing: 0.3px;
 }
 
 /* School pill under logo — stacked (badge on top, name/motto centered right
@@ -451,31 +442,38 @@ html, body, #root {
 }
 
 .school-ico {
-  width: 30px; height: 30px;
-  border-radius: 8px;
+  width: 56px; height: 56px;
+  border-radius: 15px;
   background: linear-gradient(135deg, #0d9488, #0891b2);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font2);
-  font-size: 11px; font-weight: 900; color: #fff;
+  font-size: 20px; font-weight: 900; color: #fff;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(13,148,136,0.4);
+  box-shadow: 0 4px 16px rgba(13,148,136,0.45);
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
               box-shadow 0.3s ease;
 }
 .school-pill:hover .school-ico {
-  transform: scale(1.08);
-  box-shadow: 0 4px 16px rgba(13,148,136,0.55);
+  transform: scale(1.06);
+  box-shadow: 0 6px 22px rgba(13,148,136,0.6);
 }
 
+/* Uploaded school logo — the dominant identity mark in the sidebar, deliberately
+   larger than the Shule product tag above it. White backing plate so logos with
+   transparent backgrounds (the common case for a school crest) stay legible
+   against the dark sidebar instead of looking like a stray cutout. */
 .school-logo-img {
-  width: 30px; height: 30px;
+  width: 56px; height: 56px;
   object-fit: contain;
   flex-shrink: 0;
-  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.3));
+  padding: 6px;
+  border-radius: 15px;
+  background: rgba(255,255,255,0.94);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .school-pill:hover .school-logo-img {
-  transform: scale(1.08);
+  transform: scale(1.06);
 }
 
 /* Text wrapper — full pill width so long names wrap and stay centered

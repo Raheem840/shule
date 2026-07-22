@@ -359,11 +359,22 @@ export function AppShell() {
           {/* School logo / badge — uploaded logo or Shule brand mark.
               Sized to be readable at a glance on a phone screen, not just
               decorative — this is the only school-identity cue in the
-              mobile topbar. */}
+              mobile topbar. White backing plate makes logos with a
+              transparent background (the common case for a school crest)
+              stay visible against any page's topbar color, not just
+              blend away — same treatment as the sidebar's .school-logo-img. */}
           {schoolSettings?.logoUrl ? (
-            <img src={schoolSettings.logoUrl} alt="School badge" style={{ width: 42, height: 42, objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.25))' }} />
+            <img
+              src={schoolSettings.logoUrl}
+              alt="School badge"
+              style={{
+                width: 48, height: 48, objectFit: 'contain', flexShrink: 0,
+                padding: 5, borderRadius: 13, background: 'rgba(255,255,255,0.94)',
+                boxShadow: '0 3px 12px rgba(0,0,0,.28)',
+              }}
+            />
           ) : (
-            <ShuleBadge size={42} />
+            <ShuleBadge size={48} />
           )}
 
           {/* Page title (centered) */}
@@ -570,11 +581,12 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
       {/* Logo + school name */}
       <div className="sbtop">
 
-        {/* ── Shule product brand ── */}
+        {/* ── Shule product brand — small, compact tag: icon and wordmark sit
+             close together as one unit, deliberately secondary to the
+             school's own logo below it. ── */}
         <div className="sbrand">
-          {/* Mortarboard mark — instantly reads as "school" at any size */}
           <div className="slogo">
-            <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <svg width="15" height="15" viewBox="0 0 26 26" fill="none">
               {/* Board — the flat wide top of a mortarboard */}
               <rect x="2" y="6" width="22" height="4" rx="2" fill="white"/>
               {/* Crown — the cap body below the board */}
@@ -587,10 +599,7 @@ function Sidebar({ nav, user, avatar, roleLabel, currentPath, onSignOut, schoolN
               <rect x="7" y="17" width="12" height="1.5" rx="0.75" fill="white" fillOpacity="0.45"/>
             </svg>
           </div>
-          <div>
-            <div className="sname">Shule</div>
-            <div className="ssub">School Management</div>
-          </div>
+          <div className="sname">Shule</div>
         </div>
 
         {/* ── School identity pill — driven by school_profile ── */}
