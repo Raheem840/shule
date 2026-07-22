@@ -216,7 +216,11 @@ async function runGenerateReportCards(
   user: NonNullable<ReturnType<typeof useAuth>['user']>,
   input: GenerateInput,
 ) {
-      if (!['principal', 'dos', 'secretary'].includes(user.role ?? '')) throw new Error('Forbidden')
+      // 'dos' is intentionally excluded — the matching RLS policy
+      // ("secretary_principal_can_insert_report_cards") only allows
+      // secretary/principal, so a DoS-triggered generation would pass this
+      // check and then fail at the DB layer anyway.
+      if (!['principal', 'secretary'].includes(user.role ?? '')) throw new Error('Forbidden')
       const { studentIds, term, year, classId, streamId, onProgress } = input
       const schoolId = user!.schoolId
 
@@ -616,18 +620,30 @@ function useUpdateStatus(action: 'approve' | 'release' | 'unlock') {
       unlockReason?:     string
     }) => {
       if (!user) throw new Error('Not authenticated')
+      if (user.role !== 'principal') throw new Error('Forbidden')
       const now   = new Date().toISOString()
       const patch: AnyRow = {}
 
-      let currentUnlockCount = 0
-      if (action === 'unlock') {
-        const { data: existing } = await supabase
-          .from('report_cards')
-          .select('unlock_count')
-          .eq('id', reportCardId)
-          .eq('school_id', user!.schoolId)
-          .single()
-        currentUnlockCount = ((existing as Record<string, unknown> | null)?.unlock_count as number) ?? 0
+      // Fetch + validate the current status client-side too — RLS enforces
+      // the same state machine as the real boundary (one policy per legal
+      // transition), but a clear error here beats a raw RLS-denial message.
+      const { data: existing } = await supabase
+        .from('report_cards')
+        .select('status, unlock_count')
+        .eq('id', reportCardId)
+        .eq('school_id', user!.schoolId)
+        .single()
+      const currentStatus = (existing as Record<string, unknown> | null)?.status as string | undefined
+      const currentUnlockCount = ((existing as Record<string, unknown> | null)?.unlock_count as number) ?? 0
+
+      if (action === 'approve' && currentStatus !== 'ready') {
+        throw new Error('Only a ready report card can be approved')
+      }
+      if (action === 'release' && currentStatus !== 'approved') {
+        throw new Error('Only an approved report card can be released')
+      }
+      if (action === 'unlock' && currentStatus !== 'approved' && currentStatus !== 'released') {
+        throw new Error('Only an approved or released report card can be unlocked')
       }
 
       if (action === 'approve') {

@@ -5,10 +5,23 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
-const { mockFrom, mockStorage, setResponse, clearResponses } = vi.hoisted(() => {
+const { mockFrom, mockStorage, setResponse, setResponseQueue, clearResponses } = vi.hoisted(() => {
   const tableData: Record<string, any> = {}
-  const setResponse    = (table: string, resp: any) => { tableData[table] = resp }
-  const clearResponses = () => { for (const k of Object.keys(tableData)) delete tableData[k] }
+  // Optional per-table queue for tests where the same table is queried
+  // multiple times in one hook call with different expected results (e.g.
+  // useUpdateStatus's pre-fetch select().single() then its update()).
+  const tableQueues: Record<string, any[]> = {}
+  const setResponse      = (table: string, resp: any) => { tableData[table] = resp }
+  const setResponseQueue = (table: string, resps: any[]) => { tableQueues[table] = [...resps] }
+  const clearResponses   = () => {
+    for (const k of Object.keys(tableData))   delete tableData[k]
+    for (const k of Object.keys(tableQueues)) delete tableQueues[k]
+  }
+  function nextResponse(table: string, fallback: any) {
+    const q = tableQueues[table]
+    if (q && q.length > 0) return q.shift()
+    return tableData[table] ?? fallback
+  }
 
   function makeBuilder(table: string) {
     const b: any = {
@@ -22,10 +35,10 @@ const { mockFrom, mockStorage, setResponse, clearResponses } = vi.hoisted(() => 
       update:      vi.fn().mockReturnThis(),
       upsert:      vi.fn().mockReturnThis(),
       insert:      vi.fn().mockReturnThis(),
-      single:      vi.fn().mockImplementation(() => Promise.resolve(tableData[table] ?? { data: null, error: null })),
-      maybeSingle: vi.fn().mockImplementation(() => Promise.resolve(tableData[table] ?? { data: null, error: null })),
+      single:      vi.fn().mockImplementation(() => Promise.resolve(nextResponse(table, { data: null, error: null }))),
+      maybeSingle: vi.fn().mockImplementation(() => Promise.resolve(nextResponse(table, { data: null, error: null }))),
       then:        (resolve: any, reject?: any) =>
-        Promise.resolve(tableData[table] ?? { data: [], error: null }).then(resolve, reject),
+        Promise.resolve(nextResponse(table, { data: [], error: null })).then(resolve, reject),
     }
     return b
   }
@@ -39,7 +52,7 @@ const { mockFrom, mockStorage, setResponse, clearResponses } = vi.hoisted(() => 
     }),
   }
 
-  return { mockFrom, mockStorage, setResponse, clearResponses }
+  return { mockFrom, mockStorage, setResponse, setResponseQueue, clearResponses }
 })
 
 // jsPDF is used by generateReportCardPDF inside useGenerateReportCards
@@ -169,7 +182,10 @@ describe('useReportCards', () => {
 
 describe('useApproveReportCard', () => {
   it('calls supabase update with status=approved', async () => {
-    setResponse('report_cards', { data: null, error: null })
+    setResponseQueue('report_cards', [
+      { data: { status: 'ready', unlock_count: 0 }, error: null },
+      { data: null, error: null },
+    ])
     const { result } = renderHook(() => useApproveReportCard(), { wrapper: createWrapper() })
 
     await act(async () => {
@@ -184,7 +200,10 @@ describe('useApproveReportCard', () => {
   })
 
   it('throws when supabase update fails', async () => {
-    setResponse('report_cards', { data: null, error: { message: 'Update failed' } })
+    setResponseQueue('report_cards', [
+      { data: { status: 'ready', unlock_count: 0 }, error: null },
+      { data: null, error: { message: 'Update failed' } },
+    ])
     const { result } = renderHook(() => useApproveReportCard(), { wrapper: createWrapper() })
 
     await act(async () => {
@@ -197,7 +216,10 @@ describe('useApproveReportCard', () => {
 
 describe('useReleaseReportCard', () => {
   it('calls supabase update with status=released', async () => {
-    setResponse('report_cards', { data: null, error: null })
+    setResponseQueue('report_cards', [
+      { data: { status: 'approved', unlock_count: 0 }, error: null },
+      { data: null, error: null },
+    ])
     const { result } = renderHook(() => useReleaseReportCard(), { wrapper: createWrapper() })
 
     await act(async () => {
@@ -210,7 +232,10 @@ describe('useReleaseReportCard', () => {
 
 describe('useUnlockReportCard', () => {
   it('calls supabase update with status=draft (unlocks for editing)', async () => {
-    setResponse('report_cards', { data: null, error: null })
+    setResponseQueue('report_cards', [
+      { data: { status: 'approved', unlock_count: 0 }, error: null },
+      { data: null, error: null },
+    ])
     const { result } = renderHook(() => useUnlockReportCard(), { wrapper: createWrapper() })
 
     await act(async () => {
