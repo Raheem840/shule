@@ -104,9 +104,12 @@ export function ReportCardCalcExplainer() {
             fontSize: 11, color: 'var(--txt3)', lineHeight: 1.6,
             paddingTop: 10, borderTop: '1px dashed var(--border)',
           }}>
-This follows Uganda's Competency-Based Curriculum (CBC): the 20% CA / 80% exam split,
-            letter grades, and grade descriptors match the official NLSC/UNEB grading model. The same
-            calculation is applied to every subject and every student, school-wide.
+This follows Uganda's Competency-Based Curriculum (CBC) model. For O-Level (S1–S4), the 20% CA /
+            80% exam split, letter grades, and grade descriptors match UNEB's published grading model.
+            For A-Level (S5–S6), UNEB has not yet published official CA/exam weighting or grade
+            boundaries for the new curriculum — this school applies the same O-Level-style formula as
+            a consistent internal convention until UNEB publishes official A-Level figures. The same
+            calculation is applied to every subject and every student at the same level, school-wide.
           </div>
         </div>
       )}
