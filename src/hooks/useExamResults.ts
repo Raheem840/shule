@@ -7,6 +7,53 @@ import { isJournalLocked } from './useExamJournal'
 import { sendNotifications } from '../lib/notifications'
 import type { ExamResult, ExamJournal } from '../types/app'
 
+export type GradeFn = (pct: number) => 'A' | 'B' | 'C' | 'D' | 'E' | ReturnType<typeof calculatePLEGrade>
+
+// Which grade scale a journal's class should use — decided by the school's
+// education_level first (Primary always uses PLE's D1-F9, regardless of
+// class name), then within a Secondary school by the journal's own class
+// (S5/S6 = A-level). Shared by useSaveMarks (the actual save path) and
+// useJournalGradeFn (used for live UI previews) so the two can never diverge.
+async function resolveGradeFn(schoolId: string, journalClassId: string | null): Promise<GradeFn> {
+  const { data: schoolRow } = await supabase
+    .from('school_profile')
+    .select('education_level')
+    .eq('id', schoolId)
+    .maybeSingle()
+  const educationLevel = (schoolRow as { education_level?: string } | null)?.education_level ?? 'secondary'
+
+  if (educationLevel === 'primary') return calculatePLEGrade
+
+  if (journalClassId) {
+    const { data: classRow } = await supabase
+      .from('classes')
+      .select('name')
+      .eq('id', journalClassId)
+      .eq('school_id', schoolId)
+      .maybeSingle()
+    const className = (classRow as { name?: string } | null)?.name
+    if (className && classifyClassName(className).stage === 'alevel') return calculateALevelGrade
+  }
+
+  return calculateCBCGrade
+}
+
+// ── useJournalGradeFn ─────────────────────────────────────────
+// Resolves the correct grade function (CBC/A-Level/PLE) for a journal's
+// class + the school's education_level — for live UI previews (grade
+// badges, tabs, performance bands) so they match what useSaveMarks will
+// actually persist, instead of assuming CBC A-E everywhere.
+export function useJournalGradeFn(journal: { classId?: string | null } | null | undefined) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['journal-grade-fn', user?.schoolId, journal?.classId],
+    enabled:  !!user?.schoolId,
+    staleTime: 5 * 60_000,
+    queryFn: () => resolveGradeFn(user!.schoolId, journal?.classId ?? null),
+  })
+}
+
 const RESULT_COLS = [
   'id', 'school_id', 'exam_journal_id', 'student_id', 'subject_id',
   'score', 'grade', 'is_absent', 'remarks', 'term', 'year', 'teacher_id',
@@ -133,40 +180,14 @@ export function useSaveMarks() {
         throw new Error('These results are locked. Provide a reason to make a correction.')
       }
 
-      // Which grade scale to use — decided by the school's education_level
-      // first (Primary always uses PLE's D1-F9, regardless of class name),
-      // then within a Secondary school by the journal's own class (S5/S6 =
-      // A-level, kept as its own named function independent of O-level's
-      // calculateCBCGrade even though the underlying formula is deliberately
-      // mirrored for now — see calculateALevelGrade's doc-comment in
-      // types/app.ts — so it can be corrected the moment UNEB publishes
-      // real A-Level numbers without touching O-level).
-      const { data: schoolRow } = await supabase
-        .from('school_profile')
-        .select('education_level')
-        .eq('id', user.schoolId)
-        .maybeSingle()
-      const educationLevel = (schoolRow as { education_level?: string } | null)?.education_level ?? 'secondary'
-
-      let gradeFn: (pct: number) => 'A' | 'B' | 'C' | 'D' | 'E' | ReturnType<typeof calculatePLEGrade> = calculateCBCGrade
-
-      if (educationLevel === 'primary') {
-        gradeFn = calculatePLEGrade
-      } else {
-        const journalClassId = (journalRow as { class_id: string | null }).class_id
-        if (journalClassId) {
-          const { data: classRow } = await supabase
-            .from('classes')
-            .select('name')
-            .eq('id', journalClassId)
-            .eq('school_id', user.schoolId)
-            .maybeSingle()
-          const className = (classRow as { name?: string } | null)?.name
-          if (className && classifyClassName(className).stage === 'alevel') {
-            gradeFn = calculateALevelGrade
-          }
-        }
-      }
+      // Which grade scale to use — kept as its own named function independent
+      // of O-level's calculateCBCGrade even though A-Level's underlying
+      // formula is deliberately mirrored for now — see calculateALevelGrade's
+      // doc-comment in types/app.ts — so it can be corrected the moment UNEB
+      // publishes real A-Level numbers without touching O-level. Shared with
+      // useJournalGradeFn (live UI previews) so they can never diverge.
+      const journalClassId = (journalRow as { class_id: string | null }).class_id
+      const gradeFn = await resolveGradeFn(user.schoolId, journalClassId)
 
       const rows = marks.map(m => {
         // Grade: null for end_of_term (needs CA to combine), calculated for all others

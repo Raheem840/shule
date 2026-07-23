@@ -7,7 +7,7 @@ import {
 } from 'recharts'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useExamJournalById, usePublishJournal, isJournalLocked, MARKS_GRACE_PERIOD_DAYS } from '../../hooks/useExamJournal'
-import { useExamResults, useSaveMarks } from '../../hooks/useExamResults'
+import { useExamResults, useSaveMarks, useJournalGradeFn, type GradeFn } from '../../hooks/useExamResults'
 import { useStudents } from '../../hooks/useStudents'
 import { useSubjects } from '../../hooks/useClasses'
 import { calculateCBCGrade } from '../../types/app'
@@ -185,9 +185,9 @@ const GRADE_TABS = [
   { key: 'poor',              label: 'Poor',        grades: ['E'],      color: '#f43f5e', bg: 'rgba(244,63,94,.1)'   },
 ]
 
-function GradeTabs({ marks, students, totalMarks, isCA }: {
+function GradeTabs({ marks, students, totalMarks, isCA, gradeFn }: {
   marks:      Map<string, { score: number | null; isAbsent: boolean }>
-  students:   Student[]; totalMarks: number; isCA: boolean
+  students:   Student[]; totalMarks: number; isCA: boolean; gradeFn: GradeFn
 }) {
   const [activeTab, setActiveTab] = useState<string>('exceptional')
 
@@ -198,7 +198,7 @@ function GradeTabs({ marks, students, totalMarks, isCA }: {
       const m = marks.get(student.id)
       if (!m || m.isAbsent || m.score === null) continue
       const pct   = isCA ? (m.score / 3) * 100 : (m.score / totalMarks) * 100
-      const grade = calculateCBCGrade(pct)
+      const grade = gradeFn(pct)
       for (const tab of GRADE_TABS) {
         if (tab.grades.includes(grade)) {
           const list = buckets.get(tab.key) ?? []
@@ -209,7 +209,7 @@ function GradeTabs({ marks, students, totalMarks, isCA }: {
       }
     }
     return buckets
-  }, [marks, students, totalMarks, isCA])
+  }, [marks, students, totalMarks, isCA, gradeFn])
 
   const tabData     = GRADE_TABS.find(t => t.key === activeTab)!
   const tabStudents = studentsByBucket.get(activeTab) ?? []
@@ -327,11 +327,12 @@ function RangeTooltip({ active, payload, totalCount }: {
   )
 }
 
-function PerformanceAnalytics({ marks, students, totalMarks, isCA }: {
+function PerformanceAnalytics({ marks, students, totalMarks, isCA, gradeFn }: {
   marks:      Map<string, { score: number | null; isAbsent: boolean }>
   students:   Student[]
   totalMarks: number
   isCA:       boolean
+  gradeFn:    GradeFn
 }) {
   const [activeFilter, setActiveFilter] = useState<AnalyticsFilter>('all')
 
@@ -343,10 +344,10 @@ function PerformanceAnalytics({ marks, students, totalMarks, isCA }: {
       if (m.isAbsent) return { student, score: null, isAbsent: true, grade: null, pct: null }
       if (m.score === null) return { student, score: null, isAbsent: false, grade: null, pct: null }
       const pct   = isCA ? (m.score / 3) * 100 : (m.score / totalMarks) * 100
-      const grade = calculateCBCGrade(pct)
+      const grade = gradeFn(pct)
       return { student, score: m.score, isAbsent: false, grade, pct }
     })
-  }, [marks, students, totalMarks, isCA])
+  }, [marks, students, totalMarks, isCA, gradeFn])
 
   // Check if there is any data worth showing — computed here but the early
   // return happens after every hook below has run (Rules of Hooks): this
@@ -734,6 +735,11 @@ export function MarkEntryPage() {
   const { data: subjects = [] }                       = useSubjects()
   const saveMarks                                     = useSaveMarks()
   const publish                                       = usePublishJournal()
+  // Resolves CBC/A-Level/PLE per the school's education_level + journal's
+  // class, so grade badges/tabs/analytics shown here match what useSaveMarks
+  // actually persists — falls back to CBC while the school/class lookup is
+  // still loading (matches the pre-existing default before this was wired).
+  const { data: gradeFn = calculateCBCGrade } = useJournalGradeFn(journal)
 
   const { data: students = [], isLoading: studentsLoading } = useStudents(
     { classId: journal?.classId, streamId: journal?.streamId ?? undefined, status: 'active' },
@@ -1115,7 +1121,7 @@ export function MarkEntryPage() {
               let displayGrade: string | null = null
               if (!isAbsent && score !== null && !isEndOfTerm) {
                 const pct = isCA ? (score / 3) * 100 : (score / totalMarks) * 100
-                displayGrade = calculateCBCGrade(pct)
+                displayGrade = gradeFn(pct)
               }
 
               const hasWarning = !isAbsent && score !== null && score > totalMarks
@@ -1278,6 +1284,7 @@ export function MarkEntryPage() {
           students={students}
           totalMarks={totalMarks}
           isCA={isCA}
+          gradeFn={gradeFn}
         />
       )}
 
@@ -1286,7 +1293,7 @@ export function MarkEntryPage() {
           <div style={{ padding: 20 }}>
             <ScoreDistChart marks={marks} totalMarks={totalMarks} passMark={passMark} isCA={isCA} />
             <div style={{ marginTop: 20, borderTop: '.5px solid var(--border)', paddingTop: 16 }}>
-              <GradeTabs marks={marks} students={students} totalMarks={totalMarks} isCA={isCA} />
+              <GradeTabs marks={marks} students={students} totalMarks={totalMarks} isCA={isCA} gradeFn={gradeFn} />
             </div>
           </div>
           {/* Only A/C (or whichever grades happen to occur in the marks

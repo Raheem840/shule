@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../store/AuthContext'
 import { useToast } from '../../components/ui/Toast'
-import { useClasses, useSubjects } from '../../hooks/useClasses'
+import { useClasses, useSubjects, useMyAssignedClasses } from '../../hooks/useClasses'
 import { TermPicker } from '../../components/ui/TermPicker'
 import { useAcademicYears } from '../../hooks/useFeeStructure'
 import { useCurrentTermDefaultString } from '../../hooks/useCurrentTerm'
@@ -88,9 +88,12 @@ function useDeleteTopic() {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('Not authenticated')
-      const { error } = await supabase.from('curriculum_plan').delete()
-        .eq('id', id).eq('school_id', user.schoolId)
+      // .select() so an RLS-blocked delete (0 rows affected) throws instead
+      // of silently reporting success while the topic stays in the DB.
+      const { data, error } = await supabase.from('curriculum_plan').delete()
+        .eq('id', id).eq('school_id', user.schoolId).select('id')
       if (error) throw new Error(error.message)
+      if (!data || data.length === 0) throw new Error('Could not delete this topic — you may no longer be assigned to this class.')
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['teacher-curriculum'] }),
   })
@@ -131,10 +134,13 @@ function useUnmarkCovered() {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('Not authenticated')
-      const { error } = await supabase.from('curriculum_plan')
+      // .select() so an RLS-blocked update (0 rows affected) throws instead
+      // of silently reporting success while the topic stays marked covered.
+      const { data, error } = await supabase.from('curriculum_plan')
         .update({ covered: false, covered_at: null, covered_by: null })
-        .eq('id', id).eq('school_id', user.schoolId)
+        .eq('id', id).eq('school_id', user.schoolId).select('id')
       if (error) throw new Error(error.message)
+      if (!data || data.length === 0) throw new Error('Could not unmark this topic — please refresh and try again.')
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['teacher-curriculum'] }),
   })
@@ -359,6 +365,11 @@ export function TeacherCurriculumPage() {
   const { data: staffRecord }       = useMyStaffRecord()
   const { data: allClasses = [] }   = useClasses()
   const { data: allSubjects = [] }  = useSubjects()
+  // Unions staff.classes[] with streams.class_teacher_id, matching the same
+  // "my classes" definition already used by messaging scoping and the
+  // attendance RLS — a pure homeroom teacher with no subject assignment
+  // previously saw zero classes here (only staff.classes[] was checked).
+  const myClasses                   = useMyAssignedClasses()
   const { success: ok, error: err } = useToast()
 
   const markMut   = useMarkCovered()
@@ -366,12 +377,10 @@ export function TeacherCurriculumPage() {
   const deleteMut = useDeleteTopic()
 
   const mySubjectIds = staffRecord?.subjects ?? []
-  const myClassIds   = staffRecord?.classes  ?? []
   // No "fall back to everything when unassigned" — a teacher with no
   // assignments yet should see the "ask the DoS" warning below, not every
   // subject/class in the school.
   const mySubjects   = allSubjects.filter(s => mySubjectIds.includes(s.id))
-  const myClasses    = allClasses.filter(c => myClassIds.includes(c.id))
 
   const location = useLocation()
   const navigate  = useNavigate()
