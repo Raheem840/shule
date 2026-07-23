@@ -27,12 +27,26 @@ import { usePortalNotifications, useMarkSingleNotificationRead } from '../../hoo
 
 // ── Design tokens (all via CSS vars) ─────────────────────────────
 
-const GRADE_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
-  A: { color: '#10b981', bg: 'rgba(16,185,129,0.12)', label: 'Excellent' },
-  B: { color: '#0d9488', bg: 'rgba(13,148,136,0.12)', label: 'Good' },
-  C: { color: '#0ea5e9', bg: 'rgba(14,165,233,0.12)', label: 'Average' },
-  D: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', label: 'Below Avg' },
-  E: { color: '#f43f5e', bg: 'rgba(244,63,94,0.12)',  label: 'Fail' },
+// Covers both CBC/A-Level (A-E, higher is better) and Primary/PLE (D1-F9,
+// lower is better) grade shapes — StudentPortalPage's gradeColor() hit the
+// same CBC-only assumption bug earlier this session; kept as a lookup
+// function here (not a static object) so a PLE grade like "D1" (the best
+// possible PLE grade) doesn't fall through to a missing-key "no color" state.
+function gradeConfig(g: string): { color: string; bg: string; label: string } | null {
+  if (/^[DCPF][1-9]$/.test(g)) {
+    if (g === 'D1' || g === 'D2') return { color: '#10b981', bg: 'rgba(16,185,129,0.12)', label: 'Distinction' }
+    if (g.startsWith('C'))        return { color: '#0d9488', bg: 'rgba(13,148,136,0.12)', label: 'Credit' }
+    if (g.startsWith('P'))        return { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', label: 'Pass' }
+    return { color: '#f43f5e', bg: 'rgba(244,63,94,0.12)', label: 'Fail' }
+  }
+  switch (g) {
+    case 'A': return { color: '#10b981', bg: 'rgba(16,185,129,0.12)', label: 'Excellent' }
+    case 'B': return { color: '#0d9488', bg: 'rgba(13,148,136,0.12)', label: 'Good' }
+    case 'C': return { color: '#0ea5e9', bg: 'rgba(14,165,233,0.12)', label: 'Average' }
+    case 'D': return { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', label: 'Below Avg' }
+    case 'E': return { color: '#f43f5e', bg: 'rgba(244,63,94,0.12)',  label: 'Fail' }
+    default:  return null
+  }
 }
 
 const ATT_COLORS: Record<string, string> = {
@@ -206,7 +220,7 @@ function ResultsTab({ studentId }: { studentId: string }) {
           {/* Subject rows */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {rows.map((r, i) => {
-              const gcfg = r.grade ? (GRADE_CONFIG[r.grade] ?? null) : null
+              const gcfg = r.grade ? gradeConfig(r.grade) : null
               return (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', gap: '0.75rem',
@@ -1237,7 +1251,7 @@ function ChildHeroCard({
     {
       label: 'Top Grade',
       value: latestGrade ?? '—',
-      color: latestGrade ? (GRADE_CONFIG[latestGrade]?.color ?? 'var(--txt)') : 'var(--txt3)',
+      color: latestGrade ? (gradeConfig(latestGrade)?.color ?? 'var(--txt)') : 'var(--txt3)',
     },
     {
       label: 'Balance',

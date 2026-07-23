@@ -538,11 +538,15 @@ export type ParentRemark = {
 
 export function useParentTeacherRemarks(studentId: string | null | undefined) {
   const { user } = useAuth()
+  const { ids: ownedIds, isLoading: idsLoading } = useOwnedStudentIds()
 
   return useQuery({
     queryKey: ['parent-teacher-remarks', user?.schoolId, studentId],
-    enabled:  !!studentId && !!user?.schoolId,
+    enabled:  !!studentId && !!user?.schoolId && !idsLoading,
     queryFn: async () => {
+      if (studentId && !ownedIds.includes(studentId)) {
+        throw new Error('Not your child')
+      }
       const { data, error } = await supabase
         .from('teacher_remarks')
         .select('id, teacher_id, term, year, remarks, created_at')
