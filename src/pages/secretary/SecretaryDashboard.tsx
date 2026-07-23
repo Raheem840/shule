@@ -138,8 +138,9 @@ function useSecretaryDashData() {
         supabase.from('exam_journal')
           .select('id, pass_mark, total_marks, assessment_type, term, year')
           .eq('school_id', sid),
-        supabase.from('fee_payments')
-          .select('student_id, amount_paid, amount_due')
+        // Status-only view — never raw amount_due/amount_paid (finance isolation).
+        supabase.from('fee_status_for_secretary')
+          .select('student_id, status')
           .eq('school_id', sid),
         supabase.from('audit_log')
           .select('id, table_name, action, record_id, new_value, created_at')
@@ -206,18 +207,12 @@ function useSecretaryDashData() {
         }))
         .sort((a, b) => a.className.localeCompare(b.className))
 
-      // Fee status counts
+      // Fee status counts — combine the view's per-term rows, worst status wins.
       const payments = feeRes.data ?? []
       const statusMap = new Map<string, 'paid' | 'partial' | 'unpaid'>()
       for (const p of payments) {
         const row  = p as any
-        const due  = Number(row.amount_due ?? 0)
-        const paid = Number(row.amount_paid ?? 0)
-        let st: 'paid' | 'partial' | 'unpaid'
-        if (due <= 0)       st = 'paid'
-        else if (paid >= due) st = 'paid'
-        else if (paid > 0)    st = 'partial'
-        else                  st = 'unpaid'
+        const st: 'paid' | 'partial' | 'unpaid' = row.status ?? 'unpaid'
         const cur = statusMap.get(row.student_id)
         if (!cur) { statusMap.set(row.student_id, st); continue }
         if (cur === 'paid'    && st !== 'paid')    statusMap.set(row.student_id, st)

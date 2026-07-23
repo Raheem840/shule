@@ -50,7 +50,7 @@ interface MatchedRow {
   // How chosenId was decided — for the audit trail (see runImport's
   // audit_log write), so a wrong credit can be traced back to why it
   // matched, not just which row it came from.
-  matchedBy:      'admission_number' | 'exact' | 'close' | 'manual'
+  matchedBy:      'admission_number' | 'exact' | 'close' | 'manual' | 'none'
   matchDistance:  number | null  // Levenshtein distance, only meaningful when matchedBy === 'close'
   skipped:       boolean
   dbClassName:   string         // DB-stored class name (e.g. "S.3 East") — used as bucket key
@@ -340,7 +340,7 @@ export function BursarImportPage() {
           return { rowIndex: idx, rawRow: row, matchStatus: 'close', student: close[0], candidates: close, chosenId: autoChoice, matchedBy: 'close' as const, matchDistance: minDistance, skipped: false, dbClassName: dbClass, feeStructureId: rowFeeId }
         }
 
-        return { rowIndex: idx, rawRow: row, matchStatus: 'unmatched', student: null, candidates: pool, chosenId: null, matchedBy: 'exact' as const, matchDistance: null, skipped: true, dbClassName: dbClass, feeStructureId: rowFeeId }
+        return { rowIndex: idx, rawRow: row, matchStatus: 'unmatched', student: null, candidates: pool, chosenId: null, matchedBy: 'none' as const, matchDistance: null, skipped: true, dbClassName: dbClass, feeStructureId: rowFeeId }
       })
 
       setMatchedRows(matched)

@@ -184,13 +184,26 @@ export function SmsReminderPage() {
     // is only used for the in_app channel's copy to the student's own
     // account — SMS/WhatsApp (guardian's phone) and the parent's in-app
     // copy both use the bursar's composed parent-facing message.
-    const reminders = toSend.flatMap(s => [...channels].map(channel => ({
-      studentId:      s.studentId,
-      guardianPhone:  s.guardianPhone,
-      channel,
-      message:        renderMessage(message, s, smsFilters.term, schoolName),
-      studentMessage: renderStudentMessage(s, smsFilters.term, schoolName),
-    })))
+    //
+    // A guardian's comms_preference ('sms'|'whatsapp'|'both') is their own opt-in
+    // for guardian-phone channels — respected here so e.g. a whatsapp-only guardian
+    // never receives an SMS just because the bursar left SMS checked. in_app has no
+    // preference concept (it's the student's own account, not the guardian's phone)
+    // so it's never filtered.
+    const allowedForGuardian = (s: SmsStudentRow, channel: SmsChannel) => {
+      if (channel === 'in_app') return true
+      if (s.commsPreference === 'both') return true
+      return s.commsPreference === channel
+    }
+    const reminders = toSend.flatMap(s => [...channels]
+      .filter(channel => allowedForGuardian(s, channel))
+      .map(channel => ({
+        studentId:      s.studentId,
+        guardianPhone:  s.guardianPhone,
+        channel,
+        message:        renderMessage(message, s, smsFilters.term, schoolName),
+        studentMessage: renderStudentMessage(s, smsFilters.term, schoolName),
+      })))
 
     try {
       await sendReminders.mutateAsync(reminders)

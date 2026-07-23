@@ -52,16 +52,16 @@ function useStudentFeeStatus(classId: string, streamId: string) {
         studQ,
         supabase.from('classes').select('id, name').eq('school_id', sid),
         supabase.from('streams').select('id, name').eq('school_id', sid),
-        // Only fetch existence (has paid / not paid) — no amounts.
+        // Reads the status-only view (school_id, student_id, academic_year_id,
+        // term, status, pct_paid) — never amount_due/amount_paid/balance.
         // Scoped to the active academic year — previously had no
         // academic_year_id filter at all, so a student who fully paid a
         // PAST year's fees could still show "Paid" today with a completely
-        // unpaid current year. (Still summed across all 3 terms of the
-        // active year, not one term at a time — this page has no term
-        // selector; a fully term-scoped view would need one added.)
+        // unpaid current year. Still combined across all terms of the
+        // active year (this page has no term selector).
         supabase
-          .from('fee_payments')
-          .select('student_id, amount_paid, amount_due')
+          .from('fee_status_for_secretary')
+          .select('student_id, term, status, pct_paid')
           .eq('school_id', sid)
           .eq('academic_year_id', activeYearId!),
       ])
@@ -72,26 +72,32 @@ function useStudentFeeStatus(classId: string, streamId: string) {
       const classMap  = new Map<string, string>((classRes.data ?? []).map((c: any) => [c.id, c.name]))
       const streamMap = new Map<string, string>((streamRes.data ?? []).map((s: any) => [s.id, s.name]))
 
-      // Aggregate per student: status only — no individual amounts exposed
-      type Agg = { paid: number; due: number }
+      // Combine the view's per-term rows into one status/flag per student —
+      // worst status wins (paid < partial < unpaid). pct60 becomes "at least
+      // 60% paid in every billed term" rather than a single weighted-average
+      // percentage — the view only exposes a rounded per-term percentage, not
+      // raw amounts, so a precise cross-term weighted average can't be
+      // reconstructed client-side. Deliberate tradeoff for not exposing
+      // currency figures to the secretary role.
+      type Agg = { status: FeeStatus; allAtLeast60: boolean; hasRow: boolean }
       const agg = new Map<string, Agg>()
       for (const p of payRes.data ?? []) {
         const sid2 = p.student_id as string
-        const prev = agg.get(sid2) ?? { paid: 0, due: 0 }
-        prev.paid += Number(p.amount_paid ?? 0)
-        prev.due  += Number(p.amount_due  ?? 0)
-        agg.set(sid2, prev)
+        const st   = (p.status as FeeStatus) ?? 'unpaid'
+        const pct  = Number((p as any).pct_paid ?? 0)
+        const prev = agg.get(sid2) ?? { status: 'paid' as FeeStatus, allAtLeast60: true, hasRow: false }
+        const rank: Record<FeeStatus, number> = { paid: 0, partial: 1, unpaid: 2 }
+        agg.set(sid2, {
+          status:       rank[st] > rank[prev.status] ? st : prev.status,
+          allAtLeast60: prev.allAtLeast60 && pct >= 60,
+          hasRow:       true,
+        })
       }
 
       return (studRes.data ?? []).map((r: any) => {
         const a = agg.get(r.id as string)
-        let status: FeeStatus = 'unpaid'
-        if (a) {
-          if (a.due > 0 && a.paid >= a.due) status = 'paid'
-          else if (a.paid > 0)              status = 'partial'
-          else                              status = 'unpaid'
-        }
-        const pct60 = a ? a.due > 0 && a.paid / a.due >= 0.6 : false
+        const status: FeeStatus = a?.hasRow ? a.status : 'unpaid'
+        const pct60 = a?.hasRow ? a.allAtLeast60 : false
         return {
           studentId:       r.id as string,
           admissionNumber: r.admission_number as string,

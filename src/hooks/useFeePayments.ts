@@ -664,7 +664,11 @@ export function useAddPayment() {
         if (existing) {
           const ex      = existing as { id: string; amount_paid: number; amount_due: number }
           const newPaid = Number(ex.amount_paid) + input.amountPaid
-          const { error } = await supabase
+          // Optimistic lock on amount_paid — two concurrent payments recorded against the
+          // same row (double-click, two bursar sessions) must not silently clobber each
+          // other via a stale read-then-write. If the row moved since we read it, the
+          // update matches zero rows and we surface a conflict instead of losing money.
+          const { data: updated, error } = await supabase
             .from('fee_payments')
             .update({
               amount_paid:    newPaid,
@@ -674,7 +678,12 @@ export function useAddPayment() {
               notes:          input.notes || null,
             })
             .eq('id', ex.id)
+            .eq('amount_paid', ex.amount_paid)
+            .select('id')
           if (error) throw error
+          if (!updated || updated.length === 0) {
+            throw new Error('This fee row was just updated by another action — please refresh and try again.')
+          }
           return ex.id
         }
       }
@@ -857,6 +866,7 @@ export type ApplyPaymentInput = {
   id:            string
   amountDue:     number
   amountPaid:    number
+  oldAmountPaid: number
   paymentDate:   string
   receiptNumber: string | null
   notes:         string | null
@@ -870,7 +880,11 @@ export function useApplyPayment() {
     mutationFn: async (input: ApplyPaymentInput) => {
       if (!user) throw new Error('Not authenticated')
       if (!isFinanceRole(user.role)) throw new Error('Forbidden')
-      const { error } = await supabase
+      // Optimistic lock — the caller's `oldAmountPaid` reflects what it last read.
+      // Without this check, two tabs/sessions editing the same row both submit an
+      // absolute amount_paid computed from the same stale base, and the second
+      // write silently discards the first payment instead of failing loudly.
+      const { data: updated, error } = await supabase
         .from('fee_payments')
         .update({
           amount_paid:    input.amountPaid,
@@ -881,8 +895,13 @@ export function useApplyPayment() {
         })
         .eq('id', input.id)
         .eq('school_id', user!.schoolId)
+        .eq('amount_paid', input.oldAmountPaid)
+        .select('id')
 
       if (error) throw error
+      if (!updated || updated.length === 0) {
+        throw new Error('This fee row was just updated by another action — please refresh and try again.')
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['student-fee-rows', user?.schoolId] })

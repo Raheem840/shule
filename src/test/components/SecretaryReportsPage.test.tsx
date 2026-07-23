@@ -48,9 +48,9 @@ import { SecretaryReportsPage } from '../../pages/secretary/SecretaryReportsPage
 beforeEach(() => { vi.clearAllMocks(); clearResponses() })
 
 describe('SecretaryReportsPage — Fee Status Summary', () => {
-  it('scopes fee_payments to the active academic year, not all-time', async () => {
+  it('scopes fee_status_for_secretary to the active academic year, not all-time', async () => {
     setResponse('academic_years', { data: [{ id: 'ay-2026', is_active: true }], error: null })
-    setResponse('fee_payments',   { data: [], error: null })
+    setResponse('fee_status_for_secretary', { data: [], error: null })
     setResponse('students',       { data: [], error: null })
     setResponse('classes',        { data: [], error: null })
 
@@ -59,7 +59,7 @@ describe('SecretaryReportsPage — Fee Status Summary', () => {
     fireEvent.click(within(card).getByText('Generate'))
 
     await waitFor(() => {
-      const feeCallIdx = mockFrom.mock.calls.findIndex(c => c[0] === 'fee_payments')
+      const feeCallIdx = mockFrom.mock.calls.findIndex(c => c[0] === 'fee_status_for_secretary')
       expect(feeCallIdx).toBeGreaterThan(-1)
       const feeBuilder = mockFrom.mock.results[feeCallIdx].value
       expect(feeBuilder.eq).toHaveBeenCalledWith('academic_year_id', 'ay-2026')

@@ -18,6 +18,7 @@ export type SmsStudentRow = {
   streamName:      string
   guardianName:    string
   guardianPhone:   string
+  commsPreference: 'sms' | 'whatsapp' | 'both'
   balance:         number
   amountDue:       number
   amountPaid:      number
@@ -53,7 +54,7 @@ export function useSmsStudents(filters: SmsFilters) {
           .eq('status', 'active'),
         supabase
           .from('student_guardians')
-          .select('student_id, full_name, phone, do_not_contact, is_primary')
+          .select('student_id, full_name, phone, do_not_contact, is_primary, comms_preference')
           .eq('school_id', user!.schoolId)
           .eq('do_not_contact', false),
         supabase
@@ -90,16 +91,18 @@ export function useSmsStudents(filters: SmsFilters) {
       if (activeYearIds.size === 0) throw new Error('No active academic year. Activate one in Principal → Academic Years before sending reminders.')
 
       // Build guardian map — prefer primary guardian
-      const anyGuardian     = new Map<string, { name: string; phone: string }>()
-      const primaryGuardian = new Map<string, { name: string; phone: string }>()
+      type GuardianInfo = { name: string; phone: string; commsPreference: 'sms' | 'whatsapp' | 'both' }
+      const anyGuardian     = new Map<string, GuardianInfo>()
+      const primaryGuardian = new Map<string, GuardianInfo>()
       for (const g of guardiansRes.data ?? []) {
-        const sid = g.student_id as string
-        if (!anyGuardian.has(sid)) {
-          anyGuardian.set(sid, { name: g.full_name as string, phone: g.phone as string })
+        const sid  = g.student_id as string
+        const info: GuardianInfo = {
+          name:            g.full_name as string,
+          phone:           g.phone as string,
+          commsPreference: ((g as any).comms_preference as GuardianInfo['commsPreference']) ?? 'sms',
         }
-        if (g.is_primary) {
-          primaryGuardian.set(sid, { name: g.full_name as string, phone: g.phone as string })
-        }
+        if (!anyGuardian.has(sid)) anyGuardian.set(sid, info)
+        if (g.is_primary) primaryGuardian.set(sid, info)
       }
 
       const classMap  = new Map<string, string>()
@@ -143,6 +146,7 @@ export function useSmsStudents(filters: SmsFilters) {
           streamName:      streamMap.get((s.stream_id as string) ?? '') ?? '—',
           guardianName:    guardian.name,
           guardianPhone:   guardian.phone,
+          commsPreference: guardian.commsPreference,
           balance:         fees.balance,
           amountDue:       fees.amountDue,
           amountPaid:      fees.amountPaid,

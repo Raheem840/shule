@@ -713,7 +713,8 @@ function useReport6Data() {
 
       const [feeRes, studRes, classRes] = await Promise.all([
         (() => {
-          let q = supabase.from('fee_payments').select('student_id, amount_paid, amount_due').eq('school_id', sid)
+          // Status-only view — never raw amount_due/amount_paid (finance isolation).
+          let q = supabase.from('fee_status_for_secretary').select('student_id, status').eq('school_id', sid)
           if (activeAyId) q = q.eq('academic_year_id', activeAyId)
           return q
         })(),
@@ -722,16 +723,11 @@ function useReport6Data() {
       ])
       const classMap  = new Map((classRes.data ?? []).map((c: any) => [c.id, c.name]))
       const studClass = new Map((studRes.data ?? []).map((s: any) => [s.id, s.class_id]))
+      // Combine the view's per-term rows into one status per student — worst status wins.
       const studentStatus = new Map<string, 'paid' | 'partial' | 'unpaid'>()
       for (const p of feeRes.data ?? []) {
-        const row  = p as any
-        const due  = Number(row.amount_due ?? 0)
-        const paid = Number(row.amount_paid ?? 0)
-        let st: 'paid' | 'partial' | 'unpaid'
-        if (due <= 0)         st = 'paid'
-        else if (paid >= due) st = 'paid'
-        else if (paid > 0)    st = 'partial'
-        else                  st = 'unpaid'
+        const row = p as any
+        const st: 'paid' | 'partial' | 'unpaid' = row.status ?? 'unpaid'
         const cur = studentStatus.get(row.student_id)
         if (!cur) { studentStatus.set(row.student_id, st); continue }
         if (cur === 'paid' && st !== 'paid') studentStatus.set(row.student_id, st)

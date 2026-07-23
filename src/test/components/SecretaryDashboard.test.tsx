@@ -67,7 +67,7 @@ describe('SecretaryDashboard — Enrollment by Class heatmap', () => {
     setResponse('report_cards',    { data: [], error: null })
     setResponse('exam_results',    { data: [], error: null })
     setResponse('exam_journal',    { data: [], error: null })
-    setResponse('fee_payments',    { data: [], error: null })
+    setResponse('fee_status_for_secretary', { data: [], error: null })
     setResponse('audit_log',       { data: [], error: null })
     setResponse('academic_years',  { data: [], error: null })
     setResponse('school_profile',  { data: { school_name: 'Test School', short_name: 'TS' }, error: null })

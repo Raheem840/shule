@@ -118,8 +118,9 @@ export function useSecretaryBriefing(term: number, year: number) {
         supabase.from('subjects')
           .select('id, name')
           .eq('school_id', sid),
-        supabase.from('fee_payments')
-          .select('student_id, amount_paid, amount_due')
+        // Status-only view — never raw amount_due/amount_paid (finance isolation).
+        supabase.from('fee_status_for_secretary')
+          .select('student_id, status')
           .eq('school_id', sid)
           .eq('term', term)
           .eq('academic_year_id', (activeYear as any)?.id ?? ''),
@@ -218,13 +219,7 @@ export function useSecretaryBriefing(term: number, year: number) {
       for (const p of payments) {
         const row = p as any
         const stId = row.student_id as string
-        const due  = Number(row.amount_due ?? 0)
-        const paid2 = Number(row.amount_paid ?? 0)
-        let st: 'paid' | 'partial' | 'unpaid'
-        if (due <= 0) st = 'paid'
-        else if (paid2 >= due) st = 'paid'
-        else if (paid2 > 0) st = 'partial'
-        else st = 'unpaid'
+        const st: 'paid' | 'partial' | 'unpaid' = row.status ?? 'unpaid'
         const cur = statusMap.get(stId)
         // Downgrade: paid→partial if another record is partial; etc.
         if (!cur) { statusMap.set(stId, st); continue }

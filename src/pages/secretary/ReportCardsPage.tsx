@@ -307,9 +307,12 @@ function useFeeCompletion(studentIds: string[], academicYearId: string | null, t
     enabled:  !!user?.schoolId && !!academicYearId && !!term && studentIds.length > 0,
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
+      // Status-only view — never raw amount_due/amount_paid (finance isolation).
+      // The view is already grouped at exactly this (school, year, term)
+      // grain, so its pct_paid is used directly, no client-side summing needed.
       const { data, error } = await supabase
-        .from('fee_payments')
-        .select('student_id, amount_due, amount_paid')
+        .from('fee_status_for_secretary')
+        .select('student_id, pct_paid')
         .eq('school_id', user!.schoolId)
         .eq('academic_year_id', academicYearId!)
         .eq('term', Number(term))
@@ -317,19 +320,9 @@ function useFeeCompletion(studentIds: string[], academicYearId: string | null, t
 
       if (error) throw error
 
-      const totals = new Map<string, { due: number; paid: number }>()
-      for (const row of (data ?? []) as { student_id: string; amount_due: number; amount_paid: number }[]) {
-        const prev = totals.get(row.student_id) ?? { due: 0, paid: 0 }
-        totals.set(row.student_id, {
-          due:  prev.due  + (Number(row.amount_due)  || 0),
-          paid: prev.paid + (Number(row.amount_paid) || 0),
-        })
-      }
-
-      // Convert to pct map
       const pctMap = new Map<string, number>()
-      for (const [id, { due, paid }] of totals) {
-        pctMap.set(id, due > 0 ? Math.round((paid / due) * 100) : 100)
+      for (const row of (data ?? []) as { student_id: string; pct_paid: number }[]) {
+        pctMap.set(row.student_id, Number(row.pct_paid) || 0)
       }
       return pctMap
     },

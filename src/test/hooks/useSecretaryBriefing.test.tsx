@@ -73,9 +73,9 @@ describe('useSecretaryBriefing', () => {
     setResponse('exam_results', { data: [], error: null })
     setResponse('exam_journal', { data: [], error: null })
     setResponse('subjects',     { data: [], error: null })
-    setResponse('fee_payments', { data: [
-      { student_id: 'stu-1', amount_due: 400000, amount_paid: 400000 },
-      { student_id: 'stu-2', amount_due: 400000, amount_paid: 0 },
+    setResponse('fee_status_for_secretary', { data: [
+      { student_id: 'stu-1', status: 'paid' },
+      { student_id: 'stu-2', status: 'unpaid' },
     ], error: null })
     setResponse('attendance',   { data: [], error: null })
     setResponse('classes',      { data: [], error: null })
@@ -120,7 +120,7 @@ describe('useSecretaryBriefing', () => {
     setResponse('exam_results', { data: [], error: null })
     setResponse('exam_journal', { data: [], error: null })
     setResponse('subjects',     { data: [], error: null })
-    setResponse('fee_payments', { data: [], error: null })
+    setResponse('fee_status_for_secretary', { data: [], error: null })
     setResponse('attendance',   { data: [], error: null })
     setResponse('classes',      { data: [], error: null })
     setResponse('report_cards', { data: [], error: null })
@@ -152,7 +152,7 @@ describe('useSecretaryBriefing', () => {
     setResponse('exam_results', { data: [], error: null })
     setResponse('exam_journal', { data: [], error: null })
     setResponse('subjects',     { data: [], error: null })
-    setResponse('fee_payments', { data: [], error: null })
+    setResponse('fee_status_for_secretary', { data: [], error: null })
     setResponse('attendance',   { data: [], error: null })
     setResponse('classes',      { data: [], error: null })
     setResponse('report_cards', { data: [], error: null })
@@ -170,7 +170,7 @@ describe('useSecretaryBriefing', () => {
     setResponse('exam_results', { data: [], error: null })
     setResponse('exam_journal', { data: [], error: null })
     setResponse('subjects',     { data: [], error: null })
-    setResponse('fee_payments', { data: [], error: null })
+    setResponse('fee_status_for_secretary', { data: [], error: null })
     setResponse('attendance',   { data: [], error: null })
     setResponse('classes',      { data: [], error: null })
     setResponse('report_cards', { data: [], error: null })
