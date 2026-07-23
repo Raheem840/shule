@@ -268,6 +268,13 @@ export function useCreateTimetableSlot() {
       endTime?: string | null
       term: string
       year: number
+      // Defaults to false (a brand-new slot always starts as draft). Pass
+      // the original slot's isPublished when this create is really "the
+      // second half of a move" (delete-then-recreate) — otherwise a DoS
+      // dragging one slot within an already-published class silently
+      // reverts just that slot to draft, and teacher/student/parent views
+      // (published-only) show a gap with no explanation.
+      isPublished?: boolean
     }) => {
       if (!user) throw new Error('Not authenticated')
 
@@ -285,7 +292,7 @@ export function useCreateTimetableSlot() {
           end_time:      input.endTime ?? null,
           term:          input.term,
           year:          input.year,
-          is_published:  false,
+          is_published:  input.isPublished ?? false,
         }, {
           onConflict: 'school_id,class_id,stream_id,day_of_week,period_number,term,year',
         })
@@ -296,6 +303,11 @@ export function useCreateTimetableSlot() {
         // normally catch this first, but a race between two concurrent
         // sessions can still hit it here.
         throw new Error('This teacher is already scheduled for another class at that day/period.')
+      }
+      if (error?.code === '23505' && (error.message?.includes('timetable_slots_no_stream_unique') || error.message?.includes('timetable_slots_school_id_class_id_stream_id_day_of_week_pe_key'))) {
+        // Same-class/stream double-booking — same belt-and-braces reasoning
+        // as the teacher constraint above.
+        throw new Error('This class already has a lesson scheduled for that day and period.')
       }
       if (error) throw new Error(error.message)
     },

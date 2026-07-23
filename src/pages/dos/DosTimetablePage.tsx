@@ -701,6 +701,7 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
           subjectId: slot.subjectId, teacherId: slot.teacherId,
           dayOfWeek: newDay, periodNumber: newPeriod,
           startTime: slot.startTime, endTime: slot.endTime, term, year,
+          isPublished: slot.isPublished,
         })
       } catch (moveErr: any) {
         // Create failed after delete — try to restore at original position.
@@ -734,6 +735,7 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
             subjectId: slot.subjectId, teacherId: slot.teacherId,
             dayOfWeek: slot.dayOfWeek, periodNumber: slot.periodNumber,
             startTime: slot.startTime, endTime: slot.endTime, term, year,
+            isPublished: slot.isPublished,
           })
           setDragError(`${reason} — slot restored to original position.`)
         } catch {
@@ -787,7 +789,10 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
             {visibleFilledCount}/{totalClassSlots} slots
           </span>
           <button disabled={publishMut.isPending || isFullyPublished || slots.length === 0}
-            onClick={() => { void publishMut.mutateAsync({ classId: selectedClass!, streamId: selectedStream, term, year }) }}
+            onClick={() => {
+              publishMut.mutateAsync({ classId: selectedClass!, streamId: selectedStream, term, year })
+                .catch((e: any) => setDragError(e?.message ?? 'Could not publish this timetable — please try again.'))
+            }}
             style={{ padding: '8px 16px', borderRadius: 10, border: isFullyPublished ? '.5px solid rgba(16,185,129,.3)' : 'none', background: isFullyPublished ? 'rgba(16,185,129,.1)' : slots.length === 0 ? 'var(--surface2)' : 'linear-gradient(145deg,#10b981,#059669)', color: isFullyPublished ? 'var(--success)' : slots.length === 0 ? 'var(--txt3)' : '#fff', fontWeight: 700, fontSize: 12.5, cursor: isFullyPublished || slots.length === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, boxShadow: isFullyPublished || slots.length === 0 ? 'none' : '0 3px 10px rgba(16,185,129,.4)' }}
           >
             {isFullyPublished ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>Published</> : publishMut.isPending ? 'Publishing…' : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 15v4a2 2 0 002 2h14a2 2 0 002-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Publish</>}
@@ -929,7 +934,11 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
                       </div>
                     )}
                     {slot && (
-                      <button onClick={e => { e.stopPropagation(); void deleteSlot.mutateAsync(slot.id) }}
+                      <button onClick={e => {
+                        e.stopPropagation()
+                        deleteSlot.mutateAsync(slot.id)
+                          .catch((err: any) => setDragError(err?.message ?? 'Could not delete this slot — please try again.'))
+                      }}
                         style={{ width: 30, height: 30, borderRadius: 9, border: 'none', background: 'rgba(244,63,94,.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)', flexShrink: 0 }}
                       ><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>
                     )}
@@ -1048,7 +1057,8 @@ function BuilderView({ term, year, periodDefs, onAssign, initialClassId }: {
                               key={key} day={day} period={def.num}
                               slot={slot} conflict={conflictKeys.has(key)}
                               onClickEmpty={() => onAssign({ classId: selectedClass!, streamId: selectedStream, day, period: def.num })}
-                              onDelete={() => slot && void deleteSlot.mutateAsync(slot.id)}
+                              onDelete={() => slot && deleteSlot.mutateAsync(slot.id)
+                                .catch((err: any) => setDragError(err?.message ?? 'Could not delete this slot — please try again.'))}
                             />
                           )
                         })}
