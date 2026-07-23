@@ -116,7 +116,7 @@ export function SmsReminderPage() {
 
   const { data: classes } = useClasses()
   const { data: streams } = useStreams(smsFilters.classId ?? null)
-  const { data: students, isLoading: loadingStudents, isError: studentsError, error: studentsErrorObj } = useSmsStudents(smsFilters)
+  const { data: students, isLoading: loadingStudents, isError: studentsError, error: studentsErrorObj, refetch: refetchStudents } = useSmsStudents(smsFilters)
   const { data: logData, isLoading: loadingLog } = useSmsReminderLog()
   const sendReminders = useSendReminders()
   const retryReminder = useRetryReminder()
@@ -176,8 +176,15 @@ export function SmsReminderPage() {
 
   // ── Send ─────────────────────────────────────────────────────
   async function handleSend() {
-    const toSend = (students ?? []).filter(s => selectedIds.has(s.studentId))
-    if (!toSend.length || !message.trim() || channels.size === 0) return
+    if (selectedIds.size === 0 || !message.trim() || channels.size === 0) return
+
+    // Refetch immediately before composing — the on-screen balance can be up
+    // to 5 minutes stale (staleTime), and a payment posted in that window
+    // would otherwise be quoted as still outstanding in the delivered
+    // SMS/WhatsApp/in-app text.
+    const fresh = (await refetchStudents()).data ?? students ?? []
+    const toSend = fresh.filter(s => selectedIds.has(s.studentId))
+    if (!toSend.length) return
 
     // One reminder row per selected channel per student — the hook routes
     // each to its own delivery path and delivery-log entry. studentMessage
