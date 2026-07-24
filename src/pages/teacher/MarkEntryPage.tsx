@@ -728,7 +728,8 @@ export function MarkEntryPage() {
   const [searchParams]  = useSearchParams()
   const isMobile        = useIsMobile()
   const { user }        = useAuth()
-  const { error: toastErr } = useToast()
+  const { error: toastErr, success: toastOk } = useToast()
+  const pendingImportRef = useRef<{ rows: ParsedRow[]; strategy: ConflictStrategy } | null>(null)
 
   const { data: journal, isLoading: journalLoading } = useExamJournalById(journalId)
   const { data: savedResults = [] }                   = useExamResults(journalId)
@@ -893,7 +894,24 @@ export function MarkEntryPage() {
       void handleSaveAll(reason)
     } else if (showReasonModal === 'import') {
       setShowReasonModal(null)
-      setImportOpen(true)
+      const pending = pendingImportRef.current
+      pendingImportRef.current = null
+      if (pending) {
+        // A lock race during import (see runMarkImport's catch branch) closed
+        // the wizard before the teacher could see a results screen — summarize
+        // the retried outcome via toast since there's no wizard left to show it in.
+        void runMarkImport(pending.rows, pending.strategy, reason).then(res => {
+          const parts: string[] = []
+          if (res.imported) parts.push(`${res.imported} imported`)
+          if (res.skipped)  parts.push(`${res.skipped} skipped`)
+          if (res.failed.length) parts.push(`${res.failed.length} failed`)
+          const summary = parts.join(', ') || 'no changes'
+          if (res.imported === 0 && res.failed.length > 0) toastErr(`Import failed: ${summary}`)
+          else toastOk(`Import complete: ${summary}`)
+        })
+      } else {
+        setImportOpen(true)
+      }
     }
   }
 
@@ -907,15 +925,27 @@ export function MarkEntryPage() {
   // methods keeps them impossible to disagree.
   const ABSENT_TRUE_VALUES = new Set(['true', 'yes', 'y', '1'])
 
-  async function handleMarkImport(
+  async function runMarkImport(
     rows: ParsedRow[],
-    _strategy: ConflictStrategy,
+    strategy: ConflictStrategy,
+    reason?: string,
   ): Promise<ImportResult> {
     const result: ImportResult = { imported: 0, updated: 0, skipped: 0, failed: [] }
     if (!journal || !user || rows.length === 0) return result
 
     const admMap = new Map(students.map(s => [s.admissionNumber.trim().toLowerCase(), s.id]))
+    // 'skip' means "don't touch a student who already has a saved score for
+    // this journal" — resolved against savedResults (the live exam_results
+    // rows), not against whatever's sitting in the in-memory `marks` map.
+    const alreadySaved = new Set(
+      savedResults.filter(r => r.score !== null || r.isAbsent).map(r => r.studentId),
+    )
+    const seenAdm = new Set<string>()
     const validRows: MarkRow[] = []
+    // Original CSV row index (1-based) per student — used so failure reports
+    // point at the actual spreadsheet row, not an index into the filtered
+    // validRows array (rows skipped/rejected earlier shift that index off).
+    const rowIndexByStudent = new Map<string, number>()
 
     rows.forEach((row, idx) => {
       const adm = (row.admission_number ?? '').trim().toLowerCase()
@@ -928,11 +958,28 @@ export function MarkEntryPage() {
         return
       }
 
+      // Two rows for the same admission number can't both hit the
+      // journal_id+student_id upsert conflict target in one batch —
+      // Postgres aborts the whole batch, not just the duplicate row. Catch
+      // it here instead: keep the first occurrence, fail the rest with a
+      // clear reason.
+      if (seenAdm.has(adm)) {
+        result.failed.push({ row: idx + 1, reason: `Duplicate admission number in this file: "${row.admission_number}" (first occurrence used)` })
+        return
+      }
+      seenAdm.add(adm)
+
+      if (strategy === 'skip' && alreadySaved.has(studentId)) {
+        result.skipped++
+        return
+      }
+
       const absent    = ABSENT_TRUE_VALUES.has((row.is_absent ?? '').trim().toLowerCase())
       const rawScore  = (row.score ?? '').trim()
 
       if (absent) {
         validRows.push({ studentId, score: null, isAbsent: true })
+        rowIndexByStudent.set(studentId, idx)
         return
       }
 
@@ -951,6 +998,7 @@ export function MarkEntryPage() {
         return
       }
       validRows.push({ studentId, score: scoreNum, isAbsent: false })
+      rowIndexByStudent.set(studentId, idx)
     })
 
     if (validRows.length === 0) return result
@@ -964,15 +1012,37 @@ export function MarkEntryPage() {
         term:           journal.term,
         year:           journal.year,
         marks:          validRows,
-        overrideReason,
+        overrideReason: reason,
       })
       result.imported = validRows.length
     } catch (e) {
-      const reason = getErrorMessage(e, 'Import failed')
-      validRows.forEach((_, i) => result.failed.push({ row: i + 1, reason }))
+      const msg = getErrorMessage(e, 'Import failed')
+      // Same live re-check race handleSaveAll already recovers from: the
+      // client's cached `locked` flag was stale at handleImportClick's gate,
+      // and useSaveMarks's live check is the one that just rejected it. Stash
+      // the parsed rows/strategy so confirmOverrideReason can retry with a
+      // reason instead of stranding every row as a permanent failure.
+      if (msg.toLowerCase().includes('locked') && !reason) {
+        pendingImportRef.current = { rows, strategy }
+        setImportOpen(false)
+        setOverrideError(null)
+        setShowReasonModal('import')
+        result.failed = validRows.map(r => ({
+          row: (rowIndexByStudent.get(r.studentId) ?? -1) + 1,
+          reason: 'These results are now locked — provide a reason to retry.',
+        }))
+        return result
+      }
+      validRows.forEach(r => {
+        result.failed.push({ row: (rowIndexByStudent.get(r.studentId) ?? -1) + 1, reason: msg })
+      })
     }
 
     return result
+  }
+
+  async function handleMarkImport(rows: ParsedRow[], strategy: ConflictStrategy): Promise<ImportResult> {
+    return runMarkImport(rows, strategy)
   }
 
   if (journalLoading || studentsLoading) {
