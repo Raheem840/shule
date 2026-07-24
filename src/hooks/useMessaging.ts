@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/AuthContext'
 import { queueSync } from '../lib/db'
-import { uploadFile, getPublicUrl } from '../lib/storage'
+import { uploadFile } from '../lib/storage'
 import type { Message } from '../types/app'
 import type { Contact, Announcement } from '../types/week9'
 import { ROLE_SENIORITY as SENIORITY } from '../types/week9'
@@ -875,7 +875,10 @@ export function useMarkParentThreadRead() {
 }
 
 // ── useUploadAttachment ────────────────────────────────────────────────────
-// Uploads a file to Supabase Storage (staff-attachments bucket).
+// Uploads a file to Supabase Storage (staff-attachments bucket, private —
+// see getStaffAttachmentUrl in storage.ts). Returns the storage PATH, not a
+// public URL — the bucket has no public read route, so messages.attachment_url
+// stores a path and the UI resolves a short-lived signed URL on demand.
 // Max 5MB enforced client-side before upload.
 export function useUploadAttachment() {
   const { user } = useAuth()
@@ -889,7 +892,7 @@ export function useUploadAttachment() {
       const path = `${user.schoolId}/${user.id}/${Date.now()}.${ext}`
 
       await uploadFile('staff-attachments', path, file, { upsert: false })
-      return getPublicUrl('staff-attachments', path) ?? ''
+      return path
     },
   })
 }

@@ -53,7 +53,7 @@ vi.mock('../../hooks/useClasses', () => ({
   useDepartments: vi.fn(),
 }))
 
-vi.mock('../../hooks/useAdmin', () => ({ useSchoolSettings: vi.fn() }))
+vi.mock('../../hooks/useAdmin', () => ({ useSchoolSettings: vi.fn(), useDeactivateUser: vi.fn() }))
 
 vi.mock('../../hooks/useStaffAuth', () => ({
   useActivateStaffLogin:  vi.fn(),
@@ -87,7 +87,7 @@ vi.mock('../../lib/passwords', () => ({
 // ── Imports after mocks ────────────────────────────────────────────────────────
 import { useStaff } from '../../hooks/useStaff'
 import { useClasses, useDepartments } from '../../hooks/useClasses'
-import { useSchoolSettings } from '../../hooks/useAdmin'
+import { useSchoolSettings, useDeactivateUser } from '../../hooks/useAdmin'
 import {
   useActivateStaffLogin, useResetStaffPassword,
   useLinkAuthUser, useSendCredentialsSms,
@@ -99,6 +99,7 @@ const mockUseStaff               = useStaff               as ReturnType<typeof v
 const mockUseClasses             = useClasses             as ReturnType<typeof vi.fn>
 const mockUseDepartments         = useDepartments         as ReturnType<typeof vi.fn>
 const mockUseSchoolSettings      = useSchoolSettings      as ReturnType<typeof vi.fn>
+const mockUseDeactivateUser      = useDeactivateUser      as ReturnType<typeof vi.fn>
 const mockUseActivateStaffLogin  = useActivateStaffLogin  as ReturnType<typeof vi.fn>
 const mockUseResetStaffPassword  = useResetStaffPassword  as ReturnType<typeof vi.fn>
 const mockUseLinkAuthUser        = useLinkAuthUser        as ReturnType<typeof vi.fn>
@@ -136,6 +137,7 @@ function setupMocks(staffData = [PENDING_STAFF_1, PENDING_STAFF_2, ACTIVE_STAFF]
     data: { schoolName: 'Nile Youth School', shortName: 'nys' },
     isLoading: false,
   })
+  mockUseDeactivateUser.mockReturnValue(MUTATION_STUB)
   mockUseActivateStaffLogin.mockReturnValue(MUTATION_STUB)
   mockUseResetStaffPassword.mockReturnValue(MUTATION_STUB)
   mockUseLinkAuthUser.mockReturnValue(MUTATION_STUB)

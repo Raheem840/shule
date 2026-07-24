@@ -763,6 +763,7 @@ function useUpdateStatus(action: 'approve' | 'release' | 'unlock') {
       // that one student's PDF now that the remark is saved, reusing the
       // same pipeline as bulk Generate. Best-effort — a regeneration hiccup
       // shouldn't block the approval itself, which already succeeded above.
+      let pdfRegenFailed = false
       if (action === 'approve') {
         try {
           const { data: rc } = await supabase
@@ -791,11 +792,17 @@ function useUpdateStatus(action: 'approve' | 'release' | 'unlock') {
             }
           }
         } catch (regenErr) {
+          // Best-effort, doesn't block the approval that already committed
+          // above — but silently console.error-ing it left the principal's
+          // "Approved" success state indistinguishable from a run where the
+          // PDF actually got the new remarks baked in. Surfaced to the
+          // caller instead so it can show a clear warning.
           console.error('[report card] PDF regeneration after approve failed', regenErr)
+          pdfRegenFailed = true
         }
       }
 
-      return reportCardId
+      return { reportCardId, pdfRegenFailed }
     },
     onSuccess: (_id, vars) => {
       qc.invalidateQueries({ queryKey: ['report-cards',        user?.schoolId] })

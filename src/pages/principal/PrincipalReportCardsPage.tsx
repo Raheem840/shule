@@ -13,6 +13,7 @@ import { useAuth } from '../../store/AuthContext'
 import { Button } from '../../components/ui/Button'
 import { Modal, ModalCancelButton } from '../../components/ui/Modal'
 import { Select } from '../../components/ui/Select'
+import { useToast } from '../../components/ui/Toast'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import type { ReportCard } from '../../types/app'
 import { TermPicker } from '../../components/ui/TermPicker'
@@ -85,15 +86,19 @@ function ApproveModal({ card, studentName, onClose }: {
   const [remarks, setRemarks] = useState(card.principalRemarks ?? '')
   const [err, setErr] = useState<string | null>(null)
   const approve = useApproveReportCard()
+  const { warning: warn } = useToast()
 
   async function handleApprove() {
     if (approve.isPending) return
     setErr(null)
     try {
-      await approve.mutateAsync({
+      const result = await approve.mutateAsync({
         reportCardId:    card.id,
         principalRemarks: remarks.trim() || null,
       })
+      if (result?.pdfRegenFailed) {
+        warn('Approved, but the PDF could not be regenerated with your remarks — try again from the report card list, or regenerate before releasing.')
+      }
       onClose()
     } catch (e: any) { setErr(e?.message ?? 'Failed to approve report card.') }
   }
@@ -369,6 +374,7 @@ export function PrincipalReportCardsPage() {
   const release                 = useReleaseReportCard()
   const approve                 = useApproveReportCard()
   const qc                      = useQueryClient()
+  const { warning: warn }       = useToast()
 
   async function handleBulkApprove(remarks: string | null) {
     if (bulkInFlight.current) return
@@ -383,12 +389,18 @@ export function PrincipalReportCardsPage() {
       // Invalidate once after all writes settle — avoids N mid-loop re-fetches
       void qc.invalidateQueries({ queryKey: ['report-cards', user?.schoolId] })
       const failed = results.filter(r => r.status === 'rejected')
+      const regenFailedCount = results.filter(
+        r => r.status === 'fulfilled' && (r.value as { pdfRegenFailed?: boolean } | undefined)?.pdfRegenFailed,
+      ).length
       if (failed.length > 0) {
         const succeeded = results.length - failed.length
         setBulkError(`${succeeded} approved, ${failed.length} failed — check permissions and try again for the remaining cards.`)
       } else {
         setBulkAction(null)
         setSelectedIds(new Set())
+      }
+      if (regenFailedCount > 0) {
+        warn(`${regenFailedCount} approved report card${regenFailedCount > 1 ? 's' : ''} could not be regenerated with the new remarks — reopen and regenerate before releasing.`)
       }
     } finally {
       setApproveLoading(false)

@@ -45,17 +45,37 @@ export function ApiConfigPage() {
   const { success: ok, error: err } = useToast()
   const saveConfig = useSaveApiConfig()
 
+  // "Enabled" here is purely derived from whether at_api_key/wa_access_token
+  // is non-null (see useApiConfigStatus) — there's no separate status flag
+  // to flip. So this button's only real action is "disable" (wipe the saved
+  // key); "enable" can only ever happen by saving a new key value below via
+  // ApiKeyRow, which always sets enabled=true implicitly. A previous version
+  // let this button fire with keyValue:'' in both directions — since
+  // save_school_api_key's enabled&&value<>'' check fails on an empty string
+  // either way, clicking to "enable" a not-yet-configured key silently did
+  // nothing (false-success toast), and clicking an already-enabled key
+  // silently wiped the saved credential with no warning.
   async function toggleAt() {
+    if (!data?.atEnabled) {
+      err('Enter and save an API key below first — there is nothing to enable yet.')
+      return
+    }
+    if (!window.confirm("Disable Africa's Talking? This permanently deletes the saved API key — you'll need to re-enter it to turn SMS back on.")) return
     try {
-      await saveConfig.mutateAsync({ keyName: 'at_api_key', keyValue: '', enabled: !data?.atEnabled })
-      ok(`Africa's Talking ${!data?.atEnabled ? 'enabled' : 'disabled'}.`)
+      await saveConfig.mutateAsync({ keyName: 'at_api_key', keyValue: '', enabled: false })
+      ok("Africa's Talking disabled.")
     } catch (e: any) { err(e.message) }
   }
 
   async function toggleWa() {
+    if (!data?.waEnabled) {
+      err('Enter and save an API key below first — there is nothing to enable yet.')
+      return
+    }
+    if (!window.confirm('Disable WhatsApp? This permanently deletes the saved access token — you\'ll need to re-enter it to turn WhatsApp back on.')) return
     try {
-      await saveConfig.mutateAsync({ keyName: 'wa_access_token', keyValue: '', enabled: !data?.waEnabled })
-      ok(`WhatsApp ${!data?.waEnabled ? 'enabled' : 'disabled'}.`)
+      await saveConfig.mutateAsync({ keyName: 'wa_access_token', keyValue: '', enabled: false })
+      ok('WhatsApp disabled.')
     } catch (e: any) { err(e.message) }
   }
 

@@ -300,7 +300,7 @@ const KNOWN_BUCKETS: Array<{ name: string; public: boolean }> = [
   { name: 'documents',         public: false },
   { name: 'report-cards',      public: true  },
   { name: 'templates',         public: false },
-  { name: 'staff-attachments', public: true  },
+  { name: 'staff-attachments', public: false },
 ]
 
 // Recursively list all files in a bucket prefix, up to 4 levels deep.

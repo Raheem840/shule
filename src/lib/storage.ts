@@ -7,7 +7,7 @@ export const BUCKETS = {
   DOCUMENTS:         'documents',         // private — signed URLs only
   REPORT_CARDS:      'report-cards',      // public
   TEMPLATES:         'templates',         // private — signed URLs only
-  STAFF_ATTACHMENTS: 'staff-attachments', // public — message file attachments
+  STAFF_ATTACHMENTS: 'staff-attachments', // private — signed URLs only (message file attachments)
 } as const
 
 // ── Upload helpers ────────────────────────────────────────────────────────────
@@ -78,18 +78,6 @@ export async function uploadSchoolLogo(schoolId: string, file: File): Promise<st
   return data.publicUrl
 }
 
-export async function uploadStaffAttachment(
-  schoolId: string,
-  staffId: string,
-  file: File
-): Promise<{ path: string; publicUrl: string }> {
-  const ext  = file.name.split('.').pop() ?? 'bin'
-  const path = `${schoolId}/${staffId}/${Date.now()}.${ext}`
-  await uploadFile(BUCKETS.STAFF_ATTACHMENTS, path, file)
-  const { data } = supabase.storage.from(BUCKETS.STAFF_ATTACHMENTS).getPublicUrl(path)
-  return { path, publicUrl: data.publicUrl }
-}
-
 // ── URL helpers ───────────────────────────────────────────────────────────────
 
 export function getPublicUrl(bucket: string, pathOrUrl: string | null | undefined): string | null {
@@ -127,6 +115,16 @@ export async function getSignedUrl(
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(storagePath, expiresIn)
   if (error) return null
   return data.signedUrl
+}
+
+// staff-attachments is now a private bucket (previously public, which meant
+// its storage.objects RLS policies were never actually consulted for reads —
+// Supabase serves public-bucket objects via a route that bypasses RLS
+// entirely). messages.attachment_url stores a bare storage path going
+// forward; getSignedUrl's legacy-URL handling still resolves any
+// already-sent message whose attachment_url is an old full public URL.
+export async function getStaffAttachmentUrl(pathOrUrl: string | null | undefined): Promise<string | null> {
+  return getSignedUrl(BUCKETS.STAFF_ATTACHMENTS, pathOrUrl, 300)
 }
 
 export async function deleteFile(bucket: string, path: string): Promise<void> {

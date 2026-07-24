@@ -54,6 +54,11 @@ vi.mock('../../hooks/usePrincipal', () => ({
   useAuditLog: vi.fn(),
 }))
 
+vi.mock('../../components/ui/Toast', () => ({
+  useToast:      () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }),
+  ToastProvider: ({ children }: any) => children,
+}))
+
 import { useAuditLog } from '../../hooks/usePrincipal'
 import { AuditLogPage } from '../../pages/principal/AuditLogPage'
 

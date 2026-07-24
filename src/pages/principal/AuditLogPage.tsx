@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuditLog } from '../../hooks/usePrincipal'
 import { useAuth } from '../../store/AuthContext'
 import { supabase } from '../../lib/supabase'
+import { getStaffAttachmentUrl } from '../../lib/storage'
+import { useToast } from '../../components/ui/Toast'
 import type { AuditEntry } from '../../types/week9'
 
 // ─── Translation maps ─────────────────────────────────────────────────────────
@@ -564,6 +566,16 @@ function MessageLogTab() {
   const [dateTo,   setDateTo]   = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const { data: rows = [], isLoading } = useMessageLog(dateFrom, dateTo)
+  const { error: toastErr } = useToast()
+
+  // staff-attachments is a private bucket — the stored value is a path, not
+  // a browsable URL, so opening an attachment means resolving a short-lived
+  // signed URL on click rather than linking straight to it.
+  async function openAttachment(path: string) {
+    const signed = await getStaffAttachmentUrl(path)
+    if (signed) window.open(signed, '_blank', 'noopener,noreferrer')
+    else toastErr('Could not open this attachment — it may have been removed.')
+  }
 
   function exportCsv() {
     const header = 'From,To,Sent At,Message Preview,Attachment\n'
@@ -683,13 +695,13 @@ function MessageLogTab() {
                   }}>
                     <div style={{ fontSize: 13, color: 'var(--txt)', lineHeight: 1.65 }}>{r.body}</div>
                     {r.attachmentUrl && (
-                      <a href={r.attachmentUrl} target="_blank" rel="noopener noreferrer"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10, color: 'var(--brand)', fontSize: 12, fontWeight: 700 }}>
+                      <button type="button" onClick={() => void openAttachment(r.attachmentUrl!)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--brand)', fontSize: 12, fontWeight: 700, padding: 0 }}>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
                         </svg>
                         View attachment
-                      </a>
+                      </button>
                     )}
                   </div>
                 )}

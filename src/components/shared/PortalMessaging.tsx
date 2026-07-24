@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useMessages, useSendMessage, useUploadAttachment } from '../../hooks/useMessaging'
+import { getStaffAttachmentUrl } from '../../lib/storage'
 import { useToast } from '../ui/Toast'
 import type { StaffContact } from '../../hooks/useParentPortal'
 import type { Message } from '../../types/app'
@@ -26,6 +27,15 @@ function PortalChatThread({ contact, myId }: { contact: StaffContact; myId: stri
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length])
+
+  // staff-attachments is a private bucket — the stored value is a path, not
+  // a browsable URL, so opening an attachment means resolving a short-lived
+  // signed URL on click rather than linking straight to it.
+  async function openAttachment(path: string) {
+    const signed = await getStaffAttachmentUrl(path)
+    if (signed) window.open(signed, '_blank', 'noopener,noreferrer')
+    else toastErr('Could not open this attachment — it may have been removed.')
+  }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -95,11 +105,11 @@ function PortalChatThread({ contact, myId }: { contact: StaffContact; myId: stri
             <div key={msg.id} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start' }}>
               <div style={{ maxWidth: '78%', background: isOwn ? 'linear-gradient(135deg,var(--brand),var(--info))' : 'var(--surface2)', color: isOwn ? '#fff' : 'var(--txt)', borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px', padding: '0.65rem 1rem', boxShadow: isOwn ? '0 4px 14px rgba(13,148,136,.3)' : '0 1px 3px rgba(0,0,0,.08)' }}>
                 {msg.attachmentUrl && (
-                  <a href={msg.attachmentUrl} target="_blank" rel="noreferrer"
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, padding: '4px 10px', borderRadius: 8, textDecoration: 'none', fontSize: 12, fontWeight: 700, color: isOwn ? '#fff' : 'var(--brand)', background: isOwn ? 'rgba(255,255,255,.18)' : 'rgba(13,148,136,.08)' }}>
+                  <button type="button" onClick={() => void openAttachment(msg.attachmentUrl!)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', textDecoration: 'none', fontSize: 12, fontWeight: 700, color: isOwn ? '#fff' : 'var(--brand)', background: isOwn ? 'rgba(255,255,255,.18)' : 'rgba(13,148,136,.08)' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
                     {msg.attachmentName ?? 'Attachment'}
-                  </a>
+                  </button>
                 )}
                 {msg.body && <div style={{ fontSize: 13.5, lineHeight: 1.55, wordBreak: 'break-word' }}>{msg.body}</div>}
                 <div style={{ fontSize: 10, marginTop: 4, color: isOwn ? 'rgba(255,255,255,.6)' : 'var(--txt3)', textAlign: 'right' }}>

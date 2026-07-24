@@ -14,6 +14,7 @@ import { createPortal } from 'react-dom'
 import { useAuth } from '../../store/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { getStaffAttachmentUrl } from '../../lib/storage'
 import {
   useParentConversations,
   useStudentConversations,
@@ -404,6 +405,15 @@ function ThreadPanel({ conv, onBack, classNameMap: _classNameMap }: {
     catch (e: any) { toastErr(e.message ?? 'Upload failed') }
   }
 
+  // staff-attachments is a private bucket — the stored value is a path, not
+  // a browsable URL, so opening an attachment means resolving a short-lived
+  // signed URL on click rather than linking straight to it.
+  async function openAttachment(path: string) {
+    const signed = await getStaffAttachmentUrl(path)
+    if (signed) window.open(signed, '_blank', 'noopener,noreferrer')
+    else toastErr('Could not open this attachment — it may have been removed.')
+  }
+
   const groups: { day: string; items: Message[] }[] = []
   for (const m of msgs) {
     const d = formatDay(m.sentAt)
@@ -453,11 +463,11 @@ function ThreadPanel({ conv, onBack, classNameMap: _classNameMap }: {
                   <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 3, paddingLeft: mine ? 60 : 0, paddingRight: mine ? 0 : 60, animationDelay: `${Math.min(idx * .02, .15)}s` }}>
                     <div className={mine ? 'tpm-bbl-me' : 'tpm-bbl-them'} style={{ padding: '8px 12px 6px', maxWidth: '72%', position: 'relative' }}>
                       {m.attachmentUrl && (
-                        <a href={m.attachmentUrl} target="_blank" rel="noopener noreferrer"
-                          style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: mine ? 'rgba(255,255,255,.9)' : '#0d9488', fontSize: 12.5, fontWeight: 600, textDecoration: 'none', padding: '4px 10px', borderRadius: 8, background: mine ? 'rgba(255,255,255,.18)' : 'rgba(13,148,136,.08)' }}>
+                        <button type="button" onClick={() => void openAttachment(m.attachmentUrl!)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, border: 'none', cursor: 'pointer', color: mine ? 'rgba(255,255,255,.9)' : '#0d9488', fontSize: 12.5, fontWeight: 600, textDecoration: 'none', padding: '4px 10px', borderRadius: 8, background: mine ? 'rgba(255,255,255,.18)' : 'rgba(13,148,136,.08)' }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
                           Attachment
-                        </a>
+                        </button>
                       )}
                       <p style={{ margin: 0, fontSize: 15, lineHeight: 1.55, wordBreak: 'break-word' }}>{m.body}</p>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 4, marginTop: 4 }}>

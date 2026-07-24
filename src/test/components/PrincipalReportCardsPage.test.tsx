@@ -26,7 +26,7 @@ vi.mock('../../store/AuthContext', () => ({
 
 // ── Toast stub ─────────────────────────────────────────────────────────────
 vi.mock('../../components/ui/Toast', () => ({
-  useToast: () => ({ success: vi.fn(), error: vi.fn() }),
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }),
 }))
 
 // ── Hook mocks ─────────────────────────────────────────────────────────────

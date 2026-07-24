@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useStaff } from '../../hooks/useStaff'
 import { useClasses } from '../../hooks/useClasses'
 import { useDepartments } from '../../hooks/useClasses'
-import { useSchoolSettings } from '../../hooks/useAdmin'
+import { useSchoolSettings, useDeactivateUser } from '../../hooks/useAdmin'
 import { useAuth } from '../../store/AuthContext'
 import {
   useActivateStaffLogin,
@@ -203,14 +203,6 @@ function CredentialDeliveryPanel({ cred, onDismiss }: {
   )
 }
 
-// ── setUserDisabled helper ────────────────────────────────────────────────────
-async function callSetUserDisabled(authUserId: string, disabled: boolean, schoolId: string): Promise<void> {
-  const { error } = await supabase.functions.invoke('set-user-disabled', {
-    body: { authUserId, disabled, schoolId },
-  })
-  if (error) throw new Error(error.message)
-}
-
 // ── Deactivate Confirm Modal ──────────────────────────────────────────────────
 function DeactivateConfirmModal({
   name,
@@ -387,15 +379,21 @@ function ActiveCard({ staff, deptName, onReset, onLink, onDeactivated }: { staff
     } catch (e) { err(e instanceof Error ? e.message : 'Reset failed') }
   }
 
+  const deactivateUser = useDeactivateUser()
+
+  // Routed through useDeactivateUser (useAdmin.ts) instead of reimplementing
+  // this locally — this page's own Promise.all([db update, auth revoke])
+  // reintroduced the exact race that hook was already fixed to close: firing
+  // both concurrently means an edge-function failure leaves is_active flipped
+  // in the DB while the staff member's existing auth session stays valid.
+  // The hook runs them sequentially and surfaces a clear error if the
+  // auth-level step fails after the DB write already committed.
   async function doDeactivate() {
     if (!staff.authUserId) return
     if (user?.role !== 'it_admin') return
     setDeactivateBusy(true)
     try {
-      await Promise.all([
-        supabase.from('staff').update({ is_active: false }).eq('id', staff.id).eq('school_id', staff.schoolId),
-        callSetUserDisabled(staff.authUserId, true, staff.schoolId),
-      ])
+      await deactivateUser.mutateAsync({ staffId: staff.id, isActive: false, authUserId: staff.authUserId })
       ok(`${staffName}'s access revoked`)
       void qc.invalidateQueries({ queryKey: ['staff', staff.schoolId] })
       onDeactivated()
@@ -408,10 +406,7 @@ function ActiveCard({ staff, deptName, onReset, onLink, onDeactivated }: { staff
     if (user?.role !== 'it_admin') return
     setDeactivateBusy(true)
     try {
-      await Promise.all([
-        supabase.from('staff').update({ is_active: true }).eq('id', staff.id).eq('school_id', staff.schoolId),
-        callSetUserDisabled(staff.authUserId, false, staff.schoolId),
-      ])
+      await deactivateUser.mutateAsync({ staffId: staff.id, isActive: true, authUserId: staff.authUserId })
       ok(`${staffName}'s access restored`)
       void qc.invalidateQueries({ queryKey: ['staff', staff.schoolId] })
       onDeactivated()
@@ -1009,15 +1004,23 @@ function StudentActiveCard({ student, className, schoolShortName, onReset, onTog
     } catch (e) { err(e instanceof Error ? e.message : 'Reset failed') }
   }
 
+  // Sequential, not Promise.all — firing the DB update and the auth-level
+  // revoke concurrently means an edge-function failure can leave `status`
+  // flipped while the student's existing auth session/token stays valid
+  // until it expires (same race useDeactivateUser was fixed to close for
+  // staff; students have no shared hook since they key off `status`, not
+  // `is_active`, so fixed inline here instead).
   async function doDeactivate() {
     if (!student.auth_user_id) return
     if (user?.role !== 'it_admin') return
     setBusy(true)
     try {
-      await Promise.all([
-        supabase.from('students').update({ status: 'suspended' }).eq('id', student.id).eq('school_id', student.school_id),
-        callSetUserDisabled(student.auth_user_id, true, student.school_id),
-      ])
+      const { error } = await supabase.from('students').update({ status: 'suspended' }).eq('id', student.id).eq('school_id', student.school_id)
+      if (error) throw new Error(error.message)
+      const { error: banError } = await supabase.functions.invoke('set-user-disabled', {
+        body: { authUserId: student.auth_user_id, disabled: true, schoolId: student.school_id },
+      })
+      if (banError) throw new Error(`Student record updated, but the auth-level ban failed: ${banError.message}`)
       ok(`${name}'s access revoked`)
       void qc.invalidateQueries({ queryKey: ['students-active-login', student.school_id] })
       void qc.invalidateQueries({ queryKey: ['my-student-record'] })
@@ -1031,10 +1034,12 @@ function StudentActiveCard({ student, className, schoolShortName, onReset, onTog
     if (user?.role !== 'it_admin') return
     setBusy(true)
     try {
-      await Promise.all([
-        supabase.from('students').update({ status: 'active' }).eq('id', student.id).eq('school_id', student.school_id),
-        callSetUserDisabled(student.auth_user_id, false, student.school_id),
-      ])
+      const { error } = await supabase.from('students').update({ status: 'active' }).eq('id', student.id).eq('school_id', student.school_id)
+      if (error) throw new Error(error.message)
+      const { error: banError } = await supabase.functions.invoke('set-user-disabled', {
+        body: { authUserId: student.auth_user_id, disabled: false, schoolId: student.school_id },
+      })
+      if (banError) throw new Error(`Student record updated, but the auth-level reactivation failed: ${banError.message}`)
       ok(`${name}'s access restored`)
       void qc.invalidateQueries({ queryKey: ['students-active-login', student.school_id] })
       void qc.invalidateQueries({ queryKey: ['my-student-record'] })

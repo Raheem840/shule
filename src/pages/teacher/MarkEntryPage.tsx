@@ -95,6 +95,23 @@ const GRADE_COLORS: Record<string, string> = {
 const GRADE_LABEL: Record<string, string> = {
   A: 'Exceptional', B: 'Outstanding', C: 'Satisfactory', D: 'Basic', E: 'Elementary',
 }
+// Primary/PLE grades (D1..F9) share none of the CBC/A-Level A-E alphabet —
+// gradeFn (useJournalGradeFn) returns these for Primary schools, so any
+// color/label/bucket lookup keyed on GRADE_COLORS/GRADE_LABEL/GRADE_TABS
+// alone silently comes back undefined for every Primary mark.
+const PLE_GRADE_SHAPE = /^[DCPF][1-9]$/
+const PLE_GRADE_COLORS: Record<string, string> = {
+  D1: '#10b981', D2: '#10b981', C3: '#0d9488', C4: '#0d9488', C5: '#0ea5e9', C6: '#0ea5e9', P7: '#f59e0b', P8: '#f59e0b', F9: '#f43f5e',
+}
+const PLE_GRADE_LABEL: Record<string, string> = {
+  D1: 'Distinction', D2: 'Distinction', C3: 'Credit', C4: 'Credit', C5: 'Credit', C6: 'Credit', P7: 'Pass', P8: 'Pass', F9: 'Fail',
+}
+function gradeColorFor(grade: string): string {
+  return (PLE_GRADE_SHAPE.test(grade) ? PLE_GRADE_COLORS : GRADE_COLORS)[grade] ?? 'var(--txt3)'
+}
+function gradeLabelFor(grade: string): string {
+  return (PLE_GRADE_SHAPE.test(grade) ? PLE_GRADE_LABEL : GRADE_LABEL)[grade] ?? grade
+}
 
 function CAScoreInput({ value, onChange, disabled, fullWidth }: {
   value:      number | null
@@ -178,11 +195,19 @@ function ScoreDistChart({ marks, totalMarks, passMark, isCA }: {
   )
 }
 
-const GRADE_TABS = [
+const CBC_GRADE_TABS = [
   { key: 'exceptional',       label: 'Exceptional', grades: ['A'],      color: '#10b981', bg: 'rgba(16,185,129,.1)'  },
   { key: 'passed',            label: 'Passed',      grades: ['B', 'C'], color: '#0ea5e9', bg: 'rgba(14,165,233,.1)'  },
   { key: 'needs_improvement', label: 'Needs Impr.', grades: ['D'],      color: '#f59e0b', bg: 'rgba(245,158,11,.1)'  },
   { key: 'poor',              label: 'Poor',        grades: ['E'],      color: '#f43f5e', bg: 'rgba(244,63,94,.1)'   },
+]
+// PLE's D1..F9 scale is the reverse of CBC's A-E (lower point value = better)
+// — bucket boundaries mirror the same semantic tiers CBC_GRADE_TABS uses.
+const PLE_GRADE_TABS = [
+  { key: 'exceptional',       label: 'Distinction', grades: ['D1', 'D2'],             color: '#10b981', bg: 'rgba(16,185,129,.1)' },
+  { key: 'passed',            label: 'Credit',      grades: ['C3', 'C4', 'C5', 'C6'], color: '#0ea5e9', bg: 'rgba(14,165,233,.1)' },
+  { key: 'needs_improvement', label: 'Pass',        grades: ['P7', 'P8'],             color: '#f59e0b', bg: 'rgba(245,158,11,.1)' },
+  { key: 'poor',              label: 'Fail',        grades: ['F9'],                   color: '#f43f5e', bg: 'rgba(244,63,94,.1)'  },
 ]
 
 function GradeTabs({ marks, students, totalMarks, isCA, gradeFn }: {
@@ -190,6 +215,14 @@ function GradeTabs({ marks, students, totalMarks, isCA, gradeFn }: {
   students:   Student[]; totalMarks: number; isCA: boolean; gradeFn: GradeFn
 }) {
   const [activeTab, setActiveTab] = useState<string>('exceptional')
+
+  // gradeFn(0) deterministically returns the scale's worst grade regardless
+  // of what's actually been entered — cheap way to pick CBC vs PLE tabs
+  // without threading education_level through as a separate prop.
+  const GRADE_TABS = useMemo(
+    () => (PLE_GRADE_SHAPE.test(gradeFn(0)) ? PLE_GRADE_TABS : CBC_GRADE_TABS),
+    [gradeFn],
+  )
 
   const studentsByBucket = useMemo(() => {
     const buckets = new Map<string, Array<{ student: Student; score: number; grade: string }>>()
@@ -209,7 +242,7 @@ function GradeTabs({ marks, students, totalMarks, isCA, gradeFn }: {
       }
     }
     return buckets
-  }, [marks, students, totalMarks, isCA, gradeFn])
+  }, [marks, students, totalMarks, isCA, gradeFn, GRADE_TABS])
 
   const tabData     = GRADE_TABS.find(t => t.key === activeTab)!
   const tabStudents = studentsByBucket.get(activeTab) ?? []
@@ -240,7 +273,7 @@ function GradeTabs({ marks, students, totalMarks, isCA, gradeFn }: {
             <div key={student.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 12px', background: 'var(--surface2)', borderRadius: 9, fontSize: 13 }}>
               <span style={{ flex: 1, fontWeight: 600, color: 'var(--txt)' }}>{student.firstName} {student.lastName}</span>
               <span style={{ fontFamily: 'var(--font3)', color: 'var(--txt2)', fontWeight: 700 }}>{score}</span>
-              <span style={{ padding: '2px 9px', borderRadius: 6, fontSize: 11, fontWeight: 800, background: tabData.bg, color: tabData.color }}>{grade} — {GRADE_LABEL[grade]}</span>
+              <span style={{ padding: '2px 9px', borderRadius: 6, fontSize: 11, fontWeight: 800, background: tabData.bg, color: tabData.color }}>{grade} — {gradeLabelFor(grade)}</span>
             </div>
           ))}
         </div>
@@ -1224,7 +1257,7 @@ export function MarkEntryPage() {
                     <div style={{ fontSize: 11, color: 'var(--txt3)', fontFamily: 'var(--font3)' }}>
                       {student.admissionNumber}
                       {displayGrade && (
-                        <span style={{ marginLeft: 8, padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 800, background: GRADE_COLORS[displayGrade] + '20', color: GRADE_COLORS[displayGrade] }}>
+                        <span style={{ marginLeft: 8, padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 800, background: gradeColorFor(displayGrade) + '20', color: gradeColorFor(displayGrade) }}>
                           {displayGrade}
                         </span>
                       )}
@@ -1316,7 +1349,7 @@ export function MarkEntryPage() {
                   {!isCA && (
                     <div>
                       {displayGrade ? (
-                        <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 800, background: GRADE_COLORS[displayGrade] + '20', color: GRADE_COLORS[displayGrade] }} title={GRADE_LABEL[displayGrade]}>
+                        <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 800, background: gradeColorFor(displayGrade) + '20', color: gradeColorFor(displayGrade) }} title={gradeLabelFor(displayGrade)}>
                           {displayGrade}
                         </span>
                       ) : isEndOfTerm ? (
