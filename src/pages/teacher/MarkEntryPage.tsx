@@ -730,6 +730,10 @@ export function MarkEntryPage() {
   const { user }        = useAuth()
   const { error: toastErr, success: toastOk } = useToast()
   const pendingImportRef = useRef<{ rows: ParsedRow[]; strategy: ConflictStrategy } | null>(null)
+  // Reason confirmed via handleImportClick's lock gate, carried through to
+  // the wizard's eventual onComplete call — the wizard itself has no
+  // knowledge of the override reason, it's captured before the wizard opens.
+  const confirmedImportReasonRef = useRef<string | undefined>(undefined)
 
   const { data: journal, isLoading: journalLoading } = useExamJournalById(journalId)
   const { data: savedResults = [] }                   = useExamResults(journalId)
@@ -910,6 +914,11 @@ export function MarkEntryPage() {
           else toastOk(`Import complete: ${summary}`)
         })
       } else {
+        // First-time locked import: the reason was just confirmed but the
+        // wizard hasn't even opened yet — nothing to retry. Carry the reason
+        // forward so the wizard's eventual onComplete call (handleMarkImport)
+        // submits it instead of failing the lock check all over again.
+        confirmedImportReasonRef.current = reason
         setImportOpen(true)
       }
     }
@@ -1042,7 +1051,9 @@ export function MarkEntryPage() {
   }
 
   async function handleMarkImport(rows: ParsedRow[], strategy: ConflictStrategy): Promise<ImportResult> {
-    return runMarkImport(rows, strategy)
+    const reason = confirmedImportReasonRef.current
+    confirmedImportReasonRef.current = undefined
+    return runMarkImport(rows, strategy, reason)
   }
 
   if (journalLoading || studentsLoading) {
@@ -1380,7 +1391,7 @@ export function MarkEntryPage() {
         <Modal
           title="Import Marks from Excel / CSV"
           size="lg"
-          onClose={() => { setImportOpen(false); setOverrideReason('') }}
+          onClose={() => { setImportOpen(false); setOverrideReason(''); confirmedImportReasonRef.current = undefined }}
         >
           <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(14,165,233,.07)', border: '.5px solid rgba(14,165,233,.25)', borderRadius: 10, fontSize: 12.5, color: '#0369a1' }}>
             <strong>Template columns:</strong> Admission No. · Score · Absent (optional) · Remarks (optional).
@@ -1393,7 +1404,7 @@ export function MarkEntryPage() {
             optionalFields={MARK_OPTIONAL_FIELDS}
             editableFields={['score', 'is_absent']}
             onComplete={handleMarkImport}
-            onClose={() => { setImportOpen(false); setOverrideReason('') }}
+            onClose={() => { setImportOpen(false); setOverrideReason(''); confirmedImportReasonRef.current = undefined }}
           />
         </Modal>
       )}
